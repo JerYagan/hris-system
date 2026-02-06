@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Document Management | DA HRIS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Material Icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+  <!-- Theme -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            daGreen: "#1B5E20",
+            approved: "#B7F7A3",
+            pending: "#F9F871",
+            rejected: "#FF9A9A"
+          }
+        }
+      }
+    }
+  </script>
+</head>
+
+<body class="bg-gray-100">
+
+<div class="flex min-h-screen">
+
+  <!-- SIDEBAR -->
+  <aside class="w-64 bg-white border-r px-4 py-6">
+    <nav class="space-y-2 text-sm">
+
+      <a href="dashboard.html"
+         class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100">
+        <span class="material-icons">dashboard</span>
+        Dashboard
+      </a>
+
+      <a href="personal-information.html"
+         class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100">
+        <span class="material-icons">person</span>
+        Personal Information
+      </a>
+
+      <a href="document-management.html"
+         class="flex items-center gap-3 px-4 py-2 rounded-lg bg-green-100 font-medium">
+        <span class="material-icons">description</span>
+        Document Management
+      </a>
+
+      <a href="timekeeping.html"
+         class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100">
+        <span class="material-icons">schedule</span>
+        Timekeeping
+      </a>
+
+      <a href="payroll.html"
+         class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100">
+        <span class="material-icons">payments</span>
+        Payroll
+      </a>
+
+      <a href="praise.html"
+         class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100">
+        <span class="material-icons">emoji_events</span>
+        PRAISE
+      </a>
+
+      <a href="personal-reports.html"
+         class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100">
+        <span class="material-icons">assignment</span>
+        Personal Reports
+      </a>
+
+    </nav>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="flex-1 flex flex-col">
+
+    <!-- TOPBAR -->
+    <header class="h-16 bg-white border-b flex items-center justify-between px-6">
+      <div class="font-semibold">
+        Human Resource Information System
+      </div>
+
+      <div class="flex items-center gap-6">
+        <div class="relative">
+          <span class="material-icons absolute left-3 top-2 text-gray-400 text-sm">search</span>
+          <input type="text" placeholder="Search..."
+                 class="pl-9 pr-4 py-1.5 border rounded-lg text-sm">
+        </div>
+
+        <div class="relative">
+          <span class="material-icons">notifications</span>
+          <span class="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-1">
+            3
+          </span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-sm">
+            EO
+          </div>
+          <div class="text-sm">
+            <p class="font-medium">Employee One</p>
+            <p class="text-gray-500 text-xs">Employee</p>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- CONTENT -->
+    <main class="p-6 space-y-6">
+
+      <!-- PAGE HEADER -->
+      <div>
+        <h1 class="text-2xl font-bold">Document Management</h1>
+        <p class="text-sm text-gray-500">
+          Manage your documents with ease
+        </p>
+      </div>
+
+      <!-- SEARCH + ACTION -->
+      <div class="bg-white rounded-xl shadow p-6 flex flex-wrap gap-4 items-center justify-between">
+        <div class="relative flex-1 min-w-[250px]">
+          <span class="material-icons absolute left-3 top-2.5 text-gray-400 text-sm">
+            search
+          </span>
+          <input type="text"
+                 placeholder="Search documents..."
+                 class="w-full pl-9 pr-4 py-2 bg-gray-100 rounded-lg text-sm">
+        </div>
+
+        <select class="px-4 py-2 bg-gray-100 rounded-lg text-sm">
+          <option>All Categories</option>
+          <option>Leave</option>
+          <option>Evaluation Report</option>
+          <option>Certificates</option>
+        </select>
+
+        <button class="bg-daGreen text-white px-5 py-2 rounded-lg text-sm font-medium">
+          Upload Documents
+        </button>
+      </div>
+
+      <!-- TABLE -->
+      <div class="bg-white rounded-xl shadow p-6 overflow-x-auto">
+        <h2 class="font-semibold mb-4">
+          Uploaded <span class="text-daGreen">Documents</span>
+        </h2>
+
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b text-gray-500">
+              <th class="text-left py-3">Document Name</th>
+              <th class="text-left py-3">Category</th>
+              <th class="text-left py-3">Date Uploaded</th>
+              <th class="text-left py-3">Status</th>
+              <th class="text-left py-3">Action</th>
+            </tr>
+          </thead>
+
+          <tbody>
+
+            <!-- ROW -->
+            <tr class="border-b">
+              <td class="py-3">PerformanceReview_AntonioR.pdf</td>
+              <td class="py-3">Evaluation Report</td>
+              <td class="py-3">2025-08-13</td>
+              <td class="py-3">
+                <span class="px-3 py-1 rounded-full bg-pending text-yellow-800">Pending</span>
+              </td>
+              <td class="py-3 relative">
+                <button onclick="toggleMenu(this)" class="p-2 rounded-full hover:bg-gray-100">
+                  <span class="material-icons text-gray-500">more_vert</span>
+                </button>
+
+                <div class="absolute right-0 mt-2 w-40 bg-white border rounded-lg shadow-lg hidden action-menu z-10">
+                  <button class="w-full px-4 py-2 text-left hover:bg-gray-100 flex gap-2">
+                    <span class="material-icons text-sm">visibility</span> View
+                  </button>
+                  <button class="w-full px-4 py-2 text-left hover:bg-gray-100 flex gap-2">
+                    <span class="material-icons text-sm">upload_file</span> Re-upload
+                  </button>
+                  <button class="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 flex gap-2">
+                    <span class="material-icons text-sm">cancel</span> Withdraw
+                  </button>
+                </div>
+              </td>
+            </tr>
+
+            <!-- ROW -->
+            <tr class="border-b">
+              <td class="py-3">Leave_Request.pdf</td>
+              <td class="py-3">Leave</td>
+              <td class="py-3">2025-07-06</td>
+              <td class="py-3">
+                <span class="px-3 py-1 rounded-full bg-approved text-green-800">Approved</span>
+              </td>
+              <td class="py-3 relative">
+                <button onclick="toggleMenu(this)" class="p-2 rounded-full hover:bg-gray-100">
+                  <span class="material-icons text-gray-500">more_vert</span>
+                </button>
+
+                <div class="absolute right-0 mt-2 w-40 bg-white border rounded-lg shadow-lg hidden action-menu z-10">
+                  <button class="w-full px-4 py-2 text-left hover:bg-gray-100 flex gap-2">
+                    <span class="material-icons text-sm">visibility</span> View
+                  </button>
+                  <button class="w-full px-4 py-2 text-left hover:bg-gray-100 flex gap-2">
+                    <span class="material-icons text-sm">download</span> Download
+                  </button>
+                </div>
+              </td>
+            </tr>
+
+          </tbody>
+        </table>
+      </div>
+
+    </main>
+
+  </div>
+</div>
+
+<script>
+  function toggleMenu(button) {
+    document.querySelectorAll('.action-menu').forEach(menu => {
+      if (menu !== button.nextElementSibling) {
+        menu.classList.add('hidden');
+      }
+    });
+    button.nextElementSibling.classList.toggle('hidden');
+  }
+
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('td')) {
+      document.querySelectorAll('.action-menu').forEach(menu => {
+        menu.classList.add('hidden');
+      });
+    }
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Department of Agriculture | HRIS</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <!-- Tailwind Custom Theme -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        daGreen: "#1B5E20",
+                        daGreenLight: "#4CAF50",
+                        daYellow: "#F9A825",
+                        daRed: "#B71C1C",
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+
+<body class="bg-gray-50 text-gray-800">
+
+    <!-- HEADER -->
+    <div id="header" class="sticky"></div>
+
+    <!-- HERO -->
+    <section id="home" class="relative overflow-hidden">
+        <!-- Background -->
+        <div class="absolute inset-0 bg-gradient-to-br from-daGreen via-daGreenLight to-green-700">
+        </div>
+
+        <!-- Decorative Overlay -->
+        <div class="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_top_right,white,transparent_60%)]"></div>
+
+        <div class="relative max-w-7xl mx-auto px-6 py-12 grid lg:grid-cols-2 gap-14 items-center text-white">
+
+            <!-- LEFT CONTENT -->
+            <div>
+                <span class="inline-flex items-center gap-2 bg-white/20 px-4 py-1 rounded-full text-sm mb-6">
+                    <span class="material-icons text-sm">verified</span>
+                    Official Government System
+                </span>
+
+                <h1 class="text-4xl md:text-5xl xl:text-6xl font-bold leading-tight mb-6">
+                    Human Resource Information System
+                </h1>
+
+                <p class="text-lg md:text-xl text-white/90 max-w-xl mb-10">
+                    A secure and centralized HR platform for the Department of Agriculture—
+                    built to streamline employee management, payroll, and reporting.
+                </p>
+
+                <div class="flex flex-wrap gap-4">
+                    <a href="auth/login.html"
+                        class="bg-white text-daGreen px-7 py-3 rounded-lg font-semibold hover:bg-gray-100 transition">
+                        Access HRIS
+                    </a>
+
+                    <a href="#about"
+                        class="border border-white/60 px-7 py-3 rounded-lg font-semibold hover:bg-white hover:text-daGreen transition">
+                        Learn More
+                    </a>
+                </div>
+
+                <!-- Trust Indicators -->
+                <div class="mt-10 flex flex-wrap gap-6 text-sm text-white/80">
+                    <div class="flex items-center gap-2">
+                        <span class="material-icons text-base">lock</span>
+                        Secure Access
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="material-icons text-base">policy</span>
+                        Data Privacy Compliant
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="material-icons text-base">admin_panel_settings</span>
+                        Role-Based Control
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT VISUAL -->
+            <div class="relative">
+                <img src="/assets/images/hero-img-2.jpg" alt="HR Dashboard Preview"
+                    class="rounded-2xl shadow-2xl border border-white/20" />
+
+                <!-- Floating Badge -->
+                <div
+                    class="absolute -bottom-6 -left-6 bg-white text-daGreen px-5 py-3 rounded-xl shadow-lg hidden md:block">
+                    <p class="text-sm font-semibold">Internal System</p>
+                    <p class="text-xs opacity-70">Department of Agriculture</p>
+                </div>
+
+                <!-- Floating Badge -->
+                <div
+                    class="absolute top-12 -right-6 bg-white text-daGreen px-5 py-3 rounded-xl shadow-lg hidden md:block">
+                    <p class="text-sm font-semibold">Internal System</p>
+                    <p class="text-xs opacity-70">Department of Agriculture</p>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+
+    <!-- ABOUT -->
+    <section id="about" class="py-20">
+        <div class="max-w-6xl mx-auto px-6 text-center">
+            <h2 class="text-3xl font-bold mb-6">About the HRIS</h2>
+            <p class="max-w-3xl mx-auto text-gray-600 leading-relaxed">
+                The Department of Agriculture HRIS is designed to streamline
+                human resource operations including employee records,
+                payroll management, timekeeping, and reporting—ensuring
+                transparency, efficiency, and data-driven decision making.
+            </p>
+        </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section id="features" class="bg-gray-100 py-20">
+        <div class="max-w-7xl mx-auto px-6">
+            <h2 class="text-3xl font-bold text-center mb-12">
+                Key System Features
+            </h2>
+
+            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                <div class="bg-white p-6 rounded shadow text-center">
+                    <span class="material-icons text-daGreen text-4xl mb-4">people</span>
+                    <h3 class="font-semibold text-lg mb-2">Employee Management</h3>
+                    <p class="text-gray-600 text-sm">
+                        Centralized employee profiles and records.
+                    </p>
+                </div>
+
+                <div class="bg-white p-6 rounded shadow text-center">
+                    <span class="material-icons text-daGreen text-4xl mb-4">schedule</span>
+                    <h3 class="font-semibold text-lg mb-2">Timekeeping</h3>
+                    <p class="text-gray-600 text-sm">
+                        Attendance, schedules, and leave tracking.
+                    </p>
+                </div>
+
+                <div class="bg-white p-6 rounded shadow text-center">
+                    <span class="material-icons text-daGreen text-4xl mb-4">payments</span>
+                    <h3 class="font-semibold text-lg mb-2">Payroll</h3>
+                    <p class="text-gray-600 text-sm">
+                        Secure payroll processing and history.
+                    </p>
+                </div>
+
+                <div class="bg-white p-6 rounded shadow text-center">
+                    <span class="material-icons text-daGreen text-4xl mb-4">analytics</span>
+                    <h3 class="font-semibold text-lg mb-2">Reports</h3>
+                    <p class="text-gray-600 text-sm">
+                        Generate HR and administrative reports.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CONTACT -->
+    <section id="contact" class="py-20">
+        <div class="max-w-6xl mx-auto px-6 grid md:grid-cols-2 gap-12">
+            <div>
+                <h2 class="text-3xl font-bold mb-6">Contact Us</h2>
+                <p class="text-gray-600 mb-6">
+                    For inquiries, technical concerns, or system access requests,
+                    please reach out to the Department of Agriculture HR Office.
+                </p>
+
+                <ul class="space-y-4 text-gray-700">
+                    <li class="flex items-center gap-3">
+                        <span class="material-icons text-daGreen">location_on</span>
+                        Quezon City, Philippines
+                    </li>
+                    <li class="flex items-center gap-3">
+                        <span class="material-icons text-daGreen">email</span>
+                        hris@da.gov.ph
+                    </li>
+                    <li class="flex items-center gap-3">
+                        <span class="material-icons text-daGreen">call</span>
+                        (02) 1234-5678
+                    </li>
+                </ul>
+            </div>
+
+            <form class="bg-white p-8 rounded shadow">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Name</label>
+                    <input type="text"
+                        class="w-full border rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-daGreen">
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Email</label>
+                    <input type="email"
+                        class="w-full border rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-daGreen">
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Message</label>
+                    <textarea rows="4"
+                        class="w-full border rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-daGreen"></textarea>
+                </div>
+
+                <button type="submit" class="bg-daGreen text-white px-6 py-2 rounded hover:bg-daGreenLight transition">
+                    Send Message
+                </button>
+            </form>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <div id="footer"></div>
+
+    <!-- COMPONENT LOADER -->
+    <script>
+        fetch("../components/header.html")
+            .then(res => res.text())
+            .then(data => document.getElementById("header").innerHTML = data);
+
+        fetch("../components/footer.html")
+            .then(res => res.text())
+            .then(data => document.getElementById("footer").innerHTML = data);
+    </script>
+</body>
+
+</html>
