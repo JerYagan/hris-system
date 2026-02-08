@@ -37,36 +37,6 @@ This project is currently in the **frontend development phase** and focuses on e
 
 ---
 
-## Project Structure
-
-/
-├── index.html
-├── README.md
-│
-├── auth/
-│ └── login.html
-│
-├── pages/
-│ ├── admin/
-│ │ └── dashboard.html
-│ │
-│ └── employee/
-│ ├── dashboard.html
-│ ├── personal-information.html
-│ ├── document-management.html
-│ ├── timekeeping.html
-│ ├── payroll.html
-│ ├── praise.html
-│ └── personal-reports.html
-│
-├── assets/
-│ ├── images/
-│ │ └── hero-img.jpg
-│ └── js/
-
-
----
-
 ## User Roles
 
 ### Employee
