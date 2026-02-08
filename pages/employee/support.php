@@ -13,7 +13,7 @@ ob_start();
 
 <!-- PAGE HEADER -->
 <div class="mb-6">
-  <h1 class="text-2xl font-bold">Notifications & Support</h1>
+  <h1 class="text-2xl font-bold">Support</h1>
   <p class="text-sm text-gray-500">
     View system announcements, application updates, and submit support requests.
   </p>

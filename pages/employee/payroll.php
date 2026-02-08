@@ -4,8 +4,8 @@
  * DA-ATI HRIS
  */
 
-$pageTitle   = 'Payroll | DA HRIS';
-$activePage  = 'payroll.php';
+$pageTitle = 'Payroll | DA HRIS';
+$activePage = 'payroll.php';
 $breadcrumbs = ['Payroll'];
 
 ob_start();
@@ -46,7 +46,9 @@ ob_start();
 <div class="bg-white rounded-lg shadow border">
 
   <div class="flex items-center justify-between px-6 py-4 border-b">
-    <h3 class="font-semibold text-lg">Payslip History</h3>
+    <h2 class="text-lg font-bold">
+      Payslip <span class="text-daGreen">History</span>
+    </h2>
 
     <select class="border rounded-md px-3 py-2 text-sm">
       <option>All Months</option>
@@ -82,9 +84,7 @@ ob_start();
             </span>
           </td>
           <td class="px-6 py-4 text-right space-x-2">
-            <button
-              data-open-payslip
-              class="text-blue-600 hover:underline text-sm">
+            <button data-open-payslip class="text-blue-600 hover:underline text-sm">
               View
             </button>
             <button class="text-gray-600 hover:underline text-sm">
@@ -105,9 +105,7 @@ ob_start();
             </span>
           </td>
           <td class="px-6 py-4 text-right space-x-2">
-            <button
-              data-open-payslip
-              class="text-blue-600 hover:underline text-sm">
+            <button data-open-payslip class="text-blue-600 hover:underline text-sm">
               View
             </button>
             <button class="text-gray-400 cursor-not-allowed text-sm">
@@ -122,9 +120,7 @@ ob_start();
 </div>
 
 <!-- ================= PAYSLIP MODAL ================= -->
-<div
-  id="payslipModal"
-  class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden">
+<div id="payslipModal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden">
 
   <div class="bg-white w-full max-w-3xl md:max-w-4xl rounded-lg shadow-lg
             max-h-[85vh] flex flex-col scroll-smooth">
@@ -212,13 +208,10 @@ ob_start();
 
     <!-- FOOTER -->
     <div class="flex justify-end gap-3 px-6 py-4 border-t bg-gray-50">
-      <button
-        data-close-payslip
-        class="px-4 py-2 border rounded-md text-sm">
+      <button data-close-payslip class="px-4 py-2 border rounded-md text-sm">
         Close
       </button>
-      <button
-        class="px-4 py-2 bg-daGreen text-white rounded-md text-sm">
+      <button class="px-4 py-2 bg-daGreen text-white rounded-md text-sm">
         Download PDF
       </button>
     </div>

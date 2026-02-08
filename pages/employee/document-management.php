@@ -53,7 +53,7 @@ ob_start();
 <!-- DOCUMENT TABLE -->
 <div class="bg-white rounded-xl shadow p-6">
 
-  <h2 class="font-semibold mb-4">
+  <h2 class="text-lg font-bold mb-6">
     Uploaded <span class="text-daGreen">Documents</span>
   </h2>
 

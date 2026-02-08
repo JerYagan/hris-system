@@ -254,3 +254,22 @@ settingsMap.forEach(([key, modalId]) => {
     if (e.target === modal) modal.classList.add("hidden");
   });
 });
+
+/* ===============================
+   REAL-TIME CLOCK
+   =============================== */
+function updateClock() {
+  const el = document.getElementById("currentTime");
+  if (!el) return;
+
+  const now = new Date();
+  el.textContent = now.toLocaleString("en-PH", {
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true
+  });
+}
+
+setInterval(updateClock, 1000);
+updateClock();

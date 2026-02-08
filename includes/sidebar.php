@@ -188,19 +188,16 @@
           <span class="sidebar-label">Support</span>
         </a>
 
+        <a href="settings.php"
+          title="Settings"
+          class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100">
+          <span class="material-icons text-base">settings</span>
+          <span class="sidebar-label">Settings</span>
+        </a>
+
       </div>
     </div>
 
   </nav>
-
-  <!-- SETTINGS (FIXED AT BOTTOM) -->
-  <div class="border-t px-4">
-    <a href="settings.php"
-       title="Settings"
-       class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100">
-      <span class="material-icons text-base">settings</span>
-      <span class="sidebar-label">Settings</span>
-    </a>
-  </div>
 
 </aside>

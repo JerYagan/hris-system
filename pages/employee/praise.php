@@ -115,7 +115,9 @@ ob_start();
 <!-- INTERNAL APPLICATION STATUS -->
 <div class="bg-white rounded-xl shadow">
   <div class="px-6 py-4 border-b">
-    <h2 class="font-semibold">Internal Application Status</h2>
+        <h2 class="text-lg font-bold">
+      Internal Applicant <span class="text-daGreen">Status</span>
+    </h2>
   </div>
 
   <div class="overflow-x-auto">
