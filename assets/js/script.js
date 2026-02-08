@@ -273,3 +273,35 @@ function updateClock() {
 
 setInterval(updateClock, 1000);
 updateClock();
+
+/* ===============================
+   SETTINGS TAB SWITCHING
+   =============================== */
+document.addEventListener("DOMContentLoaded", () => {
+  const tabs = document.querySelectorAll(".settings-tab");
+  const panels = document.querySelectorAll("[data-tab-content]");
+
+  if (!tabs.length || !panels.length) return;
+
+  tabs.forEach(tab => {
+    tab.addEventListener("click", () => {
+      const target = tab.dataset.tab;
+
+      // Reset tabs
+      tabs.forEach(t =>
+        t.classList.remove("bg-daGreen/10", "text-daGreen", "font-medium")
+      );
+
+      // Hide panels
+      panels.forEach(panel => panel.classList.add("hidden"));
+
+      // Activate tab
+      tab.classList.add("bg-daGreen/10", "text-daGreen", "font-medium");
+
+      // Show panel
+      document
+        .querySelector(`[data-tab-content="${target}"]`)
+        ?.classList.remove("hidden");
+    });
+  });
+});

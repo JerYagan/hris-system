@@ -4,7 +4,7 @@ $pageTitle = 'Request Access | DA HRIS';
 ob_start();
 ?>
 
-<div class="w-full max-w-xl bg-white rounded-xl shadow p-8 my-12">
+<div class="w-full max-w-xl bg-white rounded-xl shadow p-8 my-4">
 
   <!-- BACK -->
   <a href="login.php"

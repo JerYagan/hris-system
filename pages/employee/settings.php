@@ -1,12 +1,9 @@
 <?php
-/**
- * Settings
- * DA-ATI HRIS
- */
-
 $pageTitle   = 'Settings | DA HRIS';
 $activePage  = 'settings.php';
 $breadcrumbs = ['Settings'];
+
+require_once '../../includes/auth-guard.php';
 
 ob_start();
 ?>
@@ -19,176 +16,197 @@ ob_start();
   </p>
 </div>
 
-<!-- SETTINGS GRID -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- SETTINGS CONTAINER -->
+<div class="bg-white border rounded-xl overflow-hidden flex min-h-[520px]">
 
-  <!-- PROFILE SETTINGS -->
-  <section class="bg-white rounded-xl shadow p-6">
-    <div class="flex items-center gap-3 mb-4">
-      <span class="material-icons text-green-600">person</span>
-      <h2 class="font-semibold">Profile</h2>
-    </div>
-
-    <div class="space-y-3 text-sm">
-      <div>
-        <p class="text-gray-500">Name</p>
-        <p class="font-medium">Employee One</p>
-      </div>
-
-      <div>
-        <p class="text-gray-500">Email</p>
-        <p class="font-medium">employee.one@da.gov.ph</p>
-      </div>
+  <!-- LEFT: SETTINGS NAV -->
+  <aside class="w-64 border-r bg-gray-50 p-4 shrink-0">
+    <nav class="space-y-1 text-sm">
 
       <button
-        class="mt-3 px-4 py-2 border rounded-lg text-sm">
-        Edit Profile
+        data-tab="account"
+        class="settings-tab w-full flex items-center gap-3 px-3 py-2 rounded-lg
+               bg-daGreen/10 text-daGreen font-medium">
+        <span class="material-icons text-base">person</span>
+        Account
       </button>
-    </div>
-  </section>
 
-  <!-- SECURITY SETTINGS -->
-  <section class="bg-white rounded-xl shadow p-6">
-    <div class="flex items-center gap-3 mb-4">
-      <span class="material-icons text-blue-600">security</span>
-      <h2 class="font-semibold">Security</h2>
-    </div>
+      <button
+        data-tab="security"
+        class="settings-tab w-full flex items-center gap-3 px-3 py-2 rounded-lg
+               hover:bg-gray-100">
+        <span class="material-icons text-base">security</span>
+        Security
+      </button>
 
-    <div class="space-y-4 text-sm">
-      <div class="flex justify-between items-center">
+      <button
+        data-tab="notifications"
+        class="settings-tab w-full flex items-center gap-3 px-3 py-2 rounded-lg
+               hover:bg-gray-100">
+        <span class="material-icons text-base">notifications</span>
+        Notifications
+      </button>
+
+      <button
+        data-tab="privacy"
+        class="settings-tab w-full flex items-center gap-3 px-3 py-2 rounded-lg
+               hover:bg-gray-100">
+        <span class="material-icons text-base">privacy_tip</span>
+        Privacy
+      </button>
+
+    </nav>
+  </aside>
+
+  <!-- RIGHT: SETTINGS CONTENT -->
+  <section class="flex-1 p-8">
+
+    <!-- ================= ACCOUNT ================= -->
+    <section data-tab-content="account">
+
+      <div class="mb-6">
+        <h2 class="text-lg font-semibold">Account Information</h2>
+        <p class="text-sm text-gray-500">
+          Basic details associated with your account
+        </p>
+      </div>
+
+      <div class="space-y-6">
+
         <div>
-          <p class="font-medium">Password</p>
-          <p class="text-xs text-gray-500">
-            Last changed 3 months ago
-          </p>
+          <p class="text-sm text-gray-500">Full Name</p>
+          <p class="font-medium">Juan Dela Cruz</p>
+        </div>
+
+        <div>
+          <p class="text-sm text-gray-500">Email Address</p>
+          <p class="font-medium">juan.delacruz@da.gov.ph</p>
         </div>
 
         <button
-          data-open-password
-          class="px-4 py-2 border rounded-lg text-sm">
-          Change
+          class="inline-flex items-center gap-2 text-sm text-daGreen hover:underline">
+          <span class="material-icons text-base">edit</span>
+          Request profile update
         </button>
+
       </div>
 
-      <div class="flex justify-between items-center">
-        <div>
-          <p class="font-medium">Active Sessions</p>
-          <p class="text-xs text-gray-500">
-            This device · Manila, PH
-          </p>
+    </section>
+
+    <!-- ================= SECURITY ================= -->
+    <section data-tab-content="security" class="hidden">
+
+      <div class="mb-6">
+        <h2 class="text-lg font-semibold">Security</h2>
+        <p class="text-sm text-gray-500">
+          Protect your account and manage active sessions
+        </p>
+      </div>
+
+      <div class="space-y-6">
+
+        <div class="flex justify-between items-center border-b pb-4">
+          <div>
+            <p class="font-medium">Password</p>
+            <p class="text-xs text-gray-500">
+              Last changed 3 months ago
+            </p>
+          </div>
+
+          <button
+            data-open-password
+            class="px-4 py-2 border rounded-lg text-sm">
+            Change
+          </button>
         </div>
 
-        <button
-          data-open-logout
-          class="px-4 py-2 border rounded-lg text-sm text-red-600">
-          Logout
-        </button>
+        <div class="flex justify-between items-center">
+          <div>
+            <p class="font-medium">Active Session</p>
+            <p class="text-xs text-gray-500">
+              This device · Manila, Philippines
+            </p>
+          </div>
+
+          <button
+            data-open-logout
+            class="px-4 py-2 border rounded-lg text-sm text-red-600">
+            Log out
+          </button>
+        </div>
+
       </div>
-    </div>
+
+    </section>
+
+    <!-- ================= NOTIFICATIONS ================= -->
+    <section data-tab-content="notifications" class="hidden">
+
+      <div class="mb-6">
+        <h2 class="text-lg font-semibold">Notification Preferences</h2>
+        <p class="text-sm text-gray-500">
+          Choose how you receive system notifications
+        </p>
+      </div>
+
+      <div class="space-y-4">
+
+        <label class="flex justify-between items-center">
+          <span>System Alerts</span>
+          <input type="checkbox" checked>
+        </label>
+
+        <label class="flex justify-between items-center">
+          <span>HR Announcements</span>
+          <input type="checkbox" checked>
+        </label>
+
+        <label class="flex justify-between items-center">
+          <span>Application & Evaluation Updates</span>
+          <input type="checkbox">
+        </label>
+
+        <button
+          class="mt-4 bg-daGreen text-white px-4 py-2 rounded-lg text-sm">
+          Save Preferences
+        </button>
+
+      </div>
+
+    </section>
+
+    <!-- ================= PRIVACY ================= -->
+    <section data-tab-content="privacy" class="hidden">
+
+      <div class="mb-6">
+        <h2 class="text-lg font-semibold">Privacy & Data Protection</h2>
+        <p class="text-sm text-gray-500">
+          Transparency on how your data is handled
+        </p>
+      </div>
+
+      <div class="space-y-4 text-sm text-gray-700">
+
+        <p>
+          Your personal data is processed in compliance with the
+          <strong>Data Privacy Act of 2012 (RA 10173)</strong>.
+        </p>
+
+        <p>
+          Access to personal information is restricted to authorized
+          personnel and is logged for audit purposes.
+        </p>
+
+        <a href="#" class="text-daGreen hover:underline">
+          View data privacy policy
+        </a>
+
+      </div>
+
+    </section>
+
   </section>
 
-  <!-- NOTIFICATION SETTINGS -->
-  <section class="bg-white rounded-xl shadow p-6">
-    <div class="flex items-center gap-3 mb-4">
-      <span class="material-icons text-purple-600">notifications</span>
-      <h2 class="font-semibold">Notifications</h2>
-    </div>
-
-    <div class="space-y-4 text-sm">
-      <label class="flex justify-between items-center">
-        <span>System Alerts</span>
-        <input type="checkbox" checked>
-      </label>
-
-      <label class="flex justify-between items-center">
-        <span>HR Announcements</span>
-        <input type="checkbox" checked>
-      </label>
-
-      <label class="flex justify-between items-center">
-        <span>Application Updates</span>
-        <input type="checkbox">
-      </label>
-
-      <button
-        class="mt-3 px-4 py-2 bg-daGreen text-white rounded-lg text-sm">
-        Save Preferences
-      </button>
-    </div>
-  </section>
-
-</div>
-
-<!-- ================= MODALS ================= -->
-
-<!-- CHANGE PASSWORD MODAL -->
-<div id="passwordModal"
-     class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden">
-
-  <div class="bg-white w-full max-w-md rounded-xl shadow-lg
-              max-h-[90vh] flex flex-col">
-
-    <div class="px-6 py-4 border-b flex justify-between items-center">
-      <h2 class="text-lg font-semibold">Change Password</h2>
-      <button data-close-password>
-        <span class="material-icons">close</span>
-      </button>
-    </div>
-
-    <div class="px-6 py-5 space-y-4 text-sm overflow-y-auto">
-      <input
-        type="password"
-        placeholder="Current Password"
-        class="w-full border rounded-lg p-2">
-
-      <input
-        type="password"
-        placeholder="New Password"
-        class="w-full border rounded-lg p-2">
-
-      <input
-        type="password"
-        placeholder="Confirm New Password"
-        class="w-full border rounded-lg p-2">
-    </div>
-
-    <div class="px-6 py-4 border-t flex justify-end gap-3">
-      <button data-close-password class="border px-4 py-2 rounded-lg text-sm">
-        Cancel
-      </button>
-      <button class="bg-daGreen text-white px-4 py-2 rounded-lg text-sm">
-        Update Password
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- LOGOUT CONFIRMATION MODAL -->
-<div id="logoutModal"
-     class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden">
-
-  <div class="bg-white w-full max-w-sm rounded-xl shadow-lg flex flex-col">
-
-    <div class="px-6 py-4 border-b">
-      <h2 class="text-lg font-semibold text-red-600">
-        Confirm Logout
-      </h2>
-    </div>
-
-    <div class="px-6 py-5 text-sm">
-      Are you sure you want to log out from this session?
-    </div>
-
-    <div class="px-6 py-4 border-t flex justify-end gap-3">
-      <button data-close-logout class="border px-4 py-2 rounded-lg text-sm">
-        Cancel
-      </button>
-      <a href="/logout.php"
-         class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm">
-        Logout
-      </a>
-    </div>
-  </div>
 </div>
 
 <?php
