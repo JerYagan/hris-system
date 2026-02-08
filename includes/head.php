@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <title><?= $pageTitle ?? 'DA HRIS' ?></title>
@@ -13,6 +14,14 @@
 
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="32x32" href="/hris-system/assets/images/favicon.png">
+  <link rel="icon" type="image/x-icon" href="/hris-system/assets/images/favicon.ico">
+
+  <!-- Apple Touch Icon (optional) -->
+  <link rel="apple-touch-icon" sizes="180x180" href="/hris-system/assets/images/apple-touch-icon.png">
+
 
   <link rel="stylesheet" href="../global.css">
 
@@ -33,4 +42,5 @@
     }
   </script>
 </head>
+
 <body class="bg-gray-50">
