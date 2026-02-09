@@ -3,8 +3,6 @@ $pageTitle   = 'Settings | DA HRIS';
 $activePage  = 'settings.php';
 $breadcrumbs = ['Settings'];
 
-require_once '../../includes/auth-guard.php';
-
 ob_start();
 ?>
 
@@ -211,4 +209,4 @@ ob_start();
 
 <?php
 $content = ob_get_clean();
-include '../../includes/layout.php';
+include '../includes/layout.php';

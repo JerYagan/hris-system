@@ -5,12 +5,12 @@ ob_start();
 ?>
 
 <!-- LOGIN CARD -->
-<div class="max-w-5xl w-full bg-white rounded-xl shadow-lg overflow-hidden grid md:grid-cols-2">
+<div class="max-w-5xl w-full bg-white rounded-xl shadow-lg overflow-hidden grid md:grid-cols-2 my-4">
 
   <!-- LEFT: IMAGE / BRAND -->
   <div class="hidden md:block relative">
     <img
-      src="../assets/images/hero-img.jpg"
+      src="../../assets/images/hero-img.jpg"
       alt="Department of Agriculture"
       class="absolute inset-0 w-full h-full object-cover"
     />
@@ -28,19 +28,10 @@ ob_start();
     </div>
   </div>
 
-  <?php if (isset($_GET['error'])): ?>
-    <div class="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3
-                text-sm text-red-700 flex gap-2">
-      <span class="material-icons text-sm">error</span>
-      Invalid email or password.
-    </div>
-  <?php endif; ?>
-
-
   <!-- RIGHT: LOGIN FORM -->
   <div class="p-10">
 
-    <a href="../index.html"
+    <a href="../../index.html"
        class="inline-flex items-center gap-2 mb-6 text-sm text-gray-600
               hover:text-daGreen transition font-medium">
       <span class="material-icons text-base">arrow_back</span>
@@ -58,13 +49,13 @@ ob_start();
       </p>
     </div>
 
-    <!-- ERROR STATE -->
-    <div id="loginError"
-         class="hidden mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3
-                text-sm text-daRed flex gap-2">
-      <span class="material-icons text-sm">error</span>
-      Invalid email or password. Please try again.
-    </div>
+    <?php if (isset($_GET['error'])): ?>
+      <div class="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3
+                  text-sm text-red-700 flex gap-2">
+        <span class="material-icons text-sm">error</span>
+        Invalid email or password.
+      </div>
+    <?php endif; ?>
 
     <form
       action="login-handler.php"

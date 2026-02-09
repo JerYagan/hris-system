@@ -25,7 +25,7 @@
 
   <link rel="stylesheet" href="../global.css">
 
-  <script src="/hris/assets/js/script.js" defer></script>
+  <script src="../assets/js/script.js" defer></script>
 
   <script>
     tailwind.config = {

@@ -26,7 +26,7 @@ if (
   ];
 
   // Redirect to dashboard
-  header('Location: ../pages/employee/dashboard.php');
+  header('Location: ../employee/dashboard.php');
   exit;
 }
 

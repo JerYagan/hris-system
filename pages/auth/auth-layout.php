@@ -7,7 +7,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <?php include __DIR__ . '/../includes/head.php'; ?>
+  <?php include __DIR__ . '../../head.php'; ?>
 </head>
 
 <body class="min-h-screen text-gray-900">

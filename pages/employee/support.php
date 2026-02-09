@@ -3,8 +3,6 @@ $pageTitle   = 'Reports | DA HRIS';
 $activePage  = 'reports.php';
 $breadcrumbs = ['Reports'];
 
-require_once '../../includes/auth-guard.php';
-
 ob_start();
 ?>
 
@@ -243,4 +241,4 @@ ob_start();
 
 <?php
 $content = ob_get_clean();
-include '../../includes/layout.php';
+include '../includes/layout.php';

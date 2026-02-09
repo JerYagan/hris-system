@@ -3,8 +3,6 @@ $pageTitle   = 'Personal Reports | DA HRIS';
 $activePage  = 'personal-reports.php';
 $breadcrumbs = ['Personal Reports'];
 
-require_once '../../includes/auth-guard.php';
-
 ob_start();
 ?>
 
@@ -188,4 +186,4 @@ ob_start();
 
 <?php
 $content = ob_get_clean();
-include '../../includes/layout.php';
+include '../includes/layout.php';
