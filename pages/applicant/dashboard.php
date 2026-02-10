@@ -178,10 +178,10 @@ ob_start();
 </section>
 
 <!-- SYSTEM UPDATES -->
-<section class="flex items-start space-x-6">
+<section class="flex items-start justify-between space-x-6 w-full">
 
     <!-- ANNOUNCEMENTS -->
-    <div class="bg-white border rounded-lg">
+    <div class="bg-white border rounded-lg flex-1">
 
         <header class="px-6 py-4 border-b flex items-center gap-2">
             <span class="material-symbols-outlined text-green-700">
@@ -265,7 +265,7 @@ ob_start();
 
 
     <!-- NOTIFICATIONS -->
-    <div class="bg-white border rounded-lg">
+    <div class="bg-white border rounded-lg flex-1">
 
         <header class="px-6 py-4 border-b flex items-center gap-2">
             <span class="material-symbols-outlined text-green-700">

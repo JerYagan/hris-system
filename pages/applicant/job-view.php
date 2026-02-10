@@ -1,160 +1,254 @@
 <?php
 ob_start();
+
+/* ===== SIMULATED DATA (replace with DB later) ===== */
+$jobId = 'DA-ATI-001';
+$deadline = '2026-03-15';
+$today = date('Y-m-d');
+
+$isDeadlinePassed = $today > $deadline;
+$alreadyApplied = false;
 ?>
 
 <!-- PAGE HEADER -->
-<div class="mb-8 flex items-start gap-4">
-    <span class="material-symbols-outlined text-green-700 text-4xl">
-        work
-    </span>
-    <div>
-        <h1 class="text-2xl font-semibold text-gray-800">
-            Job Details
-        </h1>
-        <p class="text-sm text-gray-500">
-            Review position information and requirements before applying.
-        </p>
-    </div>
+<div class="mb-6">
+    <h1 class="text-2xl font-semibold text-gray-800">
+        Job Details
+    </h1>
+    <p class="text-sm text-gray-500">
+        Review the position information carefully before applying.
+    </p>
 </div>
 
-<!-- JOB SUMMARY -->
-<section class="bg-white border rounded-lg mb-8">
-    <header class="px-6 py-4 border-b">
-        <h2 class="text-lg font-semibold text-gray-800">
-            Administrative Aide
-        </h2>
-        <p class="text-sm text-gray-500">
-            Agricultural Training Institute – Central Office
-        </p>
-    </header>
+<!-- ================= SKELETON LOADER ================= -->
+<div id="jobSkeleton" class="space-y-6">
 
-    <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+    <div class="h-32 bg-gray-200 rounded-lg animate-pulse"></div>
 
-        <div>
-            <p class="text-gray-500">Employment Type</p>
-            <p class="font-medium text-gray-800">Contractual</p>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 space-y-4">
+            <div class="h-40 bg-gray-200 rounded-lg animate-pulse"></div>
+            <div class="h-32 bg-gray-200 rounded-lg animate-pulse"></div>
+            <div class="h-28 bg-gray-200 rounded-lg animate-pulse"></div>
         </div>
-
-        <div>
-            <p class="text-gray-500">Salary Grade</p>
-            <p class="font-medium text-gray-800">SG 4</p>
-        </div>
-
-        <div>
-            <p class="text-gray-500">Application Deadline</p>
-            <p class="font-medium text-gray-800">March 15, 2026</p>
-        </div>
-
+        <div class="h-48 bg-gray-200 rounded-lg animate-pulse"></div>
     </div>
-</section>
 
-<!-- JOB DESCRIPTION -->
-<section class="bg-white border rounded-lg mb-8">
-    <header class="px-6 py-4 border-b flex items-center gap-2">
-        <span class="material-symbols-outlined text-green-700">
-            description
-        </span>
-        <h2 class="text-lg font-semibold text-gray-800">
-            Job Description
-        </h2>
-    </header>
+</div>
 
-    <div class="p-6 text-sm text-gray-700 space-y-3">
-        <p>
-            The Administrative Aide provides clerical and administrative support
-            to ensure efficient office operations within the Agricultural Training Institute.
-        </p>
-        <ul class="list-disc pl-5 space-y-1">
-            <li>Prepare and maintain office documents and records</li>
-            <li>Assist in data encoding and filing of HR documents</li>
-            <li>Coordinate with staff regarding administrative concerns</li>
-            <li>Perform other related duties as assigned</li>
-        </ul>
-    </div>
-</section>
+<!-- ================= REAL CONTENT ================= -->
+<div id="jobContent" class="hidden">
 
-<!-- QUALIFICATIONS -->
-<section class="bg-white border rounded-lg mb-8">
-    <header class="px-6 py-4 border-b flex items-center gap-2">
-        <span class="material-symbols-outlined text-green-700">
-            checklist
-        </span>
-        <h2 class="text-lg font-semibold text-gray-800">
-            Qualifications
-        </h2>
-    </header>
+    <!-- JOB HERO CARD -->
+    <section class="bg-white border rounded-lg p-6 mb-8">
 
-    <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
 
-        <div>
-            <p class="font-medium text-gray-800 mb-2">Minimum Requirements</p>
-            <ul class="list-disc pl-5 space-y-1 text-gray-700">
-                <li>High School Graduate or equivalent</li>
-                <li>Basic computer literacy</li>
-                <li>Good communication skills</li>
-            </ul>
+            <!-- LEFT -->
+            <div>
+                <div class="flex items-center gap-3">
+                    <h2 class="text-xl font-semibold text-gray-800">
+                        Administrative Aide
+                    </h2>
+
+                    <!-- BOOKMARK -->
+                    <button id="bookmarkBtn"
+                            class="flex items-center gap-1 text-sm text-gray-500 hover:text-green-700">
+                        <span id="bookmarkIcon" class="material-symbols-outlined">
+                            bookmark_border
+                        </span>
+                        <span class="hidden sm:inline">Save</span>
+                    </button>
+                </div>
+
+                <p class="text-sm text-gray-500 mt-1">
+                    Agricultural Training Institute – Central Office
+                </p>
+
+                <div class="flex flex-wrap gap-2 mt-4">
+
+                    <?php if ($alreadyApplied): ?>
+                        <span class="px-3 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                            Applied
+                        </span>
+                    <?php elseif ($isDeadlinePassed): ?>
+                        <span class="px-3 py-1 text-xs rounded-full bg-red-100 text-red-800">
+                            Closed
+                        </span>
+                    <?php else: ?>
+                        <span class="px-3 py-1 text-xs rounded-full bg-green-100 text-green-800">
+                            Open
+                        </span>
+                    <?php endif; ?>
+
+                </div>
+            </div>
+
+            <!-- RIGHT META -->
+            <div class="grid grid-cols-2 gap-4 text-sm text-gray-700">
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Employment</p>
+                    <p class="font-medium">Contractual</p>
+                </div>
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Salary Grade</p>
+                    <p class="font-medium">SG 4</p>
+                </div>
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Job ID</p>
+                    <p class="font-medium"><?= $jobId ?></p>
+                </div>
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Deadline</p>
+                    <p class="font-medium">March 15, 2026</p>
+                </div>
+            </div>
+
         </div>
 
-        <div>
-            <p class="font-medium text-gray-800 mb-2">Preferred Qualifications</p>
-            <ul class="list-disc pl-5 space-y-1 text-gray-700">
-                <li>Experience in clerical or administrative work</li>
-                <li>Familiarity with government office procedures</li>
-            </ul>
+    </section>
+
+    <!-- CONTENT GRID -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- MAIN -->
+        <div class="lg:col-span-2 space-y-6">
+
+            <!-- DESCRIPTION -->
+            <div class="bg-white border rounded-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-3">
+                    Job Description
+                </h3>
+                <p class="text-sm text-gray-700 mb-4">
+                    The Administrative Aide provides clerical and administrative support
+                    to ensure efficient office operations.
+                </p>
+                <ul class="list-disc pl-5 text-sm text-gray-700 space-y-1">
+                    <li>Prepare and maintain office records</li>
+                    <li>Assist in data encoding and filing</li>
+                    <li>Coordinate with staff on administrative matters</li>
+                    <li>Perform other duties as assigned</li>
+                </ul>
+            </div>
+
+            <!-- QUALIFICATIONS -->
+            <div class="bg-white border rounded-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-3">
+                    Qualifications
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-gray-700">
+                    <div>
+                        <p class="font-medium mb-2">Minimum</p>
+                        <ul class="list-disc pl-5 space-y-1">
+                            <li>High School Graduate</li>
+                            <li>Basic computer skills</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <p class="font-medium mb-2">Preferred</p>
+                        <ul class="list-disc pl-5 space-y-1">
+                            <li>Clerical experience</li>
+                            <li>Government office exposure</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DOCUMENTS -->
+            <div class="bg-white border rounded-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-3">
+                    Required Documents
+                </h3>
+                <ul class="list-disc pl-5 text-sm text-gray-700 space-y-1">
+                    <li>Application Letter</li>
+                    <li>Resume / PDS</li>
+                    <li>Transcript or Diploma</li>
+                    <li>Valid Government ID</li>
+                </ul>
+            </div>
+
         </div>
 
-    </div>
-</section>
+        <!-- ACTION SIDEBAR -->
+        <aside class="space-y-4">
 
-<!-- REQUIRED DOCUMENTS -->
-<section class="bg-white border rounded-lg mb-8">
-    <header class="px-6 py-4 border-b flex items-center gap-2">
-        <span class="material-symbols-outlined text-green-700">
-            folder
-        </span>
-        <h2 class="text-lg font-semibold text-gray-800">
-            Required Documents
-        </h2>
-    </header>
+            <div class="bg-white border rounded-lg p-6">
+                <p class="text-sm text-gray-600 mb-4">
+                    Ensure all documents are complete before applying.
+                </p>
 
-    <div class="p-6 text-sm text-gray-700">
-        <ul class="list-disc pl-5 space-y-1">
-            <li>Application Letter</li>
-            <li>Updated Resume / Personal Data Sheet</li>
-            <li>Transcript of Records or Diploma</li>
-            <li>Valid Government ID</li>
-        </ul>
-    </div>
-</section>
+                <?php if ($alreadyApplied): ?>
+                    <button disabled
+                            class="w-full py-2 text-sm rounded-md bg-gray-300 text-gray-600">
+                        Application Submitted
+                    </button>
 
-<!-- ACTIONS -->
-<section class="bg-white border rounded-lg">
-    <div class="p-6 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                <?php elseif ($isDeadlinePassed): ?>
+                    <button disabled
+                            class="w-full py-2 text-sm rounded-md bg-gray-300 text-gray-600">
+                        Application Closed
+                    </button>
 
-        <p class="text-sm text-gray-600">
-            Please ensure that all required documents are complete before submitting your application.
-        </p>
+                <?php else: ?>
+                    <a href="apply.php"
+                       class="block text-center py-2 text-sm rounded-md bg-green-700 text-white hover:bg-green-800">
+                        Apply for this Position
+                    </a>
+                <?php endif; ?>
 
-        <div class="flex gap-3">
+            </div>
+
             <a href="job-list.php"
-               class="inline-flex items-center gap-1 px-4 py-2 text-sm rounded-md border text-gray-700 hover:bg-gray-50">
-                <span class="material-symbols-outlined text-sm">
-                    arrow_back
-                </span>
-                Back to Listings
+               class="block text-center py-2 text-sm border rounded-md text-gray-700 hover:bg-gray-50">
+                Back to Job Listings
             </a>
 
-            <a href="apply.php"
-               class="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium rounded-md bg-green-700 text-white hover:bg-green-800">
-                <span class="material-symbols-outlined text-sm">
-                    edit_document
-                </span>
-                Apply for this Position
-            </a>
-        </div>
+        </aside>
 
-    </div>
-</section>
+    </section>
+
+</div>
+
+<!-- ================= JS ================= -->
+<script>
+/* Skeleton swap */
+window.addEventListener('load', () => {
+    setTimeout(() => {
+        document.getElementById('jobSkeleton')?.remove();
+        document.getElementById('jobContent')?.classList.remove('hidden');
+    }, 500);
+});
+
+/* Bookmark logic */
+document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('bookmarkBtn');
+    const icon = document.getElementById('bookmarkIcon');
+    const jobId = '<?= $jobId ?>';
+
+    if (!btn || !icon) return;
+
+    let saved = JSON.parse(localStorage.getItem('savedJobs')) || [];
+
+    if (saved.includes(jobId)) {
+        icon.textContent = 'bookmark';
+        btn.classList.add('text-green-700');
+    }
+
+    btn.addEventListener('click', () => {
+        if (saved.includes(jobId)) {
+            saved = saved.filter(id => id !== jobId);
+            icon.textContent = 'bookmark_border';
+            btn.classList.remove('text-green-700');
+        } else {
+            saved.push(jobId);
+            icon.textContent = 'bookmark';
+            btn.classList.add('text-green-700');
+        }
+        localStorage.setItem('savedJobs', JSON.stringify(saved));
+    });
+});
+</script>
 
 <?php
 $content = ob_get_clean();

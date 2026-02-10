@@ -34,7 +34,7 @@
     </div>
 </div>
 
-<script src="../../../assets/js/applicant/script.js"></script>
-<script src="../../../assets/js/applicant/alert.js"></script>
+<script src="./js/script.js"></script>
+<script src="./js/alert.js"></script>
 </body>
 </html>

@@ -213,4 +213,4 @@ ob_start();
  * Inject into global layout
  */
 $content = ob_get_clean();
-include '../includes/layout.php';
+include './includes/layout.php';
