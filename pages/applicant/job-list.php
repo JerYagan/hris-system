@@ -4,6 +4,9 @@ $activePage = 'job-list.php';
 $breadcrumbs = ['Job Listings'];
 
 ob_start();
+
+// Simulated applicant state
+$alreadyApplied = false;
 ?>
 
 <!-- PAGE HEADER -->
@@ -45,8 +48,8 @@ ob_start();
         <div>
             <label class="block text-gray-500 mb-1">Search Position</label>
             <input type="text"
-                   placeholder="e.g. Administrative Aide"
-                   class="w-full border rounded-md px-3 py-2 focus:ring-1 focus:ring-green-600 focus:outline-none">
+                   placeholder="Search job title"
+                   class="w-full outline-none text-gray-700">
         </div>
 
         <div>
@@ -90,17 +93,16 @@ ob_start();
         <p class="text-xs text-gray-500">Updated today</p>
     </header>
 
-    <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-            <thead class="bg-gray-50 text-gray-600">
-                <tr>
-                    <th class="px-6 py-3 text-left font-medium">Position</th>
-                    <th class="px-6 py-3 text-left font-medium">Office / Department</th>
-                    <th class="px-6 py-3 text-left font-medium">Employment Type</th>
-                    <th class="px-6 py-3 text-left font-medium">Closing Date</th>
-                    <th class="px-6 py-3 text-left font-medium">Action</th>
-                </tr>
-            </thead>
+        <!-- TOP -->
+        <div class="flex items-start justify-between mb-4">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-800">
+                    Administrative Aide
+                </h2>
+                <p class="text-sm text-gray-500">
+                    Agricultural Training Institute – Central Office
+                </p>
+            </div>
 
             <tbody class="divide-y">
                 <tr class="hover:bg-gray-50">

@@ -1,4 +1,4 @@
-🔹 CHATGPT MASTER INSTRUCTION (Copy This)
+🔹 CHATGPT MASTER INSTRUCTION
 
 You are an expert Full-Stack Web Developer and System Analyst specializing in Human Resource Information Systems (HRIS) for government institutions in the Philippines.
 
@@ -96,61 +96,6 @@ User roles
 Permissions
 Activity logs
 Data retention
-
-🔹 FRONTEND FILE STRUCTURE (HTML-First)
-hris/
-│
-├── assets/
-│   ├── css/
-│   │   └── tailwind.css
-│   ├── js/
-│   │   ├── main.js
-│   │   ├── sidebar.js
-│   │   ├── modal.js
-│   │   └── validation.js
-│   ├── icons/
-│   └── images/
-│
-├── components/
-│   ├── sidebar.html
-│   ├── navbar.html
-│   ├── footer.html
-│   ├── modal.html
-│   └── table.html
-│
-├── pages/
-│   ├── dashboard.html
-│   │
-│   ├── personal/
-│   │   ├── profile.html
-│   │   ├── employment.html
-│   │   └── documents.html
-│   │
-│   ├── documents/
-│   │   ├── index.html
-│   │   ├── upload.html
-│   │   └── review.html
-│   │
-│   ├── timekeeping/
-│   │   ├── attendance.html
-│   │   ├── leave.html
-│   │   └── overtime.html
-│   │
-│   ├── payroll/
-│   │   └── payslip.html
-│   │
-│   └── reports/
-│       ├── attendance.html
-│       └── employees.html
-│
-├── auth/
-│   ├── login.html
-│   ├── forgot-password.html
-│   └── reset-password.html
-│
-├── index.html
-└── README.md
-
 
 💡 When you migrate to PHP later, /pages/ becomes /views/ and components become include() files.
 

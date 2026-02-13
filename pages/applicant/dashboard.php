@@ -210,13 +210,17 @@ ob_start();
         </div>
     </div>
 
-    <div class="rounded-xl border bg-white">
-        <header class="flex items-center justify-between border-b px-6 py-4">
-            <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined text-green-700">notifications</span>
-                <h3 class="font-semibold text-gray-800">Latest Notifications</h3>
-            </div>
-            <a href="notifications.php" class="text-sm text-green-700 hover:underline">Open inbox</a>
+
+    <!-- NOTIFICATIONS -->
+    <div class="bg-white border rounded-lg">
+
+        <header class="px-6 py-4 border-b flex items-center gap-2">
+            <span class="material-symbols-outlined text-green-700">
+                notifications
+            </span>
+            <h3 class="font-semibold text-gray-800">
+                Notifications
+            </h3>
         </header>
 
         <div class="divide-y">
