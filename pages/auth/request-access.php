@@ -136,4 +136,4 @@ ob_start();
 
 <?php
 $content = ob_get_clean();
-include __DIR__ . '/auth-layout.php';
+include __DIR__ . '/includes/auth-layout.php';

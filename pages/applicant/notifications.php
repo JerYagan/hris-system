@@ -1,4 +1,8 @@
 <?php
+$pageTitle = 'Notifications | DA HRIS';
+$activePage = 'notifications.php';
+$breadcrumbs = ['Notifications'];
+
 ob_start();
 ?>
 

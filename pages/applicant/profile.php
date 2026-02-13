@@ -1,8 +1,12 @@
 <?php
-ob_start();
-
 // Toggle edit mode (UI only for now)
 $editMode = isset($_GET['edit']) && $_GET['edit'] === 'true';
+
+$pageTitle = 'Profile | DA HRIS';
+$activePage = 'profile.php';
+$breadcrumbs = $editMode ? ['Profile', 'Edit'] : ['Profile'];
+
+ob_start();
 ?>
 
 <!-- PAGE HEADER -->

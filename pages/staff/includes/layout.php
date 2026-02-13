@@ -1,5 +1,7 @@
 <?php
-// pages/applicant/includes/layout.php
+$pageTitle = $pageTitle ?? 'Staff | DA HRIS';
+$activePage = $activePage ?? '';
+$breadcrumbs = $breadcrumbs ?? ['Dashboard'];
 ?>
 
 <!DOCTYPE html>
@@ -10,27 +12,14 @@
 <body class="bg-gray-100 text-gray-800">
 
 <div class="flex min-h-screen">
-
-    <!-- Sidebar -->
     <?php include __DIR__ . '/sidebar.php'; ?>
 
-    <!-- Main content area -->
     <div id="mainContent" class="flex flex-col flex-1 transition-all duration-200 ease-in-out">
-
-        <!-- Top Navigation -->
         <?php include __DIR__ . '/topnav.php'; ?>
 
-        <!-- Page Content -->
         <main class="flex-1 p-6">
-            <?php
-                /**
-                 * Page content injector
-                 * Each applicant page defines $content
-                 */
-                echo $content ?? '';
-            ?>
+            <?= $content ?? '' ?>
         </main>
-
     </div>
 </div>
 

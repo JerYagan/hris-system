@@ -1,4 +1,8 @@
 <?php
+$pageTitle = 'Application Feedback | DA HRIS';
+$activePage = 'applications.php';
+$breadcrumbs = ['Application Feedback'];
+
 ob_start();
 ?>
 

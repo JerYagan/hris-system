@@ -10,7 +10,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
 
   <!-- Material Icons -->
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -22,13 +22,10 @@
   <!-- Apple Touch Icon (optional) -->
   <link rel="apple-touch-icon" sizes="180x180" href="/hris-system/assets/images/apple-touch-icon.png">
 
-  <link rel="stylesheet" href="/hris-system/global.css">
 
-  <style>
-    .material-symbols-outlined {
-      font-variation-settings: 'wght' 400;
-    }
-  </style>
+  <link rel="stylesheet" href="../global.css">
+
+  <script src="../assets/js/script.js" defer></script>
 
   <script>
     tailwind.config = {
@@ -46,4 +43,4 @@
   </script>
 </head>
 
-<body class="bg-gray-50"></body>
+<body class="bg-gray-50">

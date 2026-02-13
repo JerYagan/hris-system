@@ -1,8 +1,23 @@
 <?php
-ob_start();
-
 $tab = $_GET['tab'] ?? 'menu';
 $sent = isset($_GET['sent']) && $_GET['sent'] === 'true';
+
+$tabLabelMap = [
+    'menu' => 'Support',
+    'contact' => 'Contact HR',
+    'faq' => 'FAQ',
+    'helpdesk' => 'Helpdesk',
+];
+
+$pageTitle = 'Support | DA HRIS';
+$activePage = 'support.php';
+$breadcrumbs = ['Support'];
+
+if (isset($tabLabelMap[$tab]) && $tab !== 'menu') {
+    $breadcrumbs[] = $tabLabelMap[$tab];
+}
+
+ob_start();
 ?>
 
 <!-- PAGE HEADER -->

@@ -23,9 +23,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/hris-system/assets/images/apple-touch-icon.png">
 
 
-  <link rel="stylesheet" href="../global.css">
-
-  <script src="../assets/js/script.js" defer></script>
+  <link rel="stylesheet" href="/hris-system/global.css">
 
   <script>
     tailwind.config = {
