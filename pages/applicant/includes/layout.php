@@ -9,32 +9,21 @@
 </head>
 <body class="bg-gray-100 text-gray-800">
 
-<div class="flex min-h-screen">
+<div id="mainContent" class="min-h-screen">
+    <?php include __DIR__ . '/topnav.php'; ?>
 
-    <!-- Sidebar -->
-    <?php include __DIR__ . '/sidebar.php'; ?>
-
-    <!-- Main content area -->
-    <div id="mainContent" class="flex flex-col flex-1 transition-all duration-200 ease-in-out">
-
-        <!-- Top Navigation -->
-        <?php include __DIR__ . '/topnav.php'; ?>
-
-        <!-- Page Content -->
-        <main class="flex-1 p-6">
-            <?php
-                /**
-                 * Page content injector
-                 * Each applicant page defines $content
-                 */
-                echo $content ?? '';
-            ?>
-        </main>
-
-    </div>
+    <main class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <?php
+            /**
+             * Page content injector
+             * Each applicant page defines $content
+             */
+            echo $content ?? '';
+        ?>
+    </main>
 </div>
 
-<script src="../../assets/js/script.js"></script>
-<script src="../../assets/js/alert.js"></script>
+<script src="/hris-system/assets/js/script.js"></script>
+<script src="/hris-system/assets/js/alert.js"></script>
 </body>
 </html>

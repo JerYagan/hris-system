@@ -6,158 +6,130 @@ $breadcrumbs = ['My Applications'];
 ob_start();
 ?>
 
-<!-- PAGE HEADER -->
-<div class="mb-8 flex items-start gap-4">
-    <span class="material-symbols-outlined text-green-700 text-4xl">
-        track_changes
-    </span>
-    <div>
-        <h1 class="text-2xl font-semibold text-gray-800">
-            Application Tracking
-        </h1>
-        <p class="text-sm text-gray-500">
-            Monitor the progress and status of your job application.
-        </p>
-    </div>
-</div>
+<section class="mb-6 rounded-2xl border bg-white p-6 sm:p-7">
+    <div class="rounded-2xl border bg-gradient-to-r from-green-50 via-white to-green-50 p-5 sm:p-6">
+        <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div class="flex items-start gap-4">
+                <span class="material-symbols-outlined rounded-xl bg-green-700 p-2 text-3xl text-white">track_changes</span>
+                <div>
+                    <h1 class="text-2xl font-semibold text-gray-800">Application Tracking</h1>
+                    <p class="mt-1 text-sm text-gray-600">Monitor your status, recent milestones, and upcoming recruitment decisions.</p>
+                    <p class="mt-3 inline-flex rounded-full bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-800">Current Status: Under Evaluation</p>
+                </div>
+            </div>
 
-<!-- APPLICATION SUMMARY -->
-<section class="bg-white border rounded-lg mb-8">
-    <header class="px-6 py-4 border-b flex items-center gap-2">
-        <span class="material-symbols-outlined text-green-700">
-            description
-        </span>
-        <h2 class="text-lg font-semibold text-gray-800">
-            Application Summary
-        </h2>
-    </header>
-
-    <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-        <div>
-            <p class="text-gray-500">Position</p>
-            <p class="font-medium text-gray-800">
-                Administrative Aide
-            </p>
-        </div>
-        <div>
-            <p class="text-gray-500">Office / Department</p>
-            <p class="font-medium text-gray-800">
-                Agricultural Training Institute
-            </p>
-        </div>
-        <div>
-            <p class="text-gray-500">Date Applied</p>
-            <p class="font-medium text-gray-800">
-                February 5, 2026
-            </p>
+            <a href="application-feedback.php" class="inline-flex items-center gap-2 rounded-md border border-green-700 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-50">
+                <span class="material-symbols-outlined text-sm">fact_check</span>
+                Open Feedback Page
+            </a>
         </div>
     </div>
 </section>
 
-<!-- APPLICATION PROGRESS -->
-<section class="bg-white border rounded-lg mb-8">
-    <header class="px-6 py-4 border-b flex items-center gap-2">
-        <span class="material-symbols-outlined text-green-700">
-            timeline
-        </span>
-        <h2 class="text-lg font-semibold text-gray-800">
-            Application Progress
-        </h2>
-    </header>
-
-    <div class="p-6">
-        <ol class="relative border-l border-gray-200 ml-4 space-y-8">
-
-            <!-- STEP 1 -->
-            <li class="ml-6">
-                <span class="absolute -left-3 flex items-center justify-center w-6 h-6 bg-green-700 rounded-full">
-                    <span class="material-symbols-outlined text-white text-sm">
-                        task_alt
-                    </span>
-                </span>
-                <h3 class="font-medium text-gray-800">
-                    Application Submitted
-                </h3>
-                <p class="text-sm text-gray-600">
-                    Your application was successfully submitted.
-                </p>
-                <span class="text-xs text-gray-500">
-                    Feb 5, 2026
-                </span>
-            </li>
-
-            <!-- STEP 2 -->
-            <li class="ml-6">
-                <span class="absolute -left-3 flex items-center justify-center w-6 h-6 bg-green-700 rounded-full">
-                    <span class="material-symbols-outlined text-white text-sm">
-                        fact_check
-                    </span>
-                </span>
-                <h3 class="font-medium text-gray-800">
-                    Document & Qualification Review
-                </h3>
-                <p class="text-sm text-gray-600">
-                    HR is reviewing your submitted documents and qualifications.
-                </p>
-                <span class="text-xs text-gray-500">
-                    Feb 7, 2026
-                </span>
-            </li>
-
-            <!-- STEP 3 (CURRENT) -->
-            <li class="ml-6">
-                <span class="absolute -left-3 flex items-center justify-center w-6 h-6 bg-yellow-400 rounded-full">
-                    <span class="material-symbols-outlined text-white text-sm">
-                        hourglass_top
-                    </span>
-                </span>
-                <h3 class="font-medium text-gray-800">
-                    Under Evaluation
-                </h3>
-                <p class="text-sm text-gray-600">
-                    Your application is currently under evaluation by HR.
-                </p>
-                <span class="inline-block mt-1 text-xs font-medium text-yellow-700">
-                    In Progress
-                </span>
-            </li>
-
-            <!-- STEP 4 (UPCOMING) -->
-            <li class="ml-6 opacity-50">
-                <span class="absolute -left-3 flex items-center justify-center w-6 h-6 bg-gray-300 rounded-full">
-                    <span class="material-symbols-outlined text-white text-sm">
-                        how_to_reg
-                    </span>
-                </span>
-                <h3 class="font-medium text-gray-700">
-                    Final Decision
-                </h3>
-                <p class="text-sm text-gray-600">
-                    You will be notified once a decision has been made.
-                </p>
-            </li>
-
-        </ol>
-    </div>
+<section class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <article class="rounded-xl border bg-white p-5">
+        <p class="text-xs uppercase tracking-wide text-gray-500">Position</p>
+        <p class="mt-2 font-semibold text-gray-800">Administrative Aide</p>
+    </article>
+    <article class="rounded-xl border bg-white p-5">
+        <p class="text-xs uppercase tracking-wide text-gray-500">Office</p>
+        <p class="mt-2 font-semibold text-gray-800">Agricultural Training Institute</p>
+    </article>
+    <article class="rounded-xl border bg-white p-5">
+        <p class="text-xs uppercase tracking-wide text-gray-500">Date Applied</p>
+        <p class="mt-2 font-semibold text-gray-800">February 5, 2026</p>
+    </article>
+    <article class="rounded-xl border bg-white p-5">
+        <p class="text-xs uppercase tracking-wide text-gray-500">Progress</p>
+        <p class="mt-2 font-semibold text-gray-800">3 of 4 milestones</p>
+    </article>
 </section>
 
-<!-- NOTES / FEEDBACK -->
-<section class="bg-white border rounded-lg">
-    <header class="px-6 py-4 border-b flex items-center gap-2">
-        <span class="material-symbols-outlined text-green-700">
-            notes
-        </span>
-        <h2 class="text-lg font-semibold text-gray-800">
-            Remarks & Notifications
-        </h2>
-    </header>
+<section class="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-3">
+    <div class="xl:col-span-2 rounded-xl border bg-white">
+        <header class="flex items-center justify-between border-b px-6 py-4">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-green-700">timeline</span>
+                <h2 class="text-lg font-semibold text-gray-800">Application Progress</h2>
+            </div>
+            <a href="notifications.php" class="text-sm text-green-700 hover:underline">View notifications</a>
+        </header>
 
-    <div class="p-6 text-sm text-gray-600">
-        <p>
-            Please ensure that your contact details are active.  
-            HR will notify you through the system once your application status changes.
-        </p>
+        <div class="space-y-4 p-6">
+            <article class="flex items-start gap-3 rounded-lg border bg-gray-50 p-4">
+                <span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-green-700 text-white">
+                    <span class="material-symbols-outlined text-[15px]">task_alt</span>
+                </span>
+                <div>
+                    <h3 class="font-medium text-gray-800">Application Submitted</h3>
+                    <p class="text-sm text-gray-600">Your application was successfully submitted.</p>
+                    <p class="mt-1 text-xs text-gray-500">Feb 5, 2026</p>
+                </div>
+            </article>
+
+            <article class="flex items-start gap-3 rounded-lg border bg-gray-50 p-4">
+                <span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-green-700 text-white">
+                    <span class="material-symbols-outlined text-[15px]">fact_check</span>
+                </span>
+                <div>
+                    <h3 class="font-medium text-gray-800">Document & Qualification Review</h3>
+                    <p class="text-sm text-gray-600">HR is reviewing your submitted documents and qualifications.</p>
+                    <p class="mt-1 text-xs text-gray-500">Feb 7, 2026</p>
+                </div>
+            </article>
+
+            <article class="flex items-start gap-3 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
+                <span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-yellow-500 text-white">
+                    <span class="material-symbols-outlined text-[15px]">hourglass_top</span>
+                </span>
+                <div>
+                    <h3 class="font-medium text-yellow-900">Under Evaluation</h3>
+                    <p class="text-sm text-yellow-800">Your application is currently under evaluation by HR.</p>
+                    <p class="mt-1 inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">In Progress</p>
+                </div>
+            </article>
+
+            <article class="flex items-start gap-3 rounded-lg border bg-gray-50 p-4 opacity-60">
+                <span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-300 text-white">
+                    <span class="material-symbols-outlined text-[15px]">how_to_reg</span>
+                </span>
+                <div>
+                    <h3 class="font-medium text-gray-700">Final Decision</h3>
+                    <p class="text-sm text-gray-600">You will be notified once a decision has been made.</p>
+                </div>
+            </article>
+        </div>
     </div>
+
+    <aside class="space-y-6">
+        <section class="rounded-xl border bg-white">
+            <header class="border-b px-6 py-4">
+                <h3 class="font-semibold text-gray-800">Next Steps</h3>
+            </header>
+
+            <div class="space-y-3 p-6 text-sm">
+                <a href="profile.php" class="block rounded-lg border bg-gray-50 p-4 transition hover:border-green-600">
+                    <p class="font-medium text-gray-800">Keep contact details updated</p>
+                    <p class="mt-1 text-gray-600">Ensure HR can reach you quickly for final instructions.</p>
+                </a>
+                <a href="notifications.php" class="block rounded-lg border bg-gray-50 p-4 transition hover:border-green-600">
+                    <p class="font-medium text-gray-800">Check notifications regularly</p>
+                    <p class="mt-1 text-gray-600">All recruitment updates are posted in your inbox.</p>
+                </a>
+                <a href="support.php" class="block rounded-lg border bg-gray-50 p-4 transition hover:border-green-600">
+                    <p class="font-medium text-gray-800">Need help?</p>
+                    <p class="mt-1 text-gray-600">Contact HR for support on your application concerns.</p>
+                </a>
+            </div>
+        </section>
+
+        <section class="rounded-xl border bg-white p-6 text-sm text-gray-600">
+            <p>
+                Please ensure that your contact details are active.
+                HR will notify you through the system once your application status changes.
+            </p>
+        </section>
+    </aside>
 </section>
 
 <?php

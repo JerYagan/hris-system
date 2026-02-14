@@ -7,17 +7,20 @@
 
 The **Department of Agriculture Human Resource Information System (DA HRIS)** is a web-based platform designed to centralize and streamline human resource operations for the Department of Agriculture. The system supports employee information management, timekeeping, payroll, document handling, and administrative HR processes in a secure and structured environment.
 
-This project is currently in the **frontend development phase** and focuses on establishing a consistent and scalable user interface. Backend integration and server-side processing will be implemented in a later phase.
+The project is currently in the **frontend-first development phase** with PHP-based page structuring. Core UI flows are in place for multiple roles, while database integration and full backend processing remain in the next phase.
 
 ---
 
 ## Project Status
 
-- Frontend UI development in progress  
-- Employee-side pages implemented  
-- Admin dashboard UI scaffolded  
+- Frontend UI development in active progress  
+- Multi-role page structure established (`admin`, `employee`, `applicant`, `staff`, `auth`)  
+- Applicant-side experience redesigned to be consumer-friendly (top navigation, responsive dropdown categories, card-based views)  
+- Shared layout architecture implemented through PHP includes per role  
+- Employee-side UI implemented and structured  
+- Admin and staff modules scaffolded with functional page shells  
 - Backend integration pending  
-- Authentication and role-based access control pending  
+- Authentication and role-based access control still in implementation phase  
 
 ---
 
@@ -27,10 +30,13 @@ This project is currently in the **frontend development phase** and focuses on e
 - HTML5  
 - Tailwind CSS  
 - Vanilla JavaScript  
-- Google Material Icons  
+- Google Material Symbols / Material Icons  
 - Chart.js  
 
-### Planned Backend
+### Current Application Layer
+- PHP (page rendering and include-based layouts)  
+
+### Planned Backend/Data Layer
 - PHP  
 - MySQL  
 - Session-based authentication  
@@ -38,6 +44,14 @@ This project is currently in the **frontend development phase** and focuses on e
 ---
 
 ## User Roles
+
+The workspace currently contains dedicated page groups for:
+
+- Applicant  
+- Employee  
+- Staff  
+- Admin  
+- Authentication views (`login`, `forgot/reset password`, access request)
 
 ### Employee
 
@@ -64,6 +78,22 @@ Administrators are authorized HR personnel responsible for system-wide operation
 
 ---
 
+## Applicant Pages Overview (Implemented UI)
+
+| Page | Description |
+|-----|------------|
+| Dashboard | Applicant journey overview, status cards, quick actions, and recent updates |
+| Job Listings | Card-based vacancy browsing with filter controls |
+| Job Details | Detailed vacancy information with application CTA |
+| Submit Application | Full-page application form (position, qualifications, document uploads) |
+| My Applications | Application timeline, milestones, and next-step guidance |
+| Application Feedback | Decision view using status-based feedback state |
+| Notifications | Inbox-style updates for application and system messages |
+| Profile | View/edit account profile information |
+| Support | Contact HR, FAQ, and Helpdesk sections |
+
+---
+
 ## Employee Pages Overview
 
 | Page | Description |
@@ -84,6 +114,7 @@ Administrators are authorized HR personnel responsible for system-wide operation
 - High readability and accessibility  
 - Minimal and purposeful interactions  
 - Consistent layout and spacing across pages  
+- Role-differentiated UX while preserving overall DA visual identity  
 
 ### Status Indicators
 
@@ -106,12 +137,14 @@ Administrators are authorized HR personnel responsible for system-wide operation
 
 ## Future Enhancements
 
-- Conversion of HTML pages to PHP  
-- Centralized layout using PHP includes  
-- Database integration with MySQL  
-- Email notifications  
+- Complete backend integration with MySQL  
+- Implement full authentication and role-based authorization flow  
+- Persist recruitment/application data to database (currently simulated UI data in several pages)  
+- Connect forms to server-side validation and processing  
+- Email and in-app notification delivery integration  
 - Report export to PDF and CSV  
 - Audit trail implementation  
+- Final UI QA and cross-role consistency pass  
 
 ---
 
