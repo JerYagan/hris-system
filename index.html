@@ -9,6 +9,9 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
+    <!-- Swiper CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+
     <!-- Google Material Icons -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
@@ -29,6 +32,7 @@
                         daGreenLight: "#4CAF50",
                         daYellow: "#F9A825",
                         daRed: "#B71C1C",
+                        daDeep: "#0F3D13",
                     }
                 }
             }
@@ -37,279 +41,317 @@
 </head>
 
 <body class="bg-gray-50 text-gray-800">
+    <div class="bg-daDeep text-white text-sm">
+        <div class="max-w-7xl mx-auto px-6 py-2 flex flex-wrap items-center justify-between gap-2">
+            <p class="flex items-center gap-2">
+                <span class="material-icons text-base">campaign</span>
+                Official Department of Agriculture Human Resource Information System Portal
+            </p>
+            <div class="flex items-center gap-5 text-white/90">
+                <a href="#news" class="hover:text-daYellow transition">Latest Advisories</a>
+                <a href="#services" class="hover:text-daYellow transition">Core Services</a>
+            </div>
+        </div>
+    </div>
 
-        <!-- NAVBAR -->
-    <header class="sticky top-0 z-50 bg-white border-b border-gray-200">
+    <header class="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-gray-200 shadow-sm">
         <nav class="max-w-7xl mx-auto px-6">
-            <div class="h-20 flex items-center justify-between">
-
-                <!-- LEFT: LOGO / BRAND -->
-                <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 flex items-center justify-center">
-                        <img src="./assets/images/icon.png" alt="Department of Agriculture icon">
+            <div class="h-20 flex items-center justify-between gap-4">
+                <a href="#home" class="flex items-center gap-4 min-w-0">
+                    <div class="w-12 h-12 rounded-full bg-green-50 border border-green-100 flex items-center justify-center">
+                        <img src="./assets/images/icon.png" alt="Department of Agriculture icon" class="w-10 h-10 object-contain">
                     </div>
-
-                    <div class="leading-tight">
-                        <h1 class="text-lg font-bold text-gray-900">
-                            Department of Agriculture
-                        </h1>
-                        <p class="text-xs text-gray-500">
-                            Human Resource Information System
-                        </p>
+                    <div class="leading-tight min-w-0">
+                        <h1 class="text-base md:text-lg font-bold text-gray-900 truncate">Department of Agriculture</h1>
+                        <p class="text-xs text-gray-500 truncate">Human Resource Information System</p>
                     </div>
+                </a>
+
+                <button id="menuToggle" class="lg:hidden p-2 rounded-md border border-gray-200 text-gray-700" aria-label="Open menu">
+                    <span class="material-icons">menu</span>
+                </button>
+
+                <div class="hidden lg:flex items-center gap-8">
+                    <a href="#about" class="font-medium text-gray-700 hover:text-daGreen transition">About DA</a>
+                    <a href="#services" class="font-medium text-gray-700 hover:text-daGreen transition">Services</a>
+                    <a href="#initiatives" class="font-medium text-gray-700 hover:text-daGreen transition">Initiatives</a>
+                    <a href="#news" class="font-medium text-gray-700 hover:text-daGreen transition">News</a>
+                    <a href="#transparency" class="font-medium text-gray-700 hover:text-daGreen transition">Transparency</a>
                 </div>
 
-                <!-- CENTER: NAV LINKS -->
-                <ul class="hidden lg:flex items-center gap-10 font-medium text-gray-700">
-                    <li>
-                        <a href="#home" class="relative hover:text-daGreen transition
-                    after:absolute after:-bottom-2 after:left-0
-                    after:h-[2px] after:w-0 after:bg-daGreen
-                    hover:after:w-full after:transition-all">
-                            Home
-                        </a>
-                    </li>
-
-                    <li>
-                        <a href="#about" class="relative hover:text-daGreen transition
-                    after:absolute after:-bottom-2 after:left-0
-                    after:h-[2px] after:w-0 after:bg-daGreen
-                    hover:after:w-full after:transition-all">
-                            About
-                        </a>
-                    </li>
-
-                    <li>
-                        <a href="#features" class="relative hover:text-daGreen transition
-                    after:absolute after:-bottom-2 after:left-0
-                    after:h-[2px] after:w-0 after:bg-daGreen
-                    hover:after:w-full after:transition-all">
-                            Features
-                        </a>
-                    </li>
-
-                    <li>
-                        <a href="#contact" class="relative hover:text-daGreen transition
-                    after:absolute after:-bottom-2 after:left-0
-                    after:h-[2px] after:w-0 after:bg-daGreen
-                    hover:after:w-full after:transition-all">
-                            Contact
-                        </a>
-                    </li>
-                </ul>
-
-                <!-- RIGHT: ACTION -->
-                <div class="flex items-center gap-4">
-                    <a href="./pages/auth/login.php" class="inline-flex items-center gap-2 bg-daGreen text-white px-6 py-2.5 rounded-md
-                  hover:bg-daGreenLight transition font-semibold">
+                <div class="hidden lg:flex items-center gap-3">
+                    <a href="#services" class="inline-flex items-center gap-2 border border-daGreen text-daGreen px-4 py-2.5 rounded-lg font-semibold hover:bg-green-50 transition">
+                        <span class="material-icons text-sm">hub</span>
+                        Explore Services
+                    </a>
+                    <a href="./pages/auth/login.php" class="inline-flex items-center gap-2 bg-daGreen text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-daGreenLight transition">
                         <span class="material-icons text-sm">login</span>
                         Login
                     </a>
                 </div>
+            </div>
 
+            <div id="mobileMenu" class="lg:hidden hidden pb-5">
+                <div class="grid gap-2 text-gray-700 font-medium border-t border-gray-100 pt-4">
+                    <a href="#about" class="px-2 py-2 rounded hover:bg-gray-100">About DA</a>
+                    <a href="#services" class="px-2 py-2 rounded hover:bg-gray-100">Services</a>
+                    <a href="#initiatives" class="px-2 py-2 rounded hover:bg-gray-100">Initiatives</a>
+                    <a href="#news" class="px-2 py-2 rounded hover:bg-gray-100">News</a>
+                    <a href="#transparency" class="px-2 py-2 rounded hover:bg-gray-100">Transparency</a>
+                    <div class="grid sm:grid-cols-2 gap-2 mt-2">
+                        <a href="#services" class="inline-flex justify-center items-center gap-2 border border-daGreen text-daGreen px-4 py-2.5 rounded-lg font-semibold hover:bg-green-50 transition">
+                            <span class="material-icons text-sm">hub</span>
+                            Explore Services
+                        </a>
+                        <a href="./pages/auth/login.php" class="inline-flex justify-center items-center gap-2 bg-daGreen text-white px-4 py-2.5 rounded-lg font-semibold hover:bg-daGreenLight transition">
+                            <span class="material-icons text-sm">login</span>
+                            Login
+                        </a>
+                    </div>
+                </div>
             </div>
         </nav>
     </header>
 
-    <!-- HERO -->
-    <section id="home" class="relative overflow-hidden">
-        <!-- Background -->
-        <div class="absolute inset-0 bg-gradient-to-br from-daGreen via-daGreenLight to-green-700">
-        </div>
+    <section id="home" class="relative overflow-hidden bg-gradient-to-br from-daGreen via-daGreenLight to-green-700 text-white">
+        <div class="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top_right,white,transparent_55%)]"></div>
 
-        <!-- Decorative Overlay -->
-        <div class="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_top_right,white,transparent_60%)]"></div>
-
-        <div class="relative max-w-7xl mx-auto px-6 py-12 grid lg:grid-cols-2 gap-14 items-center text-white">
-
-            <!-- LEFT CONTENT -->
+        <div class="relative max-w-7xl mx-auto px-6 py-14 grid lg:grid-cols-2 gap-10 items-center">
             <div>
-                <span class="inline-flex items-center gap-2 bg-white/20 px-4 py-1 rounded-full text-sm mb-6">
-                    <span class="material-icons text-sm">verified</span>
-                    Official Government System
+                <span class="inline-flex items-center gap-2 bg-white/20 px-4 py-1.5 rounded-full text-sm mb-6">
+                    <span class="material-icons text-sm">verified_user</span>
+                    Official DA Digital Portal
                 </span>
 
-                <h1 class="text-4xl md:text-5xl xl:text-6xl font-bold leading-tight mb-6">
-                    Human Resource Information System
-                </h1>
+                <h2 class="text-4xl md:text-5xl font-bold leading-tight mb-5">
+                    Empowering Agriculture Through Efficient Public Service
+                </h2>
 
-                <p class="text-lg md:text-xl text-white/90 max-w-xl mb-10">
-                    A secure and centralized HR platform for the Department of Agriculture—
-                    built to streamline employee management, payroll, and reporting.
+                <p class="text-lg text-white/90 max-w-xl mb-8">
+                    Access Department of Agriculture HRIS services, advisories, and organizational updates through a modern, secure, and centralized system.
                 </p>
 
-                <div class="flex flex-wrap gap-4">
-                    <a href="auth/login.html"
-                        class="bg-white text-daGreen px-7 py-3 rounded-lg font-semibold hover:bg-gray-100 transition">
-                        Access HRIS
+                <div class="flex flex-wrap gap-3">
+                    <a href="./pages/auth/login.php" class="bg-white text-daGreen px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition">
+                        Login to HRIS
                     </a>
-
-                    <a href="#about"
-                        class="border border-white/60 px-7 py-3 rounded-lg font-semibold hover:bg-white hover:text-daGreen transition">
-                        Learn More
+                    <a href="#about" class="border border-white/70 px-6 py-3 rounded-lg font-semibold hover:bg-white hover:text-daGreen transition">
+                        Learn About DA
                     </a>
-                </div>
-
-                <!-- Trust Indicators -->
-                <div class="mt-10 flex flex-wrap gap-6 text-sm text-white/80">
-                    <div class="flex items-center gap-2">
-                        <span class="material-icons text-base">lock</span>
-                        Secure Access
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="material-icons text-base">policy</span>
-                        Data Privacy Compliant
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="material-icons text-base">admin_panel_settings</span>
-                        Role-Based Control
-                    </div>
                 </div>
             </div>
 
-            <!-- RIGHT VISUAL -->
             <div class="relative">
-                <img src="./assets/images/hero-img-2.jpg" alt="HR Dashboard Preview"
-                    class="rounded-2xl shadow-2xl border border-white/20" />
-
-                <!-- Floating Badge -->
-                <div
-                    class="absolute -bottom-6 -left-6 bg-white text-daGreen px-5 py-3 rounded-xl shadow-lg hidden md:block">
-                    <p class="text-sm font-semibold">Internal System</p>
-                    <p class="text-xs opacity-70">Department of Agriculture</p>
-                </div>
-
-                <!-- Floating Badge -->
-                <div
-                    class="absolute top-12 -right-6 bg-white text-daGreen px-5 py-3 rounded-xl shadow-lg hidden md:block">
-                    <p class="text-sm font-semibold">Internal System</p>
-                    <p class="text-xs opacity-70">Department of Agriculture</p>
-                </div>
-            </div>
-
-        </div>
-    </section>
-
-
-    <!-- ABOUT -->
-    <section id="about" class="py-20">
-        <div class="max-w-6xl mx-auto px-6 text-center">
-            <h2 class="text-3xl font-bold mb-6">About the HRIS</h2>
-            <p class="max-w-3xl mx-auto text-gray-600 leading-relaxed">
-                The Department of Agriculture HRIS is designed to streamline
-                human resource operations including employee records,
-                payroll management, timekeeping, and reporting—ensuring
-                transparency, efficiency, and data-driven decision making.
-            </p>
-        </div>
-    </section>
-
-    <!-- FEATURES -->
-    <section id="features" class="bg-gray-100 py-20">
-        <div class="max-w-7xl mx-auto px-6">
-            <h2 class="text-3xl font-bold text-center mb-12">
-                Key System Features
-            </h2>
-
-            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                <div class="bg-white p-6 rounded shadow text-center">
-                    <span class="material-icons text-daGreen text-4xl mb-4">people</span>
-                    <h3 class="font-semibold text-lg mb-2">Employee Management</h3>
-                    <p class="text-gray-600 text-sm">
-                        Centralized employee profiles and records.
-                    </p>
-                </div>
-
-                <div class="bg-white p-6 rounded shadow text-center">
-                    <span class="material-icons text-daGreen text-4xl mb-4">schedule</span>
-                    <h3 class="font-semibold text-lg mb-2">Timekeeping</h3>
-                    <p class="text-gray-600 text-sm">
-                        Attendance, schedules, and leave tracking.
-                    </p>
-                </div>
-
-                <div class="bg-white p-6 rounded shadow text-center">
-                    <span class="material-icons text-daGreen text-4xl mb-4">payments</span>
-                    <h3 class="font-semibold text-lg mb-2">Payroll</h3>
-                    <p class="text-gray-600 text-sm">
-                        Secure payroll processing and history.
-                    </p>
-                </div>
-
-                <div class="bg-white p-6 rounded shadow text-center">
-                    <span class="material-icons text-daGreen text-4xl mb-4">analytics</span>
-                    <h3 class="font-semibold text-lg mb-2">Reports</h3>
-                    <p class="text-gray-600 text-sm">
-                        Generate HR and administrative reports.
-                    </p>
+                <div class="swiper heroSwiper rounded-2xl overflow-hidden border border-white/25 shadow-2xl">
+                    <div class="swiper-wrapper">
+                        <div class="swiper-slide relative">
+                            <img src="https://picsum.photos/seed/da1/1200/760" alt="Department of Agriculture field programs" class="w-full h-[420px] object-cover">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                            <div class="absolute bottom-0 left-0 p-6">
+                                <p class="text-white font-semibold text-lg">Agricultural Development Programs</p>
+                                <p class="text-white/90 text-sm">Supporting farmers and fisherfolk nationwide</p>
+                            </div>
+                        </div>
+                        <div class="swiper-slide relative">
+                            <img src="https://picsum.photos/seed/da2/1200/760" alt="DA workforce and operations" class="w-full h-[420px] object-cover">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                            <div class="absolute bottom-0 left-0 p-6">
+                                <p class="text-white font-semibold text-lg">Responsive Public Service</p>
+                                <p class="text-white/90 text-sm">Digital tools for transparent HR management</p>
+                            </div>
+                        </div>
+                        <div class="swiper-slide relative">
+                            <img src="https://picsum.photos/seed/da3/1200/760" alt="DA strategic planning and governance" class="w-full h-[420px] object-cover">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                            <div class="absolute bottom-0 left-0 p-6">
+                                <p class="text-white font-semibold text-lg">Sustainable Agriculture Vision</p>
+                                <p class="text-white/90 text-sm">Building resilient communities and food systems</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="swiper-pagination"></div>
+                    <div class="swiper-button-prev text-white"></div>
+                    <div class="swiper-button-next text-white"></div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- CONTACT -->
-    <section id="contact" class="py-20">
-        <div class="max-w-6xl mx-auto px-6 grid md:grid-cols-2 gap-12">
+    <section id="about" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-10 items-center">
+            <img src="https://picsum.photos/seed/da-about/900/620" alt="Department of Agriculture mission" class="w-full h-[380px] object-cover rounded-2xl shadow">
+
             <div>
-                <h2 class="text-3xl font-bold mb-6">Contact Us</h2>
-                <p class="text-gray-600 mb-6">
-                    For inquiries, technical concerns, or system access requests,
-                    please reach out to the Department of Agriculture HR Office.
+                <span class="text-daGreen font-semibold uppercase tracking-wide text-sm">About the Department of Agriculture</span>
+                <h2 class="text-3xl md:text-4xl font-bold mt-3 mb-5">Mandate, Mission, and Public Service Commitment</h2>
+                <p class="text-gray-600 leading-relaxed mb-4">
+                    The Department of Agriculture leads the country’s efforts in developing a modern, inclusive, and resilient agriculture and fisheries sector. It supports farmers, fisherfolk, and agribusiness stakeholders through policy direction, technical assistance, and essential government services.
                 </p>
-
-                <ul class="space-y-4 text-gray-700">
-                    <li class="flex items-center gap-3">
-                        <span class="material-icons text-daGreen">location_on</span>
-                        Quezon City, Philippines
-                    </li>
-                    <li class="flex items-center gap-3">
-                        <span class="material-icons text-daGreen">email</span>
-                        hris@da.gov.ph
-                    </li>
-                    <li class="flex items-center gap-3">
-                        <span class="material-icons text-daGreen">call</span>
-                        (02) 1234-5678
-                    </li>
-                </ul>
+                <p class="text-gray-600 leading-relaxed mb-6">
+                    This HRIS portal strengthens internal operations by helping DA personnel deliver faster, more transparent, and citizen-focused public service.
+                </p>
+                <div class="grid sm:grid-cols-2 gap-4">
+                    <div class="border border-gray-200 rounded-xl p-4">
+                        <p class="font-semibold text-gray-900">Vision</p>
+                        <p class="text-sm text-gray-600 mt-1">A food-secure and resilient Philippines with empowered agricultural communities.</p>
+                    </div>
+                    <div class="border border-gray-200 rounded-xl p-4">
+                        <p class="font-semibold text-gray-900">Mission</p>
+                        <p class="text-sm text-gray-600 mt-1">Enable sustainable growth through responsive governance and innovation.</p>
+                    </div>
+                </div>
             </div>
-
-            <form class="bg-white p-8 rounded shadow">
-                <div class="mb-4">
-                    <label class="block text-sm font-medium mb-1">Name</label>
-                    <input type="text"
-                        class="w-full border rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-daGreen">
-                </div>
-
-                <div class="mb-4">
-                    <label class="block text-sm font-medium mb-1">Email</label>
-                    <input type="email"
-                        class="w-full border rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-daGreen">
-                </div>
-
-                <div class="mb-4">
-                    <label class="block text-sm font-medium mb-1">Message</label>
-                    <textarea rows="4"
-                        class="w-full border rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-daGreen"></textarea>
-                </div>
-
-                <button type="submit" class="bg-daGreen text-white px-6 py-2 rounded hover:bg-daGreenLight transition">
-                    Send Message
-                </button>
-            </form>
         </div>
     </section>
 
-    <!-- FOOTER -->
+    <section id="services" class="py-20 bg-gray-100">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold">Public and Internal Services</h2>
+                <p class="text-gray-600 mt-3">Key digital and administrative services aligned with DA operations.</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <article class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <span class="material-icons text-daGreen text-4xl mb-3">groups</span>
+                    <h3 class="text-xl font-semibold mb-2">Human Resource Services</h3>
+                    <p class="text-gray-600">Personnel records, performance management, leave administration, and employee support.</p>
+                </article>
+                <article class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <span class="material-icons text-daGreen text-4xl mb-3">description</span>
+                    <h3 class="text-xl font-semibold mb-2">Document and Records Management</h3>
+                    <p class="text-gray-600">Secure processing of official files, forms, and administrative documentation.</p>
+                </article>
+                <article class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <span class="material-icons text-daGreen text-4xl mb-3">payments</span>
+                    <h3 class="text-xl font-semibold mb-2">Payroll and Benefits</h3>
+                    <p class="text-gray-600">Accurate payroll workflows, compensation records, and benefits tracking.</p>
+                </article>
+                <article class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <span class="material-icons text-daGreen text-4xl mb-3">history_edu</span>
+                    <h3 class="text-xl font-semibold mb-2">Recruitment and Staffing</h3>
+                    <p class="text-gray-600">Position publication, applicant processing, and transparent hiring support.</p>
+                </article>
+                <article class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <span class="material-icons text-daGreen text-4xl mb-3">school</span>
+                    <h3 class="text-xl font-semibold mb-2">Learning and Development</h3>
+                    <p class="text-gray-600">Training records and competency-building programs for DA workforce growth.</p>
+                </article>
+                <article class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <span class="material-icons text-daGreen text-4xl mb-3">insights</span>
+                    <h3 class="text-xl font-semibold mb-2">Reports and Analytics</h3>
+                    <p class="text-gray-600">Operational dashboards and reporting for data-driven HR decisions.</p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section id="initiatives" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex items-end justify-between gap-4 mb-10 flex-wrap">
+                <div>
+                    <h2 class="text-3xl font-bold">Strategic Initiatives</h2>
+                    <p class="text-gray-600 mt-2">Programs supporting resilient agriculture and institutional modernization.</p>
+                </div>
+                <a href="#" class="inline-flex items-center gap-2 text-daGreen font-semibold hover:text-daGreenLight transition">
+                    View all initiatives
+                    <span class="material-icons text-base">arrow_forward</span>
+                </a>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-6">
+                <article class="rounded-2xl overflow-hidden border border-gray-200 bg-white">
+                    <img src="https://picsum.photos/seed/da-init-1/700/420" alt="Climate-resilient agriculture initiative" class="w-full h-48 object-cover">
+                    <div class="p-5">
+                        <p class="text-xs uppercase tracking-wide text-daGreen font-semibold mb-2">Climate Action</p>
+                        <h3 class="font-semibold text-lg mb-2">Climate-Resilient Farming Systems</h3>
+                        <p class="text-gray-600 text-sm">Improving adaptive capacity and productivity through sustainable technologies.</p>
+                    </div>
+                </article>
+                <article class="rounded-2xl overflow-hidden border border-gray-200 bg-white">
+                    <img src="https://picsum.photos/seed/da-init-2/700/420" alt="Food security and supply chain initiative" class="w-full h-48 object-cover">
+                    <div class="p-5">
+                        <p class="text-xs uppercase tracking-wide text-daGreen font-semibold mb-2">Food Security</p>
+                        <h3 class="font-semibold text-lg mb-2">Local Supply Chain Strengthening</h3>
+                        <p class="text-gray-600 text-sm">Supporting efficient production, transport, and market connectivity nationwide.</p>
+                    </div>
+                </article>
+                <article class="rounded-2xl overflow-hidden border border-gray-200 bg-white">
+                    <img src="https://picsum.photos/seed/da-init-3/700/420" alt="Digital transformation initiative" class="w-full h-48 object-cover">
+                    <div class="p-5">
+                        <p class="text-xs uppercase tracking-wide text-daGreen font-semibold mb-2">Digital Transformation</p>
+                        <h3 class="font-semibold text-lg mb-2">Integrated Government e-Services</h3>
+                        <p class="text-gray-600 text-sm">Modernizing DA workflows for faster delivery of services and information.</p>
+                    </div>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section id="news" class="py-20 bg-gray-100">
+        <div class="max-w-7xl mx-auto px-6">
+            <h2 class="text-3xl font-bold text-center mb-12">News and Advisories</h2>
+
+            <div class="grid lg:grid-cols-3 gap-6">
+                <article class="bg-white border border-gray-200 rounded-xl p-6">
+                    <p class="text-xs text-gray-500 mb-2">February 2026</p>
+                    <h3 class="font-semibold text-xl mb-3">DA Issues Updated Workforce Advisory</h3>
+                    <p class="text-gray-600 mb-4">Guidelines for internal operations and digital process improvements across offices.</p>
+                    <a href="#" class="text-daGreen font-semibold hover:text-daGreenLight transition">Read update</a>
+                </article>
+                <article class="bg-white border border-gray-200 rounded-xl p-6">
+                    <p class="text-xs text-gray-500 mb-2">January 2026</p>
+                    <h3 class="font-semibold text-xl mb-3">Regional Office Capacity-Building Program</h3>
+                    <p class="text-gray-600 mb-4">Expanded competency and training initiatives for field and support personnel.</p>
+                    <a href="#" class="text-daGreen font-semibold hover:text-daGreenLight transition">Read update</a>
+                </article>
+                <article class="bg-white border border-gray-200 rounded-xl p-6">
+                    <p class="text-xs text-gray-500 mb-2">December 2025</p>
+                    <h3 class="font-semibold text-xl mb-3">Digital Systems Enhancement Announcement</h3>
+                    <p class="text-gray-600 mb-4">Upcoming improvements for secure access, records, and administrative reporting.</p>
+                    <a href="#" class="text-daGreen font-semibold hover:text-daGreenLight transition">Read update</a>
+                </article>
+            </div>
+        </div>
+    </section>
+
     <footer class="bg-daGreen text-white">
-        <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col md:flex-row justify-between items-center gap-4">
-            <p class="text-sm">
+        <div class="max-w-7xl mx-auto px-6 py-8 flex flex-col md:flex-row justify-between items-center gap-4">
+            <p class="text-sm text-center md:text-left">
                 © 2026 Department of Agriculture. All rights reserved.
             </p>
-            <p class="text-sm opacity-80">
+            <p class="text-sm opacity-90 text-center md:text-right">
                 HRIS | Internal Government System
             </p>
         </div>
     </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script>
+        const menuToggle = document.getElementById("menuToggle");
+        const mobileMenu = document.getElementById("mobileMenu");
+
+        menuToggle.addEventListener("click", () => {
+            mobileMenu.classList.toggle("hidden");
+        });
+
+        new Swiper(".heroSwiper", {
+            loop: true,
+            speed: 800,
+            autoplay: {
+                delay: 3800,
+                disableOnInteraction: false,
+            },
+            pagination: {
+                el: ".swiper-pagination",
+                clickable: true,
+            },
+            navigation: {
+                nextEl: ".swiper-button-next",
+                prevEl: ".swiper-button-prev",
+            },
+        });
+    </script>
 </body>
 
 </html>

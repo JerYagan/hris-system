@@ -4,27 +4,68 @@ $pageTitle = 'Login | DA HRIS';
 ob_start();
 ?>
 
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+
 <!-- LOGIN CARD -->
 <div class="max-w-5xl w-full bg-white rounded-xl shadow-lg overflow-hidden grid md:grid-cols-2 my-4">
 
-  <!-- LEFT: IMAGE / BRAND -->
+  <!-- LEFT: CAROUSEL / BRAND -->
   <div class="hidden md:block relative">
-    <img
-      src="../../assets/images/hero-img.jpg"
-      alt="Department of Agriculture"
-      class="absolute inset-0 w-full h-full object-cover"
-    />
+    <div class="swiper loginSwiper h-full">
+      <div class="swiper-wrapper">
+        <div class="swiper-slide relative">
+          <img
+            src="https://picsum.photos/seed/da-login-1/1200/1000"
+            alt="Department of Agriculture operations"
+            class="absolute inset-0 w-full h-full object-cover"
+          />
+          <div class="absolute inset-0 bg-daGreen/75"></div>
+          <div class="relative z-10 p-10 text-white h-full flex flex-col justify-end">
+            <h2 class="text-3xl font-bold mb-3">
+              Department of Agriculture
+            </h2>
+            <p class="text-sm opacity-90 max-w-sm">
+              Human Resource Information System.
+              Secure access for authorized personnel.
+            </p>
+          </div>
+        </div>
 
-    <div class="absolute inset-0 bg-daGreen/70"></div>
+        <div class="swiper-slide relative">
+          <img
+            src="https://picsum.photos/seed/da-login-2/1200/1000"
+            alt="Public service and workforce"
+            class="absolute inset-0 w-full h-full object-cover"
+          />
+          <div class="absolute inset-0 bg-daGreen/75"></div>
+          <div class="relative z-10 p-10 text-white h-full flex flex-col justify-end">
+            <h2 class="text-3xl font-bold mb-3">
+              Responsive Public Service
+            </h2>
+            <p class="text-sm opacity-90 max-w-sm">
+              Enabling transparent and efficient HR operations across DA offices.
+            </p>
+          </div>
+        </div>
 
-    <div class="relative z-10 p-10 text-white h-full flex flex-col justify-end">
-      <h2 class="text-3xl font-bold mb-3">
-        Department of Agriculture
-      </h2>
-      <p class="text-sm opacity-90 max-w-sm">
-        Human Resource Information System  
-        Secure access for authorized personnel.
-      </p>
+        <div class="swiper-slide relative">
+          <img
+            src="https://picsum.photos/seed/da-login-3/1200/1000"
+            alt="Agriculture and sustainability"
+            class="absolute inset-0 w-full h-full object-cover"
+          />
+          <div class="absolute inset-0 bg-daGreen/75"></div>
+          <div class="relative z-10 p-10 text-white h-full flex flex-col justify-end">
+            <h2 class="text-3xl font-bold mb-3">
+              One DA, One Digital Portal
+            </h2>
+            <p class="text-sm opacity-90 max-w-sm">
+              Strengthening workforce support through secure and modern systems.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="swiper-pagination"></div>
     </div>
   </div>
 
@@ -133,9 +174,9 @@ ob_start();
 
     <div class="mt-6 text-sm text-center text-gray-600">
       Don’t have an account?
-      <a href="request-access.php"
+      <a href="register.php"
          class="text-daGreen font-medium hover:underline">
-        Request access
+        Sign Up
       </a>
     </div>
 
@@ -157,6 +198,22 @@ ob_start();
 
   // Demo only
   document.querySelector("form")?.addEventListener("submit", e => {
+  });
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+<script>
+  new Swiper(".loginSwiper", {
+    loop: true,
+    speed: 700,
+    autoplay: {
+      delay: 3500,
+      disableOnInteraction: false,
+    },
+    pagination: {
+      el: ".swiper-pagination",
+      clickable: true,
+    },
   });
 </script>
 
