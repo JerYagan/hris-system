@@ -1,4 +1,6 @@
 <?php
+  include __DIR__ . '/auth-guard.php';
+
   // Defaults (safe for all pages)
   $pageTitle   = $pageTitle   ?? 'DA HRIS';
   $activePage  = $activePage  ?? '';

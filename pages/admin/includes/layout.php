@@ -1,4 +1,6 @@
 <?php
+include __DIR__ . '/auth-guard.php';
+
 $pageTitle = $pageTitle ?? 'Admin | DA HRIS';
 $activePage = $activePage ?? '';
 $breadcrumbs = $breadcrumbs ?? ['Dashboard'];

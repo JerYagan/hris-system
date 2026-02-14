@@ -66,7 +66,7 @@
 
         <div class="border-t my-1"></div>
 
-        <a href="../../index.html" class="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
+        <a href="/hris-system/pages/auth/logout.php" class="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
           <span class="material-icons text-sm">logout</span>
           Logout
         </a>

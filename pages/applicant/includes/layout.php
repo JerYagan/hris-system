@@ -1,5 +1,6 @@
 <?php
 // pages/applicant/includes/layout.php
+include __DIR__ . '/auth-guard.php';
 ?>
 
 <!DOCTYPE html>

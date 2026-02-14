@@ -4,7 +4,16 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/2.1.8/css/dataTables.dataTables.min.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/buttons/3.1.2/css/buttons.dataTables.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.datatables.net/2.1.8/js/dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/buttons/3.1.2/js/dataTables.buttons.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdn.datatables.net/buttons/3.1.2/js/buttons.html5.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <link rel="icon" type="image/png" sizes="32x32" href="/hris-system/assets/images/favicon.png">
   <link rel="icon" type="image/x-icon" href="/hris-system/assets/images/favicon.ico">
@@ -234,6 +243,26 @@
 
   #sidebar {
     transition: transform 0.2s ease;
+  }
+
+  .dt-container .dt-search input,
+  .dt-container .dt-length select {
+    border: 1px solid rgb(203 213 225);
+    border-radius: 0.375rem;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.875rem;
+    background: #fff;
+  }
+
+  .dt-container .dt-info,
+  .dt-container .dt-paging .dt-paging-button {
+    font-size: 0.82rem;
+  }
+
+  .flatpickr-calendar {
+    border-radius: 0.75rem;
+    box-shadow: 0 12px 26px rgba(2, 6, 23, 0.18);
+    border: 1px solid rgb(226 232 240);
   }
 </style>
 

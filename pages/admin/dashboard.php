@@ -42,14 +42,10 @@ ob_start();
         <h2 class="font-semibold text-slate-800">Attendance Overview</h2>
         <a href="attendance-overview.php" class="text-sm text-emerald-700 hover:underline">Open module</a>
     </div>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
         <article class="rounded-xl border border-slate-200 p-4 bg-emerald-50">
             <p class="text-xs uppercase text-emerald-700">Present Today</p>
             <p class="text-2xl font-bold text-slate-800 mt-2">226</p>
-        </article>
-        <article class="rounded-xl border border-slate-200 p-4 bg-amber-50">
-            <p class="text-xs uppercase text-amber-700">Late</p>
-            <p class="text-2xl font-bold text-slate-800 mt-2">14</p>
         </article>
         <article class="rounded-xl border border-slate-200 p-4 bg-rose-50">
             <p class="text-xs uppercase text-rose-700">Absent</p>
@@ -133,6 +129,22 @@ ob_start();
             <li class="flex justify-between"><span>Management Information Systems</span><span class="font-semibold text-slate-800">37</span></li>
             <li class="flex justify-between"><span>Administration</span><span class="font-semibold text-slate-800">33</span></li>
         </ul>
+    </div>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-2xl p-6 mt-6">
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="font-semibold text-slate-800">Recruitment Pipeline Chart</h2>
+        <span class="text-xs text-slate-500">Updated Feb 14, 2026</span>
+    </div>
+    <div class="h-72">
+        <canvas
+            data-chart-type="bar"
+            data-chart-label="Applicants"
+            data-chart-labels='["Registered", "Screened", "Shortlisted", "Hired"]'
+            data-chart-values='[46, 30, 14, 5]'
+            data-chart-colors='["#0f172a", "#10b981", "#3b82f6", "#f59e0b"]'
+        ></canvas>
     </div>
 </section>
 

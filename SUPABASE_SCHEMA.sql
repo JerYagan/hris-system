@@ -22,21 +22,6 @@ begin
 end;
 $$;
 
-create or replace function public.current_user_is_admin()
-returns boolean
-language sql
-stable
-as $$
-  select exists (
-    select 1
-    from public.user_role_assignments ura
-    join public.roles r on r.id = ura.role_id
-    where ura.user_id = auth.uid()
-      and ura.expires_at is null
-      and r.role_key = 'admin'
-  );
-$$;
-
 -- =====================================================
 -- 2) Enums
 -- =====================================================
@@ -195,6 +180,21 @@ create table if not exists public.system_settings (
   updated_by uuid references public.user_accounts(id) on delete set null,
   updated_at timestamptz not null default now()
 );
+
+create or replace function public.current_user_is_admin()
+returns boolean
+language sql
+stable
+as $$
+  select exists (
+    select 1
+    from public.user_role_assignments ura
+    join public.roles r on r.id = ura.role_id
+    where ura.user_id = auth.uid()
+      and ura.expires_at is null
+      and r.role_key = 'admin'
+  );
+$$;
 
 -- =====================================================
 -- 4) Person / PDS / Profile

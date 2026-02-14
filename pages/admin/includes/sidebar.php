@@ -132,10 +132,6 @@ $isPraiseSection = in_array($activePage, $praisePages, true);
                     <span class="admin-nav-icon material-symbols-outlined text-[18px]">group</span>
                     <span class="admin-link-label">User Management</span>
                 </a>
-                <a href="settings.php" class="admin-nav-link <?= $activePage === 'settings.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
-                    <span class="admin-nav-icon material-symbols-outlined text-[18px]">settings</span>
-                    <span class="admin-link-label">Settings</span>
-                </a>
             </div>
         </div>
 
@@ -160,7 +156,7 @@ $isPraiseSection = in_array($activePage, $praisePages, true);
                     <span class="admin-link-label">Create Announcement</span>
                 </a>
 
-                <a href="/hris-system/pages/auth/login.php" class="admin-nav-link text-rose-300 hover:text-rose-200">
+                <a href="/hris-system/pages/auth/logout.php" class="admin-nav-link text-rose-300 hover:text-rose-200">
                     <span class="admin-nav-icon material-symbols-outlined text-[18px]">logout</span>
                     <span class="admin-link-label">Logout</span>
                 </a>

@@ -1,5 +1,5 @@
 <?php
-$pageTitle = 'Login | DA HRIS';
+$pageTitle = 'Login | DA ATI';
 
 ob_start();
 ?>
@@ -22,7 +22,7 @@ ob_start();
           <div class="absolute inset-0 bg-daGreen/75"></div>
           <div class="relative z-10 p-10 text-white h-full flex flex-col justify-end">
             <h2 class="text-3xl font-bold mb-3">
-              Department of Agriculture
+              Agricultural Training Institute
             </h2>
             <p class="text-sm opacity-90 max-w-sm">
               Human Resource Information System.
@@ -90,11 +90,39 @@ ob_start();
       </p>
     </div>
 
+    <?php if (isset($_GET['logout'])): ?>
+      <div class="mb-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3
+                  text-sm text-emerald-700 flex gap-2">
+        <span class="material-icons text-sm">check_circle</span>
+        You have been logged out.
+      </div>
+    <?php endif; ?>
+
+    <?php if (isset($_GET['registered'])): ?>
+      <div class="mb-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3
+                  text-sm text-emerald-700 flex gap-2">
+        <span class="material-icons text-sm">check_circle</span>
+        Registration successful. You can now sign in.
+      </div>
+    <?php endif; ?>
+
     <?php if (isset($_GET['error'])): ?>
+      <?php
+        $errorCode = (string)($_GET['error'] ?? 'invalid');
+        $errorMessage = 'Invalid email or password.';
+
+        if ($errorCode === 'inactive') {
+          $errorMessage = 'Your account is not active. Please contact an administrator.';
+        } elseif ($errorCode === 'role') {
+          $errorMessage = 'No active role is assigned to this account.';
+        } elseif ($errorCode === 'config') {
+          $errorMessage = 'Authentication is not configured. Check SUPABASE credentials.';
+        }
+      ?>
       <div class="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3
                   text-sm text-red-700 flex gap-2">
         <span class="material-icons text-sm">error</span>
-        Invalid email or password.
+        <?= htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8') ?>
       </div>
     <?php endif; ?>
 

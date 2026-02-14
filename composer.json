@@ -1,0 +1,14 @@
+{
+    "name": "da/hris-system",
+    "description": "DA HRIS",
+    "authors": [
+        {
+            "name": "JerYagan",
+            "email": "caranyagan.jerwin.betorio@gmail.com"
+        }
+    ],
+    "require": {
+        "dompdf/dompdf": "^3.1",
+        "phpoffice/phpspreadsheet": "^5.4"
+    }
+}

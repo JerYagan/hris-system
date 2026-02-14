@@ -111,7 +111,7 @@ $allMobileLinks = array_merge($primaryLinks, $recruitmentLinks, $accountLinks);
 
                         <div class="my-1 border-t"></div>
 
-                        <a href="/hris-system/pages/auth/login.php"
+                        <a href="/hris-system/pages/auth/logout.php"
                            class="flex items-center gap-2 rounded-lg px-3 py-2 text-red-600 hover:bg-red-50 font-medium">
                             <span class="material-symbols-outlined text-sm">logout</span>
                             Logout
