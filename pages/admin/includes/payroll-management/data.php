@@ -1,16 +1,40 @@
 <?php
 
+$normalizeCompensationRow = static function (array $row): array {
+    $monthlyRate = (float)($row['monthly_rate'] ?? 0);
+    $allowanceTotal = max(0.0, (float)($row['allowance_total'] ?? 0));
+    $basePay = isset($row['base_pay'])
+        ? max(0.0, (float)$row['base_pay'])
+        : max(0.0, $monthlyRate - $allowanceTotal);
+
+    $row['base_pay'] = $basePay;
+    $row['allowance_total'] = $allowanceTotal;
+    $row['tax_deduction'] = max(0.0, (float)($row['tax_deduction'] ?? 0));
+    $row['government_deductions'] = max(0.0, (float)($row['government_deductions'] ?? 0));
+    $row['other_deductions'] = max(0.0, (float)($row['other_deductions'] ?? 0));
+
+    return $row;
+};
+
 $employeesResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/employment_records?select=person_id,person:people!employment_records_person_id_fkey(id,first_name,surname)&is_current=eq.true&limit=1000',
+    $supabaseUrl . '/rest/v1/employment_records?select=person_id,employment_status,person:people!employment_records_person_id_fkey(id,first_name,surname)&is_current=eq.true&limit=1000',
     $headers
 );
 
 $compensationsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/employee_compensations?select=id,person_id,monthly_rate,pay_frequency,effective_from,effective_to,created_at&order=created_at.desc&limit=5000',
+    $supabaseUrl . '/rest/v1/employee_compensations?select=id,person_id,monthly_rate,pay_frequency,effective_from,effective_to,base_pay,allowance_total,tax_deduction,government_deductions,other_deductions,created_at&order=effective_from.desc,created_at.desc&limit=5000',
     $headers
 );
+
+if (!isSuccessful($compensationsResponse)) {
+    $compensationsResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/employee_compensations?select=id,person_id,monthly_rate,pay_frequency,effective_from,effective_to,created_at&order=effective_from.desc,created_at.desc&limit=5000',
+        $headers
+    );
+}
 
 $periodsResponse = apiRequest(
     'GET',
@@ -37,7 +61,9 @@ $payslipsResponse = apiRequest(
 );
 
 $employmentRecords = isSuccessful($employeesResponse) ? (array)$employeesResponse['data'] : [];
-$compensationRows = isSuccessful($compensationsResponse) ? (array)$compensationsResponse['data'] : [];
+$compensationRows = isSuccessful($compensationsResponse)
+    ? array_map($normalizeCompensationRow, (array)$compensationsResponse['data'])
+    : [];
 $periodRows = isSuccessful($periodsResponse) ? (array)$periodsResponse['data'] : [];
 $runRows = isSuccessful($runsResponse) ? (array)$runsResponse['data'] : [];
 $itemRows = isSuccessful($itemsResponse) ? (array)$itemsResponse['data'] : [];
@@ -52,6 +78,74 @@ $responseChecks = [
     ['payroll items', $itemsResponse],
     ['payslips', $payslipsResponse],
 ];
+
+if (isSuccessful($periodsResponse) && empty($periodRows)) {
+    $effectiveMonths = [];
+    foreach ($compensationRows as $row) {
+        $effectiveFrom = trim((string)($row['effective_from'] ?? ''));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $effectiveFrom)) {
+            continue;
+        }
+
+        $effectiveMonths[substr($effectiveFrom, 0, 7)] = true;
+    }
+
+    if (empty($effectiveMonths)) {
+        $effectiveMonths[gmdate('Y-m')] = true;
+    }
+
+    ksort($effectiveMonths);
+
+    $payload = [];
+    foreach (array_keys($effectiveMonths) as $yearMonth) {
+        $monthDate = DateTimeImmutable::createFromFormat('!Y-m-d', $yearMonth . '-01', new DateTimeZone('UTC'));
+        if (!$monthDate) {
+            continue;
+        }
+
+        $firstDay = $monthDate->format('Y-m-01');
+        $fifteenth = $monthDate->format('Y-m-15');
+        $sixteenth = $monthDate->format('Y-m-16');
+        $monthEnd = $monthDate->format('Y-m-t');
+
+        $payload[] = [
+            'period_code' => $yearMonth . '-A',
+            'period_start' => $firstDay,
+            'period_end' => $fifteenth,
+            'payout_date' => DateTimeImmutable::createFromFormat('!Y-m-d', $fifteenth, new DateTimeZone('UTC'))->modify('+5 day')->format('Y-m-d'),
+            'status' => 'open',
+        ];
+
+        if ($sixteenth <= $monthEnd) {
+            $payload[] = [
+                'period_code' => $yearMonth . '-B',
+                'period_start' => $sixteenth,
+                'period_end' => $monthEnd,
+                'payout_date' => DateTimeImmutable::createFromFormat('!Y-m-d', $monthEnd, new DateTimeZone('UTC'))->modify('+5 day')->format('Y-m-d'),
+                'status' => 'open',
+            ];
+        }
+    }
+
+    if (!empty($payload)) {
+        apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/payroll_periods',
+            array_merge($headers, ['Prefer: return=minimal']),
+            $payload
+        );
+
+        $periodsResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/payroll_periods?select=id,period_code,period_start,period_end,payout_date,status,created_at&order=period_end.desc&limit=300',
+            $headers
+        );
+
+        if (isSuccessful($periodsResponse)) {
+            $periodRows = (array)($periodsResponse['data'] ?? []);
+        }
+    }
+}
 
 foreach ($responseChecks as [$label, $response]) {
     if (isSuccessful($response)) {
@@ -96,10 +190,131 @@ foreach ($compensationRows as $row) {
     $latestCompensationByPerson[$personId] = $row;
 }
 
+$setupCompensationByPerson = [];
+$todayDate = gmdate('Y-m-d');
+foreach ($compensationRows as $row) {
+    $personId = (string)($row['person_id'] ?? '');
+    if ($personId === '' || isset($setupCompensationByPerson[$personId])) {
+        continue;
+    }
+
+    $effectiveFrom = (string)($row['effective_from'] ?? '');
+    $effectiveTo = (string)($row['effective_to'] ?? '');
+    if ($effectiveFrom === '' || $effectiveFrom > $todayDate) {
+        continue;
+    }
+    if ($effectiveTo !== '' && $effectiveTo < $todayDate) {
+        continue;
+    }
+
+    $setupCompensationByPerson[$personId] = $row;
+}
+
+foreach ($latestCompensationByPerson as $personId => $row) {
+    if (!isset($setupCompensationByPerson[$personId])) {
+        $setupCompensationByPerson[$personId] = $row;
+    }
+}
+
 $employeesForSetup = array_values($employeeMap);
 usort($employeesForSetup, static function (array $left, array $right): int {
     return strcmp((string)$left['name'], (string)$right['name']);
 });
+
+$employmentStatusByPerson = [];
+foreach ($employmentRecords as $record) {
+    $personId = (string)($record['person_id'] ?? '');
+    if ($personId === '' || isset($employmentStatusByPerson[$personId])) {
+        continue;
+    }
+
+    $employmentStatusByPerson[$personId] = strtolower(trim((string)($record['employment_status'] ?? 'active')));
+}
+
+$employeePickerRows = [];
+foreach ($employeesForSetup as $employee) {
+    $personId = (string)($employee['id'] ?? '');
+    if ($personId === '') {
+        continue;
+    }
+
+    $compensation = $setupCompensationByPerson[$personId] ?? null;
+    $employeePickerRows[] = [
+        'person_id' => $personId,
+        'name' => (string)($employee['name'] ?? 'Unknown Employee'),
+        'status' => (string)($employmentStatusByPerson[$personId] ?? 'active'),
+        'monthly_rate' => is_array($compensation) ? (float)($compensation['monthly_rate'] ?? 0) : 0.0,
+        'pay_frequency' => is_array($compensation) ? (string)($compensation['pay_frequency'] ?? 'semi_monthly') : 'semi_monthly',
+    ];
+}
+
+$activeEmploymentPersonIds = [];
+foreach ($employmentRecords as $record) {
+    $personId = (string)($record['person_id'] ?? '');
+    $employmentStatus = strtolower(trim((string)($record['employment_status'] ?? 'active')));
+    if ($personId === '' || $employmentStatus !== 'active') {
+        continue;
+    }
+
+    $activeEmploymentPersonIds[$personId] = true;
+}
+
+$generationPreviewRows = [];
+$generationPreviewTotals = [
+    'employee_count' => 0,
+    'gross_pay' => 0.0,
+    'net_pay' => 0.0,
+];
+
+foreach ($employeesForSetup as $employee) {
+    $personId = (string)($employee['id'] ?? '');
+    if ($personId === '' || !isset($activeEmploymentPersonIds[$personId])) {
+        continue;
+    }
+
+    $compensation = $setupCompensationByPerson[$personId] ?? null;
+    if (!is_array($compensation)) {
+        continue;
+    }
+
+    $monthlyRate = (float)($compensation['monthly_rate'] ?? 0);
+    $allowanceMonthly = max(0.0, (float)($compensation['allowance_total'] ?? 0));
+    $basePayMonthly = isset($compensation['base_pay'])
+        ? max(0.0, (float)$compensation['base_pay'])
+        : max(0.0, $monthlyRate - $allowanceMonthly);
+    $taxMonthly = max(0.0, (float)($compensation['tax_deduction'] ?? 0));
+    $governmentMonthly = max(0.0, (float)($compensation['government_deductions'] ?? 0));
+    $otherMonthly = max(0.0, (float)($compensation['other_deductions'] ?? 0));
+    if ($monthlyRate <= 0) {
+        continue;
+    }
+
+    $payFrequency = strtolower((string)($compensation['pay_frequency'] ?? 'semi_monthly'));
+    $divisor = 1;
+    if ($payFrequency === 'semi_monthly') {
+        $divisor = 2;
+    } elseif ($payFrequency === 'weekly') {
+        $divisor = 4;
+    }
+
+    $basicPay = round($basePayMonthly / $divisor, 2);
+    $allowancesTotal = round($allowanceMonthly / $divisor, 2);
+    $deductionsTotal = round(($taxMonthly + $governmentMonthly + $otherMonthly) / $divisor, 2);
+    $grossPay = round($basicPay + $allowancesTotal, 2);
+    $netPay = round($grossPay - $deductionsTotal, 2);
+
+    $generationPreviewRows[] = [
+        'person_id' => $personId,
+        'employee_name' => (string)($employee['name'] ?? 'Unknown Employee'),
+        'pay_frequency' => $payFrequency,
+        'gross_pay' => $grossPay,
+        'net_pay' => $netPay,
+    ];
+
+    $generationPreviewTotals['employee_count']++;
+    $generationPreviewTotals['gross_pay'] += $grossPay;
+    $generationPreviewTotals['net_pay'] += $netPay;
+}
 
 $periodById = [];
 foreach ($periodRows as $period) {
@@ -154,6 +369,7 @@ foreach ($runRows as $run) {
 
     $batchRows[] = [
         'id' => $runId,
+        'period_id' => (string)($run['payroll_period_id'] ?? ''),
         'period_code' => $periodCode,
         'period_label' => $periodLabel,
         'status' => (string)($run['run_status'] ?? 'draft'),
@@ -162,6 +378,197 @@ foreach ($runRows as $run) {
         'total_net' => $totalNet,
         'generated_at' => (string)($run['generated_at'] ?? ''),
     ];
+}
+
+$latestBatchByPeriod = [];
+foreach ($batchRows as $row) {
+    $periodId = (string)($row['period_id'] ?? '');
+    if ($periodId === '' || isset($latestBatchByPeriod[$periodId])) {
+        continue;
+    }
+    $latestBatchByPeriod[$periodId] = $row;
+}
+
+$payrollEstimateHistoryRows = [];
+foreach ($periodRows as $period) {
+    $periodId = (string)($period['id'] ?? '');
+    if ($periodId === '') {
+        continue;
+    }
+
+    $periodCode = (string)($period['period_code'] ?? 'PR');
+    $periodStart = (string)($period['period_start'] ?? '');
+    $periodEnd = (string)($period['period_end'] ?? '');
+    $periodLabel = $periodStart !== '' && $periodEnd !== ''
+        ? date('M d, Y', strtotime($periodStart)) . ' - ' . date('M d, Y', strtotime($periodEnd))
+        : $periodCode;
+
+    $batch = $latestBatchByPeriod[$periodId] ?? null;
+    $payrollEstimateHistoryRows[] = [
+        'period_id' => $periodId,
+        'period_code' => $periodCode,
+        'period_label' => $periodLabel,
+        'status' => (string)($period['status'] ?? 'open'),
+        'estimated_gross' => is_array($batch) ? (float)($batch['total_gross'] ?? 0) : 0.0,
+        'estimated_net' => is_array($batch) ? (float)($batch['total_net'] ?? 0) : 0.0,
+        'employee_count' => is_array($batch) ? (int)($batch['employee_count'] ?? 0) : 0,
+    ];
+}
+
+$payrollEstimateHistoryRows = array_slice($payrollEstimateHistoryRows, 0, 8);
+
+$periodsWithExistingRun = [];
+foreach ($runRows as $run) {
+    $periodId = (string)($run['payroll_period_id'] ?? '');
+    $runStatus = strtolower(trim((string)($run['run_status'] ?? 'draft')));
+    if ($periodId === '' || $runStatus === 'cancelled') {
+        continue;
+    }
+
+    $periodsWithExistingRun[$periodId] = true;
+}
+
+$generationPeriodOptions = array_values(array_filter($periodRows, static function (array $period) use ($periodsWithExistingRun): bool {
+    $periodId = (string)($period['id'] ?? '');
+    $status = strtolower((string)($period['status'] ?? 'open'));
+
+    if (!in_array($status, ['open', 'processing', 'posted'], true)) {
+        return false;
+    }
+
+    if ($periodId !== '' && isset($periodsWithExistingRun[$periodId])) {
+        return false;
+    }
+
+    return true;
+}));
+
+$buildGenerationPreviewForPeriod = static function (string $periodStart, string $periodEnd) use ($activeEmploymentPersonIds, $employeeMap, $compensationRows): array {
+    $compensationByPerson = [];
+    foreach ($compensationRows as $row) {
+        $personId = (string)($row['person_id'] ?? '');
+        if ($personId === '' || !isset($activeEmploymentPersonIds[$personId]) || isset($compensationByPerson[$personId])) {
+            continue;
+        }
+
+        $effectiveFrom = (string)($row['effective_from'] ?? '');
+        $effectiveTo = (string)($row['effective_to'] ?? '');
+        if ($effectiveFrom === '' || $effectiveFrom > $periodStart) {
+            continue;
+        }
+        if ($effectiveTo !== '' && $effectiveTo < $periodStart) {
+            continue;
+        }
+
+        $compensationByPerson[$personId] = $row;
+    }
+
+    $rows = [];
+    $totals = [
+        'employee_count' => 0,
+        'gross_pay' => 0.0,
+        'net_pay' => 0.0,
+    ];
+
+    foreach ($activeEmploymentPersonIds as $personId => $_active) {
+        $compensation = $compensationByPerson[$personId] ?? null;
+        if (!is_array($compensation)) {
+            continue;
+        }
+
+        $monthlyRate = (float)($compensation['monthly_rate'] ?? 0);
+        $allowanceMonthly = max(0.0, (float)($compensation['allowance_total'] ?? 0));
+        $basePayMonthly = isset($compensation['base_pay'])
+            ? max(0.0, (float)$compensation['base_pay'])
+            : max(0.0, $monthlyRate - $allowanceMonthly);
+        $taxMonthly = max(0.0, (float)($compensation['tax_deduction'] ?? 0));
+        $governmentMonthly = max(0.0, (float)($compensation['government_deductions'] ?? 0));
+        $otherMonthly = max(0.0, (float)($compensation['other_deductions'] ?? 0));
+        if ($monthlyRate <= 0) {
+            continue;
+        }
+
+        $payFrequency = strtolower((string)($compensation['pay_frequency'] ?? 'semi_monthly'));
+        $divisor = 1;
+        if ($payFrequency === 'semi_monthly') {
+            $divisor = 2;
+        } elseif ($payFrequency === 'weekly') {
+            $divisor = 4;
+        }
+
+        $basicPay = round($basePayMonthly / $divisor, 2);
+        $allowancesTotal = round($allowanceMonthly / $divisor, 2);
+        $deductionsTotal = round(($taxMonthly + $governmentMonthly + $otherMonthly) / $divisor, 2);
+        $grossPay = round($basicPay + $allowancesTotal, 2);
+        $netPay = round($grossPay - $deductionsTotal, 2);
+
+        $rows[] = [
+            'person_id' => $personId,
+            'employee_name' => (string)($employeeMap[$personId]['name'] ?? 'Unknown Employee'),
+            'pay_frequency' => $payFrequency,
+            'gross_pay' => $grossPay,
+            'net_pay' => $netPay,
+        ];
+
+        $totals['employee_count']++;
+        $totals['gross_pay'] += $grossPay;
+        $totals['net_pay'] += $netPay;
+    }
+
+    usort($rows, static function (array $left, array $right): int {
+        return strcmp((string)($left['employee_name'] ?? ''), (string)($right['employee_name'] ?? ''));
+    });
+
+    return [
+        'rows' => $rows,
+        'totals' => $totals,
+    ];
+};
+
+$generationPreviewByPeriod = [];
+foreach ($generationPeriodOptions as $period) {
+    $periodId = (string)($period['id'] ?? '');
+    $periodStart = (string)($period['period_start'] ?? '');
+    $periodEnd = (string)($period['period_end'] ?? '');
+    if ($periodId === '' || $periodStart === '' || $periodEnd === '') {
+        continue;
+    }
+
+    $generationPreviewByPeriod[$periodId] = $buildGenerationPreviewForPeriod($periodStart, $periodEnd);
+}
+
+foreach ($payrollEstimateHistoryRows as &$historyRow) {
+    $historyPeriodId = (string)($historyRow['period_id'] ?? '');
+    if ($historyPeriodId === '') {
+        continue;
+    }
+
+    $hasBatchValues = ((int)($historyRow['employee_count'] ?? 0) > 0)
+        || ((float)($historyRow['estimated_gross'] ?? 0) > 0)
+        || ((float)($historyRow['estimated_net'] ?? 0) > 0);
+    if ($hasBatchValues) {
+        continue;
+    }
+
+    $preview = $generationPreviewByPeriod[$historyPeriodId] ?? null;
+    if (!is_array($preview)) {
+        continue;
+    }
+
+    $previewTotals = (array)($preview['totals'] ?? []);
+    $historyRow['employee_count'] = (int)($previewTotals['employee_count'] ?? 0);
+    $historyRow['estimated_gross'] = (float)($previewTotals['gross_pay'] ?? 0);
+    $historyRow['estimated_net'] = (float)($previewTotals['net_pay'] ?? 0);
+}
+unset($historyRow);
+
+if (!empty($generationPeriodOptions)) {
+    $defaultPeriodId = (string)($generationPeriodOptions[0]['id'] ?? '');
+    $defaultPreview = is_array($generationPreviewByPeriod[$defaultPeriodId] ?? null) ? $generationPreviewByPeriod[$defaultPeriodId] : null;
+    if (is_array($defaultPreview)) {
+        $generationPreviewRows = (array)($defaultPreview['rows'] ?? []);
+        $generationPreviewTotals = (array)($defaultPreview['totals'] ?? ['employee_count' => 0, 'gross_pay' => 0.0, 'net_pay' => 0.0]);
+    }
 }
 
 $currentCutoffLabel = 'No payroll period found';
@@ -202,6 +609,21 @@ if (!empty($periodRows)) {
     }
 
     $currentCutoffEmployeeCount = count($personCounter);
+}
+
+if ($currentCutoffEmployeeCount === 0 && !empty($periodRows)) {
+    $latestPeriod = $periodRows[0];
+    $latestPeriodId = (string)($latestPeriod['id'] ?? '');
+    $previewForLatest = is_array($generationPreviewByPeriod[$latestPeriodId] ?? null)
+        ? (array)$generationPreviewByPeriod[$latestPeriodId]
+        : null;
+
+    if (is_array($previewForLatest)) {
+        $latestTotals = (array)($previewForLatest['totals'] ?? []);
+        $currentCutoffEmployeeCount = (int)($latestTotals['employee_count'] ?? 0);
+        $currentCutoffGross = (float)($latestTotals['gross_pay'] ?? 0);
+        $currentCutoffNet = (float)($latestTotals['net_pay'] ?? 0);
+    }
 }
 
 $payslipByPayrollItem = [];
@@ -257,5 +679,38 @@ foreach ($itemRows as $item) {
 
 $releaseEligibleRuns = array_values(array_filter($batchRows, static function (array $row): bool {
     $status = strtolower((string)($row['status'] ?? 'draft'));
-    return in_array($status, ['approved', 'released', 'computed'], true);
+    return in_array($status, ['approved', 'computed'], true);
 }));
+
+$salarySetupLogRows = [];
+$todayDateTs = strtotime(gmdate('Y-m-d'));
+foreach ($compensationRows as $row) {
+    $setupId = (string)($row['id'] ?? '');
+    $personId = (string)($row['person_id'] ?? '');
+    if ($setupId === '' || $personId === '') {
+        continue;
+    }
+
+    $effectiveFrom = (string)($row['effective_from'] ?? '');
+    $effectiveTo = (string)($row['effective_to'] ?? '');
+    $fromTs = $effectiveFrom !== '' ? strtotime($effectiveFrom) : false;
+    $toTs = $effectiveTo !== '' ? strtotime($effectiveTo) : false;
+
+    $timelineStatus = 'current';
+    if ($fromTs !== false && $fromTs > $todayDateTs) {
+        $timelineStatus = 'scheduled';
+    } elseif ($toTs !== false && $toTs < $todayDateTs) {
+        $timelineStatus = 'ended';
+    }
+
+    $salarySetupLogRows[] = [
+        'id' => $setupId,
+        'person_id' => $personId,
+        'employee_name' => (string)($employeeMap[$personId]['name'] ?? ('Employee #' . strtoupper(substr(str_replace('-', '', $personId), 0, 6)))),
+        'monthly_rate' => (float)($row['monthly_rate'] ?? 0),
+        'pay_frequency' => (string)($row['pay_frequency'] ?? 'semi_monthly'),
+        'effective_from' => $effectiveFrom,
+        'effective_to' => $effectiveTo,
+        'status' => $timelineStatus,
+    ];
+}

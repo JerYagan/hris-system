@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../lib/admin-backend.php';
+require_once __DIR__ . '/../notifications/email.php';
 
 $backend = adminBackendContext();
 $supabaseUrl = (string)($backend['supabase_url'] ?? '');
@@ -25,6 +26,14 @@ $settingsCatalog = [
     'email_notifications_enabled' => ['type' => 'boolean', 'default' => '1'],
     'critical_alert_recipient' => ['type' => 'text', 'default' => 'Admin Only'],
     'reminder_frequency' => ['type' => 'text', 'default' => 'Real-time'],
+    'smtp_host' => ['type' => 'text', 'default' => ''],
+    'smtp_port' => ['type' => 'number', 'default' => '587'],
+    'smtp_username' => ['type' => 'text', 'default' => ''],
+    'smtp_password' => ['type' => 'text', 'default' => ''],
+    'smtp_encryption' => ['type' => 'text', 'default' => 'tls'],
+    'smtp_auth' => ['type' => 'boolean', 'default' => '1'],
+    'smtp_from_email' => ['type' => 'text', 'default' => ''],
+    'smtp_from_name' => ['type' => 'text', 'default' => 'DA HRIS'],
 ];
 
 function settingsApiUrl(string $pathWithQuery = ''): string

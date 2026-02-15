@@ -6,7 +6,7 @@ $auditLogs = [];
 if (settingsReady()) {
     $settingsResponse = apiRequest(
         'GET',
-        settingsApiUrl('system_settings?select=setting_key,value_text,value_json,updated_at'),
+        settingsApiUrl('system_settings?select=setting_key,setting_value,updated_at'),
         $headers
     );
 
@@ -19,7 +19,23 @@ if (settingsReady()) {
                     continue;
                 }
 
-                $settingsValues[$settingKey] = cleanText($row['value_text'] ?? '');
+                $storedValue = $row['setting_value'] ?? null;
+                $normalizedValue = '';
+
+                if (is_array($storedValue) && array_key_exists('value', $storedValue)) {
+                    $value = $storedValue['value'];
+                    if (is_bool($value)) {
+                        $normalizedValue = $value ? '1' : '0';
+                    } else {
+                        $normalizedValue = cleanText((string)$value) ?? '';
+                    }
+                } elseif (is_bool($storedValue)) {
+                    $normalizedValue = $storedValue ? '1' : '0';
+                } elseif (is_scalar($storedValue)) {
+                    $normalizedValue = cleanText((string)$storedValue) ?? '';
+                }
+
+                $settingsValues[$settingKey] = $normalizedValue;
             }
         }
     }

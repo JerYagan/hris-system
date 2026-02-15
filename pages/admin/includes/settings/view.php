@@ -1,11 +1,3 @@
-<div class="mb-6">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 text-white">
-        <p class="text-xs uppercase tracking-wide text-emerald-300">Admin</p>
-        <h1 class="text-2xl font-bold mt-1">System Settings</h1>
-        <p class="text-sm text-slate-300 mt-2">Configure backups, security, notifications, and audit controls for the platform.</p>
-    </div>
-</div>
-
 <?php if (($state ?? '') === 'success' && !empty($message)): ?>
     <div class="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><?php echo cleanText($message); ?></div>
 <?php elseif (($state ?? '') === 'error' && !empty($message)): ?>
@@ -18,7 +10,7 @@
         <p class="text-sm text-slate-500 mt-1">Create scheduled backups and restore system data from selected backup files.</p>
     </header>
 
-    <form method="post" class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+    <form method="post" action="settings.php" class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
         <input type="hidden" name="form_action" value="save_backup_settings">
         <div>
             <label class="text-slate-600">Backup Scope</label>
@@ -50,11 +42,89 @@
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-800">SMTP Email Configuration</h2>
+        <p class="text-sm text-slate-500 mt-1">Configure SMTP credentials used by admin email functions and send a test email.</p>
+    </header>
+
+    <form method="post" action="settings.php" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-2">
+        <input type="hidden" name="form_action" value="save_smtp_settings">
+        <div>
+            <label class="text-slate-600">SMTP Host</label>
+            <input type="text" name="smtp_host" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?php echo cleanText(settingValue('smtp_host')); ?>" placeholder="smtp.yourprovider.com">
+        </div>
+        <div>
+            <label class="text-slate-600">SMTP Port</label>
+            <input type="number" min="1" name="smtp_port" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?php echo cleanText(settingValue('smtp_port')); ?>" placeholder="587">
+        </div>
+        <div>
+            <label class="text-slate-600">SMTP Username</label>
+            <input type="text" name="smtp_username" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?php echo cleanText(settingValue('smtp_username')); ?>" placeholder="no-reply@yourdomain.com">
+        </div>
+        <div>
+            <label class="text-slate-600">SMTP Password</label>
+            <input type="password" name="smtp_password" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="" placeholder="Leave blank to keep existing password">
+        </div>
+        <div>
+            <label class="text-slate-600">Encryption</label>
+            <?php $smtpEncryption = strtolower((string) settingValue('smtp_encryption')); ?>
+            <?php $smtpEncryption = $smtpEncryption !== '' ? $smtpEncryption : 'tls'; ?>
+            <select name="smtp_encryption" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                <option value="tls" <?php echo $smtpEncryption === 'tls' ? 'selected' : ''; ?>>TLS</option>
+                <option value="ssl" <?php echo $smtpEncryption === 'ssl' ? 'selected' : ''; ?>>SSL</option>
+                <option value="none" <?php echo $smtpEncryption === 'none' ? 'selected' : ''; ?>>None</option>
+            </select>
+        </div>
+        <div>
+            <label class="text-slate-600">SMTP Auth</label>
+            <select name="smtp_auth" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                <option value="1" <?php echo isEnabled('smtp_auth') ? 'selected' : ''; ?>>Enabled</option>
+                <option value="0" <?php echo !isEnabled('smtp_auth') ? 'selected' : ''; ?>>Disabled</option>
+            </select>
+        </div>
+        <div>
+            <label class="text-slate-600">From Email</label>
+            <input type="email" name="smtp_from_email" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?php echo cleanText(settingValue('smtp_from_email')); ?>" placeholder="no-reply@yourdomain.com">
+        </div>
+        <div>
+            <label class="text-slate-600">From Name</label>
+            <input type="text" name="smtp_from_name" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?php echo cleanText(settingValue('smtp_from_name')); ?>" placeholder="DA HRIS">
+        </div>
+        <div class="md:col-span-2 flex justify-end gap-3 mt-2">
+            <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Save SMTP Settings</button>
+        </div>
+    </form>
+
+    <form method="post" action="settings.php" class="px-6 pb-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <input type="hidden" name="form_action" value="send_smtp_test_email">
+        <input type="hidden" name="smtp_host" value="<?php echo cleanText(settingValue('smtp_host')); ?>">
+        <input type="hidden" name="smtp_port" value="<?php echo cleanText(settingValue('smtp_port')); ?>">
+        <input type="hidden" name="smtp_username" value="<?php echo cleanText(settingValue('smtp_username')); ?>">
+        <input type="hidden" name="smtp_encryption" value="<?php echo cleanText($smtpEncryption); ?>">
+        <input type="hidden" name="smtp_auth" value="<?php echo isEnabled('smtp_auth') ? '1' : '0'; ?>">
+        <input type="hidden" name="smtp_from_email" value="<?php echo cleanText(settingValue('smtp_from_email')); ?>">
+        <input type="hidden" name="smtp_from_name" value="<?php echo cleanText(settingValue('smtp_from_name')); ?>">
+        <div>
+            <label class="text-slate-600">SMTP Test Recipient</label>
+            <input type="email" name="smtp_test_recipient_email" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="recipient@example.com" required>
+            <p class="text-xs text-slate-500 mt-1">Uses currently saved SMTP settings. Save settings first before testing.</p>
+        </div>
+        <div>
+            <label class="text-slate-600">SMTP Password (optional for test)</label>
+            <input type="password" name="smtp_password" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="" placeholder="Leave blank to use saved password">
+        </div>
+        <div class="md:col-span-2 flex justify-end gap-3 mt-2">
+            <button type="submit" class="px-5 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700">Send SMTP Test Email</button>
+        </div>
+    </form>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Security Configurations</h2>
         <p class="text-sm text-slate-500 mt-1">Manage authentication, password policy, and session security settings.</p>
     </header>
 
-    <form method="post" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+    <form method="post" action="settings.php" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
         <input type="hidden" name="form_action" value="save_security_settings">
         <div>
             <label class="text-slate-600">Minimum Password Length</label>
@@ -89,7 +159,7 @@
         <p class="text-sm text-slate-500 mt-1">Control alert channels and recipient rules for key system events.</p>
     </header>
 
-    <form method="post" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+    <form method="post" action="settings.php" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
         <input type="hidden" name="form_action" value="save_notification_settings">
         <div>
             <label class="text-slate-600">System Alerts</label>

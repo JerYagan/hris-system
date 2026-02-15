@@ -18,6 +18,24 @@ $officesResponse = apiRequest(
     $headers
 );
 
+$officesDirectoryResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/offices?select=id,office_name,office_code,is_active&order=office_name.asc&limit=2000',
+    $headers
+);
+
+$positionsResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/job_positions?select=id,position_title,is_active&order=position_title.asc&limit=2000',
+    $headers
+);
+
+$organizationsResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/organizations?select=id,name,code,is_active&is_active=eq.true&order=name.asc&limit=200',
+    $headers
+);
+
 $primaryRolesResponse = apiRequest(
     'GET',
     $supabaseUrl . '/rest/v1/user_role_assignments?select=user_id,role:roles(role_name,role_key)&is_primary=eq.true&expires_at=is.null&limit=2000',
@@ -27,6 +45,9 @@ $primaryRolesResponse = apiRequest(
 $users = isSuccessful($usersResponse) ? $usersResponse['data'] : [];
 $roles = isSuccessful($rolesResponse) ? $rolesResponse['data'] : [];
 $offices = isSuccessful($officesResponse) ? $officesResponse['data'] : [];
+$officesDirectory = isSuccessful($officesDirectoryResponse) ? $officesDirectoryResponse['data'] : [];
+$positions = isSuccessful($positionsResponse) ? $positionsResponse['data'] : [];
+$organizations = isSuccessful($organizationsResponse) ? $organizationsResponse['data'] : [];
 $primaryRoles = isSuccessful($primaryRolesResponse) ? $primaryRolesResponse['data'] : [];
 
 $primaryRoleMap = [];

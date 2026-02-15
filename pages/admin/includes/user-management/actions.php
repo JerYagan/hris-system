@@ -4,6 +4,20 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     return;
 }
 
+if (!function_exists('userManagementIsValidUuid')) {
+    function userManagementIsValidUuid(string $value): bool
+    {
+        return (bool)preg_match('/^[a-f0-9-]{36}$/i', $value);
+    }
+}
+
+if (!function_exists('userManagementIsValidCode')) {
+    function userManagementIsValidCode(string $value): bool
+    {
+        return (bool)preg_match('/^[A-Z0-9][A-Z0-9\-_]{1,19}$/', strtoupper($value));
+    }
+}
+
 $action = (string)($_POST['form_action'] ?? '');
 
 if ($action === 'account') {
@@ -363,6 +377,177 @@ if ($action === 'credential') {
     );
 
     redirectWithState('success', 'Credential action applied successfully.');
+}
+
+if ($action === 'add_position') {
+    $positionTitle = cleanText($_POST['position_title'] ?? null) ?? '';
+    $positionCode = strtoupper((string)(cleanText($_POST['position_code'] ?? null) ?? ''));
+    $employmentClassification = strtolower((string)(cleanText($_POST['employment_classification'] ?? null) ?? 'regular'));
+    $salaryGrade = cleanText($_POST['salary_grade'] ?? null);
+    $isSupervisory = isset($_POST['is_supervisory']) && (string)$_POST['is_supervisory'] === '1';
+
+    if ($positionTitle === '' || $positionCode === '') {
+        redirectWithState('error', 'Position code and title are required.');
+    }
+
+    if (!userManagementIsValidCode($positionCode)) {
+        redirectWithState('error', 'Position code must be 2-20 chars using uppercase letters, numbers, dash, or underscore.');
+    }
+
+    $allowedClassifications = ['regular', 'coterminous', 'contractual', 'casual', 'job_order'];
+    if (!in_array($employmentClassification, $allowedClassifications, true)) {
+        redirectWithState('error', 'Invalid employment classification selected.');
+    }
+
+    $existingPosition = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/job_positions?select=id,position_title,position_code&or=(position_title.eq.' . encodeFilter($positionTitle) . ',position_code.eq.' . encodeFilter($positionCode) . ')&limit=1',
+        $headers
+    );
+
+    if (!isSuccessful($existingPosition)) {
+        redirectWithState('error', 'Unable to validate existing positions.');
+    }
+
+    if (!empty($existingPosition['data'])) {
+        redirectWithState('error', 'Position already exists.');
+    }
+
+    $createPosition = apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/job_positions',
+        array_merge($headers, ['Prefer: return=representation']),
+        [[
+            'position_code' => $positionCode,
+            'position_title' => $positionTitle,
+            'employment_classification' => $employmentClassification,
+            'salary_grade' => $salaryGrade,
+            'is_supervisory' => $isSupervisory,
+            'is_active' => true,
+        ]]
+    );
+
+    if (!isSuccessful($createPosition)) {
+        redirectWithState('error', 'Failed to create position.');
+    }
+
+    $positionId = (string)($createPosition['data'][0]['id'] ?? '');
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $adminUserId,
+            'module_name' => 'user_management',
+            'entity_name' => 'job_positions',
+            'entity_id' => $positionId !== '' ? $positionId : null,
+            'action_name' => 'add_position',
+            'old_data' => null,
+            'new_data' => [
+                'position_code' => $positionCode,
+                'position_title' => $positionTitle,
+                'employment_classification' => $employmentClassification,
+                'salary_grade' => $salaryGrade,
+                'is_supervisory' => $isSupervisory,
+            ],
+            'ip_address' => clientIp(),
+        ]]
+    );
+
+    redirectWithState('success', 'Position added successfully.');
+}
+
+if ($action === 'add_department') {
+    $organizationId = cleanText($_POST['organization_id'] ?? null) ?? '';
+    $officeName = cleanText($_POST['office_name'] ?? null) ?? '';
+    $officeCode = strtoupper((string)(cleanText($_POST['office_code'] ?? null) ?? ''));
+    $officeType = strtolower((string)(cleanText($_POST['office_type'] ?? null) ?? 'unit'));
+
+    if ($officeName === '' || $officeCode === '') {
+        redirectWithState('error', 'Department name and code are required.');
+    }
+
+    if (!userManagementIsValidCode($officeCode)) {
+        redirectWithState('error', 'Department code must be 2-20 chars using uppercase letters, numbers, dash, or underscore.');
+    }
+
+    $allowedOfficeTypes = ['central', 'regional', 'provincial', 'division', 'unit'];
+    if (!in_array($officeType, $allowedOfficeTypes, true)) {
+        redirectWithState('error', 'Invalid office type selected.');
+    }
+
+    if ($organizationId === '') {
+        $orgResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/organizations?select=id,is_active&is_active=eq.true&order=created_at.asc&limit=1',
+            $headers
+        );
+
+        $organizationId = (string)($orgResponse['data'][0]['id'] ?? '');
+    }
+
+    if (!userManagementIsValidUuid($organizationId)) {
+        redirectWithState('error', 'No active organization found. Please configure organization first.');
+    }
+
+    $existingOffice = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/offices?select=id,office_name,office_code&or=(office_name.eq.' . encodeFilter($officeName) . ',office_code.eq.' . encodeFilter($officeCode) . ')&limit=1',
+        $headers
+    );
+
+    if (!isSuccessful($existingOffice)) {
+        redirectWithState('error', 'Unable to validate existing departments.');
+    }
+
+    if (!empty($existingOffice['data'])) {
+        redirectWithState('error', 'Department already exists.');
+    }
+
+    $departmentPayload = [
+        'organization_id' => $organizationId,
+        'office_code' => $officeCode,
+        'office_name' => $officeName,
+        'office_type' => $officeType,
+        'is_active' => true,
+    ];
+
+    $createOffice = apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/offices',
+        array_merge($headers, ['Prefer: return=representation']),
+        [$departmentPayload]
+    );
+
+    if (!isSuccessful($createOffice)) {
+        redirectWithState('error', 'Failed to create department.');
+    }
+
+    $officeId = (string)($createOffice['data'][0]['id'] ?? '');
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $adminUserId,
+            'module_name' => 'user_management',
+            'entity_name' => 'offices',
+            'entity_id' => $officeId !== '' ? $officeId : null,
+            'action_name' => 'add_department',
+            'old_data' => null,
+            'new_data' => [
+                'organization_id' => $organizationId,
+                'office_name' => $officeName,
+                'office_code' => $officeCode,
+                'office_type' => $officeType,
+            ],
+            'ip_address' => clientIp(),
+        ]]
+    );
+
+    redirectWithState('success', 'Department added successfully.');
 }
 
 redirectWithState('error', 'Unknown form action.');

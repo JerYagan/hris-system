@@ -1,5 +1,25 @@
 <?php
 
+require_once __DIR__ . '/email.php';
+
+if (!function_exists('smtpConfigIsReady')) {
+    function smtpConfigIsReady(array $smtpConfig, string $fromEmail): bool
+    {
+        return false;
+    }
+}
+
+if (!function_exists('smtpSendTransactionalEmail')) {
+    function smtpSendTransactionalEmail(array $smtpConfig, string $fromEmail, string $fromName, string $toEmail, string $toName, string $subject, string $htmlContent): array
+    {
+        return [
+            'status' => 500,
+            'data' => [],
+            'raw' => 'SMTP helper not loaded.',
+        ];
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     return;
 }
@@ -151,15 +171,15 @@ if ($action === 'send_test_notification_email') {
         redirectWithState('error', 'Enter a valid recipient email for test delivery.');
     }
 
-    if ($mailApiKey === '' || $mailFrom === '') {
-        redirectWithState('error', 'MAIL_API_KEY and MAIL_FROM are required for Brevo email sending.');
+    if (!smtpConfigIsReady($smtpConfig, $mailFrom)) {
+        redirectWithState('error', 'SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, and MAIL_FROM are required for SMTP email sending.');
     }
 
     $subject = 'DA HRIS Notification Test';
-    $html = '<p>Hello,</p><p>This is a test notification email from DA HRIS admin notifications.</p><p>If you received this message, Brevo integration is working.</p>';
+    $html = '<p>Hello,</p><p>This is a test notification email from DA HRIS admin notifications.</p><p>If you received this message, SMTP integration is working.</p>';
 
-    $emailResponse = brevoSendTransactionalEmail(
-        $mailApiKey,
+    $emailResponse = smtpSendTransactionalEmail(
+        $smtpConfig,
         $mailFrom,
         $mailFromName,
         $recipientEmail,
@@ -170,7 +190,7 @@ if ($action === 'send_test_notification_email') {
 
     if (!isSuccessful($emailResponse)) {
         $details = trim((string)($emailResponse['raw'] ?? ''));
-        $message = 'Brevo send failed (HTTP ' . (int)($emailResponse['status'] ?? 0) . ').';
+        $message = 'SMTP send failed (HTTP ' . (int)($emailResponse['status'] ?? 0) . ').';
         if ($details !== '') {
             $message .= ' ' . $details;
         }
@@ -197,7 +217,7 @@ if ($action === 'send_test_notification_email') {
         ]]
     );
 
-    redirectWithState('success', 'Test email sent via Brevo to ' . $recipientEmail . '.');
+    redirectWithState('success', 'Test email sent via SMTP to ' . $recipientEmail . '.');
 }
 
 redirectWithState('error', 'Unknown notification action.');

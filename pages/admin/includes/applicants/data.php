@@ -12,8 +12,15 @@ $feedbackResponse = apiRequest(
     $headers
 );
 
+$statusHistoryResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/application_status_history?select=application_id,notes,created_at&order=created_at.desc&limit=2000',
+    $headers
+);
+
 $applications = isSuccessful($applicationsResponse) ? (array)($applicationsResponse['data'] ?? []) : [];
 $feedbackRows = isSuccessful($feedbackResponse) ? (array)($feedbackResponse['data'] ?? []) : [];
+$statusHistoryRows = isSuccessful($statusHistoryResponse) ? (array)($statusHistoryResponse['data'] ?? []) : [];
 
 $feedbackMap = [];
 foreach ($feedbackRows as $feedback) {
@@ -27,6 +34,26 @@ foreach ($feedbackRows as $feedback) {
         'feedback_text' => (string)($feedback['feedback_text'] ?? ''),
         'provided_at' => (string)($feedback['provided_at'] ?? ''),
     ];
+}
+
+$basisMap = [];
+foreach ($statusHistoryRows as $historyRow) {
+    $applicationId = (string)($historyRow['application_id'] ?? '');
+    if ($applicationId === '' || isset($basisMap[$applicationId])) {
+        continue;
+    }
+
+    $notes = trim((string)($historyRow['notes'] ?? ''));
+    $basisValue = '-';
+    if ($notes !== '') {
+        $parts = explode('|', $notes, 2);
+        $basisValue = trim((string)($parts[0] ?? ''));
+        if ($basisValue === '') {
+            $basisValue = '-';
+        }
+    }
+
+    $basisMap[$applicationId] = $basisValue;
 }
 
 $registeredApplicantsCount = count($applications);
@@ -118,6 +145,7 @@ foreach ($applications as $application) {
 
     $feedback = $feedbackMap[$applicationId] ?? null;
     $adminDecision = is_array($feedback) ? feedbackDecisionLabel((string)($feedback['decision'] ?? '')) : '-';
+    $basis = (string)($basisMap[$applicationId] ?? '-');
 
     $alignment = 'Pending';
     $alignmentClass = 'bg-slate-200 text-slate-700';
@@ -138,6 +166,7 @@ foreach ($applications as $application) {
         'confidence' => $recommendation[1],
         'recommendation_class' => $recommendation[2],
         'admin_decision' => $adminDecision,
+        'basis' => $basis,
         'alignment' => $alignment,
         'alignment_class' => $alignmentClass,
     ];

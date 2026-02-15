@@ -1,16 +1,17 @@
 <?php
+require_once __DIR__ . '/includes/profile/bootstrap.php';
+require_once __DIR__ . '/includes/profile/actions.php';
+require_once __DIR__ . '/includes/profile/data.php';
+
 $pageTitle = 'My Profile | Admin';
 $activePage = 'profile.php';
 $breadcrumbs = ['My Profile'];
 
+$state = cleanText($_GET['state'] ?? null);
+$message = cleanText($_GET['message'] ?? null);
+
 ob_start();
-?>
-
-<section class="bg-white border rounded-xl p-6">
-    <h1 class="text-xl font-semibold text-gray-800">My Profile</h1>
-    <p class="text-sm text-gray-500 mt-2">Placeholder page for admin profile details and account preferences.</p>
-</section>
-
-<?php
+require __DIR__ . '/includes/profile/view.php';
 $content = ob_get_clean();
+
 include __DIR__ . '/includes/layout.php';

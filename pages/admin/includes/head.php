@@ -7,13 +7,13 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <link rel="stylesheet" href="https://cdn.datatables.net/2.1.8/css/dataTables.dataTables.min.css">
   <link rel="stylesheet" href="https://cdn.datatables.net/buttons/3.1.2/css/buttons.dataTables.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.datatables.net/2.1.8/js/dataTables.min.js"></script>
-  <script src="https://cdn.datatables.net/buttons/3.1.2/js/dataTables.buttons.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://cdn.datatables.net/buttons/3.1.2/js/buttons.html5.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script defer src="https://cdn.datatables.net/2.1.8/js/dataTables.min.js"></script>
+  <script defer src="https://cdn.datatables.net/buttons/3.1.2/js/dataTables.buttons.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script defer src="https://cdn.datatables.net/buttons/3.1.2/js/buttons.html5.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <link rel="icon" type="image/png" sizes="32x32" href="/hris-system/assets/images/favicon.png">
   <link rel="icon" type="image/x-icon" href="/hris-system/assets/images/favicon.ico">
@@ -257,6 +257,56 @@
   .dt-container .dt-info,
   .dt-container .dt-paging .dt-paging-button {
     font-size: 0.82rem;
+  }
+
+  .dt-container table.dataTable thead > tr > th,
+  .dt-container table.dataTable thead > tr > td {
+    position: relative;
+  }
+
+  .dt-container table.dataTable thead > tr > th .dt-column-order,
+  .dt-container table.dataTable thead > tr > td .dt-column-order {
+    position: relative;
+    display: inline-block;
+    width: 0.9rem;
+    margin-left: 0.35rem;
+    vertical-align: middle;
+  }
+
+  .dt-container table.dataTable thead > tr > th .dt-column-order::before,
+  .dt-container table.dataTable thead > tr > th .dt-column-order::after,
+  .dt-container table.dataTable thead > tr > td .dt-column-order::before,
+  .dt-container table.dataTable thead > tr > td .dt-column-order::after {
+    position: absolute;
+    left: 0;
+    font-size: 0.55rem;
+    line-height: 1;
+    color: rgb(100 116 139);
+    opacity: 0.55;
+  }
+
+  .dt-container table.dataTable thead > tr > th .dt-column-order::before,
+  .dt-container table.dataTable thead > tr > td .dt-column-order::before {
+    content: '▲';
+    top: -0.4rem;
+  }
+
+  .dt-container table.dataTable thead > tr > th .dt-column-order::after,
+  .dt-container table.dataTable thead > tr > td .dt-column-order::after {
+    content: '▼';
+    top: 0.2rem;
+  }
+
+  .dt-container table.dataTable thead > tr > th.dt-ordering-asc .dt-column-order::before,
+  .dt-container table.dataTable thead > tr > td.dt-ordering-asc .dt-column-order::before {
+    color: rgb(15 23 42);
+    opacity: 0.95;
+  }
+
+  .dt-container table.dataTable thead > tr > th.dt-ordering-desc .dt-column-order::after,
+  .dt-container table.dataTable thead > tr > td.dt-ordering-desc .dt-column-order::after {
+    color: rgb(15 23 42);
+    opacity: 0.95;
   }
 
   .flatpickr-calendar {

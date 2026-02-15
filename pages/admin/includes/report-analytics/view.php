@@ -17,15 +17,22 @@ $attendanceVariance = round($attendanceComplianceCurrent - $attendanceCompliance
 $lateVariance = (int)$attendanceCurrent['late'] - (int)$attendancePrevious['late'];
 $grossVariance = (float)$payrollCurrent['gross'] - (float)$payrollPrevious['gross'];
 $netVariance = (float)$payrollCurrent['net'] - (float)$payrollPrevious['net'];
-?>
 
-<div class="mb-6">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 text-white">
-        <p class="text-xs uppercase tracking-wide text-emerald-300">Admin</p>
-        <h1 class="text-2xl font-bold mt-1">Report and Analytics</h1>
-        <p class="text-sm text-slate-300 mt-2">View workforce insights, review attendance and payroll summaries, and queue report exports.</p>
-    </div>
-</div>
+$employeeStatusPill = static function (string $status): string {
+    $normalized = strtolower(trim($status));
+    if ($normalized === 'active') {
+        return 'bg-emerald-100 text-emerald-800';
+    }
+    if ($normalized === 'on leave') {
+        return 'bg-amber-100 text-amber-800';
+    }
+    if (in_array($normalized, ['inactive', 'terminated', 'resigned', 'retired'], true)) {
+        return 'bg-rose-100 text-rose-800';
+    }
+
+    return 'bg-slate-100 text-slate-700';
+};
+?>
 
 <?php if ($state && $message): ?>
     <?php
@@ -88,6 +95,66 @@ $netVariance = (float)$payrollCurrent['net'] - (float)$payrollPrevious['net'];
             <p class="text-xs text-slate-500 mt-1">Based on `hire_date` in current records.</p>
         </article>
     </div>
+
+    <div class="px-6 pb-3 flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
+        <div class="w-full md:w-1/2">
+            <label class="text-sm text-slate-600" for="reportEmployeesSearch">Search Employees</label>
+            <input id="reportEmployeesSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search by name, department, status, or employee ID">
+        </div>
+        <div class="w-full md:w-56">
+            <label class="text-sm text-slate-600" for="reportEmployeesDepartmentFilter">Department</label>
+            <select id="reportEmployeesDepartmentFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
+                <option value="">All Departments</option>
+                <?php foreach ($employeeDepartmentFilters as $departmentName): ?>
+                    <option value="<?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="w-full md:w-56">
+            <label class="text-sm text-slate-600" for="reportEmployeesStatusFilter">Status</label>
+            <select id="reportEmployeesStatusFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
+                <option value="">All Statuses</option>
+                <?php foreach ($employeeStatusFilters as $statusName): ?>
+                    <option value="<?= htmlspecialchars((string)$statusName, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$statusName, ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+    </div>
+
+    <div class="p-6 pt-3 overflow-x-auto">
+        <table id="reportEmployeesTable" class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600">
+                <tr>
+                    <th class="text-left px-4 py-3">Employee</th>
+                    <th class="text-left px-4 py-3">Employee ID</th>
+                    <th class="text-left px-4 py-3">Department</th>
+                    <th class="text-left px-4 py-3">Status</th>
+                    <th class="text-left px-4 py-3">Hire Date</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                <?php if (empty($employeeRows)): ?>
+                    <tr>
+                        <td class="px-4 py-3 text-slate-500" colspan="5">No employee records found.</td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($employeeRows as $row): ?>
+                        <tr
+                            data-report-employee-search="<?= htmlspecialchars((string)$row['search_text'], ENT_QUOTES, 'UTF-8') ?>"
+                            data-report-employee-status="<?= htmlspecialchars((string)$row['status_label'], ENT_QUOTES, 'UTF-8') ?>"
+                            data-report-employee-department="<?= htmlspecialchars((string)$row['department'], ENT_QUOTES, 'UTF-8') ?>"
+                        >
+                            <td class="px-4 py-3 font-medium text-slate-800"><?= htmlspecialchars((string)$row['name'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)($row['person_id'] !== '' ? $row['person_id'] : '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['department'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><span class="inline-flex items-center justify-center min-w-[96px] px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($employeeStatusPill((string)$row['status_label']), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$row['status_label'], ENT_QUOTES, 'UTF-8') ?></span></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['hire_date'], ENT_QUOTES, 'UTF-8') ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
 </section>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
@@ -142,7 +209,7 @@ $netVariance = (float)$payrollCurrent['net'] - (float)$payrollPrevious['net'];
         <p class="text-sm text-slate-500 mt-1">Generate and download report files while logging export actions for audit.</p>
     </header>
 
-    <form action="report-analytics.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+    <form id="reportExportForm" action="report-analytics.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
         <input type="hidden" name="form_action" value="export_report">
         <div>
             <label class="text-slate-600">Report Type</label>
@@ -156,12 +223,22 @@ $netVariance = (float)$payrollCurrent['net'] - (float)$payrollPrevious['net'];
         </div>
         <div>
             <label class="text-slate-600">Coverage</label>
-            <select name="coverage" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+            <select id="reportCoverageSelect" name="coverage" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
                 <option value="current_cutoff">Current Cutoff</option>
                 <option value="monthly">Monthly</option>
                 <option value="quarterly">Quarterly</option>
                 <option value="custom_range">Custom Range</option>
             </select>
+        </div>
+        <div id="reportCustomDateRange" class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 hidden">
+            <div>
+                <label class="text-slate-600">Start Date</label>
+                <input id="reportCustomStartDate" type="date" name="custom_start_date" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+            </div>
+            <div>
+                <label class="text-slate-600">End Date</label>
+                <input id="reportCustomEndDate" type="date" name="custom_end_date" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+            </div>
         </div>
         <div>
             <label class="text-slate-600">Format</label>

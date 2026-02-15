@@ -7,17 +7,6 @@ $statusPill = static function (bool $isRead): array {
 };
 ?>
 
-<div class="mb-6">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 text-white">
-        <p class="text-xs uppercase tracking-wide text-emerald-300">Admin</p>
-        <div class="flex flex-wrap items-center gap-3 mt-1">
-            <h1 class="text-2xl font-bold">Notifications</h1>
-            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs bg-slate-800 text-slate-200 border border-slate-600">Email Provider: <?= htmlspecialchars($notificationEmailProviderLabel, ENT_QUOTES, 'UTF-8') ?></span>
-        </div>
-        <p class="text-sm text-slate-300 mt-2">Monitor admin notifications and manage read state. Future critical emails for this module default to <?= htmlspecialchars($notificationEmailProviderLabel, ENT_QUOTES, 'UTF-8') ?>.</p>
-    </div>
-</div>
-
 <?php if ($state && $message): ?>
     <?php
     $alertClass = $state === 'success'
@@ -66,7 +55,7 @@ $statusPill = static function (bool $isRead): array {
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Email Notification Settings</h2>
-        <p class="text-sm text-slate-500 mt-1">Provider is set to Brevo. Use this test action to confirm API key and sender configuration.</p>
+        <p class="text-sm text-slate-500 mt-1">Provider is set to SMTP. Use this test action to confirm SMTP and sender configuration.</p>
     </header>
     <form action="notifications.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
         <input type="hidden" name="form_action" value="send_test_notification_email">
@@ -154,12 +143,12 @@ $statusPill = static function (bool $isRead): array {
                                         <form action="notifications.php" method="POST">
                                             <input type="hidden" name="form_action" value="mark_notification_read">
                                             <input type="hidden" name="notification_id" value="<?= htmlspecialchars($notificationId, ENT_QUOTES, 'UTF-8') ?>">
-                                            <button type="submit" class="px-2.5 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Mark Read</button>
+                                            <button type="submit" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm"><span class="material-symbols-outlined text-[15px]">mark_email_read</span>Mark Read</button>
                                         </form>
                                     <?php endif; ?>
 
                                     <?php if ($linkUrl): ?>
-                                        <a href="<?= htmlspecialchars($linkUrl, ENT_QUOTES, 'UTF-8') ?>" class="px-2.5 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Open</a>
+                                        <a href="<?= htmlspecialchars($linkUrl, ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm"><span class="material-symbols-outlined text-[15px]">open_in_new</span>Open</a>
                                     <?php endif; ?>
                                 </div>
                             </td>

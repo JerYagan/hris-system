@@ -4,7 +4,7 @@ This is the practical, step-by-step guide to move your current frontend-first HR
 
 - PHP + Tailwind + Vanilla JS (keep current)
 - Supabase (Postgres + Auth + Storage + Realtime)
-- Email notifications (Resend or Brevo)
+- Email notifications (SMTP)
 
 ---
 
@@ -42,9 +42,14 @@ Create `.env` (or config file) with:
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `APP_BASE_URL`
-- `MAIL_PROVIDER` (`resend` or `brevo`)
-- `MAIL_API_KEY`
 - `MAIL_FROM`
+- `MAIL_FROM_NAME`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USERNAME`
+- `SMTP_PASSWORD`
+- `SMTP_ENCRYPTION` (`tls`, `ssl`, or empty)
+- `SMTP_AUTH` (`1` or `0`)
 
 ### 1.3 Add Basic PHP Dependencies
 
@@ -425,9 +430,18 @@ Go live when all are true:
 After this playbook, create:
 
 - `SUPABASE_SEED_MVP.sql` (roles, permissions, offices, sample leave types)
+- `SUPABASE_SEED_DEMO_FULL.sql` (comprehensive mock data across all core tables for end-to-end UI/demo testing)
 - `MIGRATION_RUNBOOK.md` (exact migration order + rollback)
 
 This keeps implementation consistent and safer for team execution.
+
+### Suggested Seed Run Order for Demo Environments
+
+1. `SUPABASE_SCHEMA.sql`
+2. `SUPABASE_SEED_MVP.sql`
+3. Create test users in Supabase Auth
+4. `SUPABASE_SEED_DEMO_USER_MANAGEMENT.sql`
+5. `SUPABASE_SEED_DEMO_FULL.sql`
 
 ---
 

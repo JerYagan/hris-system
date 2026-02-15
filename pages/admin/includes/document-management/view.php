@@ -26,14 +26,6 @@ $reviewStatusLabel = static function (string $status): string {
 };
 ?>
 
-<div class="mb-6">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 text-white">
-        <p class="text-xs uppercase tracking-wide text-emerald-300">Admin</p>
-        <h1 class="text-2xl font-bold mt-1">Document Management</h1>
-        <p class="text-sm text-slate-300 mt-2">Review uploaded records, maintain lifecycle status, and archive completed documents using modal actions.</p>
-    </div>
-</div>
-
 <?php if ($state && $message): ?>
     <?php
     $alertClass = $state === 'success'
@@ -136,7 +128,7 @@ $reviewStatusLabel = static function (string $status): string {
                         $searchText = strtolower(trim($title . ' ' . $ownerName . ' ' . $category . ' ' . $uploaderEmail . ' ' . $statusLabel));
                         $storageLabel = trim(($bucket !== '' ? $bucket . '/' : '') . $path);
                         ?>
-                        <tr class="align-top hover:bg-slate-50/60" data-doc-search="<?= htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8') ?>" data-doc-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>">
+                        <tr class="align-top hover:bg-slate-100 transition-colors" data-doc-search="<?= htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8') ?>" data-doc-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>">
                             <td class="px-5 py-4">
                                 <div class="font-medium text-slate-800 leading-6"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></div>
                                 <div class="text-xs text-slate-500 leading-5 mt-1">Version <?= htmlspecialchars((string)$versionNo, ENT_QUOTES, 'UTF-8') ?> • <?= htmlspecialchars($storageLabel !== '' ? $storageLabel : '-', ENT_QUOTES, 'UTF-8') ?></div>
@@ -154,9 +146,9 @@ $reviewStatusLabel = static function (string $status): string {
                                         data-document-id="<?= htmlspecialchars($documentId, ENT_QUOTES, 'UTF-8') ?>"
                                         data-document-title="<?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>"
                                         data-current-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>"
-                                        class="px-2.5 py-1.5 text-xs rounded-md border border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                                        class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-emerald-300 bg-emerald-50/50 text-emerald-700 hover:bg-emerald-50 shadow-sm"
                                     >
-                                        Review
+                                        <span class="material-symbols-outlined text-[15px]">fact_check</span>Review
                                     </button>
                                     <button
                                         type="button"
@@ -164,9 +156,9 @@ $reviewStatusLabel = static function (string $status): string {
                                         data-document-id="<?= htmlspecialchars($documentId, ENT_QUOTES, 'UTF-8') ?>"
                                         data-document-title="<?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>"
                                         data-current-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>"
-                                        class="px-2.5 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50"
+                                        class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm"
                                     >
-                                        Archive
+                                        <span class="material-symbols-outlined text-[15px]">inventory_2</span>Archive
                                     </button>
                                 </div>
                             </td>

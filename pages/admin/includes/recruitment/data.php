@@ -2,7 +2,19 @@
 
 $postingsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/job_postings?select=id,title,posting_status,open_date,close_date,updated_at,office:offices(office_name)&order=updated_at.desc&limit=300',
+    $supabaseUrl . '/rest/v1/job_postings?select=id,title,office_id,position_id,description,qualifications,responsibilities,posting_status,open_date,close_date,updated_at,office:offices(office_name),position:job_positions(position_title)&order=updated_at.desc&limit=300',
+    $headers
+);
+
+$officesResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/offices?select=id,office_name&is_active=eq.true&order=office_name.asc&limit=500',
+    $headers
+);
+
+$positionsResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/job_positions?select=id,position_title&is_active=eq.true&order=position_title.asc&limit=500',
     $headers
 );
 
@@ -20,6 +32,8 @@ $applicationsResponse = apiRequest(
 
 $postings = isSuccessful($postingsResponse) ? $postingsResponse['data'] : [];
 $applications = isSuccessful($applicationsResponse) ? $applicationsResponse['data'] : [];
+$officeOptions = isSuccessful($officesResponse) ? (array)($officesResponse['data'] ?? []) : [];
+$positionOptions = isSuccessful($positionsResponse) ? (array)($positionsResponse['data'] ?? []) : [];
 
 $applicationCountsByPosting = [];
 if (!empty($applicationsCountResponse['data']) && is_array($applicationsCountResponse['data'])) {

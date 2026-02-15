@@ -14,14 +14,6 @@ $statusPill = static function (string $status): array {
 };
 ?>
 
-<div class="mb-6">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 text-white">
-        <p class="text-xs uppercase tracking-wide text-emerald-300">Admin</p>
-        <h1 class="text-2xl font-bold mt-1">Applicant Tracking</h1>
-        <p class="text-sm text-slate-300 mt-2">Monitor application progress, schedule interviews, and update applicant status using modal actions.</p>
-    </div>
-</div>
-
 <?php if ($state && $message): ?>
     <?php
     $alertClass = $state === 'success'
@@ -108,7 +100,7 @@ $statusPill = static function (string $status): array {
 
                         $searchText = strtolower(trim($fullName . ' ' . $position . ' ' . $email . ' ' . $statusLabel . ' ' . $updatedLabel));
                         ?>
-                        <tr data-track-search="<?= htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8') ?>" data-track-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>">
+                        <tr class="hover:bg-slate-100 transition-colors" data-track-search="<?= htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8') ?>" data-track-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>">
                             <td class="px-4 py-3">
                                 <div class="font-medium text-slate-800"><?= htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8') ?></div>
                                 <div class="text-xs text-slate-500"><?= htmlspecialchars($email, ENT_QUOTES, 'UTF-8') ?></div>
@@ -119,8 +111,8 @@ $statusPill = static function (string $status): array {
                             <td class="px-4 py-3"><?= htmlspecialchars($updatedLabel, ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3">
                                 <div class="flex flex-wrap gap-2">
-                                    <button type="button" data-track-schedule data-application-id="<?= htmlspecialchars($applicationId, ENT_QUOTES, 'UTF-8') ?>" data-applicant-name="<?= htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8') ?>" class="px-2.5 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Schedule</button>
-                                    <button type="button" data-track-status-update data-application-id="<?= htmlspecialchars($applicationId, ENT_QUOTES, 'UTF-8') ?>" data-applicant-name="<?= htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8') ?>" data-current-status="<?= htmlspecialchars($statusValue, ENT_QUOTES, 'UTF-8') ?>" class="px-2.5 py-1.5 text-xs rounded-md border border-emerald-300 text-emerald-700 hover:bg-emerald-50">Update Status</button>
+                                    <button type="button" data-track-schedule data-application-id="<?= htmlspecialchars($applicationId, ENT_QUOTES, 'UTF-8') ?>" data-applicant-name="<?= htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm"><span class="material-symbols-outlined text-[15px]">event</span>Schedule</button>
+                                    <button type="button" data-track-status-update data-application-id="<?= htmlspecialchars($applicationId, ENT_QUOTES, 'UTF-8') ?>" data-applicant-name="<?= htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8') ?>" data-current-status="<?= htmlspecialchars($statusValue, ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-emerald-300 bg-emerald-50/50 text-emerald-700 hover:bg-emerald-50 shadow-sm"><span class="material-symbols-outlined text-[15px]">sync_alt</span>Update Status</button>
                                 </div>
                             </td>
                         </tr>

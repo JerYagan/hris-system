@@ -33,14 +33,6 @@ $requestPill = static function (string $status): array {
 };
 ?>
 
-<div class="mb-6">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 text-white">
-        <p class="text-xs uppercase tracking-wide text-emerald-300">Admin</p>
-        <h1 class="text-2xl font-bold mt-1">Timekeeping</h1>
-        <p class="text-sm text-slate-300 mt-2">Monitor attendance and process leave or time adjustment requests using modal actions.</p>
-    </div>
-</div>
-
 <?php if ($state && $message): ?>
     <?php
     $alertClass = $state === 'success'
@@ -98,7 +90,7 @@ $requestPill = static function (string $status): array {
                         $timeOutLabel = $timeOut ? date('h:i A', strtotime($timeOut)) : '-';
                         [$statusLabel, $statusClass] = $attendancePill((string)($log['attendance_status'] ?? 'present'));
                         ?>
-                        <tr>
+                        <tr class="hover:bg-slate-100 transition-colors">
                             <td class="px-4 py-3"><?= htmlspecialchars($employeeName, ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($dateLabel, ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($timeInLabel, ENT_QUOTES, 'UTF-8') ?></td>
@@ -175,7 +167,7 @@ $requestPill = static function (string $status): array {
                         [$statusLabel, $statusClass] = $requestPill((string)($request['status'] ?? 'pending'));
                         $searchText = strtolower(trim($employeeName . ' ' . $reason . ' ' . $attendanceDateLabel . ' ' . $statusLabel));
                         ?>
-                        <tr data-adjust-search="<?= htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8') ?>" data-adjust-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>">
+                        <tr class="hover:bg-slate-100 transition-colors" data-adjust-search="<?= htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8') ?>" data-adjust-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>">
                             <td class="px-4 py-3"><?= htmlspecialchars($employeeName, ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($attendanceDateLabel, ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($requestedWindow, ENT_QUOTES, 'UTF-8') ?></td>
@@ -190,9 +182,9 @@ $requestPill = static function (string $status): array {
                                     data-employee-name="<?= htmlspecialchars($employeeName, ENT_QUOTES, 'UTF-8') ?>"
                                     data-current-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>"
                                     data-requested-window="<?= htmlspecialchars($requestedWindow, ENT_QUOTES, 'UTF-8') ?>"
-                                    class="px-2.5 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50"
+                                    class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm"
                                 >
-                                    Review
+                                    <span class="material-symbols-outlined text-[15px]">rate_review</span>Review
                                 </button>
                             </td>
                         </tr>
@@ -272,7 +264,7 @@ $requestPill = static function (string $status): array {
                         $reason = (string)($leave['reason'] ?? '-');
                         $searchText = strtolower(trim($employeeName . ' ' . $leaveType . ' ' . $reason . ' ' . $statusLabel));
                         ?>
-                        <tr data-leave-search="<?= htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8') ?>" data-leave-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>">
+                        <tr class="hover:bg-slate-100 transition-colors" data-leave-search="<?= htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8') ?>" data-leave-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>">
                             <td class="px-4 py-3"><?= htmlspecialchars($employeeName, ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($leaveType, ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($dateRange, ENT_QUOTES, 'UTF-8') ?></td>
@@ -287,9 +279,9 @@ $requestPill = static function (string $status): array {
                                     data-employee-name="<?= htmlspecialchars($employeeName, ENT_QUOTES, 'UTF-8') ?>"
                                     data-current-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>"
                                     data-date-range="<?= htmlspecialchars($dateRange, ENT_QUOTES, 'UTF-8') ?>"
-                                    class="px-2.5 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50"
+                                    class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm"
                                 >
-                                    Review
+                                    <span class="material-symbols-outlined text-[15px]">rate_review</span>Review
                                 </button>
                             </td>
                         </tr>
