@@ -30,7 +30,7 @@ if ($action === 'schedule_interview') {
 
     $applicationResponse = apiRequest(
         'GET',
-        $supabaseUrl . '/rest/v1/applications?select=id,application_status,applicant_profile_id,applicant:applicant_profiles(user_id)&id=eq.' . $applicationId . '&limit=1',
+        $supabaseUrl . '/rest/v1/applications?select=id,application_status,applicant_profile_id,applicant:applicant_profiles(user_id,full_name,email)&id=eq.' . $applicationId . '&limit=1',
         $headers
     );
 
@@ -41,6 +41,8 @@ if ($action === 'schedule_interview') {
 
     $oldStatus = (string)($applicationRow['application_status'] ?? 'submitted');
     $applicantUserId = (string)($applicationRow['applicant']['user_id'] ?? '');
+    $applicantName = trim((string)($applicationRow['applicant']['full_name'] ?? 'Applicant'));
+    $applicantEmail = strtolower(trim((string)($applicationRow['applicant']['email'] ?? '')));
 
     $insertInterview = apiRequest(
         'POST',
@@ -99,6 +101,46 @@ if ($action === 'schedule_interview') {
         );
     }
 
+    $emailStatusMessage = 'Email not sent (recipient email unavailable).';
+    $emailDeliveryStatus = 'not_sent';
+    $emailDeliveryError = null;
+    if ($applicantEmail !== '' && filter_var($applicantEmail, FILTER_VALIDATE_EMAIL)) {
+        if (smtpConfigIsReady($smtpConfig, $mailFrom)) {
+            $stageLabel = ucfirst($interviewStage);
+            $modeLabel = ucfirst($interviewMode);
+            $scheduleLabel = date('M d, Y h:i A', strtotime($scheduledAt));
+            $subject = 'Interview Scheduled - ' . $stageLabel . ' Stage';
+            $htmlContent = '<p>Hello ' . htmlspecialchars($applicantName !== '' ? $applicantName : 'Applicant', ENT_QUOTES, 'UTF-8') . ',</p>'
+                . '<p>Your interview has been scheduled.</p>'
+                . '<p><strong>Stage:</strong> ' . htmlspecialchars($stageLabel, ENT_QUOTES, 'UTF-8') . '<br>'
+                . '<strong>Mode:</strong> ' . htmlspecialchars($modeLabel, ENT_QUOTES, 'UTF-8') . '<br>'
+                . '<strong>Schedule:</strong> ' . htmlspecialchars($scheduleLabel, ENT_QUOTES, 'UTF-8') . '</p>'
+                . '<p>Please check your applicant portal for additional instructions.</p>';
+
+            $emailResponse = smtpSendTransactionalEmail(
+                $smtpConfig,
+                $mailFrom,
+                $mailFromName,
+                $applicantEmail,
+                $applicantName,
+                $subject,
+                $htmlContent
+            );
+
+            if (isSuccessful($emailResponse)) {
+                $emailStatusMessage = 'Email sent to ' . $applicantEmail . '.';
+                $emailDeliveryStatus = 'sent';
+            } else {
+                $emailStatusMessage = 'Email delivery failed to ' . $applicantEmail . '.';
+                $emailDeliveryStatus = 'failed';
+                $emailDeliveryError = trim((string)($emailResponse['raw'] ?? ''));
+            }
+        } else {
+            $emailStatusMessage = 'Email not sent to ' . $applicantEmail . ' (SMTP not configured).';
+            $emailDeliveryStatus = 'smtp_not_configured';
+        }
+    }
+
     apiRequest(
         'POST',
         $supabaseUrl . '/rest/v1/activity_logs',
@@ -116,12 +158,18 @@ if ($action === 'schedule_interview') {
                 'interview_mode' => $interviewMode,
                 'scheduled_at' => $scheduledAt,
                 'notes' => $notes,
+                'email_delivery' => [
+                    'recipient' => $applicantEmail !== '' ? $applicantEmail : null,
+                    'status' => $emailDeliveryStatus,
+                    'message' => $emailStatusMessage,
+                    'error' => $emailDeliveryError,
+                ],
             ],
             'ip_address' => clientIp(),
         ]]
     );
 
-    redirectWithState('success', 'Interview scheduled successfully.');
+    redirectWithState('success', 'Interview scheduled successfully. ' . $emailStatusMessage);
 }
 
 if ($action === 'update_status') {
@@ -140,7 +188,7 @@ if ($action === 'update_status') {
 
     $applicationResponse = apiRequest(
         'GET',
-        $supabaseUrl . '/rest/v1/applications?select=id,application_status,applicant:applicant_profiles(user_id)&id=eq.' . $applicationId . '&limit=1',
+        $supabaseUrl . '/rest/v1/applications?select=id,application_status,applicant:applicant_profiles(user_id,full_name,email)&id=eq.' . $applicationId . '&limit=1',
         $headers
     );
 
@@ -151,6 +199,8 @@ if ($action === 'update_status') {
 
     $oldStatus = (string)($applicationRow['application_status'] ?? 'submitted');
     $applicantUserId = (string)($applicationRow['applicant']['user_id'] ?? '');
+    $applicantName = trim((string)($applicationRow['applicant']['full_name'] ?? 'Applicant'));
+    $applicantEmail = strtolower(trim((string)($applicationRow['applicant']['email'] ?? '')));
 
     $patchResponse = apiRequest(
         'PATCH',
@@ -194,6 +244,43 @@ if ($action === 'update_status') {
         );
     }
 
+    $emailStatusMessage = 'Email not sent (recipient email unavailable).';
+    $emailDeliveryStatus = 'not_sent';
+    $emailDeliveryError = null;
+    if ($applicantEmail !== '' && filter_var($applicantEmail, FILTER_VALIDATE_EMAIL)) {
+        if (smtpConfigIsReady($smtpConfig, $mailFrom)) {
+            $statusLabel = ucfirst($newStatus);
+            $subject = 'Application Status Updated - ' . $statusLabel;
+            $htmlContent = '<p>Hello ' . htmlspecialchars($applicantName !== '' ? $applicantName : 'Applicant', ENT_QUOTES, 'UTF-8') . ',</p>'
+                . '<p>Your application status has been updated.</p>'
+                . '<p><strong>New Status:</strong> ' . htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') . '</p>'
+                . ($notes !== null && trim($notes) !== '' ? '<p><strong>Remarks:</strong> ' . htmlspecialchars((string)$notes, ENT_QUOTES, 'UTF-8') . '</p>' : '')
+                . '<p>You may review your application details in the applicant portal.</p>';
+
+            $emailResponse = smtpSendTransactionalEmail(
+                $smtpConfig,
+                $mailFrom,
+                $mailFromName,
+                $applicantEmail,
+                $applicantName,
+                $subject,
+                $htmlContent
+            );
+
+            if (isSuccessful($emailResponse)) {
+                $emailStatusMessage = 'Email sent to ' . $applicantEmail . '.';
+                $emailDeliveryStatus = 'sent';
+            } else {
+                $emailStatusMessage = 'Email delivery failed to ' . $applicantEmail . '.';
+                $emailDeliveryStatus = 'failed';
+                $emailDeliveryError = trim((string)($emailResponse['raw'] ?? ''));
+            }
+        } else {
+            $emailStatusMessage = 'Email not sent to ' . $applicantEmail . ' (SMTP not configured).';
+            $emailDeliveryStatus = 'smtp_not_configured';
+        }
+    }
+
     apiRequest(
         'POST',
         $supabaseUrl . '/rest/v1/activity_logs',
@@ -205,12 +292,21 @@ if ($action === 'update_status') {
             'entity_id' => $applicationId,
             'action_name' => 'update_status',
             'old_data' => ['application_status' => $oldStatus],
-            'new_data' => ['application_status' => $newStatus, 'notes' => $notes],
+            'new_data' => [
+                'application_status' => $newStatus,
+                'notes' => $notes,
+                'email_delivery' => [
+                    'recipient' => $applicantEmail !== '' ? $applicantEmail : null,
+                    'status' => $emailDeliveryStatus,
+                    'message' => $emailStatusMessage,
+                    'error' => $emailDeliveryError,
+                ],
+            ],
             'ip_address' => clientIp(),
         ]]
     );
 
-    redirectWithState('success', 'Application status updated successfully.');
+    redirectWithState('success', 'Application status updated successfully. ' . $emailStatusMessage);
 }
 
 redirectWithState('error', 'Unknown applicant tracking action.');

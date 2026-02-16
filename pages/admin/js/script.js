@@ -6,6 +6,13 @@
     const overlay = document.getElementById('sidebarOverlay');
     const profileToggle = document.getElementById('profileToggle');
     const profileMenu = document.getElementById('profileMenu');
+    const notificationToggle = document.getElementById('notificationToggle');
+    const notificationMenu = document.getElementById('notificationMenu');
+    const topnavSearchInput = document.getElementById('topnavGlobalSearch');
+    const topnavSearchResults = document.getElementById('topnavSearchResults');
+    const topnavSearchResultsBody = document.getElementById('topnavSearchResultsBody');
+    const topnavSearchMeta = document.getElementById('topnavSearchMeta');
+    const topnavSearchWrapper = document.getElementById('topnavSearchWrapper');
     const topnav = document.getElementById('topnav');
     const categoryToggles = document.querySelectorAll('[data-cat-toggle]');
 
@@ -72,12 +79,207 @@
     if (profileToggle && profileMenu) {
       profileToggle.addEventListener('click', (event) => {
         event.stopPropagation();
+        if (notificationMenu && !notificationMenu.classList.contains('hidden')) {
+          notificationMenu.classList.add('hidden');
+        }
         profileMenu.classList.toggle('hidden');
       });
 
       document.addEventListener('click', (event) => {
         if (!profileMenu.classList.contains('hidden') && !profileMenu.contains(event.target) && !profileToggle.contains(event.target)) {
           profileMenu.classList.add('hidden');
+        }
+      });
+    }
+
+    if (notificationToggle && notificationMenu) {
+      notificationToggle.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (profileMenu && !profileMenu.classList.contains('hidden')) {
+          profileMenu.classList.add('hidden');
+        }
+        notificationMenu.classList.toggle('hidden');
+      });
+
+      document.addEventListener('click', (event) => {
+        if (!notificationMenu.classList.contains('hidden') && !notificationMenu.contains(event.target) && !notificationToggle.contains(event.target)) {
+          notificationMenu.classList.add('hidden');
+        }
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !notificationMenu.classList.contains('hidden')) {
+          notificationMenu.classList.add('hidden');
+        }
+      });
+    }
+
+    if (topnavSearchInput && topnavSearchResults && topnavSearchResultsBody && topnavSearchMeta) {
+      const normalize = (value) => String(value || '').toLowerCase().trim();
+      const compactText = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+      const escapeHtml = (value) => String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+      const openSearchResults = () => {
+        topnavSearchResults.classList.remove('hidden');
+      };
+
+      const closeSearchResults = () => {
+        topnavSearchResults.classList.add('hidden');
+      };
+
+      const buildSearchableItems = () => {
+        const items = [];
+        const seen = new Set();
+        let autoIdCounter = 0;
+
+        const registerItem = (rawTitle, rawSubtitle, element, fallbackSearchText) => {
+          const title = compactText(rawTitle);
+          const subtitle = compactText(rawSubtitle);
+          const searchText = compactText(fallbackSearchText || `${title} ${subtitle}`);
+          if (!title || !element || !searchText) {
+            return;
+          }
+
+          if (!element.id) {
+            autoIdCounter += 1;
+            element.id = `topnav-search-record-${autoIdCounter}`;
+          }
+
+          const key = `${title}|${subtitle}|${element.id}`;
+          if (seen.has(key)) {
+            return;
+          }
+          seen.add(key);
+
+          const preview = searchText.length > 140 ? `${searchText.slice(0, 140)}…` : searchText;
+          items.push({
+            title,
+            subtitle: subtitle || 'Record',
+            preview,
+            targetId: element.id,
+            searchKey: normalize(`${title} ${subtitle} ${searchText}`),
+          });
+        };
+
+        document.querySelectorAll('main table').forEach((table) => {
+          const section = table.closest('section, article, .bg-white, .rounded-xl, .rounded-2xl');
+          const sectionHeading = section ? section.querySelector('h1, h2, h3, .text-lg, .text-xl') : null;
+          const caption = table.querySelector('caption');
+          const contextLabel = compactText((caption && caption.textContent) || (sectionHeading && sectionHeading.textContent) || 'Table Record');
+
+          table.querySelectorAll('tbody tr').forEach((row, rowIndex) => {
+            const cellTexts = Array.from(row.querySelectorAll('td, th'))
+              .map((cell) => compactText(cell.textContent))
+              .filter(Boolean);
+
+            if (!cellTexts.length) {
+              return;
+            }
+
+            const rowTitle = cellTexts[0] || `${contextLabel} #${rowIndex + 1}`;
+            registerItem(rowTitle, contextLabel, row, cellTexts.join(' '));
+          });
+        });
+
+        document.querySelectorAll('main [data-search-item], main .searchable-item').forEach((element) => {
+          const title = element.getAttribute('data-search-title') || compactText(element.textContent);
+          const subtitle = element.getAttribute('data-search-type') || 'Record';
+          const blob = element.getAttribute('data-search-body') || compactText(element.textContent);
+          registerItem(title, subtitle, element, blob);
+        });
+
+        return items;
+      };
+
+      const focusRecord = (targetId) => {
+        if (!targetId) return;
+        const targetElement = document.getElementById(targetId);
+        if (!targetElement) return;
+
+        targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        targetElement.classList.add('ring-2', 'ring-emerald-300', 'ring-offset-2', 'ring-offset-white');
+        setTimeout(() => {
+          targetElement.classList.remove('ring-2', 'ring-emerald-300', 'ring-offset-2', 'ring-offset-white');
+        }, 1600);
+      };
+
+      const renderSearchResults = (query) => {
+        const normalizedQuery = normalize(query);
+        const searchableItems = buildSearchableItems();
+
+        if (!normalizedQuery) {
+          topnavSearchMeta.textContent = `${searchableItems.length} records indexed`;
+          topnavSearchResultsBody.innerHTML = '<div class="px-4 py-6 text-sm text-slate-500 text-center">Start typing to find accounts, documents, and records.</div>';
+          openSearchResults();
+          return;
+        }
+
+        const matches = searchableItems
+          .filter((item) => item.searchKey.includes(normalizedQuery))
+          .slice(0, 10);
+
+        topnavSearchMeta.textContent = `${matches.length} record(s)`;
+        if (matches.length === 0) {
+          topnavSearchResultsBody.innerHTML = '<div class="px-4 py-6 text-sm text-slate-500 text-center">No matching records found in this module.</div>';
+          openSearchResults();
+          return;
+        }
+
+        topnavSearchResultsBody.innerHTML = matches.map((item) => `
+          <button type="button" data-search-target="${escapeHtml(item.targetId)}" class="w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-colors">
+            <p class="text-sm font-medium text-slate-800">${escapeHtml(item.title)}</p>
+            <p class="text-xs text-slate-500 mt-1">${escapeHtml(item.subtitle)}</p>
+            <p class="text-[11px] text-slate-400 mt-1 line-clamp-1">${escapeHtml(item.preview)}</p>
+          </button>
+        `).join('');
+
+        openSearchResults();
+      };
+
+      topnavSearchResultsBody.addEventListener('click', (event) => {
+        const trigger = event.target.closest('[data-search-target]');
+        if (!trigger) {
+          return;
+        }
+
+        const targetId = trigger.getAttribute('data-search-target') || '';
+        focusRecord(targetId);
+        closeSearchResults();
+      });
+
+      let debounceTimer = null;
+      topnavSearchInput.addEventListener('input', () => {
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
+        }
+
+        debounceTimer = setTimeout(() => {
+          renderSearchResults(topnavSearchInput.value || '');
+        }, 250);
+      });
+
+      topnavSearchInput.addEventListener('focus', () => {
+        renderSearchResults(topnavSearchInput.value || '');
+      });
+
+      document.addEventListener('click', (event) => {
+        if (!topnavSearchWrapper || !topnavSearchResults) {
+          return;
+        }
+
+        if (!topnavSearchResults.classList.contains('hidden') && !topnavSearchWrapper.contains(event.target)) {
+          closeSearchResults();
+        }
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !topnavSearchResults.classList.contains('hidden')) {
+          closeSearchResults();
         }
       });
     }
@@ -2149,6 +2351,13 @@
     const archiveDocumentId = document.getElementById('archiveDocumentId');
     const archiveDocumentTitle = document.getElementById('archiveDocumentTitle');
     const archiveCurrentStatus = document.getElementById('archiveCurrentStatus');
+    const documentViewerTitle = document.getElementById('documentViewerTitle');
+    const documentViewerMeta = document.getElementById('documentViewerMeta');
+    const documentViewerContent = document.getElementById('documentViewerContent');
+    const documentViewerOpenLink = document.getElementById('documentViewerOpenLink');
+    const uploaderDocumentsTitle = document.getElementById('uploaderDocumentsTitle');
+    const uploaderDocumentsMeta = document.getElementById('uploaderDocumentsMeta');
+    const uploaderDocumentsBody = document.getElementById('uploaderDocumentsBody');
     const adjustmentRequestId = document.getElementById('adjustmentRequestId');
     const adjustmentEmployeeName = document.getElementById('adjustmentEmployeeName');
     const adjustmentCurrentStatus = document.getElementById('adjustmentCurrentStatus');
@@ -2832,8 +3041,238 @@
       });
     });
 
+    const closeDocumentActionMenus = () => {
+      document.querySelectorAll('[data-doc-action-menu]').forEach((menu) => {
+        menu.classList.add('hidden');
+      });
+    };
+
+    document.querySelectorAll('[data-doc-action-menu-toggle]').forEach((toggle) => {
+      toggle.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const scope = toggle.closest('[data-doc-action-scope]');
+        const menu = scope?.querySelector('[data-doc-action-menu]');
+        if (!menu) {
+          return;
+        }
+
+        const willOpen = menu.classList.contains('hidden');
+        closeDocumentActionMenus();
+        if (willOpen) {
+          menu.classList.remove('hidden');
+        }
+      });
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('[data-doc-action-scope]')) {
+        closeDocumentActionMenus();
+      }
+    });
+
+    const escapeHtml = (value) => String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+    const renderDocumentPreview = (url, extension, title) => {
+      if (!documentViewerContent) {
+        return;
+      }
+
+      const ext = (extension || '').toLowerCase();
+      const safeUrl = escapeHtml(url);
+      const safeTitle = escapeHtml(title);
+
+      const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'];
+      const textExts = ['txt', 'csv', 'json', 'xml', 'md', 'log', 'sql', 'php', 'js', 'ts', 'html', 'css'];
+      const officeExts = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
+      const mediaExts = ['mp4', 'webm', 'ogg', 'mp3', 'wav'];
+
+      const looksPrivateHost = (host) => {
+        const normalized = (host || '').toLowerCase();
+        if (!normalized) {
+          return true;
+        }
+
+        if (normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '::1') {
+          return true;
+        }
+
+        if (/^10\./.test(normalized) || /^192\.168\./.test(normalized)) {
+          return true;
+        }
+
+        const private172 = normalized.match(/^172\.(\d{1,3})\./);
+        if (private172) {
+          const secondOctet = Number(private172[1]);
+          if (secondOctet >= 16 && secondOctet <= 31) {
+            return true;
+          }
+        }
+
+        return false;
+      };
+
+      const canUseOfficeWebViewer = (rawUrl) => {
+        if (!rawUrl) {
+          return false;
+        }
+
+        try {
+          const parsed = new URL(rawUrl, window.location.origin);
+          if (!['http:', 'https:'].includes(parsed.protocol)) {
+            return false;
+          }
+          return !looksPrivateHost(parsed.hostname);
+        } catch (_error) {
+          return false;
+        }
+      };
+
+      if (!url) {
+        documentViewerContent.innerHTML = '<div class="text-center text-slate-500">Document file path is not available for preview.</div>';
+        return;
+      }
+
+      if (ext === 'pdf') {
+        documentViewerContent.innerHTML = `<iframe src="${safeUrl}" class="w-full h-full min-h-[60vh] rounded-lg border border-slate-200 bg-white" frameborder="0" title="${safeTitle}"></iframe>`;
+        return;
+      }
+
+      if (imageExts.includes(ext)) {
+        documentViewerContent.innerHTML = `<img src="${safeUrl}" alt="${safeTitle}" class="max-h-full max-w-full w-auto mx-auto rounded-lg border border-slate-200 bg-white">`;
+        return;
+      }
+
+      if (textExts.includes(ext)) {
+        documentViewerContent.innerHTML = `<iframe src="${safeUrl}" class="w-full h-full min-h-[60vh] rounded-lg border border-slate-200 bg-white" frameborder="0" title="${safeTitle}"></iframe>`;
+        return;
+      }
+
+      if (officeExts.includes(ext)) {
+        const extLabel = escapeHtml(ext.toUpperCase());
+        if (canUseOfficeWebViewer(url)) {
+          const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
+          documentViewerContent.innerHTML = `<div class="space-y-3">
+            <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">If preview does not load, use <a href="${safeUrl}" target="_blank" rel="noopener" class="font-semibold text-emerald-700 hover:underline">Download/Open File</a>.</div>
+            <iframe src="${officeViewerUrl}" class="w-full h-full min-h-[60vh] rounded-lg border border-slate-200 bg-white" frameborder="0" title="${safeTitle}"></iframe>
+          </div>`;
+          return;
+        }
+
+        documentViewerContent.innerHTML = `<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800 space-y-2">
+          <p class="font-semibold">${extLabel} preview is not available in this environment.</p>
+          <p>Office files usually require a public URL for web preview. Download the file to view it locally.</p>
+          <a href="${safeUrl}" target="_blank" rel="noopener" class="inline-flex items-center rounded-md bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700">Download/Open File</a>
+        </div>`;
+        return;
+      }
+
+      if (mediaExts.includes(ext)) {
+        if (['mp4', 'webm', 'ogg'].includes(ext)) {
+          documentViewerContent.innerHTML = `<video controls class="w-full h-full min-h-[60vh] rounded-lg border border-slate-200 bg-black"><source src="${safeUrl}">Your browser does not support video preview.</video>`;
+          return;
+        }
+
+        documentViewerContent.innerHTML = `<audio controls class="w-full max-w-2xl"><source src="${safeUrl}">Your browser does not support audio preview.</audio>`;
+        return;
+      }
+
+      documentViewerContent.innerHTML = '<div class="text-center text-slate-500">Preview is not supported for this file type. Use Open in New Tab to view or download.</div>';
+    };
+
+    document.querySelectorAll('[data-doc-view]').forEach((button) => {
+      button.addEventListener('click', () => {
+        closeDocumentActionMenus();
+        const documentTitle = button.getAttribute('data-document-title') || 'Document Viewer';
+        const documentUrl = button.getAttribute('data-document-url') || '';
+        const extension = button.getAttribute('data-document-extension') || '';
+        const bucket = button.getAttribute('data-document-bucket') || '-';
+        const path = button.getAttribute('data-document-path') || '-';
+
+        if (documentViewerTitle) {
+          documentViewerTitle.textContent = documentTitle;
+        }
+        if (documentViewerMeta) {
+          const extLabel = extension ? extension.toUpperCase() : 'UNKNOWN';
+          documentViewerMeta.textContent = `Type: ${extLabel} • ${bucket}/${path}`;
+        }
+        if (documentViewerOpenLink) {
+          documentViewerOpenLink.setAttribute('href', documentUrl || '#');
+          documentViewerOpenLink.classList.toggle('pointer-events-none', !documentUrl);
+          documentViewerOpenLink.classList.toggle('opacity-50', !documentUrl);
+        }
+
+        renderDocumentPreview(documentUrl, extension, documentTitle);
+        openModal('documentViewerModal');
+      });
+    });
+
+    document.querySelectorAll('[data-modal-close="documentViewerModal"]').forEach((button) => {
+      button.addEventListener('click', () => {
+        if (documentViewerContent) {
+          documentViewerContent.innerHTML = '<div class="text-sm text-slate-500">Select a document to preview.</div>';
+        }
+      });
+    });
+
+    document.querySelectorAll('[data-doc-uploader-open]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const uploaderEmail = button.getAttribute('data-uploader-email') || 'Uploader';
+        const uploaderType = button.getAttribute('data-uploader-type') || 'Unknown';
+        const documentsJson = button.getAttribute('data-uploader-documents') || '[]';
+
+        let documents = [];
+        try {
+          const parsed = JSON.parse(documentsJson);
+          if (Array.isArray(parsed)) {
+            documents = parsed;
+          }
+        } catch (_error) {
+          documents = [];
+        }
+
+        if (uploaderDocumentsTitle) {
+          uploaderDocumentsTitle.textContent = uploaderEmail;
+        }
+        if (uploaderDocumentsMeta) {
+          uploaderDocumentsMeta.textContent = `Account Type: ${uploaderType} • Total Documents: ${documents.length}`;
+        }
+
+        if (uploaderDocumentsBody) {
+          if (documents.length === 0) {
+            uploaderDocumentsBody.innerHTML = '<tr><td class="px-4 py-3 text-slate-500" colspan="5">No documents found for this uploader.</td></tr>';
+          } else {
+            uploaderDocumentsBody.innerHTML = documents.map((doc) => {
+              const title = escapeHtml(doc.title || '-');
+              const category = escapeHtml(doc.category || 'Uncategorized');
+              const status = escapeHtml((doc.status || 'draft').replace(/_/g, ' '));
+              const updated = escapeHtml(doc.updated || '-');
+              const bucket = escapeHtml(doc.storage_bucket || '-');
+              const path = escapeHtml(doc.storage_path || '-');
+              return `<tr>
+                <td class="px-4 py-3 text-slate-800 font-medium">${title}</td>
+                <td class="px-4 py-3 text-slate-700">${category}</td>
+                <td class="px-4 py-3 text-slate-700">${status}</td>
+                <td class="px-4 py-3 text-slate-700">${updated}</td>
+                <td class="px-4 py-3 text-slate-500 text-xs">${bucket}/${path}</td>
+              </tr>`;
+            }).join('');
+          }
+        }
+
+        openModal('uploaderDocumentsModal');
+      });
+    });
+
     document.querySelectorAll('[data-doc-review]').forEach((button) => {
       button.addEventListener('click', () => {
+        closeDocumentActionMenus();
         const documentId = button.getAttribute('data-document-id') || '';
         const documentTitle = button.getAttribute('data-document-title') || '';
         const currentStatus = button.getAttribute('data-current-status') || '';
@@ -2847,6 +3286,7 @@
 
     document.querySelectorAll('[data-doc-archive]').forEach((button) => {
       button.addEventListener('click', () => {
+        closeDocumentActionMenus();
         const documentId = button.getAttribute('data-document-id') || '';
         const documentTitle = button.getAttribute('data-document-title') || '';
         const currentStatus = button.getAttribute('data-current-status') || '';

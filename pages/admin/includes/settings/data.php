@@ -26,13 +26,21 @@ if (settingsReady()) {
                     $value = $storedValue['value'];
                     if (is_bool($value)) {
                         $normalizedValue = $value ? '1' : '0';
-                    } else {
+                    } elseif (is_scalar($value)) {
                         $normalizedValue = cleanText((string)$value) ?? '';
+                    } elseif (is_array($value)) {
+                        $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                        $normalizedValue = $encoded !== false ? $encoded : '';
+                    } else {
+                        $normalizedValue = '';
                     }
                 } elseif (is_bool($storedValue)) {
                     $normalizedValue = $storedValue ? '1' : '0';
                 } elseif (is_scalar($storedValue)) {
                     $normalizedValue = cleanText((string)$storedValue) ?? '';
+                } elseif (is_array($storedValue)) {
+                    $encoded = json_encode($storedValue, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                    $normalizedValue = $encoded !== false ? $encoded : '';
                 }
 
                 $settingsValues[$settingKey] = $normalizedValue;
@@ -73,7 +81,21 @@ function settingValue(string $key): string
     }
 
     if (isset($settingsCatalog[$key]['default'])) {
-        return (string) $settingsCatalog[$key]['default'];
+        $defaultValue = $settingsCatalog[$key]['default'];
+        if (is_bool($defaultValue)) {
+            return $defaultValue ? '1' : '0';
+        }
+
+        if (is_scalar($defaultValue)) {
+            return (string) $defaultValue;
+        }
+
+        if (is_array($defaultValue)) {
+            $encoded = json_encode($defaultValue, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            return $encoded !== false ? $encoded : '';
+        }
+
+        return '';
     }
 
     return '';

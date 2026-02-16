@@ -102,6 +102,42 @@
     </div>
 </section>
 
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-800">Approved Employees per Quarter</h2>
+        <p class="text-sm text-slate-500 mt-1">Quarterly summary of employees with approved evaluation results.</p>
+    </header>
+
+    <div class="p-6 overflow-x-auto">
+        <table id="praiseApprovedQuarterTable" class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600">
+                <tr>
+                    <th class="text-left px-4 py-3">Quarter</th>
+                    <th class="text-left px-4 py-3">Approved Employees</th>
+                    <th class="text-left px-4 py-3">Average Rating</th>
+                    <th class="text-left px-4 py-3">Latest Cycle</th>
+                    <th class="text-left px-4 py-3">Employee Preview</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                <?php if (empty($approvedPerQuarterRows)): ?>
+                    <tr><td class="px-4 py-3 text-slate-500" colspan="5">No approved evaluation records available for quarter summary.</td></tr>
+                <?php else: ?>
+                    <?php foreach ($approvedPerQuarterRows as $row): ?>
+                        <tr>
+                            <td class="px-4 py-3 font-medium text-slate-800"><?= htmlspecialchars((string)$row['quarter_label'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['approved_count'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['average_rating_label'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['latest_cycle'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)$row['employee_preview'], ENT_QUOTES, 'UTF-8') ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</section>
+
 <section class="bg-white border border-slate-200 rounded-2xl">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">View Overall Performance Ratings</h2>

@@ -121,25 +121,6 @@
 
 <section class="bg-white border border-slate-200 rounded-2xl p-6 mb-6">
     <div class="flex items-center justify-between mb-4">
-        <h2 class="font-semibold text-slate-800">Create New Announcement</h2>
-        <button type="button" data-modal-open="dashboardAnnouncementModal" class="text-sm text-emerald-700 hover:underline">Open form</button>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-        <div class="rounded-xl border border-slate-200 p-4">
-            <p class="text-xs uppercase text-slate-500">Latest Draft</p>
-            <p class="font-medium text-slate-800 mt-2"><?= htmlspecialchars((string)$dashboardSummary['latest_announcement_title'], ENT_QUOTES, 'UTF-8') ?></p>
-            <p class="text-xs text-slate-500 mt-1"><?= htmlspecialchars((string)$dashboardSummary['latest_announcement_timestamp'], ENT_QUOTES, 'UTF-8') ?></p>
-        </div>
-        <div class="rounded-xl border border-slate-200 p-4">
-            <p class="text-xs uppercase text-slate-500">Publish Queue</p>
-            <p class="font-medium text-slate-800 mt-2"><?= (int)$dashboardSummary['queued_announcements'] ?> announcements pending</p>
-            <p class="text-xs text-slate-500 mt-1">Awaiting final admin confirmation</p>
-        </div>
-    </div>
-</section>
-
-<section class="bg-white border border-slate-200 rounded-2xl p-6 mb-6">
-    <div class="flex items-center justify-between mb-4">
         <h2 class="font-semibold text-slate-800">View Notifications</h2>
         <a href="notifications.php" class="text-sm text-emerald-700 hover:underline">Open all notifications</a>
     </div>
@@ -259,6 +240,24 @@
     </div>
 </section>
 
+<section class="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6">
+    <div class="bg-white border border-slate-200 rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="font-semibold text-slate-800">Attendance Status Distribution</h2>
+            <span class="text-xs text-slate-500">Updated <?= htmlspecialchars((string)$attendanceStatusChart['updated_at'], ENT_QUOTES, 'UTF-8') ?></span>
+        </div>
+        <div class="h-72">
+            <canvas
+                data-chart-type="doughnut"
+                data-chart-label="Attendance"
+                data-chart-labels='<?= htmlspecialchars((string)json_encode($attendanceStatusChart['labels'], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?>'
+                data-chart-values='<?= htmlspecialchars((string)json_encode($attendanceStatusChart['values'], JSON_NUMERIC_CHECK), ENT_QUOTES, 'UTF-8') ?>'
+                data-chart-colors='["#10b981", "#f59e0b", "#ef4444", "#3b82f6", "#8b5cf6", "#64748b"]'
+            ></canvas>
+        </div>
+    </div>
+</section>
+
 <section class="bg-white border border-slate-200 rounded-2xl p-6 mt-6">
     <div class="flex items-center justify-between mb-4">
         <h2 class="font-semibold text-slate-800">Recruitment Pipeline Chart</h2>
@@ -314,42 +313,6 @@
                 <div class="flex justify-end gap-3 mt-2">
                     <button type="button" data-modal-close="dashboardLeaveReviewModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button>
                     <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Submit Review</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<div id="dashboardAnnouncementModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
-    <div class="absolute inset-0 bg-slate-900/60" data-modal-close="dashboardAnnouncementModal"></div>
-    <div class="relative min-h-full flex items-center justify-center p-4">
-        <div class="w-full max-w-2xl bg-white rounded-2xl border border-slate-200 shadow-xl">
-            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-slate-800">Create New Announcement</h3>
-                <button type="button" data-modal-close="dashboardAnnouncementModal" class="text-slate-500 hover:text-slate-700">✕</button>
-            </div>
-            <form action="dashboard.php" method="POST" class="p-6 grid grid-cols-1 gap-4 text-sm">
-                <input type="hidden" name="form_action" value="save_dashboard_announcement">
-
-                <div>
-                    <label class="text-slate-600" for="dashboardAnnouncementTitle">Title</label>
-                    <input id="dashboardAnnouncementTitle" name="announcement_title" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?= htmlspecialchars((string)$dashboardSummary['latest_announcement_title'], ENT_QUOTES, 'UTF-8') ?>" required>
-                </div>
-                <div>
-                    <label class="text-slate-600" for="dashboardAnnouncementBody">Message</label>
-                    <textarea id="dashboardAnnouncementBody" name="announcement_body" rows="5" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required><?= htmlspecialchars((string)$dashboardSummary['latest_announcement_body'], ENT_QUOTES, 'UTF-8') ?></textarea>
-                </div>
-                <div>
-                    <label class="text-slate-600" for="dashboardAnnouncementState">Action</label>
-                    <select id="dashboardAnnouncementState" name="announcement_state" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
-                        <option value="draft">Save as Draft</option>
-                        <option value="queued">Add to Publish Queue</option>
-                    </select>
-                </div>
-
-                <div class="flex justify-end gap-3 mt-2">
-                    <button type="button" data-modal-close="dashboardAnnouncementModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button>
-                    <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Save</button>
                 </div>
             </form>
         </div>

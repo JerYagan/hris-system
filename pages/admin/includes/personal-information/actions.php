@@ -404,6 +404,23 @@ if ($action === 'save_profile') {
     }
 
     if ($profileAction === 'edit') {
+        $linkedUserId = (string)($personRow['user_id'] ?? '');
+        if ($linkedUserId !== '' && $email !== '') {
+            $accountEmailPatchResponse = apiRequest(
+                'PATCH',
+                $supabaseUrl . '/rest/v1/user_accounts?id=eq.' . $linkedUserId,
+                array_merge($headers, ['Prefer: return=minimal']),
+                [
+                    'email' => $email,
+                    'updated_at' => gmdate('c'),
+                ]
+            );
+
+            if (!isSuccessful($accountEmailPatchResponse)) {
+                redirectWithState('error', 'Failed to update linked user account email. The email may already be in use.');
+            }
+        }
+
         $patchResponse = apiRequest(
             'PATCH',
             $supabaseUrl . '/rest/v1/people?id=eq.' . $personId,

@@ -43,11 +43,6 @@ $isPraiseSection = in_array($activePage, $praisePages, true);
                     <span class="admin-nav-icon material-symbols-outlined text-[18px]">dashboard</span>
                     <span class="admin-link-label">Admin Dashboard</span>
                 </a>
-                <a href="notifications.php" class="admin-nav-link <?= $activePage === 'notifications.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
-                    <span class="admin-nav-icon material-symbols-outlined text-[18px]">notifications</span>
-                    <span class="admin-link-label flex-1">Notifications</span>
-                    <span class="admin-link-badge">3</span>
-                </a>
             </div>
         </div>
 
@@ -80,9 +75,9 @@ $isPraiseSection = in_array($activePage, $praisePages, true);
                         <span class="admin-nav-icon material-symbols-outlined text-[18px]">folder_open</span>
                         <span class="admin-link-label">Document Management</span>
                     </a>
-                    <a href="personal-information.php" class="admin-nav-link ml-7 <?= $activePage === 'personal-information.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
+                    <a href="personal-information.php" class="admin-nav-link <?= $activePage === 'personal-information.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
                         <span class="admin-nav-icon material-symbols-outlined text-[18px]">badge</span>
-                        <span class="admin-link-label text-[13px]">Personal Information</span>
+                        <span class="admin-link-label">Personal Information</span>
                     </a>
                 </div>
                 <a href="timekeeping.php" class="admin-nav-link <?= $activePage === 'timekeeping.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
@@ -149,11 +144,6 @@ $isPraiseSection = in_array($activePage, $praisePages, true);
                 <a href="settings.php" class="admin-nav-link <?= $activePage === 'settings.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
                     <span class="admin-nav-icon material-symbols-outlined text-[18px]">settings</span>
                     <span class="admin-link-label">Settings</span>
-                </a>
-
-                <a href="create-announcement.php" class="admin-nav-link <?= $activePage === 'create-announcement.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
-                    <span class="admin-nav-icon material-symbols-outlined text-[18px]">campaign</span>
-                    <span class="admin-link-label">Create Announcement</span>
                 </a>
 
                 <a href="/hris-system/pages/auth/logout.php" class="admin-nav-link text-rose-300 hover:text-rose-200">

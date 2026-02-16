@@ -8,7 +8,7 @@ $cyclesResponse = apiRequest(
 
 $evaluationsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/performance_evaluations?select=id,cycle_id,employee_person_id,evaluator_user_id,final_rating,remarks,status,updated_at,employee:employee_person_id(first_name,surname),evaluator:evaluator_user_id(email),cycle:cycle_id(cycle_name)&order=updated_at.desc&limit=1500',
+    $supabaseUrl . '/rest/v1/performance_evaluations?select=id,cycle_id,employee_person_id,evaluator_user_id,final_rating,remarks,status,updated_at,employee:employee_person_id(first_name,surname),evaluator:evaluator_user_id(email),cycle:cycle_id(cycle_name,period_start,period_end)&order=updated_at.desc&limit=1500',
     $headers
 );
 
@@ -58,6 +58,7 @@ $verySatisfactoryCount = 0;
 $needsCoachingCount = 0;
 $seenPendingRatings = [];
 $seenOverallRatings = [];
+$approvedQuarterMap = [];
 
 foreach ($evaluations as $evaluation) {
     $evaluationId = (string)($evaluation['id'] ?? '');
@@ -117,5 +118,65 @@ foreach ($evaluations as $evaluation) {
             'rating_label' => $ratingLabel,
             'band' => $band,
         ];
+
+        $cyclePeriodEnd = (string)($evaluation['cycle']['period_end'] ?? '');
+        $cyclePeriodStart = (string)($evaluation['cycle']['period_start'] ?? '');
+        $quarterDateSource = $cyclePeriodEnd !== '' ? $cyclePeriodEnd : ($cyclePeriodStart !== '' ? $cyclePeriodStart : (string)($evaluation['updated_at'] ?? ''));
+
+        $quarterTimestamp = strtotime($quarterDateSource);
+        if ($quarterTimestamp === false) {
+            $quarterTimestamp = strtotime((string)($evaluation['updated_at'] ?? ''));
+        }
+
+        if ($quarterTimestamp !== false) {
+            $year = (int)date('Y', $quarterTimestamp);
+            $month = (int)date('n', $quarterTimestamp);
+            $quarter = (int)floor(($month - 1) / 3) + 1;
+            $quarterKey = $year . '-Q' . $quarter;
+
+            if (!isset($approvedQuarterMap[$quarterKey])) {
+                $approvedQuarterMap[$quarterKey] = [
+                    'quarter_label' => 'Q' . $quarter . ' ' . $year,
+                    'approved_employees' => [],
+                    'ratings' => [],
+                    'latest_cycle' => $cycleName,
+                    'sort_year' => $year,
+                    'sort_quarter' => $quarter,
+                ];
+            }
+
+            $approvedQuarterMap[$quarterKey]['approved_employees'][$employeeName] = true;
+            $approvedQuarterMap[$quarterKey]['ratings'][] = $ratingValue;
+            $approvedQuarterMap[$quarterKey]['latest_cycle'] = $cycleName !== '' ? $cycleName : $approvedQuarterMap[$quarterKey]['latest_cycle'];
+        }
     }
 }
+
+$approvedPerQuarterRows = [];
+foreach ($approvedQuarterMap as $quarterData) {
+    $employees = array_keys((array)($quarterData['approved_employees'] ?? []));
+    sort($employees);
+
+    $ratings = (array)($quarterData['ratings'] ?? []);
+    $averageRating = 0;
+    if (!empty($ratings)) {
+        $averageRating = array_sum($ratings) / max(1, count($ratings));
+    }
+
+    $approvedPerQuarterRows[] = [
+        'quarter_label' => (string)($quarterData['quarter_label'] ?? '-'),
+        'approved_count' => count($employees),
+        'average_rating_label' => $averageRating > 0 ? number_format($averageRating, 2) . ' / 5.00' : '-',
+        'latest_cycle' => (string)($quarterData['latest_cycle'] ?? '-'),
+        'employee_preview' => empty($employees) ? '-' : implode(', ', array_slice($employees, 0, 5)) . (count($employees) > 5 ? ' +' . (count($employees) - 5) . ' more' : ''),
+        'sort_year' => (int)($quarterData['sort_year'] ?? 0),
+        'sort_quarter' => (int)($quarterData['sort_quarter'] ?? 0),
+    ];
+}
+
+usort($approvedPerQuarterRows, static function (array $left, array $right): int {
+    if ((int)$left['sort_year'] !== (int)$right['sort_year']) {
+        return (int)$right['sort_year'] <=> (int)$left['sort_year'];
+    }
+    return (int)$right['sort_quarter'] <=> (int)$left['sort_quarter'];
+});

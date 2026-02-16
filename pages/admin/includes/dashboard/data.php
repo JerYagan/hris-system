@@ -149,6 +149,7 @@ foreach ($leaveRequestRowsRaw as $entry) {
 
 $notificationsRows = [];
 $unreadNotifications = 0;
+$readNotifications = 0;
 $highPriorityNotifications = 0;
 
 foreach ($notificationRowsRaw as $entry) {
@@ -297,6 +298,19 @@ $pipelineChart = [
         $pipelineCounts['screened'],
         $pipelineCounts['shortlisted'],
         $pipelineCounts['hired'],
+    ],
+    'updated_at' => date('M d, Y h:i A'),
+];
+
+$attendanceStatusChart = [
+    'labels' => ['Present', 'Late', 'Absent', 'Leave', 'Holiday', 'Rest Day'],
+    'values' => [
+        (int)($attendanceCounts['present'] ?? 0),
+        (int)($attendanceCounts['late'] ?? 0),
+        (int)($attendanceCounts['absent'] ?? 0),
+        (int)($attendanceCounts['leave'] ?? 0),
+        (int)($attendanceCounts['holiday'] ?? 0),
+        (int)($attendanceCounts['rest_day'] ?? 0),
     ],
     'updated_at' => date('M d, Y h:i A'),
 ];
