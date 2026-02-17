@@ -200,12 +200,15 @@ ob_start();
 
     </form>
 
-    <div class="mt-6 text-sm text-center text-gray-600">
-      Don’t have an account?
-      <a href="register.php"
-         class="text-daGreen font-medium hover:underline">
-        Sign Up
-      </a>
+    <div class="mt-6 text-sm text-center text-gray-600 space-y-2">
+      <p>
+        Don’t have an applicant account?
+        <a href="register-applicant.php" class="text-daGreen font-medium hover:underline">Sign Up as Applicant</a>
+      </p>
+      <p class="text-xs text-gray-500">
+        Employee/Staff registration:
+        <a href="register.php" class="text-daGreen hover:underline">Open full registration form</a>
+      </p>
     </div>
 
   </div>

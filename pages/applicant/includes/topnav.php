@@ -3,6 +3,100 @@
 $breadcrumbs = $breadcrumbs ?? ['Dashboard'];
 $activePage = $activePage ?? basename($_SERVER['PHP_SELF']);
 
+require_once __DIR__ . '/lib/applicant-backend.php';
+
+$applicantFirstName = 'Applicant';
+$fullNameFromSession = trim((string)($_SESSION['user']['name'] ?? ''));
+
+$unreadNotificationCount = 0;
+$topnavBackend = applicantBackendContext();
+$topnavSupabaseUrl = (string)($topnavBackend['supabase_url'] ?? '');
+$topnavApplicantUserId = (string)($topnavBackend['applicant_user_id'] ?? '');
+$topnavHeaders = (array)($topnavBackend['headers'] ?? []);
+
+$cacheTtlSeconds = 45;
+$topnavCache = (array)($_SESSION['applicant_topnav_cache'] ?? []);
+$cacheUserId = (string)($topnavCache['user_id'] ?? '');
+$cacheTimestamp = (int)($topnavCache['cached_at'] ?? 0);
+$cacheIsFresh = $cacheUserId !== ''
+    && $cacheUserId === $topnavApplicantUserId
+    && $cacheTimestamp > 0
+    && (time() - $cacheTimestamp) <= $cacheTtlSeconds;
+
+if ($cacheIsFresh) {
+    $cachedFirstName = trim((string)($topnavCache['first_name'] ?? ''));
+    if ($cachedFirstName !== '') {
+        $applicantFirstName = $cachedFirstName;
+    }
+    $unreadNotificationCount = max(0, (int)($topnavCache['unread_count'] ?? 0));
+}
+
+if (!$cacheIsFresh && $topnavSupabaseUrl !== '' && $topnavApplicantUserId !== '' && !empty($topnavHeaders) && function_exists('apiRequest')) {
+    $peopleNameResponse = apiRequest(
+        'GET',
+        $topnavSupabaseUrl
+        . '/rest/v1/people?select=first_name&user_id=eq.' . rawurlencode($topnavApplicantUserId)
+        . '&limit=1',
+        $topnavHeaders
+    );
+
+    if (isSuccessful($peopleNameResponse)) {
+        $peopleFirstName = trim((string)($peopleNameResponse['data'][0]['first_name'] ?? ''));
+        if ($peopleFirstName !== '') {
+            $applicantFirstName = $peopleFirstName;
+        }
+    }
+
+    if ($applicantFirstName === 'Applicant') {
+        $profileNameResponse = apiRequest(
+            'GET',
+            $topnavSupabaseUrl
+            . '/rest/v1/applicant_profiles?select=full_name&user_id=eq.' . rawurlencode($topnavApplicantUserId)
+            . '&limit=1',
+            $topnavHeaders
+        );
+
+        if (isSuccessful($profileNameResponse)) {
+            $profileFullName = trim((string)($profileNameResponse['data'][0]['full_name'] ?? ''));
+            if ($profileFullName !== '') {
+                $nameParts = preg_split('/\s+/', $profileFullName) ?: [];
+                $applicantFirstName = (string)($nameParts[0] ?? 'Applicant');
+            }
+        }
+    }
+
+    if ($applicantFirstName === 'Applicant' && $fullNameFromSession !== '') {
+        $nameParts = preg_split('/\s+/', $fullNameFromSession) ?: [];
+        $applicantFirstName = (string)($nameParts[0] ?? 'Applicant');
+    }
+
+    $unreadResponse = apiRequest(
+        'GET',
+        $topnavSupabaseUrl
+        . '/rest/v1/notifications?select=id&recipient_user_id=eq.' . rawurlencode($topnavApplicantUserId)
+        . '&is_read=eq.false&limit=100',
+        $topnavHeaders
+    );
+
+    if (isSuccessful($unreadResponse)) {
+        $unreadNotificationCount = count((array)($unreadResponse['data'] ?? []));
+    }
+
+    $_SESSION['applicant_topnav_cache'] = [
+        'user_id' => $topnavApplicantUserId,
+        'first_name' => $applicantFirstName,
+        'unread_count' => $unreadNotificationCount,
+        'cached_at' => time(),
+    ];
+}
+
+if ($applicantFirstName === 'Applicant' && $fullNameFromSession !== '') {
+    $nameParts = preg_split('/\s+/', $fullNameFromSession) ?: [];
+    $applicantFirstName = (string)($nameParts[0] ?? 'Applicant');
+}
+
+$unreadNotificationBadge = $unreadNotificationCount > 99 ? '99+' : (string)$unreadNotificationCount;
+
 $primaryLinks = [
     ['href' => 'dashboard.php', 'label' => 'Dashboard', 'icon' => 'dashboard'],
     ['href' => 'job-list.php', 'label' => 'Jobs', 'icon' => 'list_alt'],
@@ -10,7 +104,6 @@ $primaryLinks = [
 ];
 
 $recruitmentLinks = [
-    ['href' => 'apply.php', 'label' => 'Submit Application', 'icon' => 'edit_document'],
     ['href' => 'application-feedback.php', 'label' => 'Application Feedback', 'icon' => 'fact_check'],
     ['href' => 'notifications.php', 'label' => 'Notifications', 'icon' => 'notifications'],
 ];
@@ -84,7 +177,11 @@ $allMobileLinks = array_merge($primaryLinks, $recruitmentLinks, $accountLinks);
                    class="relative rounded-md p-1 text-gray-600 transition hover:bg-gray-100 hover:text-green-700"
                    aria-label="Notifications">
                     <span class="material-symbols-outlined">notifications</span>
-                    <span class="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-600"></span>
+                    <?php if ($unreadNotificationCount > 0): ?>
+                        <span class="absolute -right-1 -top-1 inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white">
+                            <?= htmlspecialchars($unreadNotificationBadge, ENT_QUOTES, 'UTF-8') ?>
+                        </span>
+                    <?php endif; ?>
                 </a>
 
                 <span class="hidden sm:block h-6 w-px bg-gray-200"></span>
@@ -93,7 +190,7 @@ $allMobileLinks = array_merge($primaryLinks, $recruitmentLinks, $accountLinks);
                     <button id="applicantUserMenuBtn"
                             class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-gray-700 transition hover:bg-gray-100 hover:text-gray-900 focus:outline-none">
                         <span class="material-symbols-outlined">account_circle</span>
-                        <span class="hidden sm:block">Applicant</span>
+                        <span class="hidden sm:block"><?= htmlspecialchars($applicantFirstName, ENT_QUOTES, 'UTF-8') ?></span>
                         <span class="material-symbols-outlined text-base">expand_more</span>
                     </button>
 

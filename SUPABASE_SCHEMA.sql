@@ -392,6 +392,9 @@ create table if not exists public.job_postings (
   description text not null,
   qualifications text,
   responsibilities text,
+  plantilla_item_no text,
+  csc_reference_url text,
+  required_documents jsonb not null default '[]'::jsonb,
   posting_status public.posting_status_enum not null default 'draft',
   open_date date not null,
   close_date date not null,
@@ -847,6 +850,7 @@ create index if not exists idx_user_role_primary on public.user_role_assignments
 create index if not exists idx_people_employee_no on public.people(agency_employee_no);
 create index if not exists idx_employment_current on public.employment_records(person_id, is_current);
 create index if not exists idx_applications_status on public.applications(job_posting_id, application_status);
+create index if not exists idx_job_postings_plantilla_item_no on public.job_postings(plantilla_item_no);
 create index if not exists idx_attendance_person_date on public.attendance_logs(person_id, attendance_date);
 create index if not exists idx_leave_requests_filter on public.leave_requests(person_id, status, date_from);
 create index if not exists idx_payroll_items_person on public.payroll_items(person_id);

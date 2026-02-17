@@ -14,6 +14,10 @@ ob_start();
   <div class="mb-6">
     <h1 class="text-2xl font-bold text-gray-900 mb-2">Create an Account</h1>
     <p class="text-sm text-gray-600">A guided registration flow is easier to complete. Start with account setup, then continue with your profile details.</p>
+    <p class="mt-2 text-xs text-gray-500">
+      Applicant account only?
+      <a href="register-applicant.php" class="text-daGreen font-medium hover:underline">Use quick applicant sign up</a>
+    </p>
   </div>
 
   <?php if (isset($_GET['error'])): ?>

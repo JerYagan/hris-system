@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/../../../shared/lib/system-helpers.php';
+
 if (!function_exists('loadEnvFile')) {
     function loadEnvFile(string $envPath): void
     {

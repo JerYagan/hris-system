@@ -138,6 +138,16 @@
           <span class="sidebar-label">PRAISE</span>
         </a>
 
+        <a href="learning-and-development.php"
+           title="Learning and Development"
+           class="flex items-center gap-3 px-4 py-2 rounded-lg
+           <?= $activePage === 'learning-and-development.php'
+                ? 'bg-green-100 font-medium'
+                : 'hover:bg-gray-100' ?>">
+          <span class="material-icons text-base">school</span>
+          <span class="sidebar-label">Learning and Development</span>
+        </a>
+
         <a href="personal-reports.php"
            title="Personal Reports"
            class="flex items-center gap-3 px-4 py-2 rounded-lg
@@ -168,29 +178,30 @@
         <!-- NOTIFICATIONS (WITH BADGE) -->
         <a href="notifications.php"
            title="Notifications"
-           class="flex items-center justify-between px-4 py-2 rounded-lg hover:bg-gray-100">
+            class="flex items-center justify-between px-4 py-2 rounded-lg <?= $activePage === 'notifications.php' ? 'bg-green-100 font-medium' : 'hover:bg-gray-100' ?>">
 
           <div class="flex items-center gap-3">
             <span class="material-icons text-base">notifications</span>
             <span class="sidebar-label">Notifications</span>
           </div>
 
-          <span
-            class="text-xs bg-red-600 text-white px-2 py-0.5 rounded-full">
-            3
-          </span>
+          <?php if (($employeeUnreadNotificationCount ?? 0) > 0): ?>
+            <span class="text-xs bg-red-600 text-white px-2 py-0.5 rounded-full">
+              <?= htmlspecialchars((string)($employeeUnreadNotificationBadge ?? '0'), ENT_QUOTES, 'UTF-8') ?>
+            </span>
+          <?php endif; ?>
         </a>
 
         <a href="support.php"
            title="Support"
-           class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100">
+           class="flex items-center gap-3 px-4 py-2 rounded-lg <?= $activePage === 'support.php' ? 'bg-green-100 font-medium' : 'hover:bg-gray-100' ?>">
           <span class="material-icons text-base">help_outline</span>
           <span class="sidebar-label">Support</span>
         </a>
 
         <a href="settings.php"
           title="Settings"
-          class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100">
+          class="flex items-center gap-3 px-4 py-2 rounded-lg <?= $activePage === 'settings.php' ? 'bg-green-100 font-medium' : 'hover:bg-gray-100' ?>">
           <span class="material-icons text-base">settings</span>
           <span class="sidebar-label">Settings</span>
         </a>
