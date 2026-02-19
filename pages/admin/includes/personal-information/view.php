@@ -65,6 +65,69 @@ $statusPill = static function (string $status): array {
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-800">Create Staff Account</h2>
+        <p class="text-sm text-slate-500 mt-1">Create login credentials for an existing employee profile and assign a staff role.</p>
+    </header>
+
+    <form action="personal-information.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        <input type="hidden" name="form_action" value="create_staff_account">
+
+        <div class="md:col-span-3">
+            <label class="text-slate-600">Employee Profile</label>
+            <select name="person_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                <option value="">Select employee profile</option>
+                <?php foreach ($staffAccountCandidates as $candidate): ?>
+                    <option value="<?= htmlspecialchars((string)$candidate['person_id'], ENT_QUOTES, 'UTF-8') ?>">
+                        <?= htmlspecialchars((string)$candidate['name'], ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars((string)$candidate['employee_code'], ENT_QUOTES, 'UTF-8') ?>)
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <?php if (empty($staffAccountCandidates)): ?>
+                <p class="mt-2 text-xs text-amber-700">All current employee profiles already have linked user accounts.</p>
+            <?php endif; ?>
+        </div>
+
+        <div>
+            <label class="text-slate-600">Login Email</label>
+            <input name="email" type="email" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="staff@agency.gov.ph" required>
+        </div>
+        <div>
+            <label class="text-slate-600">Password</label>
+            <input name="password" type="password" minlength="8" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Minimum 8 characters" required>
+        </div>
+        <div>
+            <label class="text-slate-600">Staff Role</label>
+            <select name="role_key" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                <option value="staff" selected>Staff</option>
+                <option value="hr_officer">HR Officer</option>
+                <option value="supervisor">Supervisor</option>
+            </select>
+        </div>
+
+        <div>
+            <label class="text-slate-600">Office Scope</label>
+            <select name="office_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                <option value="">Select office</option>
+                <?php foreach ($officeRows as $office): ?>
+                    <option value="<?= htmlspecialchars((string)($office['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                        <?= htmlspecialchars((string)($office['office_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="md:col-span-2">
+            <label class="text-slate-600">Notes (Optional)</label>
+            <input name="account_notes" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Reason or remarks for account provisioning">
+        </div>
+
+        <div class="md:col-span-3 flex justify-end">
+            <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Create Staff Account</button>
+        </div>
+    </form>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Profile Actions</h2>
         <p class="text-sm text-slate-500 mt-1">Manage profile updates and quickly filter employee records before selecting an action.</p>
     </header>

@@ -13,6 +13,192 @@ if (!function_exists('isValidUuid')) {
 
 $action = (string)($_POST['form_action'] ?? '');
 
+if ($action === 'create_staff_account') {
+    $personId = cleanText($_POST['person_id'] ?? null) ?? '';
+    $email = strtolower((string)(cleanText($_POST['email'] ?? null) ?? ''));
+    $password = (string)($_POST['password'] ?? '');
+    $roleKey = strtolower((string)(cleanText($_POST['role_key'] ?? null) ?? 'staff'));
+    $officeId = cleanText($_POST['office_id'] ?? null) ?? '';
+    $notes = cleanText($_POST['account_notes'] ?? null);
+
+    if (!isValidUuid($personId)) {
+        redirectWithState('error', 'Select a valid employee profile.');
+    }
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        redirectWithState('error', 'Valid email is required for staff account creation.');
+    }
+
+    if (strlen($password) < 8) {
+        redirectWithState('error', 'Password must be at least 8 characters.');
+    }
+
+    $allowedRoleKeys = ['staff', 'hr_officer', 'supervisor'];
+    if (!in_array($roleKey, $allowedRoleKeys, true)) {
+        redirectWithState('error', 'Invalid staff role selected.');
+    }
+
+    if (!isValidUuid($officeId)) {
+        redirectWithState('error', 'Select a valid office for this staff account.');
+    }
+
+    $personResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/people?select=id,user_id,first_name,surname,personal_email&id=eq.' . $personId . '&limit=1',
+        $headers
+    );
+
+    if (!isSuccessful($personResponse) || empty((array)($personResponse['data'] ?? []))) {
+        redirectWithState('error', 'Employee profile not found.');
+    }
+
+    $personRow = (array)$personResponse['data'][0];
+    $existingUserId = cleanText($personRow['user_id'] ?? null);
+    if ($existingUserId !== null && isValidUuid($existingUserId)) {
+        redirectWithState('error', 'This employee profile already has a linked user account.');
+    }
+
+    $employmentResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/employment_records?select=id,office_id,is_current&person_id=eq.' . $personId . '&is_current=eq.true&limit=1',
+        $headers
+    );
+
+    if (!isSuccessful($employmentResponse) || empty((array)($employmentResponse['data'] ?? []))) {
+        redirectWithState('error', 'Assign department and position first so a current employment record exists.');
+    }
+
+    $employmentRow = (array)$employmentResponse['data'][0];
+    $employmentOfficeId = cleanText($employmentRow['office_id'] ?? null);
+    if ($employmentOfficeId !== null && isValidUuid($employmentOfficeId) && strcasecmp($employmentOfficeId, $officeId) !== 0) {
+        redirectWithState('error', 'Selected office must match the employee\'s current employment office.');
+    }
+
+    $existingAccountResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/user_accounts?select=id&email=eq.' . encodeFilter($email) . '&limit=1',
+        $headers
+    );
+
+    if (isSuccessful($existingAccountResponse) && !empty((array)($existingAccountResponse['data'] ?? []))) {
+        redirectWithState('error', 'Email is already in use by an existing account.');
+    }
+
+    $fullName = trim((string)($personRow['first_name'] ?? '') . ' ' . (string)($personRow['surname'] ?? ''));
+
+    $createAuthResponse = apiRequest(
+        'POST',
+        $supabaseUrl . '/auth/v1/admin/users',
+        $headers,
+        [
+            'email' => $email,
+            'password' => $password,
+            'email_confirm' => true,
+            'user_metadata' => [
+                'full_name' => $fullName,
+                'created_by_admin' => $adminUserId,
+            ],
+        ]
+    );
+
+    if (!isSuccessful($createAuthResponse)) {
+        $raw = strtolower((string)($createAuthResponse['raw'] ?? ''));
+        if (str_contains($raw, 'already') || str_contains($raw, 'exists')) {
+            redirectWithState('error', 'Email already exists in authentication.');
+        }
+        redirectWithState('error', 'Failed to create authentication credentials for this staff account.');
+    }
+
+    $newUserId = (string)($createAuthResponse['data']['id'] ?? '');
+    if (!isValidUuid($newUserId)) {
+        redirectWithState('error', 'Authentication user was created but no valid user ID was returned.');
+    }
+
+    $accountResponse = apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/user_accounts',
+        array_merge($headers, ['Prefer: resolution=merge-duplicates,return=minimal']),
+        [[
+            'id' => $newUserId,
+            'email' => $email,
+            'account_status' => 'active',
+            'email_verified_at' => gmdate('c'),
+            'must_change_password' => true,
+        ]]
+    );
+
+    if (!isSuccessful($accountResponse)) {
+        redirectWithState('error', 'Authentication user created, but failed to create user account profile.');
+    }
+
+    $linkPersonResponse = apiRequest(
+        'PATCH',
+        $supabaseUrl . '/rest/v1/people?id=eq.' . $personId,
+        array_merge($headers, ['Prefer: return=minimal']),
+        [
+            'user_id' => $newUserId,
+            'personal_email' => $email,
+        ]
+    );
+
+    if (!isSuccessful($linkPersonResponse)) {
+        redirectWithState('error', 'User account created, but failed to link account to employee profile.');
+    }
+
+    $roleResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/roles?select=id&role_key=eq.' . $roleKey . '&limit=1',
+        $headers
+    );
+
+    $roleId = (string)($roleResponse['data'][0]['id'] ?? '');
+    if (!isValidUuid($roleId)) {
+        redirectWithState('error', 'Staff role definition not found. Please contact system administrator.');
+    }
+
+    $roleAssignmentResponse = apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/user_role_assignments',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'user_id' => $newUserId,
+            'role_id' => $roleId,
+            'office_id' => $officeId,
+            'is_primary' => true,
+            'assigned_by' => $adminUserId !== '' ? $adminUserId : null,
+            'assigned_at' => gmdate('c'),
+        ]]
+    );
+
+    if (!isSuccessful($roleAssignmentResponse)) {
+        redirectWithState('error', 'User account was created, but failed to assign staff role.');
+    }
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $adminUserId,
+            'module_name' => 'personal_information',
+            'entity_name' => 'people',
+            'entity_id' => $personId,
+            'action_name' => 'create_staff_account',
+            'old_data' => null,
+            'new_data' => [
+                'linked_user_id' => $newUserId,
+                'email' => $email,
+                'role_key' => $roleKey,
+                'office_id' => $officeId,
+                'notes' => $notes,
+            ],
+            'ip_address' => clientIp(),
+        ]]
+    );
+
+    redirectWithState('success', 'Staff account created and linked successfully.');
+}
+
 if ($action === 'save_profile') {
     $profileAction = strtolower((string)(cleanText($_POST['profile_action'] ?? null) ?? 'edit'));
     $personId = cleanText($_POST['person_id'] ?? null);

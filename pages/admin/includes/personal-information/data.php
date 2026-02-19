@@ -353,6 +353,7 @@ foreach ($educationalBackgroundRows as $educationRow) {
 
 $employeeTableRows = [];
 $employeesForSelect = [];
+$staffAccountCandidates = [];
 $departmentFilters = [];
 
 $totalProfiles = count($peopleRows);
@@ -499,6 +500,18 @@ foreach ($peopleRows as $person) {
         'name' => $fullName,
         'employee_code' => $employeeCode,
     ];
+
+    $personUserId = cleanText($person['user_id'] ?? null);
+    if ($personUserId === null || !preg_match('/^[a-f0-9-]{36}$/i', $personUserId)) {
+        $staffAccountCandidates[] = [
+            'person_id' => $personId,
+            'name' => $fullName,
+            'employee_code' => $employeeCode,
+            'email' => $email,
+            'office_id' => $officeId,
+            'office_name' => $departmentName,
+        ];
+    }
 }
 
 $needsUpdateCount = max(0, $totalProfiles - $completeRecords);
@@ -507,6 +520,10 @@ $departmentFilterOptions = array_keys($departmentFilters);
 sort($departmentFilterOptions);
 
 usort($employeesForSelect, static function (array $left, array $right): int {
+    return strcmp((string)$left['name'], (string)$right['name']);
+});
+
+usort($staffAccountCandidates, static function (array $left, array $right): int {
     return strcmp((string)$left['name'], (string)$right['name']);
 });
 
