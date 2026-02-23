@@ -146,6 +146,34 @@ $formatDate = static function (?string $value): string {
   </div>
 </section>
 
+<section class="bg-white rounded-xl shadow p-6 mt-6">
+  <h2 class="text-lg font-bold mb-6">Approved <span class="text-daGreen">Performance Evaluations</span></h2>
+
+  <?php if (!empty($employeeApprovedEvaluations)): ?>
+    <div class="space-y-4 text-sm">
+      <?php foreach ($employeeApprovedEvaluations as $evaluation): ?>
+        <article class="border rounded-lg p-4">
+          <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
+            <div>
+              <p class="font-semibold text-gray-800"><?= $escape($evaluation['cycle_name'] ?? 'Evaluation Cycle') ?></p>
+              <p class="text-xs text-gray-500">
+                <?= $escape($formatDate($evaluation['period_start'] ?? null)) ?> - <?= $escape($formatDate($evaluation['period_end'] ?? null)) ?>
+              </p>
+            </div>
+            <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Approved</span>
+          </div>
+
+          <p><span class="text-gray-500">Final Rating:</span> <span class="font-medium"><?= $escape($evaluation['final_rating'] ?? '-') ?></span></p>
+          <p class="mt-1"><span class="text-gray-500">Feedback:</span> <?= $escape($evaluation['remarks'] ?? '-') ?></p>
+          <p class="mt-1 text-xs text-gray-500">Reviewed by <?= $escape($evaluation['evaluator_email'] ?? '-') ?> on <?= $escape($formatDate($evaluation['approved_at'] ?? null)) ?></p>
+        </article>
+      <?php endforeach; ?>
+    </div>
+  <?php else: ?>
+    <div class="rounded-lg border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-500">No approved performance evaluations yet.</div>
+  <?php endif; ?>
+</section>
+
 <div id="profileModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
   <div class="absolute inset-0 bg-black/40" data-close-profile></div>
   <div class="relative z-10 min-h-screen flex items-center justify-center p-4">

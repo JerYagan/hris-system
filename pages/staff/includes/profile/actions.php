@@ -10,8 +10,110 @@ if (!isValidCsrfToken($_POST['csrf_token'] ?? null)) {
     redirectWithState('error', 'Invalid request token. Please refresh and try again.');
 }
 
-if ($action !== 'update_staff_profile') {
+if (!in_array($action, ['update_staff_profile', 'upload_profile_photo'], true)) {
     redirectWithState('error', 'Unknown profile action.');
+}
+
+if ($action === 'upload_profile_photo') {
+    $photoFile = $_FILES['profile_photo'] ?? null;
+    if (!is_array($photoFile) || (int)($photoFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        redirectWithState('error', 'Please choose a valid profile photo file.');
+    }
+
+    $tmpName = (string)($photoFile['tmp_name'] ?? '');
+    $sizeBytes = (int)($photoFile['size'] ?? 0);
+    if ($tmpName === '' || !is_uploaded_file($tmpName)) {
+        redirectWithState('error', 'Uploaded profile photo is invalid.');
+    }
+
+    if ($sizeBytes <= 0 || $sizeBytes > (3 * 1024 * 1024)) {
+        redirectWithState('error', 'Profile photo must be less than or equal to 3 MB.');
+    }
+
+    $mimeType = (string)(mime_content_type($tmpName) ?: '');
+    $allowedMimeToExt = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+    ];
+
+    $extension = $allowedMimeToExt[$mimeType] ?? null;
+    if ($extension === null) {
+        redirectWithState('error', 'Only JPG, PNG, and WEBP profile photos are allowed.');
+    }
+
+    $beforePhotoResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/people?select=id,profile_photo_url&user_id=eq.' . rawurlencode($staffUserId) . '&limit=1',
+        $headers
+    );
+
+    if (!isSuccessful($beforePhotoResponse) || empty((array)($beforePhotoResponse['data'] ?? []))) {
+        redirectWithState('error', 'Unable to load profile before photo update.');
+    }
+
+    $beforePhotoRow = (array)$beforePhotoResponse['data'][0];
+    $personId = cleanText($beforePhotoRow['id'] ?? null) ?? '';
+    if (!isValidUuid($personId)) {
+        redirectWithState('error', 'Profile person record is invalid.');
+    }
+
+    $oldPath = cleanText($beforePhotoRow['profile_photo_url'] ?? null);
+
+    $storageRoot = dirname(__DIR__, 4) . '/storage/document';
+    $profileDir = $storageRoot . '/profile-photos/' . $personId;
+    if (!is_dir($profileDir) && !mkdir($profileDir, 0775, true) && !is_dir($profileDir)) {
+        redirectWithState('error', 'Unable to prepare profile photo storage.');
+    }
+
+    $fileName = 'photo_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
+    $relativePath = 'profile-photos/' . $personId . '/' . $fileName;
+    $absolutePath = $storageRoot . '/' . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+
+    if (!move_uploaded_file($tmpName, $absolutePath)) {
+        redirectWithState('error', 'Failed to save uploaded profile photo.');
+    }
+
+    $photoUpdateResponse = apiRequest(
+        'PATCH',
+        $supabaseUrl . '/rest/v1/people?id=eq.' . rawurlencode($personId),
+        array_merge($headers, ['Prefer: return=minimal']),
+        [
+            'profile_photo_url' => $relativePath,
+            'updated_at' => gmdate('c'),
+        ]
+    );
+
+    if (!isSuccessful($photoUpdateResponse)) {
+        @unlink($absolutePath);
+        redirectWithState('error', 'Unable to update profile photo reference.');
+    }
+
+    if ($oldPath !== null && str_starts_with($oldPath, 'profile-photos/')) {
+        $oldAbsolute = $storageRoot . '/' . str_replace('/', DIRECTORY_SEPARATOR, $oldPath);
+        if (is_file($oldAbsolute)) {
+            @unlink($oldAbsolute);
+        }
+    }
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $staffUserId,
+            'module_name' => 'profile',
+            'entity_name' => 'people',
+            'entity_id' => $personId,
+            'action_name' => 'upload_profile_photo',
+            'old_data' => ['profile_photo_url' => $oldPath],
+            'new_data' => ['profile_photo_url' => $relativePath],
+            'ip_address' => clientIp(),
+        ]]
+    );
+
+    unset($_SESSION['staff_topnav_cache']);
+    redirectWithState('success', 'Profile photo updated successfully.');
 }
 
 $firstName = trim((string)(cleanText($_POST['first_name'] ?? null) ?? ''));

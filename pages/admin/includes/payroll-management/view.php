@@ -558,6 +558,74 @@ $setupStatusPill = static function (string $status): array {
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-800">Review Salary Adjustments</h2>
+        <p class="text-sm text-slate-500 mt-1">Review salary adjustments submitted by Staff and approve or reject each entry.</p>
+    </header>
+
+    <div class="p-6 overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600">
+                <tr>
+                    <th class="text-left px-4 py-3">Adjustment Code</th>
+                    <th class="text-left px-4 py-3">Employee</th>
+                    <th class="text-left px-4 py-3">Period</th>
+                    <th class="text-left px-4 py-3">Type</th>
+                    <th class="text-left px-4 py-3">Amount</th>
+                    <th class="text-left px-4 py-3">Status</th>
+                    <th class="text-left px-4 py-3">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                <?php if (empty($payrollAdjustmentRows)): ?>
+                    <tr>
+                        <td class="px-4 py-3 text-slate-500" colspan="7">No salary adjustments found.</td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($payrollAdjustmentRows as $adjustment): ?>
+                        <?php
+                        $statusRaw = strtolower((string)($adjustment['status_raw'] ?? 'pending'));
+                        ?>
+                        <tr>
+                            <td class="px-4 py-3 font-medium text-slate-800"><?= htmlspecialchars((string)($adjustment['adjustment_code'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-700"><?= htmlspecialchars((string)($adjustment['employee_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)($adjustment['period_code'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)($adjustment['adjustment_type_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-700"><?= htmlspecialchars($currency((float)($adjustment['amount'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><span class="inline-flex items-center justify-center min-w-[95px] px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars((string)($adjustment['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($adjustment['status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?></span></td>
+                            <td class="px-4 py-3">
+                                <?php if ($statusRaw === 'pending'): ?>
+                                    <div class="flex items-center gap-2">
+                                        <form action="payroll-management.php" method="POST" class="inline">
+                                            <input type="hidden" name="form_action" value="review_salary_adjustment">
+                                            <input type="hidden" name="adjustment_id" value="<?= htmlspecialchars((string)($adjustment['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" name="decision" value="approved">
+                                            <button type="submit" onclick="return window.confirm('Approve this salary adjustment?');" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50 shadow-sm">
+                                                <span class="material-symbols-outlined text-[15px]">check</span>Approve
+                                            </button>
+                                        </form>
+                                        <form action="payroll-management.php" method="POST" class="inline">
+                                            <input type="hidden" name="form_action" value="review_salary_adjustment">
+                                            <input type="hidden" name="adjustment_id" value="<?= htmlspecialchars((string)($adjustment['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" name="decision" value="rejected">
+                                            <button type="submit" onclick="return window.confirm('Reject this salary adjustment?');" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-rose-300 bg-white text-rose-700 hover:bg-rose-50 shadow-sm">
+                                                <span class="material-symbols-outlined text-[15px]">close</span>Reject
+                                            </button>
+                                        </form>
+                                    </div>
+                                <?php else: ?>
+                                    <span class="text-xs text-slate-500">Reviewed</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">View Employee Payslips</h2>
         <p class="text-sm text-slate-500 mt-1">Track generated payslip records and release status by employee payroll item.</p>
     </header>

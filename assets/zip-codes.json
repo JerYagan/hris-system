@@ -1,0 +1,10326 @@
+{
+    "bangued": {
+        "bangued": [
+            2800
+        ]
+    },
+    "dolores": {
+        "dolores": [
+            2801,
+            4326,
+            6817
+        ]
+    },
+    "lagangilang": {
+        "lagangilang": [
+            2802
+        ]
+    },
+    "tayum": {
+        "tayum": [
+            2803
+        ]
+    },
+    "peñarrubia": {
+        "peñarrubia": [
+            2804
+        ]
+    },
+    "bucay": {
+        "bucay": [
+            2805
+        ]
+    },
+    "pidigan": {
+        "pidigan": [
+            2806
+        ]
+    },
+    "langiden": {
+        "langiden": [
+            2807
+        ]
+    },
+    "san quintin": {
+        "san quintin": [
+            2444,
+            2808
+        ]
+    },
+    "san isidro": {
+        "san isidro": [
+            1113,
+            1234,
+            1306,
+            2809,
+            3106,
+            3310,
+            6345,
+            6409,
+            6535,
+            8209,
+            8421
+        ]
+    },
+    "manabo": {
+        "manabo": [
+            2810
+        ]
+    },
+    "villaviciosa": {
+        "villaviciosa": [
+            2811
+        ]
+    },
+    "pilar": {
+        "pilar": [
+            2101,
+            2812,
+            4714,
+            5804,
+            6048,
+            6321,
+            8420
+        ]
+    },
+    "luba": {
+        "luba": [
+            2813
+        ]
+    },
+    "tubo": {
+        "tubo": [
+            2814
+        ]
+    },
+    "boliney": {
+        "boliney": [
+            2815
+        ]
+    },
+    "daguioman": {
+        "daguioman": [
+            2816
+        ]
+    },
+    "bucloc": {
+        "bucloc": [
+            2817
+        ]
+    },
+    "sallapadan": {
+        "sallapadan": [
+            2818
+        ]
+    },
+    "licuan": {
+        "licuan": [
+            2819
+        ]
+    },
+    "malibcong": {
+        "malibcong": [
+            2820
+        ]
+    },
+    "lacub": {
+        "lacub": [
+            2821
+        ]
+    },
+    "tineg": {
+        "tineg": [
+            2822
+        ]
+    },
+    "san juan": {
+        "san juan": [
+            2514,
+            2731,
+            2823,
+            4226,
+            6227,
+            6611
+        ]
+    },
+    "lagayan": {
+        "lagayan": [
+            2824
+        ]
+    },
+    "danglas": {
+        "danglas": [
+            2825
+        ]
+    },
+    "la paz": {
+        "la paz": [
+            2314,
+            2826,
+            6508,
+            8508
+        ],
+        "singkamas": [
+            1204
+        ]
+    },
+    "butuan city": {
+        "butuan city": [
+            8600
+        ]
+    },
+    "buenavista": {
+        "buenavista": [
+            4320,
+            4904,
+            5044,
+            5421,
+            6333,
+            8601
+        ]
+    },
+    "nasipit": {
+        "nasipit": [
+            8602
+        ]
+    },
+    "carmen": {
+        "carmen": [
+            6005,
+            6319,
+            8101,
+            8315,
+            8603,
+            9408
+        ]
+    },
+    "cabadbaran city": {
+        "cabadbaran city": [
+            8605
+        ]
+    },
+    "magallanes": {
+        "magallanes": [
+            4113,
+            4705,
+            8604
+        ]
+    },
+    "tubay": {
+        "tubay": [
+            8606
+        ]
+    },
+    "jabonga": {
+        "jabonga": [
+            8607
+        ]
+    },
+    "santiago": {
+        "santiago": [
+            2707,
+            8608
+        ]
+    },
+    "kitcharao": {
+        "kitcharao": [
+            8609
+        ]
+    },
+    "las nieves": {
+        "las nieves": [
+            8610
+        ]
+    },
+    "remedios t. romualdez": {
+        "remedios t. romualdez": [
+            8611
+        ]
+    },
+    "prosperidad": {
+        "prosperidad": [
+            8500
+        ]
+    },
+    "san francisco": {
+        "san francisco": [
+            4315,
+            6050,
+            6613,
+            8401,
+            8501
+        ]
+    },
+    "bayugan": {
+        "bayugan": [
+            8502
+        ]
+    },
+    "sibagat": {
+        "sibagat": [
+            8503
+        ]
+    },
+    "rosario": {
+        "rosario": [
+            1609,
+            2506,
+            4106,
+            4225,
+            6416,
+            8504
+        ]
+    },
+    "trento": {
+        "trento": [
+            8505
+        ]
+    },
+    "bunawan": {
+        "bunawan": [
+            8506
+        ]
+    },
+    "loreto": {
+        "loreto": [
+            8415,
+            8507
+        ]
+    },
+    "veruela": {
+        "veruela": [
+            8509
+        ]
+    },
+    "talacogon": {
+        "talacogon": [
+            8510
+        ]
+    },
+    "san luis": {
+        "san luis": [
+            2014,
+            3201,
+            4210,
+            8511
+        ]
+    },
+    "santa josefa": {
+        "santa josefa": [
+            8512
+        ]
+    },
+    "esperanza": {
+        "esperanza": [
+            5407,
+            8513,
+            9806
+        ]
+    },
+    "altavas": {
+        "altavas": [
+            5616
+        ]
+    },
+    "balete": {
+        "balete": [
+            4219,
+            5614
+        ]
+    },
+    "banga": {
+        "banga": [
+            5601,
+            9511
+        ]
+    },
+    "batan": {
+        "batan": [
+            5615
+        ]
+    },
+    "buruanga": {
+        "buruanga": [
+            5609
+        ]
+    },
+    "ibajay": {
+        "ibajay": [
+            5613
+        ]
+    },
+    "kalibo": {
+        "kalibo": [
+            5600
+        ]
+    },
+    "lezo": {
+        "lezo": [
+            5605
+        ]
+    },
+    "libacao": {
+        "libacao": [
+            5602
+        ]
+    },
+    "madalag": {
+        "madalag": [
+            5603
+        ]
+    },
+    "makato": {
+        "makato": [
+            5611
+        ]
+    },
+    "malay": {
+        "malay": [
+            5608
+        ]
+    },
+    "malinao": {
+        "malinao": [
+            4512,
+            5606
+        ]
+    },
+    "nabas": {
+        "nabas": [
+            5607
+        ]
+    },
+    "new washington": {
+        "new washington": [
+            5610
+        ]
+    },
+    "numancia": {
+        "numancia": [
+            5604
+        ]
+    },
+    "tangalan": {
+        "tangalan": [
+            5612
+        ]
+    },
+    "bacacay": {
+        "bacacay": [
+            4509
+        ]
+    },
+    "camalig": {
+        "camalig": [
+            4502
+        ]
+    },
+    "daraga": {
+        "daraga": [
+            4501
+        ]
+    },
+    "guinobatan": {
+        "guinobatan": [
+            4503
+        ]
+    },
+    "jovellar": {
+        "jovellar": [
+            4515
+        ]
+    },
+    "legazpi city": {
+        "legazpi city": [
+            4500
+        ]
+    },
+    "libon": {
+        "libon": [
+            4507
+        ]
+    },
+    "ligao city": {
+        "ligao city": [
+            4504
+        ]
+    },
+    "malilipot": {
+        "malilipot": [
+            4510
+        ]
+    },
+    "manito": {
+        "manito": [
+            4514
+        ]
+    },
+    "oas": {
+        "oas": [
+            4505
+        ]
+    },
+    "pio duran": {
+        "pio duran": [
+            4516
+        ]
+    },
+    "polangui": {
+        "polangui": [
+            4506
+        ]
+    },
+    "rapu-rapu": {
+        "rapu-rapu": [
+            4517
+        ]
+    },
+    "santo domingo": {
+        "santo domingo": [
+            2729,
+            3133,
+            4508
+        ]
+    },
+    "tabaco city": {
+        "tabaco city": [
+            4511
+        ]
+    },
+    "tiwi": {
+        "tiwi": [
+            4513
+        ]
+    },
+    "anini-y": {
+        "anini-y": [
+            5717
+        ]
+    },
+    "barbaza": {
+        "barbaza": [
+            5706
+        ]
+    },
+    "belison": {
+        "belison": [
+            5701
+        ]
+    },
+    "bugasong": {
+        "bugasong": [
+            5704
+        ]
+    },
+    "caluya": {
+        "caluya": [
+            5711
+        ]
+    },
+    "culasi": {
+        "culasi": [
+            5708
+        ]
+    },
+    "hamtic": {
+        "hamtic": [
+            5715
+        ]
+    },
+    "laua-an": {
+        "laua-an": [
+            5705
+        ]
+    },
+    "libertad": {
+        "libertad": [
+            5710,
+            9021
+        ]
+    },
+    "pandan": {
+        "pandan": [
+            4809,
+            5712
+        ]
+    },
+    "patnongon": {
+        "patnongon": [
+            5702
+        ]
+    },
+    "san jose": {
+        "san jose": [
+            1115,
+            1305,
+            1404,
+            2301,
+            4227,
+            4423,
+            5100,
+            5510,
+            5700,
+            6202,
+            6402,
+            8427
+        ]
+    },
+    "san remigio": {
+        "san remigio": [
+            5714,
+            6011
+        ]
+    },
+    "sebaste": {
+        "sebaste": [
+            5709
+        ]
+    },
+    "sibalom": {
+        "sibalom": [
+            5713
+        ]
+    },
+    "tibiao": {
+        "tibiao": [
+            5707
+        ]
+    },
+    "tobias fornier": {
+        "tobias fornier": [
+            5716
+        ]
+    },
+    "valderrama": {
+        "valderrama": [
+            5703
+        ]
+    },
+    "calanasan": {
+        "calanasan": [
+            3814
+        ]
+    },
+    "conner": {
+        "conner": [
+            3807
+        ]
+    },
+    "flora": {
+        "flora": [
+            3810
+        ]
+    },
+    "kabugao": {
+        "kabugao": [
+            3809
+        ]
+    },
+    "luna": {
+        "luna": [
+            2518,
+            3304,
+            3813
+        ]
+    },
+    "pudtol": {
+        "pudtol": [
+            3812
+        ]
+    },
+    "santa marcela": {
+        "santa marcela": [
+            3811
+        ]
+    },
+    "baler": {
+        "baler": [
+            3200
+        ]
+    },
+    "casiguran": {
+        "casiguran": [
+            3204,
+            4702
+        ]
+    },
+    "dilasag": {
+        "dilasag": [
+            3205
+        ]
+    },
+    "dinalungan": {
+        "dinalungan": [
+            3206
+        ]
+    },
+    "dingalan": {
+        "dingalan": [
+            3207
+        ]
+    },
+    "dipaculao": {
+        "dipaculao": [
+            3203
+        ]
+    },
+    "maria aurora": {
+        "maria aurora": [
+            3202
+        ]
+    },
+    "isabela city": {
+        "isabela city": [
+            7300
+        ]
+    },
+    "lantawan": {
+        "lantawan": [
+            7301
+        ]
+    },
+    "lamitan city": {
+        "lamitan city": [
+            7302
+        ]
+    },
+    "maluso": {
+        "maluso": [
+            7303
+        ]
+    },
+    "tipo-tipo": {
+        "tipo-tipo": [
+            7304
+        ]
+    },
+    "sumisip": {
+        "sumisip": [
+            7305
+        ]
+    },
+    "tuburan": {
+        "tuburan": [
+            6043,
+            7306
+        ]
+    },
+    "froilie": {
+        "froilie": [
+            7308
+        ]
+    },
+    "abucay": {
+        "abucay": [
+            2114
+        ]
+    },
+    "bagac": {
+        "bagac": [
+            2107
+        ]
+    },
+    "balanga city": {
+        "balanga city": [
+            2100
+        ]
+    },
+    "mariveles": {
+        "mariveles": [
+            2105,
+            2106
+        ]
+    },
+    "dinalupihan": {
+        "dinalupihan": [
+            2110
+        ]
+    },
+    "hermosa": {
+        "hermosa": [
+            2111
+        ]
+    },
+    "lamao": {
+        "lamao": [
+            2104
+        ]
+    },
+    "limay": {
+        "limay": [
+            2103
+        ]
+    },
+    "morong": {
+        "morong": [
+            1960,
+            2108,
+            2109
+        ]
+    },
+    "orani": {
+        "orani": [
+            2112
+        ]
+    },
+    "orion": {
+        "orion": [
+            2102
+        ]
+    },
+    "samal": {
+        "samal": [
+            2113
+        ]
+    },
+    "basco": {
+        "basco": [
+            3900
+        ]
+    },
+    "itbayat": {
+        "itbayat": [
+            3905
+        ]
+    },
+    "ivana": {
+        "ivana": [
+            3902
+        ]
+    },
+    "mahatao": {
+        "mahatao": [
+            3901
+        ]
+    },
+    "sabtang": {
+        "sabtang": [
+            3904
+        ]
+    },
+    "uyugan": {
+        "uyugan": [
+            3903
+        ]
+    },
+    "agoncillo": {
+        "agoncillo": [
+            4211
+        ]
+    },
+    "alitagtag": {
+        "alitagtag": [
+            4205
+        ]
+    },
+    "balayan": {
+        "balayan": [
+            4213
+        ]
+    },
+    "batangas city": {
+        "batangas city": [
+            4200
+        ]
+    },
+    "bauan": {
+        "bauan": [
+            4201
+        ]
+    },
+    "calaca": {
+        "calaca": [
+            4212
+        ]
+    },
+    "calatagan, incl. punta baluarte": {
+        "calatagan, incl. punta baluarte": [
+            4215
+        ]
+    },
+    "cuenca": {
+        "cuenca": [
+            4222
+        ]
+    },
+    "fernando airbase": {
+        "fernando airbase": [
+            4218
+        ]
+    },
+    "ibaan": {
+        "ibaan": [
+            4230
+        ]
+    },
+    "laurel, incl. diokno highway": {
+        "laurel, incl. diokno highway": [
+            4221
+        ]
+    },
+    "lemery": {
+        "lemery": [
+            4209,
+            5043
+        ]
+    },
+    "lian, incl. matabungkay": {
+        "lian, incl. matabungkay": [
+            4216
+        ]
+    },
+    "lipa city": {
+        "lipa city": [
+            4217
+        ]
+    },
+    "lobo, incl. laiya": {
+        "lobo, incl. laiya": [
+            4229
+        ]
+    },
+    "mabini": {
+        "mabini": [
+            2409,
+            4202,
+            6313,
+            8115
+        ]
+    },
+    "malvar": {
+        "malvar": [
+            4233
+        ]
+    },
+    "mataas na kahoy": {
+        "mataas na kahoy": [
+            4223
+        ]
+    },
+    "nasugbu, incl. punta fuego and calaruega": {
+        "nasugbu, incl. punta fuego and calaruega": [
+            4231
+        ]
+    },
+    "padre garcia": {
+        "padre garcia": [
+            4224
+        ]
+    },
+    "san nicolas": {
+        "san nicolas": [
+            1010,
+            2447,
+            2901,
+            4207
+        ]
+    },
+    "san pascual": {
+        "san pascual": [
+            4204,
+            5420
+        ]
+    },
+    "santa teresita": {
+        "santa teresita": [
+            1114,
+            3512,
+            4206
+        ]
+    },
+    "santo tomas": {
+        "santo tomas": [
+            2020,
+            2426,
+            2505,
+            3327,
+            4234,
+            8112
+        ]
+    },
+    "taal": {
+        "taal": [
+            4208
+        ]
+    },
+    "talisay": {
+        "talisay": [
+            4220,
+            4602
+        ]
+    },
+    "tanauan city": {
+        "tanauan city": [
+            4232
+        ]
+    },
+    "taysan": {
+        "taysan": [
+            4228
+        ]
+    },
+    "tingloy": {
+        "tingloy": [
+            4203
+        ]
+    },
+    "tuy": {
+        "tuy": [
+            4214
+        ]
+    },
+    "atok": {
+        "atok": [
+            2612
+        ]
+    },
+    "baguio city": {
+        "baguio city": [
+            2600
+        ]
+    },
+    "bakun": {
+        "bakun": [
+            2610
+        ]
+    },
+    "bokod": {
+        "bokod": [
+            2605
+        ]
+    },
+    "buguias": {
+        "buguias": [
+            2607
+        ]
+    },
+    "itogon": {
+        "itogon": [
+            2604
+        ]
+    },
+    "kabayan": {
+        "kabayan": [
+            2606
+        ]
+    },
+    "kapangan": {
+        "kapangan": [
+            2613
+        ]
+    },
+    "kibungan": {
+        "kibungan": [
+            2611
+        ]
+    },
+    "la trinidad, including pico": {
+        "la trinidad, including pico": [
+            2601
+        ]
+    },
+    "mankayan": {
+        "lepanto": [
+            2609
+        ],
+        "mankayan": [
+            2608
+        ]
+    },
+    "lepanto": {
+        "mankayan": [
+            2609
+        ]
+    },
+    "philippine military academy": {
+        "philippine military academy": [
+            2602
+        ]
+    },
+    "sablan": {
+        "sablan": [
+            2614
+        ]
+    },
+    "tuba, including marcos highway and kennon road": {
+        "tuba, including marcos highway and kennon road": [
+            2603
+        ]
+    },
+    "tublay": {
+        "tublay": [
+            2615
+        ]
+    },
+    "almeria": {
+        "almeria": [
+            6544
+        ]
+    },
+    "biliran": {
+        "biliran": [
+            6549
+        ]
+    },
+    "cabucgayan": {
+        "cabucgayan": [
+            6550
+        ]
+    },
+    "caibiran": {
+        "caibiran": [
+            6548
+        ]
+    },
+    "culaba": {
+        "culaba": [
+            6547
+        ]
+    },
+    "kawayan": {
+        "kawayan": [
+            6545
+        ]
+    },
+    "maripipi": {
+        "maripipi": [
+            6546
+        ]
+    },
+    "naval": {
+        "naval": [
+            6543
+        ]
+    },
+    "alburquerque": {
+        "alburquerque": [
+            6302
+        ]
+    },
+    "alicia": {
+        "alicia": [
+            1105,
+            3306,
+            6314,
+            7040
+        ]
+    },
+    "anda": {
+        "anda": [
+            2405,
+            6311
+        ]
+    },
+    "antequera": {
+        "antequera": [
+            6335
+        ]
+    },
+    "baclayon": {
+        "baclayon": [
+            6301
+        ]
+    },
+    "balilihan": {
+        "balilihan": [
+            6342
+        ]
+    },
+    "batuan": {
+        "batuan": [
+            5415,
+            6318
+        ]
+    },
+    "bien unido": {
+        "bien unido": [
+            6326
+        ]
+    },
+    "bilar": {
+        "bilar": [
+            6317
+        ]
+    },
+    "calape": {
+        "calape": [
+            6328
+        ]
+    },
+    "candijay": {
+        "candijay": [
+            6312
+        ]
+    },
+    "pres. carlos p. garcia": {
+        "pres. carlos p. garcia": [
+            6346
+        ]
+    },
+    "catigbian": {
+        "catigbian": [
+            6343
+        ]
+    },
+    "clarin": {
+        "clarin": [
+            6330,
+            7201
+        ]
+    },
+    "corella": {
+        "corella": [
+            6337
+        ]
+    },
+    "cortes": {
+        "cortes": [
+            6341
+        ]
+    },
+    "dagohoy": {
+        "dagohoy": [
+            6322
+        ]
+    },
+    "danao": {
+        "danao": [
+            6344
+        ]
+    },
+    "dauis": {
+        "dauis": [
+            6339
+        ]
+    },
+    "dimiao": {
+        "dimiao": [
+            6305
+        ]
+    },
+    "duero": {
+        "duero": [
+            6309
+        ]
+    },
+    "garcia hernandez": {
+        "garcia hernandez": [
+            6307
+        ]
+    },
+    "guindulman": {
+        "guindulman": [
+            6310
+        ]
+    },
+    "inabanga": {
+        "inabanga": [
+            6332
+        ]
+    },
+    "jagna": {
+        "jagna": [
+            6308
+        ]
+    },
+    "jetafe": {
+        "jetafe": [
+            6334
+        ]
+    },
+    "lila": {
+        "lila": [
+            6304
+        ]
+    },
+    "loay": {
+        "loay": [
+            6202
+        ]
+    },
+    "loboc": {
+        "loboc": [
+            6316
+        ]
+    },
+    "loon": {
+        "loon": [
+            6327
+        ]
+    },
+    "maribojoc": {
+        "maribojoc": [
+            6336
+        ]
+    },
+    "panglao": {
+        "panglao": [
+            6340
+        ]
+    },
+    "sagbayan": {
+        "sagbayan": [
+            6331
+        ]
+    },
+    "san miguel": {
+        "san miguel": [
+            1005,
+            3011,
+            4802,
+            5025,
+            6323,
+            6518,
+            7029,
+            8301
+        ]
+    },
+    "sevilla": {
+        "sevilla": [
+            6347
+        ]
+    },
+    "sierra bullones": {
+        "sierra bullones": [
+            6320
+        ]
+    },
+    "sikatuna": {
+        "sikatuna": [
+            6338
+        ]
+    },
+    "tagbilaran city": {
+        "tagbilaran city": [
+            6300
+        ]
+    },
+    "talibon": {
+        "talibon": [
+            6325
+        ]
+    },
+    "trinidad": {
+        "trinidad": [
+            6324
+        ]
+    },
+    "tubigon": {
+        "tubigon": [
+            6329
+        ]
+    },
+    "ubay": {
+        "ubay": [
+            6315
+        ]
+    },
+    "valencia": {
+        "valencia": [
+            1112,
+            6215,
+            6306
+        ]
+    },
+    "baungon": {
+        "baungon": [
+            8707
+        ]
+    },
+    "cabanglasan": {
+        "cabanglasan": [
+            8723
+        ]
+    },
+    "damulog": {
+        "damulog": [
+            8721
+        ]
+    },
+    "dangcagan": {
+        "dangcagan": [
+            8719
+        ]
+    },
+    "don carlos": {
+        "don carlos": [
+            8712
+        ]
+    },
+    "impasugong": {
+        "impasugong": [
+            8702
+        ]
+    },
+    "kadingilan": {
+        "kadingilan": [
+            8713
+        ]
+    },
+    "kalilangan": {
+        "kalilangan": [
+            8718
+        ]
+    },
+    "kibawe": {
+        "kibawe": [
+            8720
+        ]
+    },
+    "kitaotao": {
+        "kitaotao": [
+            8716
+        ]
+    },
+    "lantapan": {
+        "lantapan": [
+            8722
+        ]
+    },
+    "libona": {
+        "libona": [
+            8706
+        ]
+    },
+    "malaybalay city": {
+        "malaybalay city": [
+            8700
+        ]
+    },
+    "malitbog": {
+        "malitbog": [
+            6603,
+            8704
+        ]
+    },
+    "manolo fortich": {
+        "manolo fortich": [
+            8703
+        ]
+    },
+    "maramag": {
+        "maramag": [
+            8714
+        ]
+    },
+    "musuan": {
+        "musuan": [
+            8710
+        ]
+    },
+    "pangantucan": {
+        "pangantucan": [
+            8717
+        ]
+    },
+    "phillips": {
+        "phillips": [
+            8705
+        ]
+    },
+    "quezon": {
+        "quezon": [
+            3113,
+            3324,
+            3714,
+            4332,
+            5304,
+            8715
+        ]
+    },
+    "san fernando": {
+        "san fernando": [
+            4415,
+            5416,
+            5513,
+            6018,
+            8711
+        ]
+    },
+    "sumilao": {
+        "sumilao": [
+            8701
+        ]
+    },
+    "talakag": {
+        "talakag": [
+            8708
+        ]
+    },
+    "valencia city": {
+        "valencia city": [
+            8709
+        ]
+    },
+    "angat": {
+        "angat": [
+            3012
+        ]
+    },
+    "balagtas": {
+        "balagtas": [
+            3016
+        ]
+    },
+    "baliuag": {
+        "baliuag": [
+            3006
+        ]
+    },
+    "bocaue": {
+        "bocaue": [
+            3018
+        ]
+    },
+    "bulacan": {
+        "bulacan": [
+            3017
+        ]
+    },
+    "bustos": {
+        "bustos": [
+            3007
+        ]
+    },
+    "calumpit": {
+        "calumpit": [
+            3003
+        ]
+    },
+    "dona remedios trinidad": {
+        "dona remedios trinidad": [
+            3009
+        ]
+    },
+    "guiguinto": {
+        "guiguinto": [
+            3015
+        ]
+    },
+    "hagonoy": {
+        "hagonoy": [
+            3002,
+            8006
+        ]
+    },
+    "malolos city": {
+        "malolos city": [
+            3000
+        ]
+    },
+    "marilao": {
+        "marilao": [
+            3019
+        ]
+    },
+    "meycauayan city": {
+        "meycauayan city": [
+            3020
+        ]
+    },
+    "norzagaray": {
+        "norzagaray": [
+            3013
+        ]
+    },
+    "obando": {
+        "obando": [
+            3021
+        ]
+    },
+    "pandi": {
+        "pandi": [
+            3014
+        ]
+    },
+    "paombong": {
+        "paombong": [
+            3001
+        ]
+    },
+    "plaridel": {
+        "plaridel": [
+            3004,
+            4306,
+            7209
+        ]
+    },
+    "pulilan": {
+        "pulilan": [
+            3005
+        ]
+    },
+    "san ildefonso": {
+        "san ildefonso": [
+            2728,
+            3010
+        ]
+    },
+    "san jose del monte city": {
+        "san jose del monte city": [
+            3023
+        ],
+        "sapang palay": [
+            3024
+        ]
+    },
+    "san rafael": {
+        "san rafael": [
+            1302,
+            3008,
+            5039
+        ]
+    },
+    "santa maria": {
+        "santa maria": [
+            2440,
+            2705,
+            3022,
+            3330,
+            4022,
+            8011
+        ]
+    },
+    "sapang palay": {
+        "san jose del monte city": [
+            3024
+        ]
+    },
+    "abulug": {
+        "abulug": [
+            3517
+        ]
+    },
+    "alcala": {
+        "alcala": [
+            2425,
+            3507
+        ]
+    },
+    "allacapan": {
+        "allacapan": [
+            3523
+        ]
+    },
+    "amulung": {
+        "amulung": [
+            3505
+        ]
+    },
+    "aparri": {
+        "aparri": [
+            3515
+        ]
+    },
+    "baggao": {
+        "baggao": [
+            3506
+        ]
+    },
+    "ballesteros": {
+        "ballesteros": [
+            3516
+        ]
+    },
+    "buguey": {
+        "buguey": [
+            3511
+        ]
+    },
+    "calayan": {
+        "calayan": [
+            3520
+        ]
+    },
+    "camalaniugan": {
+        "camalaniugan": [
+            3510
+        ]
+    },
+    "claveria": {
+        "claveria": [
+            3519,
+            5419,
+            9004
+        ]
+    },
+    "enrile": {
+        "enrile": [
+            3501
+        ]
+    },
+    "gattaran": {
+        "gattaran": [
+            3508
+        ]
+    },
+    "gonzaga": {
+        "gonzaga": [
+            3513
+        ]
+    },
+    "iguig": {
+        "iguig": [
+            3504
+        ]
+    },
+    "lal-lo": {
+        "lal-lo": [
+            3509
+        ]
+    },
+    "lasam": {
+        "lasam": [
+            3524
+        ]
+    },
+    "pamplona": {
+        "pamplona": [
+            3522,
+            4416,
+            6205
+        ]
+    },
+    "peñablanca": {
+        "peñablanca": [
+            3502
+        ]
+    },
+    "piat": {
+        "piat": [
+            3527
+        ]
+    },
+    "rizal": {
+        "rizal": [
+            3127,
+            3526,
+            4003,
+            5103,
+            7104
+        ]
+    },
+    "sanchez-mira": {
+        "sanchez-mira": [
+            3518
+        ]
+    },
+    "santa ana": {
+        "santa ana": [
+            1009,
+            1621,
+            2022,
+            3514
+        ]
+    },
+    "santa praxedes": {
+        "santa praxedes": [
+            3521
+        ]
+    },
+    "santo niño": {
+        "santo niño": [
+            1113,
+            1704,
+            3525,
+            6711
+        ]
+    },
+    "solana": {
+        "solana": [
+            3503
+        ]
+    },
+    "tuao": {
+        "tuao": [
+            3528
+        ]
+    },
+    "tuguegarao city": {
+        "tuguegarao city": [
+            3500
+        ]
+    },
+    "basud": {
+        "basud": [
+            4608
+        ]
+    },
+    "capalonga": {
+        "capalonga": [
+            4607
+        ]
+    },
+    "daet": {
+        "daet": [
+            4600
+        ]
+    },
+    "imelda / san lorenzo ruiz": {
+        "imelda / san lorenzo ruiz": [
+            4610
+        ]
+    },
+    "jose panganiban": {
+        "jose panganiban": [
+            4606
+        ]
+    },
+    "labo": {
+        "labo": [
+            4604
+        ]
+    },
+    "mercedes": {
+        "mercedes": [
+            4601,
+            6808
+        ]
+    },
+    "paracale": {
+        "paracale": [
+            4605
+        ]
+    },
+    "san vicente": {
+        "san vicente": [
+            1101,
+            2726,
+            4609,
+            5309,
+            6419
+        ]
+    },
+    "santa elena": {
+        "santa elena": [
+            4611
+        ]
+    },
+    "tulay-na-lupa": {
+        "tulay-na-lupa": [
+            4612
+        ]
+    },
+    "vinzons": {
+        "vinzons": [
+            4603
+        ]
+    },
+    "baao": {
+        "baao": [
+            4432
+        ]
+    },
+    "balatan": {
+        "balatan": [
+            4436
+        ]
+    },
+    "bato": {
+        "bato": [
+            4435,
+            4801,
+            6525
+        ]
+    },
+    "bombon": {
+        "bombon": [
+            4404
+        ]
+    },
+    "buhi": {
+        "buhi": [
+            4433
+        ]
+    },
+    "bula": {
+        "bula": [
+            4430
+        ]
+    },
+    "cabusao": {
+        "cabusao": [
+            4406
+        ]
+    },
+    "calabanga": {
+        "calabanga": [
+            4405
+        ]
+    },
+    "camaligan": {
+        "camaligan": [
+            4401
+        ]
+    },
+    "canaman": {
+        "canaman": [
+            4402
+        ]
+    },
+    "caramoan": {
+        "caramoan": [
+            4429
+        ]
+    },
+    "del gallego": {
+        "del gallego": [
+            4411
+        ]
+    },
+    "gainza": {
+        "gainza": [
+            4412
+        ]
+    },
+    "garchitorena": {
+        "garchitorena": [
+            4428
+        ]
+    },
+    "goa": {
+        "goa": [
+            4422
+        ]
+    },
+    "iriga city": {
+        "iriga city": [
+            4431
+        ]
+    },
+    "lagonoy": {
+        "lagonoy": [
+            4425
+        ]
+    },
+    "libmanan": {
+        "libmanan": [
+            4407
+        ]
+    },
+    "lupi": {
+        "lupi": [
+            4409
+        ]
+    },
+    "magarao": {
+        "magarao": [
+            4403
+        ]
+    },
+    "milaor": {
+        "milaor": [
+            4413
+        ]
+    },
+    "minalabac": {
+        "minalabac": [
+            4414
+        ]
+    },
+    "nabua": {
+        "nabua": [
+            4434
+        ]
+    },
+    "naga city": {
+        "naga city": [
+            4400
+        ]
+    },
+    "ocampo": {
+        "ocampo": [
+            4419
+        ]
+    },
+    "pasacao": {
+        "pasacao": [
+            4417
+        ]
+    },
+    "pili": {
+        "pili": [
+            4418
+        ]
+    },
+    "presentacion": {
+        "presentacion": [
+            4424
+        ]
+    },
+    "ragay": {
+        "ragay": [
+            4410
+        ]
+    },
+    "sagnay": {
+        "sagnay": [
+            4421
+        ]
+    },
+    "sipocot": {
+        "sipocot": [
+            4408
+        ]
+    },
+    "siruma": {
+        "siruma": [
+            4427
+        ]
+    },
+    "tigaon": {
+        "tigaon": [
+            4420
+        ]
+    },
+    "tinambac": {
+        "tinambac": [
+            4426
+        ]
+    },
+    "mambajao": {
+        "mambajao": [
+            9100
+        ]
+    },
+    "mahinog": {
+        "mahinog": [
+            9101
+        ]
+    },
+    "guinsiliban": {
+        "guinsiliban": [
+            9102
+        ]
+    },
+    "sagay": {
+        "sagay": [
+            9103
+        ]
+    },
+    "catarman": {
+        "catarman": [
+            6400,
+            9104
+        ]
+    },
+    "cuartero": {
+        "cuartero": [
+            5811
+        ]
+    },
+    "dao": {
+        "dao": [
+            5810
+        ]
+    },
+    "dumalag": {
+        "dumalag": [
+            5813
+        ]
+    },
+    "dumarao": {
+        "dumarao": [
+            5812
+        ]
+    },
+    "ivisan": {
+        "ivisan": [
+            5805
+        ]
+    },
+    "jamindan": {
+        "jamindan": [
+            5808
+        ]
+    },
+    "ma-ayon": {
+        "ma-ayon": [
+            5809
+        ]
+    },
+    "mambusao": {
+        "mambusao": [
+            5807
+        ]
+    },
+    "panay": {
+        "panay": [
+            5801
+        ]
+    },
+    "panitan": {
+        "panitan": [
+            5815
+        ]
+    },
+    "pontevedra": {
+        "pontevedra": [
+            5802,
+            6105
+        ]
+    },
+    "president roxas": {
+        "president roxas": [
+            5803,
+            9405
+        ]
+    },
+    "roxas city": {
+        "roxas city": [
+            5800
+        ]
+    },
+    "sapian": {
+        "sapian": [
+            5806
+        ]
+    },
+    "sigma": {
+        "sigma": [
+            5816
+        ]
+    },
+    "tapaz": {
+        "tapaz": [
+            5814
+        ]
+    },
+    "bagamanoc": {
+        "bagamanoc": [
+            4807
+        ]
+    },
+    "baras": {
+        "baras": [
+            1970,
+            4803
+        ]
+    },
+    "caramoran": {
+        "caramoran": [
+            4808
+        ]
+    },
+    "gigmoto": {
+        "gigmoto": [
+            4804
+        ]
+    },
+    "panganiban": {
+        "panganiban": [
+            4806
+        ]
+    },
+    "san andres": {
+        "san andres": [
+            1017,
+            4314,
+            4810,
+            5504
+        ]
+    },
+    "viga": {
+        "viga": [
+            4805
+        ]
+    },
+    "virac": {
+        "virac": [
+            4800
+        ]
+    },
+    "bailen": {
+        "bailen": [
+            4133
+        ]
+    },
+    "alfonso": {
+        "alfonso": [
+            4123
+        ]
+    },
+    "amadeo": {
+        "amadeo": [
+            4119
+        ]
+    },
+    "bacoor": {
+        "bacoor": [
+            4102
+        ]
+    },
+    "carmona": {
+        "carmona": [
+            4116
+        ]
+    },
+    "cavite city": {
+        "cavite city": [
+            4100
+        ]
+    },
+    "sangley point naval base": {
+        "sangley point naval base": [
+            4101
+        ]
+    },
+    "corregidor island": {
+        "corregidor island": [
+            4125
+        ]
+    },
+    "dasmariñas": {
+        "dasmariñas": [
+            4114
+        ]
+    },
+    "dasmarinas resettlement area": {
+        "dasmarinas resettlement area": [
+            4115
+        ]
+    },
+    "general emilio aguinaldo": {
+        "general emilio aguinaldo": [
+            4124
+        ]
+    },
+    "general mariano alvarez": {
+        "general mariano alvarez": [
+            4117
+        ]
+    },
+    "general trias": {
+        "general trias": [
+            4107
+        ]
+    },
+    "imus": {
+        "imus": [
+            4103
+        ]
+    },
+    "indang": {
+        "indang": [
+            4122
+        ]
+    },
+    "kawit": {
+        "kawit": [
+            4104
+        ]
+    },
+    "maragondon": {
+        "maragondon": [
+            4112
+        ]
+    },
+    "mendez": {
+        "mendez": [
+            4121
+        ]
+    },
+    "naic": {
+        "naic": [
+            4110
+        ]
+    },
+    "noveleta": {
+        "noveleta": [
+            4105
+        ]
+    },
+    "silang": {
+        "silang": [
+            4118
+        ]
+    },
+    "tagaytay city": {
+        "tagaytay city": [
+            4120
+        ]
+    },
+    "tanza": {
+        "tanza": [
+            1490,
+            4108
+        ]
+    },
+    "ternate incl. caylabne bay & puerto azul": {
+        "ternate incl. caylabne bay & puerto azul": [
+            4111
+        ]
+    },
+    "trece martires city": {
+        "trece martires city": [
+            4109
+        ]
+    },
+    "alcantara": {
+        "alcantara": [
+            5509,
+            6055
+        ]
+    },
+    "alcoy": {
+        "alcoy": [
+            6066
+        ]
+    },
+    "alegria": {
+        "alegria": [
+            6077,
+            8425
+        ]
+    },
+    "aloguinsan": {
+        "aloguinsan": [
+            6088
+        ]
+    },
+    "argao": {
+        "argao": [
+            6099
+        ]
+    },
+    "asturias": {
+        "asturias": [
+            6010
+        ]
+    },
+    "badian": {
+        "badian": [
+            6011
+        ]
+    },
+    "balamban": {
+        "balamban": [
+            6041
+        ]
+    },
+    "bantayan": {
+        "bantayan": [
+            6052
+        ]
+    },
+    "barili": {
+        "barili": [
+            6036
+        ]
+    },
+    "bogo city": {
+        "bogo city": [
+            6010
+        ]
+    },
+    "boljoon": {
+        "boljoon": [
+            6024
+        ]
+    },
+    "borbon": {
+        "borbon": [
+            6008
+        ]
+    },
+    "carcar city": {
+        "carcar city": [
+            6019
+        ]
+    },
+    "catmon": {
+        "catmon": [
+            6006
+        ]
+    },
+    "cebu city": {
+        "cebu city": [
+            6000
+        ]
+    },
+    "compostela": {
+        "compostela": [
+            6003,
+            8109
+        ]
+    },
+    "consolacion": {
+        "consolacion": [
+            6001
+        ]
+    },
+    "cordova": {
+        "cordova": [
+            6017
+        ]
+    },
+    "daanbantayan": {
+        "daanbantayan": [
+            6013
+        ]
+    },
+    "dalaguete": {
+        "dalaguete": [
+            6022
+        ]
+    },
+    "danao city": {
+        "danao city": [
+            6004
+        ]
+    },
+    "dumanjug": {
+        "dumanjug": [
+            6035
+        ]
+    },
+    "ginatilan": {
+        "ginatilan": [
+            6028
+        ]
+    },
+    "lapu-lapu city": {
+        "lapu-lapu city": [
+            6015
+        ]
+    },
+    "liloan": {
+        "liloan": [
+            6002,
+            6612
+        ]
+    },
+    "mactan airport": {
+        "mactan airport": [
+            6016
+        ]
+    },
+    "madridejos": {
+        "madridejos": [
+            6053
+        ]
+    },
+    "malabuyoc": {
+        "malabuyoc": [
+            6029
+        ]
+    },
+    "mandaue city": {
+        "mandaue city": [
+            6014
+        ]
+    },
+    "medellin": {
+        "medellin": [
+            6012
+        ]
+    },
+    "minglanilla": {
+        "minglanilla": [
+            6046
+        ]
+    },
+    "moalboal": {
+        "moalboal": [
+            6032
+        ]
+    },
+    "naga": {
+        "naga": [
+            6037,
+            7004
+        ]
+    },
+    "oslob": {
+        "oslob": [
+            6025
+        ]
+    },
+    "pinamungahan": {
+        "pinamungahan": [
+            6039
+        ]
+    },
+    "poro": {
+        "poro": [
+            6049
+        ]
+    },
+    "ronda": {
+        "ronda": [
+            6034
+        ]
+    },
+    "samboan": {
+        "samboan": [
+            6027
+        ]
+    },
+    "santa fe": {
+        "santa fe": [
+            3705,
+            5508,
+            6047,
+            6513
+        ]
+    },
+    "santander": {
+        "santander": [
+            6026
+        ]
+    },
+    "sibonga": {
+        "sibonga": [
+            6020
+        ]
+    },
+    "sogod": {
+        "sogod": [
+            6007,
+            6606
+        ]
+    },
+    "tabogon": {
+        "tabogon": [
+            6009
+        ]
+    },
+    "tabuelan": {
+        "tabuelan": [
+            6044
+        ]
+    },
+    "talisay city": {
+        "talisay city": [
+            6045,
+            6115
+        ]
+    },
+    "toledo city": {
+        "toledo city": [
+            6038
+        ]
+    },
+    "tudela": {
+        "tudela": [
+            6051,
+            7202
+        ]
+    },
+    "laak": {
+        "laak": [
+            8103
+        ]
+    },
+    "maco": {
+        "maco": [
+            8114
+        ]
+    },
+    "maragusan": {
+        "maragusan": [
+            8116
+        ]
+    },
+    "mawab": {
+        "mawab": [
+            8108
+        ]
+    },
+    "monkayo": {
+        "monkayo": [
+            8111
+        ]
+    },
+    "montevista": {
+        "montevista": [
+            8107
+        ]
+    },
+    "nabunturan": {
+        "nabunturan": [
+            8106
+        ]
+    },
+    "new bataan": {
+        "new bataan": [
+            8110
+        ]
+    },
+    "pantukan": {
+        "pantukan": [
+            8117
+        ]
+    },
+    "alamada": {
+        "alamada": [
+            9413
+        ]
+    },
+    "aleosan": {
+        "aleosan": [
+            9415
+        ]
+    },
+    "antipas": {
+        "antipas": [
+            9414
+        ]
+    },
+    "arakan": {
+        "arakan": [
+            9417
+        ]
+    },
+    "banisilan": {
+        "banisilan": [
+            9416
+        ]
+    },
+    "kabacan": {
+        "kabacan": [
+            9407
+        ]
+    },
+    "kidapawan city": {
+        "kidapawan city": [
+            9400
+        ]
+    },
+    "libungan": {
+        "libungan": [
+            9411
+        ]
+    },
+    "magpet": {
+        "magpet": [
+            9404
+        ]
+    },
+    "makilala": {
+        "makilala": [
+            9401
+        ]
+    },
+    "matalam": {
+        "matalam": [
+            9406
+        ]
+    },
+    "midsayap": {
+        "midsayap": [
+            9410
+        ]
+    },
+    "m'lang": {
+        "m'lang": [
+            9402
+        ]
+    },
+    "pigkawayan": {
+        "pigkawayan": [
+            9412
+        ]
+    },
+    "pikit": {
+        "pikit": [
+            9409
+        ]
+    },
+    "tulunan": {
+        "tulunan": [
+            9403
+        ]
+    },
+    "asuncion": {
+        "asuncion": [
+            8102
+        ]
+    },
+    "babak": {
+        "babak": [
+            8118
+        ]
+    },
+    "kapalong": {
+        "kapalong": [
+            8113
+        ]
+    },
+    "kaputian": {
+        "kaputian": [
+            8120
+        ]
+    },
+    "new corella": {
+        "new corella": [
+            8104
+        ]
+    },
+    "panabo city": {
+        "panabo city": [
+            8105
+        ]
+    },
+    "island garden city of samal": {
+        "island garden city of samal": [
+            8119
+        ]
+    },
+    "tagum city": {
+        "tagum city": [
+            8100
+        ]
+    },
+    "bansalan": {
+        "bansalan": [
+            8005
+        ]
+    },
+    "davao city": {
+        "davao city": [
+            8000
+        ]
+    },
+    "ateneo de davao university": {
+        "ateneo de davao university": [
+            8016
+        ]
+    },
+    "digos city": {
+        "digos city": [
+            8002
+        ]
+    },
+    "don marcelino": {
+        "don marcelino": [
+            8013
+        ]
+    },
+    "jose abad santos": {
+        "jose abad santos": [
+            8014
+        ]
+    },
+    "kiblawan": {
+        "kiblawan": [
+            8008
+        ]
+    },
+    "magsaysay": {
+        "magsaysay": [
+            5101,
+            5319,
+            8004,
+            9015,
+            9221
+        ]
+    },
+    "malalag": {
+        "malalag": [
+            8010
+        ]
+    },
+    "malita": {
+        "malita": [
+            8012
+        ]
+    },
+    "matanao": {
+        "matanao": [
+            8003
+        ]
+    },
+    "padada": {
+        "padada": [
+            8007
+        ]
+    },
+    "santa cruz": {
+        "santa cruz": [
+            1104,
+            1205,
+            2213,
+            2713,
+            4009,
+            4902,
+            5105,
+            8001
+        ]
+    },
+    "sarangani": {
+        "sarangani": [
+            8015
+        ]
+    },
+    "sulop": {
+        "sulop": [
+            8009
+        ]
+    },
+    "mati": {
+        "mati": [
+            8200
+        ]
+    },
+    "tarragona": {
+        "tarragona": [
+            8201
+        ]
+    },
+    "basilisa": {
+        "basilisa": [
+            8413
+        ]
+    },
+    "cagdianao": {
+        "cagdianao": [
+            8411
+        ]
+    },
+    "dinagat": {
+        "dinagat": [
+            8412
+        ]
+    },
+    "libjo": {
+        "libjo": [
+            8414
+        ]
+    },
+    "tubajon": {
+        "tubajon": [
+            8426
+        ]
+    },
+    "arteche": {
+        "arteche": [
+            6822
+        ]
+    },
+    "balangiga": {
+        "balangiga": [
+            6812
+        ]
+    },
+    "balangkayan": {
+        "balangkayan": [
+            6801
+        ]
+    },
+    "borongan": {
+        "borongan": [
+            6800
+        ]
+    },
+    "can-avid": {
+        "can-avid": [
+            6806
+        ]
+    },
+    "general macarthur": {
+        "general macarthur": [
+            6805
+        ]
+    },
+    "giporlos": {
+        "giporlos": [
+            6811
+        ]
+    },
+    "guiuan": {
+        "guiuan": [
+            6809
+        ]
+    },
+    "hernani": {
+        "hernani": [
+            6804
+        ]
+    },
+    "jipapad": {
+        "jipapad": [
+            6819
+        ]
+    },
+    "lawaan": {
+        "lawaan": [
+            6813
+        ]
+    },
+    "llorente": {
+        "llorente": [
+            6803
+        ]
+    },
+    "maslog": {
+        "maslog": [
+            6820
+        ]
+    },
+    "maydolong": {
+        "maydolong": [
+            6802
+        ]
+    },
+    "oras": {
+        "oras": [
+            6818
+        ]
+    },
+    "quinapondan": {
+        "quinapondan": [
+            6810
+        ]
+    },
+    "salcedo": {
+        "salcedo": [
+            2711,
+            6807
+        ]
+    },
+    "san julian": {
+        "san julian": [
+            6814
+        ]
+    },
+    "san policarpo": {
+        "san policarpo": [
+            6821
+        ]
+    },
+    "sulat": {
+        "sulat": [
+            6815
+        ]
+    },
+    "taft": {
+        "taft": [
+            6816
+        ]
+    },
+    "jordan": {
+        "jordan": [
+            5045
+        ]
+    },
+    "nueva valencia": {
+        "nueva valencia": [
+            5046
+        ]
+    },
+    "san lorenzo": {
+        "san lorenzo": [
+            5047
+        ]
+    },
+    "sibunag": {
+        "sibunag": [
+            5048
+        ]
+    },
+    "aguinaldo": {
+        "aguinaldo": [
+            3606
+        ]
+    },
+    "alfonso lista": {
+        "alfonso lista": [
+            3608
+        ]
+    },
+    "asipulo": {
+        "asipulo": [
+            3610
+        ]
+    },
+    "banaue": {
+        "banaue": [
+            3601
+        ]
+    },
+    "hingyon": {
+        "hingyon": [
+            3607
+        ]
+    },
+    "hungduan": {
+        "hungduan": [
+            3603
+        ]
+    },
+    "kiangan": {
+        "kiangan": [
+            3604
+        ]
+    },
+    "lagawe": {
+        "lagawe": [
+            3600
+        ]
+    },
+    "lamut": {
+        "lamut": [
+            3605
+        ]
+    },
+    "mayoyao": {
+        "mayoyao": [
+            3602
+        ]
+    },
+    "tinoc": {
+        "tinoc": [
+            3609
+        ]
+    },
+    "adams": {
+        "adams": [
+            2922
+        ]
+    },
+    "bacarra": {
+        "bacarra": [
+            2916
+        ]
+    },
+    "badoc": {
+        "badoc": [
+            2904
+        ]
+    },
+    "bangui": {
+        "bangui": [
+            2920
+        ]
+    },
+    "banna": {
+        "banna": [
+            2908
+        ]
+    },
+    "batac": {
+        "batac": [
+            2906
+        ]
+    },
+    "burgos": {
+        "burgos": [
+            2410,
+            2510,
+            2724,
+            2918,
+            3322,
+            8424
+        ]
+    },
+    "carasi": {
+        "carasi": [
+            2911
+        ]
+    },
+    "currimao": {
+        "currimao": [
+            2903
+        ]
+    },
+    "dingras": {
+        "dingras": [
+            2913
+        ]
+    },
+    "dumalneg": {
+        "dumalneg": [
+            2921
+        ]
+    },
+    "laoag city": {
+        "laoag city": [
+            2900
+        ]
+    },
+    "marcos": {
+        "marcos": [
+            2907
+        ]
+    },
+    "nueva era": {
+        "nueva era": [
+            2909
+        ]
+    },
+    "pagudpud": {
+        "pagudpud": [
+            2919
+        ]
+    },
+    "paoay": {
+        "paoay": [
+            2902
+        ]
+    },
+    "pasuquin": {
+        "pasuquin": [
+            2917
+        ]
+    },
+    "piddig": {
+        "piddig": [
+            2912
+        ]
+    },
+    "pinili": {
+        "pinili": [
+            2905
+        ]
+    },
+    "sarrat": {
+        "sarrat": [
+            2914
+        ]
+    },
+    "solsona": {
+        "solsona": [
+            2910
+        ]
+    },
+    "vintar": {
+        "vintar": [
+            2915
+        ]
+    },
+    "alilem": {
+        "alilem": [
+            2716
+        ]
+    },
+    "banayoyo": {
+        "banayoyo": [
+            2708
+        ]
+    },
+    "bantay": {
+        "bantay": [
+            2727
+        ]
+    },
+    "cabugao": {
+        "cabugao": [
+            2732
+        ]
+    },
+    "candon city": {
+        "candon city": [
+            2710
+        ]
+    },
+    "caoayan": {
+        "caoayan": [
+            2702
+        ]
+    },
+    "cervantes": {
+        "cervantes": [
+            2718
+        ]
+    },
+    "galimuyod": {
+        "galimuyod": [
+            2709
+        ]
+    },
+    "gregorio del pilar": {
+        "gregorio del pilar": [
+            2720
+        ]
+    },
+    "lidlidda": {
+        "lidlidda": [
+            2723
+        ]
+    },
+    "magsingal": {
+        "magsingal": [
+            2730
+        ]
+    },
+    "nagbukel": {
+        "nagbukel": [
+            2725
+        ]
+    },
+    "narvacan": {
+        "narvacan": [
+            2704
+        ]
+    },
+    "quirino": {
+        "quirino": [
+            2721,
+            3321
+        ]
+    },
+    "san emilio": {
+        "san emilio": [
+            2722
+        ]
+    },
+    "san esteban": {
+        "san esteban": [
+            2706
+        ]
+    },
+    "santa": {
+        "santa": [
+            2703
+        ]
+    },
+    "santa catalina": {
+        "santa catalina": [
+            2701
+        ]
+    },
+    "santa lucia": {
+        "santa lucia": [
+            1117,
+            1608,
+            2712
+        ]
+    },
+    "sigay": {
+        "sigay": [
+            2719
+        ]
+    },
+    "sinait": {
+        "sinait": [
+            2733
+        ]
+    },
+    "sugpon": {
+        "sugpon": [
+            2717
+        ]
+    },
+    "suyo": {
+        "suyo": [
+            2715
+        ]
+    },
+    "tagudin": {
+        "tagudin": [
+            2714
+        ]
+    },
+    "vigan city": {
+        "vigan city": [
+            2700
+        ]
+    },
+    "ajuy": {
+        "ajuy": [
+            5012
+        ]
+    },
+    "alimodian": {
+        "alimodian": [
+            5028
+        ]
+    },
+    "anilao": {
+        "anilao": [
+            5009
+        ]
+    },
+    "badiangan": {
+        "badiangan": [
+            5033
+        ]
+    },
+    "balasan": {
+        "balasan": [
+            5018
+        ]
+    },
+    "banate": {
+        "banate": [
+            5010
+        ]
+    },
+    "barotoc nuevo": {
+        "barotoc nuevo": [
+            5007
+        ]
+    },
+    "barotoc viejo": {
+        "barotoc viejo": [
+            5011
+        ]
+    },
+    "batad": {
+        "batad": [
+            5016
+        ]
+    },
+    "bingawan": {
+        "bingawan": [
+            5041
+        ]
+    },
+    "cabatuan": {
+        "cabatuan": [
+            3315,
+            5031
+        ]
+    },
+    "calinog": {
+        "calinog": [
+            5040
+        ]
+    },
+    "carles": {
+        "carles": [
+            5019
+        ]
+    },
+    "concepcion": {
+        "concepcion": [
+            2316,
+            5013,
+            5516,
+            7213
+        ]
+    },
+    "dingle": {
+        "dingle": [
+            5035
+        ]
+    },
+    "duenas": {
+        "duenas": [
+            5038
+        ]
+    },
+    "dumangas": {
+        "dumangas": [
+            5006
+        ]
+    },
+    "estancia": {
+        "estancia": [
+            5017
+        ]
+    },
+    "guimbal": {
+        "guimbal": [
+            5022
+        ]
+    },
+    "igbaras": {
+        "igbaras": [
+            5029
+        ]
+    },
+    "iloilo city": {
+        "iloilo city": [
+            5000
+        ]
+    },
+    "janiuay": {
+        "janiuay": [
+            5034
+        ]
+    },
+    "lambunao": {
+        "lambunao": [
+            5042
+        ]
+    },
+    "leganes": {
+        "leganes": [
+            5003
+        ]
+    },
+    "leon": {
+        "leon": [
+            5026
+        ]
+    },
+    "maasin": {
+        "maasin": [
+            5030,
+            6600
+        ]
+    },
+    "miagao": {
+        "miagao": [
+            5023
+        ]
+    },
+    "mina": {
+        "mina": [
+            5032
+        ]
+    },
+    "new lucena": {
+        "new lucena": [
+            5005
+        ]
+    },
+    "oton": {
+        "oton": [
+            5020
+        ]
+    },
+    "passi city": {
+        "passi city": [
+            5037
+        ]
+    },
+    "pavia": {
+        "pavia": [
+            5001
+        ]
+    },
+    "pototan": {
+        "pototan": [
+            5008
+        ]
+    },
+    "san dionisio": {
+        "san dionisio": [
+            5015
+        ]
+    },
+    "san enrique": {
+        "san enrique": [
+            5036,
+            6104
+        ]
+    },
+    "san joaquin": {
+        "san joaquin": [
+            1601,
+            5024
+        ]
+    },
+    "santa barbara": {
+        "santa barbara": [
+            2419,
+            5002
+        ]
+    },
+    "sara": {
+        "sara": [
+            5014
+        ]
+    },
+    "tigbauan": {
+        "tigbauan": [
+            5021
+        ]
+    },
+    "tubungan": {
+        "tubungan": [
+            5027
+        ]
+    },
+    "zarraga": {
+        "zarraga": [
+            5004
+        ]
+    },
+    "angadanan": {
+        "angadanan": [
+            3307
+        ]
+    },
+    "aurora": {
+        "aurora": [
+            3316,
+            7020
+        ]
+    },
+    "benito soliven": {
+        "benito soliven": [
+            3331
+        ]
+    },
+    "cabagan": {
+        "cabagan": [
+            3328
+        ]
+    },
+    "cauayan city": {
+        "cauayan city": [
+            3305
+        ]
+    },
+    "cordon": {
+        "cordon": [
+            3312
+        ]
+    },
+    "delfin albano": {
+        "delfin albano": [
+            3326
+        ]
+    },
+    "dinapigui": {
+        "dinapigui": [
+            3336
+        ]
+    },
+    "divilacan": {
+        "divilacan": [
+            3335
+        ]
+    },
+    "echague": {
+        "echague": [
+            3309
+        ]
+    },
+    "gamu": {
+        "gamu": [
+            3301
+        ]
+    },
+    "ilagan": {
+        "ilagan": [
+            3300
+        ]
+    },
+    "jones": {
+        "jones": [
+            3313
+        ]
+    },
+    "maconacon": {
+        "maconacon": [
+            3333
+        ]
+    },
+    "mallig": {
+        "mallig": [
+            3323
+        ]
+    },
+    "naguillan": {
+        "naguillan": [
+            2511,
+            3302
+        ]
+    },
+    "palanan": {
+        "palanan": [
+            1235,
+            3334
+        ]
+    },
+    "ramon": {
+        "ramon": [
+            3319
+        ]
+    },
+    "reina mercedes": {
+        "reina mercedes": [
+            3303
+        ]
+    },
+    "roxas": {
+        "roxas": [
+            3320,
+            5212,
+            5308,
+            7102
+        ]
+    },
+    "san agustin": {
+        "san agustin": [
+            1117,
+            3314,
+            5501,
+            8305
+        ]
+    },
+    "san guillermo": {
+        "san guillermo": [
+            3308
+        ]
+    },
+    "san manuel": {
+        "san manuel": [
+            2309,
+            2438,
+            3317
+        ]
+    },
+    "san mariano": {
+        "san mariano": [
+            3332
+        ]
+    },
+    "san mateo": {
+        "san mateo": [
+            1850,
+            3318
+        ]
+    },
+    "san pablo": {
+        "san pablo": [
+            3329,
+            7031
+        ]
+    },
+    "santiago city": {
+        "santiago city": [
+            3311
+        ]
+    },
+    "tumauini": {
+        "tumauini": [
+            3325
+        ]
+    },
+    "balbalan": {
+        "balbalan": [
+            3801
+        ]
+    },
+    "liwan": {
+        "liwan": [
+            3808
+        ]
+    },
+    "lubuagan": {
+        "lubuagan": [
+            3802
+        ]
+    },
+    "pasil": {
+        "pasil": [
+            3803
+        ]
+    },
+    "pinukpuk": {
+        "pinukpuk": [
+            3806
+        ]
+    },
+    "tabuk city": {
+        "tabuk city": [
+            3800
+        ]
+    },
+    "tanudan": {
+        "tanudan": [
+            3805
+        ]
+    },
+    "tinglayan": {
+        "tinglayan": [
+            3804
+        ]
+    },
+    "agoo": {
+        "agoo": [
+            2504
+        ]
+    },
+    "aringay": {
+        "aringay": [
+            2503
+        ]
+    },
+    "bacnotan": {
+        "bacnotan": [
+            2515
+        ]
+    },
+    "bagulin": {
+        "bagulin": [
+            2512
+        ]
+    },
+    "balaoan": {
+        "balaoan": [
+            2517
+        ]
+    },
+    "bangar": {
+        "bangar": [
+            2519
+        ]
+    },
+    "bauang": {
+        "bauang": [
+            2501
+        ]
+    },
+    "caba": {
+        "caba": [
+            2502
+        ]
+    },
+    "damortis": {
+        "damortis": [
+            2507
+        ]
+    },
+    "pugo": {
+        "pugo": [
+            2508
+        ]
+    },
+    "san fernando city": {
+        "san fernando city": [
+            2500
+        ]
+    },
+    "san gabriel": {
+        "san gabriel": [
+            2513
+        ]
+    },
+    "santol": {
+        "santol": [
+            1113,
+            2516
+        ]
+    },
+    "sudepen": {
+        "sudepen": [
+            2520
+        ]
+    },
+    "tubao": {
+        "tubao": [
+            2509
+        ]
+    },
+    "alaminos": {
+        "alaminos": [
+            2404,
+            4001
+        ]
+    },
+    "bay": {
+        "bay": [
+            4033
+        ]
+    },
+    "biñan city": {
+        "biñan city": [
+            4024
+        ]
+    },
+    "magdalena": {
+        "botocan": [
+            4006
+        ],
+        "magdalena": [
+            4007
+        ]
+    },
+    "botocan": {
+        "magdalena": [
+            4006
+        ],
+        "botocan": [
+            1101
+        ]
+    },
+    "cabuyao": {
+        "cabuyao": [
+            4025
+        ]
+    },
+    "calamba city": {
+        "calamba city": [
+            4027
+        ],
+        "canlubang": [
+            4028
+        ]
+    },
+    "calauan": {
+        "calauan": [
+            4012
+        ]
+    },
+    "camp vicente lim": {
+        "camp vicente lim": [
+            4029
+        ]
+    },
+    "canlubang": {
+        "calamba city": [
+            4028
+        ]
+    },
+    "cavinti": {
+        "cavinti": [
+            4013
+        ]
+    },
+    "famy": {
+        "famy": [
+            4021
+        ]
+    },
+    "kalayaan": {
+        "kalayaan": [
+            4015,
+            5322
+        ]
+    },
+    "liliw": {
+        "liliw": [
+            4004
+        ]
+    },
+    "los baños": {
+        "los baños": [
+            4030
+        ],
+        "university of the philippines": [
+            4031
+        ]
+    },
+    "luisiana": {
+        "luisiana": [
+            4032
+        ]
+    },
+    "lumban": {
+        "lumban": [
+            4014
+        ]
+    },
+    "mabitac": {
+        "mabitac": [
+            4020
+        ]
+    },
+    "majayjay": {
+        "majayjay": [
+            4005
+        ]
+    },
+    "nagcarlan": {
+        "nagcarlan": [
+            4002
+        ]
+    },
+    "paete": {
+        "paete": [
+            4016
+        ]
+    },
+    "pagsanjan": {
+        "pagsanjan": [
+            4008
+        ]
+    },
+    "pakil": {
+        "pakil": [
+            4017
+        ]
+    },
+    "pangil": {
+        "pangil": [
+            4018
+        ]
+    },
+    "pila": {
+        "pila": [
+            4010
+        ]
+    },
+    "san pablo city": {
+        "san pablo city": [
+            4000
+        ]
+    },
+    "san pedro": {
+        "san pedro": [
+            4023
+        ]
+    },
+    "santa rosa city": {
+        "santa rosa city": [
+            4026
+        ]
+    },
+    "siniloan": {
+        "siniloan": [
+            4019
+        ]
+    },
+    "university of the philippines": {
+        "los baños": [
+            4031
+        ]
+    },
+    "victoria": {
+        "victoria": [
+            2313,
+            4011,
+            5205,
+            6406
+        ]
+    },
+    "bacolod": {
+        "bacolod": [
+            9205
+        ]
+    },
+    "baloi": {
+        "baloi": [
+            9217
+        ]
+    },
+    "baroy": {
+        "baroy": [
+            9210
+        ]
+    },
+    "iligan city": {
+        "iligan city": [
+            9200
+        ]
+    },
+    "kapatagan": {
+        "kapatagan": [
+            9214
+        ]
+    },
+    "karomatan": {
+        "karomatan": [
+            9215
+        ]
+    },
+    "kauswagan": {
+        "kauswagan": [
+            9202
+        ]
+    },
+    "kolambogan": {
+        "kolambogan": [
+            9207
+        ]
+    },
+    "lala": {
+        "lala": [
+            9211
+        ]
+    },
+    "linamon": {
+        "linamon": [
+            9201
+        ]
+    },
+    "maigo": {
+        "maigo": [
+            9206
+        ]
+    },
+    "matungao": {
+        "matungao": [
+            9203
+        ]
+    },
+    "munai": {
+        "munai": [
+            9219
+        ]
+    },
+    "nunungan": {
+        "nunungan": [
+            9216
+        ]
+    },
+    "pantao ragat": {
+        "pantao ragat": [
+            9208
+        ]
+    },
+    "pantar": {
+        "pantar": [
+            9218
+        ]
+    },
+    "poona piagapo": {
+        "poona piagapo": [
+            9204
+        ]
+    },
+    "salvador": {
+        "salvador": [
+            9212
+        ]
+    },
+    "sapad": {
+        "sapad": [
+            9213
+        ]
+    },
+    "tagoloan": {
+        "tagoloan": [
+            9001,
+            9222
+        ]
+    },
+    "tangkal": {
+        "tangkal": [
+            9220
+        ]
+    },
+    "tubod": {
+        "tubod": [
+            8406,
+            9209
+        ]
+    },
+    "bacolod kalawi": {
+        "bacolod kalawi": [
+            9316
+        ]
+    },
+    "balabagan": {
+        "balabagan": [
+            9302
+        ]
+    },
+    "balindong": {
+        "balindong": [
+            9318
+        ]
+    },
+    "bayang": {
+        "bayang": [
+            9309
+        ]
+    },
+    "binidayan": {
+        "binidayan": [
+            9310
+        ]
+    },
+    "buadiposo buntong": {
+        "buadiposo buntong": [
+            9714
+        ]
+    },
+    "bubong": {
+        "bubong": [
+            9708
+        ]
+    },
+    "bumbaran": {
+        "bumbaran": [
+            9320
+        ]
+    },
+    "butig": {
+        "butig": [
+            9305
+        ]
+    },
+    "calanogas": {
+        "calanogas": [
+            9319
+        ]
+    },
+    "ganassi": {
+        "ganassi": [
+            9311
+        ]
+    },
+    "kapai": {
+        "kapai": [
+            9709
+        ]
+    },
+    "lumba bayabao": {
+        "lumba bayabao": [
+            9703
+        ]
+    },
+    "lumbatan": {
+        "lumbatan": [
+            9307
+        ]
+    },
+    "lumbayanague": {
+        "lumbayanague": [
+            9306
+        ]
+    },
+    "macadar andong": {
+        "macadar andong": [
+            9308
+        ]
+    },
+    "madalum": {
+        "madalum": [
+            9315
+        ]
+    },
+    "madamba": {
+        "madamba": [
+            9314
+        ]
+    },
+    "maguing": {
+        "maguing": [
+            9715
+        ]
+    },
+    "malabang": {
+        "malabang": [
+            9300
+        ]
+    },
+    "marogong": {
+        "marogong": [
+            9303
+        ]
+    },
+    "marantao": {
+        "marantao": [
+            9711
+        ]
+    },
+    "marawi city": {
+        "marawi city": [
+            9700
+        ]
+    },
+    "masui": {
+        "masui": [
+            9706
+        ]
+    },
+    "mulondo": {
+        "mulondo": [
+            9702
+        ]
+    },
+    "pagayawan": {
+        "pagayawan": [
+            9312
+        ]
+    },
+    "piagapo": {
+        "piagapo": [
+            9710
+        ]
+    },
+    "poona bayabao": {
+        "poona bayabao": [
+            9705
+        ]
+    },
+    "pualas": {
+        "pualas": [
+            9313
+        ]
+    },
+    "ramain-ditsaan": {
+        "ramain-ditsaan": [
+            9713
+        ]
+    },
+    "saguiaran": {
+        "saguiaran": [
+            9701
+        ]
+    },
+    "picong": {
+        "picong": [
+            9301
+        ]
+    },
+    "tagoloan-ii": {
+        "tagoloan-ii": [
+            9321
+        ]
+    },
+    "tamparan": {
+        "tamparan": [
+            9704
+        ]
+    },
+    "taraka": {
+        "taraka": [
+            9712
+        ]
+    },
+    "tubaran": {
+        "tubaran": [
+            9304
+        ]
+    },
+    "tugaya": {
+        "tugaya": [
+            9317
+        ]
+    },
+    "wao": {
+        "wao": [
+            9716
+        ]
+    },
+    "abuyog": {
+        "abuyog": [
+            6510
+        ]
+    },
+    "alangalang": {
+        "alangalang": [
+            6517
+        ]
+    },
+    "albuera": {
+        "albuera": [
+            6542
+        ]
+    },
+    "babatngon": {
+        "babatngon": [
+            6520
+        ]
+    },
+    "barugo": {
+        "barugo": [
+            6519
+        ]
+    },
+    "baybay": {
+        "baybay": [
+            6521
+        ]
+    },
+    "burauen": {
+        "burauen": [
+            6516
+        ]
+    },
+    "calubian": {
+        "calubian": [
+            6534
+        ]
+    },
+    "capoocan": {
+        "capoocan": [
+            6530
+        ]
+    },
+    "carigara": {
+        "carigara": [
+            6529
+        ]
+    },
+    "dagami": {
+        "dagami": [
+            6515
+        ]
+    },
+    "dulag": {
+        "dulag": [
+            6505
+        ]
+    },
+    "hilongos": {
+        "hilongos": [
+            6524
+        ]
+    },
+    "hindang": {
+        "hindang": [
+            6523
+        ]
+    },
+    "inopacan": {
+        "inopacan": [
+            6522
+        ]
+    },
+    "isabel": {
+        "isabel": [
+            6539
+        ]
+    },
+    "jaro": {
+        "jaro": [
+            6527
+        ]
+    },
+    "javier": {
+        "javier": [
+            6511
+        ]
+    },
+    "julita": {
+        "julita": [
+            6506
+        ]
+    },
+    "kananga": {
+        "kananga": [
+            6531
+        ]
+    },
+    "leyte": {
+        "leyte": [
+            6533
+        ]
+    },
+    "macarthur": {
+        "macarthur": [
+            6509
+        ]
+    },
+    "mahaplag": {
+        "mahaplag": [
+            6512
+        ]
+    },
+    "matag-ob": {
+        "matag-ob": [
+            6532
+        ]
+    },
+    "matalom": {
+        "matalom": [
+            6526
+        ]
+    },
+    "mayorga": {
+        "mayorga": [
+            6507
+        ]
+    },
+    "merida": {
+        "merida": [
+            6540
+        ]
+    },
+    "ormoc city": {
+        "ormoc city": [
+            6541
+        ]
+    },
+    "palo": {
+        "palo": [
+            6501
+        ]
+    },
+    "palompon": {
+        "palompon": [
+            6538
+        ]
+    },
+    "pastrana": {
+        "pastrana": [
+            6514
+        ]
+    },
+    "tabango": {
+        "tabango": [
+            6536
+        ]
+    },
+    "tabontabon": {
+        "tabontabon": [
+            6504
+        ]
+    },
+    "tacloban city": {
+        "tacloban city": [
+            6500
+        ]
+    },
+    "tanuan": {
+        "tanuan": [
+            6502
+        ]
+    },
+    "tolosa": {
+        "tolosa": [
+            6503
+        ]
+    },
+    "tunga": {
+        "tunga": [
+            6528
+        ]
+    },
+    "villaba": {
+        "villaba": [
+            6537
+        ]
+    },
+    "cotabato city": {
+        "cotabato city": [
+            9600
+        ]
+    },
+    "ampatuan": {
+        "ampatuan": [
+            9609
+        ]
+    },
+    "buluan": {
+        "buluan": [
+            9616
+        ]
+    },
+    "datu paglas": {
+        "datu paglas": [
+            9617
+        ]
+    },
+    "datu piang": {
+        "datu piang": [
+            9607
+        ]
+    },
+    "gen. s.k. pendatun": {
+        "gen. s.k. pendatun": [
+            9618
+        ]
+    },
+    "sarip aguak": {
+        "sarip aguak": [
+            9608
+        ]
+    },
+    "pagalungan": {
+        "pagalungan": [
+            9610
+        ]
+    },
+    "south upi": {
+        "south upi": [
+            9603
+        ]
+    },
+    "sultan sa barongis": {
+        "sultan sa barongis": [
+            9611
+        ]
+    },
+    "talayan": {
+        "talayan": [
+            1104,
+            9612
+        ]
+    },
+    "boac": {
+        "boac": [
+            4900
+        ]
+    },
+    "mogpog": {
+        "mogpog": [
+            4901
+        ]
+    },
+    "torrijos": {
+        "torrijos": [
+            4903
+        ]
+    },
+    "gasan": {
+        "gasan": [
+            4905
+        ]
+    },
+    "aroroy": {
+        "aroroy": [
+            5414
+        ]
+    },
+    "baleno": {
+        "baleno": [
+            5413
+        ]
+    },
+    "balud": {
+        "balud": [
+            5412
+        ]
+    },
+    "cataingan": {
+        "cataingan": [
+            5405
+        ]
+    },
+    "cawayan": {
+        "cawayan": [
+            5409
+        ]
+    },
+    "dimasalang": {
+        "dimasalang": [
+            5403
+        ]
+    },
+    "mandaon": {
+        "mandaon": [
+            5411
+        ]
+    },
+    "masbate city": {
+        "masbate city": [
+            5400
+        ]
+    },
+    "milagros": {
+        "milagros": [
+            5410
+        ]
+    },
+    "mobo": {
+        "mobo": [
+            5401
+        ]
+    },
+    "monreal": {
+        "monreal": [
+            5418
+        ]
+    },
+    "palanas": {
+        "palanas": [
+            5404
+        ]
+    },
+    "pio v. corpuz": {
+        "pio v. corpuz": [
+            5406
+        ]
+    },
+    "placer": {
+        "placer": [
+            5408,
+            8405
+        ]
+    },
+    "san jacinto": {
+        "san jacinto": [
+            2431,
+            5417
+        ]
+    },
+    "uson": {
+        "uson": [
+            5402
+        ]
+    },
+    "kaybiga/deparo": {
+        "kaybiga/deparo": [
+            1420
+        ]
+    },
+    "bagumbong/pag-asa": {
+        "bagumbong/pag-asa": [
+            1421
+        ]
+    },
+    "novaliches north": {
+        "novaliches north": [
+            1422
+        ]
+    },
+    "lilles ville subdivision": {
+        "lilles ville subdivision": [
+            1423
+        ]
+    },
+    "captol parkland subdivision": {
+        "captol parkland subdivision": [
+            1424
+        ]
+    },
+    "amparo subdivision": {
+        "amparo subdivision": [
+            1425
+        ]
+    },
+    "bankers village": {
+        "bankers village": [
+            1426
+        ]
+    },
+    "tala leprosarium and victory heights": {
+        "tala leprosarium and victory heights": [
+            1427
+        ]
+    },
+    "bagong silang": {
+        "bagong silang": [
+            1428
+        ]
+    },
+    "caloocan city central post office": {
+        "caloocan city central post office": [
+            1400
+        ]
+    },
+    "baesa": {
+        "baesa": [
+            1106,
+            1401
+        ]
+    },
+    "santa quiteria": {
+        "santa quiteria": [
+            1402
+        ]
+    },
+    "grace park east": {
+        "grace park east": [
+            1403
+        ]
+    },
+    "first avenue to seventh avenue west": {
+        "first avenue to seventh avenue west": [
+            1405
+        ]
+    },
+    "grace park west": {
+        "grace park west": [
+            1406
+        ]
+    },
+    "university hills": {
+        "university hills": [
+            1407
+        ]
+    },
+    "sangandaan": {
+        "sangandaan": [
+            1116,
+            1408
+        ]
+    },
+    "kaunlaran village": {
+        "kaunlaran village": [
+            1409
+        ]
+    },
+    "maypajo sawata area 2": {
+        "maypajo sawata area 2": [
+            1410
+        ]
+    },
+    "fish market": {
+        "fish market": [
+            1411
+        ]
+    },
+    "isla de cocomo": {
+        "isla de cocomo": [
+            1412
+        ]
+    },
+    "kapitbayahan": {
+        "kapitbayahan": [
+            1413
+        ]
+    },
+    "las piñas central post office": {
+        "las piñas central post office": [
+            1740
+        ]
+    },
+    "greymarville subdivision": {
+        "greymarville subdivision": [
+            1741
+        ]
+    },
+    "pulang lupa and zapote": {
+        "pulang lupa and zapote": [
+            1742
+        ]
+    },
+    "cut-cut": {
+        "cut-cut": [
+            1743
+        ]
+    },
+    "manuyo": {
+        "manuyo": [
+            1744
+        ]
+    },
+    "gatchalian subdivision": {
+        "gatchalian subdivision": [
+            1745
+        ]
+    },
+    "verdant acres subdivision": {
+        "verdant acres subdivision": [
+            1746
+        ]
+    },
+    "moonwalk subdivision and talon": {
+        "moonwalk subdivision and talon": [
+            1747
+        ]
+    },
+    "manila doctors village": {
+        "manila doctors village": [
+            1748
+        ]
+    },
+    "angela village": {
+        "angela village": [
+            1749
+        ]
+    },
+    "almanza": {
+        "almanza": [
+            1750
+        ]
+    },
+    "t.s. cruz subdivision": {
+        "t.s. cruz subdivision": [
+            1751
+        ]
+    },
+    "soldiers hills subdivision": {
+        "soldiers hills subdivision": [
+            1752
+        ]
+    },
+    "makati central post office": {
+        "makati central post office": [
+            1200
+        ]
+    },
+    "fort bonifacio": {
+        "fort bonifacio": [
+            1201
+        ]
+    },
+    "fort bonifacio naval station": {
+        "fort bonifacio naval station": [
+            1202
+        ]
+    },
+    "san antonio village": {
+        "san antonio village": [
+            1203
+        ]
+    },
+    "singkamas": {
+        "la paz": [
+            1204
+        ]
+    },
+    "kasilawan": {
+        "kasilawan": [
+            1206
+        ]
+    },
+    "carmona and olympia": {
+        "carmona and olympia": [
+            1207
+        ]
+    },
+    "valenzuela": {
+        "valenzuela": [
+            1208
+        ]
+    },
+    "bel-air": {
+        "bel-air": [
+            1209
+        ]
+    },
+    "poblacion": {
+        "poblacion": [
+            1210,
+            1776
+        ]
+    },
+    "guadalupe viejo": {
+        "guadalupe viejo": [
+            1211
+        ]
+    },
+    "guadalupe nuevo": {
+        "guadalupe nuevo": [
+            1212
+        ]
+    },
+    "pinagkaisahan - pitogo": {
+        "pinagkaisahan - pitogo": [
+            1213
+        ]
+    },
+    "cembo": {
+        "cembo": [
+            1214
+        ]
+    },
+    "west rembo": {
+        "west rembo": [
+            1215
+        ]
+    },
+    "east rembo and malapad na bato": {
+        "east rembo and malapad na bato": [
+            1216
+        ]
+    },
+    "comembo": {
+        "comembo": [
+            1217
+        ]
+    },
+    "pembo": {
+        "pembo": [
+            1218
+        ]
+    },
+    "forbes park north": {
+        "forbes park north": [
+            1219
+        ]
+    },
+    "forbes park south": {
+        "forbes park south": [
+            1220
+        ]
+    },
+    "dasmariñas village north": {
+        "dasmariñas village north": [
+            1221
+        ]
+    },
+    "dasmariñas village south": {
+        "dasmariñas village south": [
+            1222
+        ]
+    },
+    "san lorenzo village": {
+        "san lorenzo village": [
+            1223
+        ]
+    },
+    "makati commercial center": {
+        "makati commercial center": [
+            1224
+        ]
+    },
+    "urdaneta village": {
+        "urdaneta village": [
+            1225
+        ]
+    },
+    "ayala avenue-paseo de roxas": {
+        "ayala avenue-paseo de roxas": [
+            1226
+        ]
+    },
+    "salcedo village": {
+        "salcedo village": [
+            1227
+        ]
+    },
+    "greenbelt": {
+        "greenbelt": [
+            1228
+        ]
+    },
+    "legaspi village": {
+        "legaspi village": [
+            1229
+        ]
+    },
+    "pio del pilar": {
+        "pio del pilar": [
+            1230
+        ]
+    },
+    "pasong tamo and ecology village": {
+        "pasong tamo and ecology village": [
+            1231
+        ]
+    },
+    "magallanes village": {
+        "magallanes village": [
+            1232
+        ]
+    },
+    "bangkal": {
+        "bangkal": [
+            1233
+        ]
+    },
+    "plain-truth": {
+        "plain-truth": [
+            "0700"
+        ]
+    },
+    "colgate palmolive philippines": {
+        "colgate palmolive philippines": [
+            "0701"
+        ]
+    },
+    "citibank": {
+        "citibank": [
+            "0702"
+        ]
+    },
+    "sarmiento enterprises": {
+        "sarmiento enterprises": [
+            "0703"
+        ]
+    },
+    "producers bank": {
+        "producers bank": [
+            "0704"
+        ]
+    },
+    "union ajinomoto": {
+        "union ajinomoto": [
+            "0705"
+        ]
+    },
+    "faith embassy": {
+        "faith embassy": [
+            "0706"
+        ]
+    },
+    "canadian embassy": {
+        "canadian embassy": [
+            "0707"
+        ]
+    },
+    "philippine national oil company": {
+        "philippine national oil company": [
+            "0708"
+        ]
+    },
+    "a-z direct marketing": {
+        "a-z direct marketing": [
+            "0709"
+        ]
+    },
+    "american express": {
+        "american express": [
+            "0710"
+        ]
+    },
+    "land bank of the philippines": {
+        "land bank of the philippines": [
+            "0711"
+        ]
+    },
+    "prudential bank": {
+        "prudential bank": [
+            "0712"
+        ]
+    },
+    "bpi family savings bank": {
+        "bpi family savings bank": [
+            "0713"
+        ]
+    },
+    "philippine manila mission": {
+        "philippine manila mission": [
+            "0714"
+        ]
+    },
+    "marcopper mining corporation": {
+        "marcopper mining corporation": [
+            "0715"
+        ]
+    },
+    "allied bank": {
+        "allied bank": [
+            "0716"
+        ]
+    },
+    "diners club": {
+        "diners club": [
+            "0717"
+        ]
+    },
+    "international center for aquatic resources": {
+        "international center for aquatic resources": [
+            "0718"
+        ]
+    },
+    "security bank": {
+        "security bank": [
+            "0719"
+        ]
+    },
+    "bank of the philippine islands": {
+        "bank of the philippine islands": [
+            "0720"
+        ]
+    },
+    "philippine long distance telephone company": {
+        "philippine long distance telephone company": [
+            "0721"
+        ]
+    },
+    "world executive digest": {
+        "world executive digest": [
+            "0722"
+        ]
+    },
+    "japanese embassy": {
+        "japanese embassy": [
+            "0723"
+        ]
+    },
+    "sun life financial": {
+        "sun life financial": [
+            "0724"
+        ]
+    },
+    "insular life assurance company": {
+        "insular life assurance company": [
+            "0725"
+        ]
+    },
+    "equitable pci bank": {
+        "equitable pci bank": [
+            "0726"
+        ]
+    },
+    "rizal commercial banking corporation": {
+        "rizal commercial banking corporation": [
+            "0727"
+        ]
+    },
+    "united coconut planters bank": {
+        "united coconut planters bank": [
+            "0728"
+        ]
+    },
+    "not used": {
+        "not used": [
+            "0729",
+            "0929"
+        ]
+    },
+    "zuellig pharma": {
+        "zuellig pharma": [
+            "0730"
+        ]
+    },
+    "bcd direct marketing": {
+        "bcd direct marketing": [
+            "0731"
+        ]
+    },
+    "export and industry bank": {
+        "export and industry bank": [
+            "0732"
+        ]
+    },
+    "gorres and velayo": {
+        "sycip": [
+            "0740"
+        ]
+    },
+    "sycip": {
+        "gorres and velayo": [
+            "0740"
+        ]
+    },
+    "philippine airlines": {
+        "philippine airlines": [
+            "0750"
+        ]
+    },
+    "pilipinas shell": {
+        "pilipinas shell": [
+            "0760"
+        ]
+    },
+    "accra law offices": {
+        "accra law offices": [
+            "0770"
+        ]
+    },
+    "mead johnson philippines": {
+        "mead johnson philippines": [
+            "0780"
+        ]
+    },
+    "directories pilipinas corporation": {
+        "directories pilipinas corporation": [
+            "0788"
+        ]
+    },
+    "gulf and pacific": {
+        "atlantic": [
+            "0790"
+        ]
+    },
+    "atlantic": {
+        "gulf and pacific": [
+            "0790"
+        ]
+    },
+    "makati cpo-po box# 1000 to 1099": {
+        "makati cpo-po box# 1000 to 1099": [
+            1250
+        ]
+    },
+    "makati cpo-po box# 1100 to 1199": {
+        "makati cpo-po box# 1100 to 1199": [
+            1251
+        ]
+    },
+    "makati cpo-po box# 1200 to 1299": {
+        "makati cpo-po box# 1200 to 1299": [
+            1252
+        ]
+    },
+    "makati cpo-po box# 1300 to 1399": {
+        "makati cpo-po box# 1300 to 1399": [
+            1253
+        ]
+    },
+    "makati cpo-po box# 1400 to 1499": {
+        "makati cpo-po box# 1400 to 1499": [
+            1254
+        ]
+    },
+    "makati cpo-po box# 1500 to 1599": {
+        "makati cpo-po box# 1500 to 1599": [
+            1255
+        ]
+    },
+    "makati cpo-po box# 1600 to 1699": {
+        "makati cpo-po box# 1600 to 1699": [
+            1256
+        ]
+    },
+    "makati cpo-po box# 1700 to 1799": {
+        "makati cpo-po box# 1700 to 1799": [
+            1257
+        ]
+    },
+    "makati cpo-po box# 1800 to 1899": {
+        "makati cpo-po box# 1800 to 1899": [
+            1258
+        ]
+    },
+    "makati cpo-po box# 1900 to 1999": {
+        "makati cpo-po box# 1900 to 1999": [
+            1259
+        ]
+    },
+    "makati cpo-po box# 2000 to 2099": {
+        "makati cpo-po box# 2000 to 2099": [
+            1260
+        ]
+    },
+    "makati cpo-po box# 2100 to 2199": {
+        "makati cpo-po box# 2100 to 2199": [
+            1261
+        ]
+    },
+    "makati cpo-po box# 2200 to 2299": {
+        "makati cpo-po box# 2200 to 2299": [
+            1262
+        ]
+    },
+    "makati cpo-po box# 2300 to 2399": {
+        "makati cpo-po box# 2300 to 2399": [
+            1263
+        ]
+    },
+    "makati cpo-po box# 2400 to 2499": {
+        "makati cpo-po box# 2400 to 2499": [
+            1264
+        ]
+    },
+    "makati cpo-po box# 2500 to 2599": {
+        "makati cpo-po box# 2500 to 2599": [
+            1265
+        ]
+    },
+    "makati cpo-po box# 2600 to 2699": {
+        "makati cpo-po box# 2600 to 2699": [
+            1266
+        ]
+    },
+    "makati cpo-po box# 2700 to 2799": {
+        "makati cpo-po box# 2700 to 2799": [
+            1267
+        ]
+    },
+    "makati cpo-po box# 2800 to 2899": {
+        "makati cpo-po box# 2800 to 2899": [
+            1268
+        ]
+    },
+    "makati cpo-po box# 2900 to 2999": {
+        "makati cpo-po box# 2900 to 2999": [
+            1269
+        ]
+    },
+    "makati cpo-po box# 3000 to 3099": {
+        "makati cpo-po box# 3000 to 3099": [
+            1270
+        ]
+    },
+    "makati cpo-po box# 3100 to 3199": {
+        "makati cpo-po box# 3100 to 3199": [
+            1271
+        ]
+    },
+    "makati cpo-po box# 3200 to 3299": {
+        "makati cpo-po box# 3200 to 3299": [
+            1272
+        ]
+    },
+    "makati cpo-po box# 3300 to 3399": {
+        "makati cpo-po box# 3300 to 3399": [
+            1273
+        ]
+    },
+    "makati cpo-po box# 3400 to 3499": {
+        "makati cpo-po box# 3400 to 3499": [
+            1274
+        ]
+    },
+    "makati cpo-po box# 3500 to 3599": {
+        "makati cpo-po box# 3500 to 3599": [
+            1275
+        ]
+    },
+    "makati cpo-po box# 3600 to 3699": {
+        "makati cpo-po box# 3600 to 3699": [
+            1276
+        ]
+    },
+    "makati cpo-po box# 3700 to 3799": {
+        "makati cpo-po box# 3700 to 3799": [
+            1277
+        ]
+    },
+    "makati cpo-po box# 3800 to 3899": {
+        "makati cpo-po box# 3800 to 3899": [
+            1278
+        ]
+    },
+    "makati cpo-po box# 3900 to 3999": {
+        "makati cpo-po box# 3900 to 3999": [
+            1279
+        ]
+    },
+    "makati cpo-po box# 4000 to 4099": {
+        "makati cpo-po box# 4000 to 4099": [
+            1280
+        ]
+    },
+    "makati cpo-po box# 4100 to 4199": {
+        "makati cpo-po box# 4100 to 4199": [
+            1281
+        ]
+    },
+    "makati cpo-po box# 4200 to 4299": {
+        "makati cpo-po box# 4200 to 4299": [
+            1282
+        ]
+    },
+    "makati cpo-po box# 4300 to 4399": {
+        "makati cpo-po box# 4300 to 4399": [
+            1283
+        ]
+    },
+    "makati cpo-po box# 4400 to 4499": {
+        "makati cpo-po box# 4400 to 4499": [
+            1284
+        ]
+    },
+    "makati cpo-po box# 4500 to 4599": {
+        "makati cpo-po box# 4500 to 4599": [
+            1285
+        ]
+    },
+    "makati cpo-po box# 4600 to 4699": {
+        "makati cpo-po box# 4600 to 4699": [
+            1286
+        ]
+    },
+    "makati cpo-po box# 4700 to 4799": {
+        "makati cpo-po box# 4700 to 4799": [
+            1287
+        ]
+    },
+    "makati cpo-po box# 4800 to 4899": {
+        "makati cpo-po box# 4800 to 4899": [
+            1288
+        ]
+    },
+    "makati cpo-po box# 4900 to 4999": {
+        "makati cpo-po box# 4900 to 4999": [
+            1289
+        ]
+    },
+    "makati cpo-po box# 5000 to 5099": {
+        "makati cpo-po box# 5000 to 5099": [
+            1290
+        ]
+    },
+    "makati cpo-po box# 5100 to 5199": {
+        "makati cpo-po box# 5100 to 5199": [
+            1291
+        ]
+    },
+    "makati cpo-po box# 5200 to 5299": {
+        "makati cpo-po box# 5200 to 5299": [
+            1292
+        ]
+    },
+    "makati cpo-po box# 5300 to 5399": {
+        "makati cpo-po box# 5300 to 5399": [
+            1293
+        ]
+    },
+    "makati cpo-po box# 5400 to 5499": {
+        "makati cpo-po box# 5400 to 5499": [
+            1294
+        ]
+    },
+    "makati cpo-po box# 5500 to 5599": {
+        "makati cpo-po box# 5500 to 5599": [
+            1295
+        ]
+    },
+    "makati cpo-po box# 5600 to 5699": {
+        "makati cpo-po box# 5600 to 5699": [
+            1296
+        ]
+    },
+    "makati cpo-po box# 5700 to 5799": {
+        "makati cpo-po box# 5700 to 5799": [
+            1297
+        ]
+    },
+    "makati cpo-po box# 5800 to 5899": {
+        "makati cpo-po box# 5800 to 5899": [
+            1298
+        ]
+    },
+    "makati cpo-po box# 5900 to 5999": {
+        "makati cpo-po box# 5900 to 5999": [
+            1299
+        ]
+    },
+    "malabon": {
+        "malabon": [
+            1470
+        ]
+    },
+    "flores": {
+        "flores": [
+            1471
+        ]
+    },
+    "longos": {
+        "longos": [
+            1472
+        ]
+    },
+    "tonsuya": {
+        "tonsuya": [
+            1473
+        ]
+    },
+    "acacia": {
+        "acacia": [
+            1474
+        ]
+    },
+    "potrero": {
+        "potrero": [
+            1475
+        ]
+    },
+    "araneta subdivision": {
+        "araneta subdivision": [
+            1476
+        ]
+    },
+    "maysilo": {
+        "maysilo": [
+            1477
+        ]
+    },
+    "santolan": {
+        "santolan": [
+            1478,
+            1610
+        ]
+    },
+    "muzon": {
+        "muzon": [
+            1479
+        ]
+    },
+    "dampalit": {
+        "dampalit": [
+            1480
+        ]
+    },
+    "tinajeros": {
+        "tinajeros": [
+            1470
+        ]
+    },
+    "mandaluyong central post office": {
+        "mandaluyong central post office": [
+            1550
+        ]
+    },
+    "vergara": {
+        "vergara": [
+            1551
+        ]
+    },
+    "shaw boulevard": {
+        "shaw boulevard": [
+            1552
+        ]
+    },
+    "national center for mental health": {
+        "national center for mental health": [
+            1553
+        ]
+    },
+    "east edsa": {
+        "east edsa": [
+            1554
+        ]
+    },
+    "wack wack": {
+        "wack wack": [
+            1555
+        ]
+    },
+    "greenhills south": {
+        "greenhills south": [
+            1556
+        ]
+    },
+    "manila central post office": {
+        "manila central post office": [
+            1000
+        ]
+    },
+    "quiapo": {
+        "quiapo": [
+            1001
+        ]
+    },
+    "intramuros": {
+        "intramuros": [
+            1002
+        ]
+    },
+    "santa cruz south": {
+        "santa cruz south": [
+            1003
+        ]
+    },
+    "malate": {
+        "malate": [
+            1004
+        ]
+    },
+    "binondo": {
+        "binondo": [
+            1006
+        ]
+    },
+    "paco": {
+        "paco": [
+            1007
+        ]
+    },
+    "sampaloc east": {
+        "sampaloc east": [
+            1008
+        ]
+    },
+    "pandacan": {
+        "pandacan": [
+            1011
+        ]
+    },
+    "tondo south": {
+        "tondo south": [
+            1012
+        ]
+    },
+    "tondo north": {
+        "tondo north": [
+            1013
+        ]
+    },
+    "santa cruz north": {
+        "santa cruz north": [
+            1014
+        ]
+    },
+    "sampaloc west": {
+        "sampaloc west": [
+            1015
+        ]
+    },
+    "santa mesa": {
+        "santa mesa": [
+            1016
+        ]
+    },
+    "port area south": {
+        "port area south": [
+            1018
+        ]
+    },
+    "manila bulletin": {
+        "manila bulletin": [
+            "0900"
+        ]
+    },
+    "adventist university of the philippines": {
+        "adventist university of the philippines": [
+            "0901"
+        ]
+    },
+    "far east broadcasting corporation": {
+        "far east broadcasting corporation": [
+            "0560",
+            "0902"
+        ]
+    },
+    "manila hilton": {
+        "manila hilton": [
+            "0903"
+        ]
+    },
+    "midland hotel": {
+        "midland hotel": [
+            "0904"
+        ]
+    },
+    "the philippine star": {
+        "the philippine star": [
+            "0905"
+        ]
+    },
+    "manila medical center": {
+        "manila medical center": [
+            "0906"
+        ]
+    },
+    "san miguel corporation": {
+        "san miguel corporation": [
+            "0907"
+        ]
+    },
+    "pan-filipino shipping": {
+        "pan-filipino shipping": [
+            "0908"
+        ]
+    },
+    "summer institute of linguistics": {
+        "summer institute of linguistics": [
+            "0909"
+        ]
+    },
+    "department of labor and employment": {
+        "department of labor and employment": [
+            "0910"
+        ]
+    },
+    "national statistics office": {
+        "national statistics office": [
+            "0911"
+        ]
+    },
+    "bureau of plant industry": {
+        "bureau of plant industry": [
+            "0912"
+        ]
+    },
+    "manila hotel": {
+        "manila hotel": [
+            "0913"
+        ]
+    },
+    "philippine refining company and unilever philippines": {
+        "philippine refining company and unilever philippines": [
+            "0914"
+        ]
+    },
+    "international correspondence institute": {
+        "international correspondence institute": [
+            "0915"
+        ]
+    },
+    "radio veritas": {
+        "radio veritas": [
+            "0916"
+        ]
+    },
+    "ateneo de manila university": {
+        "ateneo de manila university": [
+            "0917"
+        ]
+    },
+    "fil-japan shipping company": {
+        "fil-japan shipping company": [
+            "0918"
+        ]
+    },
+    "manila police district": {
+        "manila police district": [
+            "0919"
+        ]
+    },
+    "sunbursts publications": {
+        "sunbursts publications": [
+            "0920"
+        ]
+    },
+    "philippine plaza hotel": {
+        "philippine plaza hotel": [
+            "0921"
+        ]
+    },
+    "de la salle university": {
+        "de la salle university": [
+            "0922"
+        ]
+    },
+    "don stewart evangelistic association": {
+        "don stewart evangelistic association": [
+            "0923"
+        ]
+    },
+    "world map": {
+        "world map": [
+            "0924"
+        ]
+    },
+    "chinabank": {
+        "chinabank": [
+            "0925"
+        ]
+    },
+    "caltex philippines": {
+        "caltex philippines": [
+            "0926"
+        ]
+    },
+    "philippine veterans affairs office": {
+        "philippine veterans affairs office": [
+            "0927"
+        ]
+    },
+    "philippine campus crusade": {
+        "philippine campus crusade": [
+            "0928"
+        ]
+    },
+    "united states embassy": {
+        "united states embassy": [
+            "0930"
+        ]
+    },
+    "philippine national bank": {
+        "philippine national bank": [
+            "0940"
+        ]
+    },
+    "manila midtown hotel": {
+        "manila midtown hotel": [
+            "0950"
+        ]
+    },
+    "international rice research institute": {
+        "international rice research institute": [
+            "0960"
+        ]
+    },
+    "department of justice": {
+        "department of justice": [
+            "0970"
+        ]
+    },
+    "asian development bank": {
+        "asian development bank": [
+            "0401",
+            "0980"
+        ]
+    },
+    "philamlife": {
+        "philamlife": [
+            "0990"
+        ]
+    },
+    "santa mesa p.o. box": {
+        "santa mesa p.o. box": [
+            1035
+        ]
+    },
+    "santa cruz p.o. box": {
+        "santa cruz p.o. box": [
+            1040
+        ]
+    },
+    "ermita p.o. box": {
+        "ermita p.o. box": [
+            1045
+        ]
+    },
+    "manila cpo-po box# 1000 to 1099": {
+        "manila cpo-po box# 1000 to 1099": [
+            1050
+        ]
+    },
+    "manila cpo-po box# 1100 to 1199": {
+        "manila cpo-po box# 1100 to 1199": [
+            1051
+        ]
+    },
+    "manila cpo-po box# 1200 to 1299": {
+        "manila cpo-po box# 1200 to 1299": [
+            1052
+        ]
+    },
+    "manila cpo-po box# 1300 to 1399": {
+        "manila cpo-po box# 1300 to 1399": [
+            1053
+        ]
+    },
+    "manila cpo-po box# 1400 to 1499": {
+        "manila cpo-po box# 1400 to 1499": [
+            1054
+        ]
+    },
+    "manila cpo-po box# 1500 to 1599": {
+        "manila cpo-po box# 1500 to 1599": [
+            1055
+        ]
+    },
+    "manila cpo-po box# 1600 to 1699": {
+        "manila cpo-po box# 1600 to 1699": [
+            1056
+        ]
+    },
+    "manila cpo-po box# 1700 to 1799": {
+        "manila cpo-po box# 1700 to 1799": [
+            1057
+        ]
+    },
+    "manila cpo-po box# 1800 to 1899": {
+        "manila cpo-po box# 1800 to 1899": [
+            1058
+        ]
+    },
+    "manila cpo-po box# 1900 to 1999": {
+        "manila cpo-po box# 1900 to 1999": [
+            1059
+        ]
+    },
+    "manila cpo-po box# 2000 to 2099": {
+        "manila cpo-po box# 2000 to 2099": [
+            1060
+        ]
+    },
+    "manila cpo-po box# 2100 to 2199": {
+        "manila cpo-po box# 2100 to 2199": [
+            1061
+        ]
+    },
+    "manila cpo-po box# 2200 to 2299": {
+        "manila cpo-po box# 2200 to 2299": [
+            1062
+        ]
+    },
+    "manila cpo-po box# 2300 to 2399": {
+        "manila cpo-po box# 2300 to 2399": [
+            1063
+        ]
+    },
+    "manila cpo-po box# 2400 to 2499": {
+        "manila cpo-po box# 2400 to 2499": [
+            1064
+        ]
+    },
+    "manila cpo-po box# 2500 to 2599": {
+        "manila cpo-po box# 2500 to 2599": [
+            1065
+        ]
+    },
+    "manila cpo-po box# 2600 to 2699": {
+        "manila cpo-po box# 2600 to 2699": [
+            1066
+        ]
+    },
+    "manila cpo-po box# 2700 to 2799": {
+        "manila cpo-po box# 2700 to 2799": [
+            1067
+        ]
+    },
+    "manila cpo-po box# 2800 to 2899": {
+        "manila cpo-po box# 2800 to 2899": [
+            1068
+        ]
+    },
+    "manila cpo-po box# 2900 to 2999": {
+        "manila cpo-po box# 2900 to 2999": [
+            1069
+        ]
+    },
+    "manila cpo-po box# 3000 to 3099": {
+        "manila cpo-po box# 3000 to 3099": [
+            1070
+        ]
+    },
+    "manila cpo-po box# 3100 to 3199": {
+        "manila cpo-po box# 3100 to 3199": [
+            1071
+        ]
+    },
+    "manila cpo-po box# 3200 to 3299": {
+        "manila cpo-po box# 3200 to 3299": [
+            1072
+        ]
+    },
+    "manila cpo-po box# 3300 to 3399": {
+        "manila cpo-po box# 3300 to 3399": [
+            1073
+        ]
+    },
+    "manila cpo-po box# 3400 to 3499": {
+        "manila cpo-po box# 3400 to 3499": [
+            1074
+        ]
+    },
+    "manila cpo-po box# 3500 to 3599": {
+        "manila cpo-po box# 3500 to 3599": [
+            1075
+        ]
+    },
+    "manila cpo-po box# 3600 to 3699": {
+        "manila cpo-po box# 3600 to 3699": [
+            1076
+        ]
+    },
+    "manila cpo-po box# 3700 to 3799": {
+        "manila cpo-po box# 3700 to 3799": [
+            1077
+        ]
+    },
+    "manila cpo-po box# 3800 to 3899": {
+        "manila cpo-po box# 3800 to 3899": [
+            1078
+        ]
+    },
+    "manila cpo-po box# 3900 to 3999": {
+        "manila cpo-po box# 3900 to 3999": [
+            1079
+        ]
+    },
+    "manila cpo-po box# 4000 to 4099": {
+        "manila cpo-po box# 4000 to 4099": [
+            1080
+        ]
+    },
+    "manila cpo-po box# 4100 to 4199": {
+        "manila cpo-po box# 4100 to 4199": [
+            1081
+        ]
+    },
+    "manila cpo-po box# 4200 to 4299": {
+        "manila cpo-po box# 4200 to 4299": [
+            1082
+        ]
+    },
+    "manila cpo-po box# 4300 to 4399": {
+        "manila cpo-po box# 4300 to 4399": [
+            1083
+        ]
+    },
+    "manila cpo-po box# 4400 to 4499": {
+        "manila cpo-po box# 4400 to 4499": [
+            1084
+        ]
+    },
+    "manila cpo-po box# 4500 to 4599": {
+        "manila cpo-po box# 4500 to 4599": [
+            1085
+        ]
+    },
+    "manila cpo-po box# 4600 to 4699": {
+        "manila cpo-po box# 4600 to 4699": [
+            1086
+        ]
+    },
+    "manila cpo-po box# 4700 to 4799": {
+        "manila cpo-po box# 4700 to 4799": [
+            1087
+        ]
+    },
+    "manila cpo-po box# 4800 to 4899": {
+        "manila cpo-po box# 4800 to 4899": [
+            1088
+        ]
+    },
+    "manila cpo-po box# 4900 to 4999": {
+        "manila cpo-po box# 4900 to 4999": [
+            1089
+        ]
+    },
+    "manila cpo-po box# 5000 to 5099": {
+        "manila cpo-po box# 5000 to 5099": [
+            1090
+        ]
+    },
+    "manila cpo-po box# 5100 to 5199": {
+        "manila cpo-po box# 5100 to 5199": [
+            1091
+        ]
+    },
+    "manila cpo-po box# 5200 to 5299": {
+        "manila cpo-po box# 5200 to 5299": [
+            1092
+        ]
+    },
+    "manila cpo-po box# 5300 to 5399": {
+        "manila cpo-po box# 5300 to 5399": [
+            1093
+        ]
+    },
+    "manila cpo-po box# 5400 to 5499": {
+        "manila cpo-po box# 5400 to 5499": [
+            1094
+        ]
+    },
+    "manila cpo-po box# 5500 to 5599": {
+        "manila cpo-po box# 5500 to 5599": [
+            1095
+        ]
+    },
+    "manila cpo-po box# 5600 to 5699": {
+        "manila cpo-po box# 5600 to 5699": [
+            1096
+        ]
+    },
+    "marikina central post office": {
+        "marikina central post office": [
+            1800
+        ]
+    },
+    "san roque-calumpang": {
+        "san roque-calumpang": [
+            1801
+        ]
+    },
+    "industrial valley": {
+        "industrial valley": [
+            1802
+        ]
+    },
+    "barangka and tañong": {
+        "barangka and tañong": [
+            1803
+        ]
+    },
+    "j. de la peña": {
+        "j. de la peña": [
+            1804
+        ]
+    },
+    "malanday": {
+        "malanday": [
+            1444,
+            1805
+        ]
+    },
+    "northern and western marikina river": {
+        "northern and western marikina river": [
+            1806
+        ]
+    },
+    "concepcion tarlac": {
+        "concepcion tarlac": [
+            1807
+        ]
+    },
+    "nangka": {
+        "nangka": [
+            1808
+        ]
+    },
+    "parang": {
+        "parang": [
+            1809,
+            7408,
+            9604
+        ]
+    },
+    "marikina heights": {
+        "marikina heights": [
+            1810
+        ]
+    },
+    "concepcion 2": {
+        "concepcion 2": [
+            1811
+        ]
+    },
+    "cupang": {
+        "bagong nayon": [
+            1820
+        ]
+    },
+    "bagong nayon": {
+        "cupang": [
+            1820
+        ]
+    },
+    "muntinlupa central post office": {
+        "muntinlupa central post office": [
+            1770
+        ]
+    },
+    "buli/cupang": {
+        "buli/cupang": [
+            1771
+        ]
+    },
+    "bayanan/putatan": {
+        "bayanan/putatan": [
+            1772
+        ]
+    },
+    "soldiers' hills": {
+        "soldiers' hills": [
+            1772
+        ]
+    },
+    "tunasan": {
+        "tunasan": [
+            1773
+        ]
+    },
+    "susana heights": {
+        "susana heights": [
+            1774
+        ]
+    },
+    "pearl heights": {
+        "pearl heights": [
+            1775
+        ]
+    },
+    "pleasant village": {
+        "pleasant village": [
+            1777
+        ]
+    },
+    "ayala alabang subdivision": {
+        "ayala alabang subdivision": [
+            1780
+        ]
+    },
+    "valerio & associates law offices": {
+        "valerio & associates law offices": [
+            1781
+        ]
+    },
+    "ayala alabang p.o. boxes": {
+        "ayala alabang p.o. boxes": [
+            1799
+        ]
+    },
+    "kapitbahayan [east]": {
+        "kapitbahayan [east]": [
+            1413
+        ]
+    },
+    "navotas": {
+        "navotas": [
+            1485
+        ]
+    },
+    "tangos": {
+        "tangos": [
+            1489
+        ]
+    },
+    "aeropark subdivision": {
+        "aeropark subdivision": [
+            1714
+        ]
+    },
+    "baclaran": {
+        "baclaran": [
+            1702
+        ]
+    },
+    "better living subdivision": {
+        "better living subdivision": [
+            1711
+        ]
+    },
+    "bf homes 1": {
+        "bf homes 1": [
+            1720
+        ]
+    },
+    "bf homes 2": {
+        "bf homes 2": [
+            1718
+        ]
+    },
+    "domestic airport p.o. - p.o. box nos. 1000 to 1099": {
+        "domestic airport p.o. - p.o. box nos. 1000 to 1099": [
+            1375
+        ]
+    },
+    "domestic airport p.o. - p.o. box nos. 1100 to 1199": {
+        "domestic airport p.o. - p.o. box nos. 1100 to 1199": [
+            1376
+        ]
+    },
+    "domestic airport p.o. - p.o. box nos. 1200 to 1299": {
+        "domestic airport p.o. - p.o. box nos. 1200 to 1299": [
+            1377
+        ]
+    },
+    "domestic airport p.o. - p.o. box nos. 1300 to 1399": {
+        "domestic airport p.o. - p.o. box nos. 1300 to 1399": [
+            1378
+        ]
+    },
+    "domestic airport p.o. - p.o. box nos. 1400 to 1499": {
+        "domestic airport p.o. - p.o. box nos. 1400 to 1499": [
+            1379
+        ]
+    },
+    "domestic airport p.o. - p.o. box nos. 1500 to 1599": {
+        "domestic airport p.o. - p.o. box nos. 1500 to 1599": [
+            1380
+        ]
+    },
+    "domestic airport p.o. - p.o. box nos. 1600 to 1699": {
+        "domestic airport p.o. - p.o. box nos. 1600 to 1699": [
+            1381
+        ]
+    },
+    "executive heights subdivision": {
+        "executive heights subdivision": [
+            1710
+        ]
+    },
+    "ireneville subdivision i & iii": {
+        "ireneville subdivision i & iii": [
+            1719
+        ]
+    },
+    "ireneville subdivision ii": {
+        "ireneville subdivision ii": [
+            1714
+        ]
+    },
+    "manila memorial park": {
+        "manila memorial park": [
+            1717
+        ]
+    },
+    "marina subdivision": {
+        "marina subdivision": [
+            1703
+        ]
+    },
+    "maywood village i": {
+        "maywood village i": [
+            1719
+        ]
+    },
+    "maywood village ii": {
+        "maywood village ii": [
+            1716
+        ]
+    },
+    "miramar subdivision": {
+        "miramar subdivision": [
+            1712
+        ]
+    },
+    "multinational village": {
+        "multinational village": [
+            1708
+        ]
+    },
+    "ninoy aquino international airport": {
+        "ninoy aquino international airport": [
+            1705
+        ]
+    },
+    "parañaque cpo": {
+        "parañaque cpo": [
+            1700
+        ]
+    },
+    "pulo": {
+        "pulo": [
+            1706
+        ]
+    },
+    "san antonio valley 1": {
+        "san antonio valley 1": [
+            1715
+        ]
+    },
+    "san antonio valley 11 & 12": {
+        "san antonio valley 11 & 12": [
+            1707
+        ]
+    },
+    "merville park & moonwalk subdivision": {
+        "south admiral village": [
+            1709
+        ]
+    },
+    "south admiral village": {
+        "merville park & moonwalk subdivision": [
+            1709
+        ]
+    },
+    "tambo": {
+        "tambo": [
+            1701
+        ]
+    },
+    "united parañaque subdivision": {
+        "united parañaque subdivision": [
+            1713
+        ]
+    },
+    "pasay city central post office": {
+        "pasay city central post office": [
+            1300
+        ]
+    },
+    "domestic airport p.o.": {
+        "domestic airport p.o.": [
+            1301
+        ]
+    },
+    "san roque": {
+        "san roque": [
+            1109,
+            1303,
+            6415
+        ]
+    },
+    "santa clara": {
+        "santa clara": [
+            1304
+        ]
+    },
+    "philippine international convention center": {
+        "philippine international convention center": [
+            1307
+        ]
+    },
+    "bay city": {
+        "bay city": [
+            1308
+        ]
+    },
+    "villamor airbase": {
+        "villamor airbase": [
+            1309
+        ]
+    },
+    "pasay city cpo - p.o. box nos. 1000 to 1099": {
+        "pasay city cpo - p.o. box nos. 1000 to 1099": [
+            1350
+        ]
+    },
+    "pasay city cpo - p.o. box nos. 1100 to 1199": {
+        "pasay city cpo - p.o. box nos. 1100 to 1199": [
+            1351
+        ]
+    },
+    "pasay city cpo - p.o. box nos. 1200 to 1299": {
+        "pasay city cpo - p.o. box nos. 1200 to 1299": [
+            1352
+        ]
+    },
+    "pasay city cpo - p.o. box nos. 1300 to 1399": {
+        "pasay city cpo - p.o. box nos. 1300 to 1399": [
+            1353
+        ]
+    },
+    "pasay city cpo - p.o. box nos. 1400 to 1499": {
+        "pasay city cpo - p.o. box nos. 1400 to 1499": [
+            1354
+        ]
+    },
+    "pasig central post office": {
+        "pasig central post office": [
+            1600
+        ]
+    },
+    "pinagbuhatan": {
+        "pinagbuhatan": [
+            1602
+        ]
+    },
+    "kapitolyo": {
+        "kapitolyo": [
+            1603
+        ]
+    },
+    "ugong": {
+        "ugong": [
+            1604
+        ]
+    },
+    "ortigas post office": {
+        "ortigas post office": [
+            1605
+        ]
+    },
+    "caniogan": {
+        "caniogan": [
+            1606
+        ]
+    },
+    "maybunga": {
+        "maybunga": [
+            1607
+        ]
+    },
+    "manggahan": {
+        "manggahan": [
+            1611
+        ]
+    },
+    "green park": {
+        "green park": [
+            1612
+        ]
+    },
+    "pasig ortigas ctr-po box# 1000 to 1099": {
+        "pasig ortigas ctr-po box# 1000 to 1099": [
+            1650
+        ]
+    },
+    "pasig ortigas ctr-po box# 1100 to 1199": {
+        "pasig ortigas ctr-po box# 1100 to 1199": [
+            1651
+        ]
+    },
+    "pasig ortigas ctr-po box# 1200 to 1299": {
+        "pasig ortigas ctr-po box# 1200 to 1299": [
+            1652
+        ]
+    },
+    "pasig ortigas ctr-po box# 1300 to 1399": {
+        "pasig ortigas ctr-po box# 1300 to 1399": [
+            1653
+        ]
+    },
+    "pasig ortigas ctr-po box# 1400 to 1499": {
+        "pasig ortigas ctr-po box# 1400 to 1499": [
+            1654
+        ]
+    },
+    "pasig ortigas ctr-po box# 1500 to 1599": {
+        "pasig ortigas ctr-po box# 1500 to 1599": [
+            1655
+        ]
+    },
+    "pasig ortigas ctr-po box# 1600 to 1699": {
+        "pasig ortigas ctr-po box# 1600 to 1699": [
+            1656
+        ]
+    },
+    "pasig ortigas ctr-po box# 1700 to 1799": {
+        "pasig ortigas ctr-po box# 1700 to 1799": [
+            1657
+        ]
+    },
+    "pasig ortigas ctr-po box# 1800 to 1899": {
+        "pasig ortigas ctr-po box# 1800 to 1899": [
+            1658
+        ]
+    },
+    "pasig ortigas ctr-po box# 1900 to 1999": {
+        "pasig ortigas ctr-po box# 1900 to 1999": [
+            1659
+        ]
+    },
+    "pasig ortigas ctr-po box# 2000 to 2099": {
+        "pasig ortigas ctr-po box# 2000 to 2099": [
+            1660
+        ]
+    },
+    "pasig ortigas ctr-po box# 2100 to 2199": {
+        "pasig ortigas ctr-po box# 2100 to 2199": [
+            1661
+        ]
+    },
+    "pasig ortigas ctr-po box# 2200 to 2299": {
+        "pasig ortigas ctr-po box# 2200 to 2299": [
+            1662
+        ]
+    },
+    "pasig ortigas ctr-po box# 2300 to 2399": {
+        "pasig ortigas ctr-po box# 2300 to 2399": [
+            1663
+        ]
+    },
+    "pasig ortigas ctr-po box# 2400 to 2499": {
+        "pasig ortigas ctr-po box# 2400 to 2499": [
+            1664
+        ]
+    },
+    "pasig ortigas ctr-po box# 2500 to 2599": {
+        "pasig ortigas ctr-po box# 2500 to 2599": [
+            1665
+        ]
+    },
+    "pasig ortigas ctr-po box# 2600 to 2699": {
+        "pasig ortigas ctr-po box# 2600 to 2699": [
+            1666
+        ]
+    },
+    "pasig ortigas ctr-po box# 2700 to 2799": {
+        "pasig ortigas ctr-po box# 2700 to 2799": [
+            1667
+        ]
+    },
+    "pasig ortigas ctr-po box# 2800 to 2899": {
+        "pasig ortigas ctr-po box# 2800 to 2899": [
+            1668
+        ]
+    },
+    "pasig ortigas ctr-po box# 2900 to 2999": {
+        "pasig ortigas ctr-po box# 2900 to 2999": [
+            1669
+        ]
+    },
+    "pasig ortigas ctr-po box# 3000 to 3099": {
+        "pasig ortigas ctr-po box# 3000 to 3099": [
+            1670
+        ]
+    },
+    "pasig ortigas ctr-po box# 3100 to 3199": {
+        "pasig ortigas ctr-po box# 3100 to 3199": [
+            1671
+        ]
+    },
+    "pasig ortigas ctr-po box# 3200 to 3299": {
+        "pasig ortigas ctr-po box# 3200 to 3299": [
+            1672
+        ]
+    },
+    "pasig ortigas ctr-po box# 3300 to 3399": {
+        "pasig ortigas ctr-po box# 3300 to 3399": [
+            1673
+        ]
+    },
+    "pasig ortigas ctr-po box# 3400 to 3499": {
+        "pasig ortigas ctr-po box# 3400 to 3499": [
+            1674
+        ]
+    },
+    "pasig ortigas ctr-po box# 3500 to 3599": {
+        "pasig ortigas ctr-po box# 3500 to 3599": [
+            1675
+        ]
+    },
+    "pasig ortigas ctr-po box# 3600 to 3699": {
+        "pasig ortigas ctr-po box# 3600 to 3699": [
+            1676
+        ]
+    },
+    "pasig ortigas ctr-po box# 3700 to 3799": {
+        "pasig ortigas ctr-po box# 3700 to 3799": [
+            1677
+        ]
+    },
+    "pasig ortigas ctr-po box# 3800 to 3899": {
+        "pasig ortigas ctr-po box# 3800 to 3899": [
+            1678
+        ]
+    },
+    "pasig ortigas ctr-po box# 3900 to 3999": {
+        "pasig ortigas ctr-po box# 3900 to 3999": [
+            1679
+        ]
+    },
+    "pasig ortigas ctr-po box# 4000 to 4099": {
+        "pasig ortigas ctr-po box# 4000 to 4099": [
+            1680
+        ]
+    },
+    "pasig ortigas ctr-po box# 4100 to 4199": {
+        "pasig ortigas ctr-po box# 4100 to 4199": [
+            1681
+        ]
+    },
+    "pasig ortigas ctr-po box# 4200 to 4299": {
+        "pasig ortigas ctr-po box# 4200 to 4299": [
+            1682
+        ]
+    },
+    "pasig ortigas ctr-po box# 4300 to 4399": {
+        "pasig ortigas ctr-po box# 4300 to 4399": [
+            1683
+        ]
+    },
+    "pasig ortigas ctr-po box# 4400 to 4499": {
+        "pasig ortigas ctr-po box# 4400 to 4499": [
+            1684
+        ]
+    },
+    "pasig ortigas ctr-po box# 4500 to 4599": {
+        "pasig ortigas ctr-po box# 4500 to 4599": [
+            1685
+        ]
+    },
+    "pasig ortigas ctr-po box# 4600 to 4699": {
+        "pasig ortigas ctr-po box# 4600 to 4699": [
+            1686
+        ]
+    },
+    "pasig ortigas ctr-po box# 4700 to 4799": {
+        "pasig ortigas ctr-po box# 4700 to 4799": [
+            1687
+        ]
+    },
+    "pasig ortigas ctr-po box# 4800 to 4899": {
+        "pasig ortigas ctr-po box# 4800 to 4899": [
+            1688
+        ]
+    },
+    "pasig ortigas ctr-po box# 4900 to 4999": {
+        "pasig ortigas ctr-po box# 4900 to 4999": [
+            1689
+        ]
+    },
+    "pasig ortigas ctr-po box# 5000 to 5099": {
+        "pasig ortigas ctr-po box# 5000 to 5099": [
+            1690
+        ]
+    },
+    "pasig ortigas ctr-po box# 5100 to 5199": {
+        "pasig ortigas ctr-po box# 5100 to 5199": [
+            1691
+        ]
+    },
+    "pasig ortigas ctr-po box# 5200 to 5299": {
+        "pasig ortigas ctr-po box# 5200 to 5299": [
+            1692
+        ]
+    },
+    "pasig ortigas ctr-po box# 5300 to 5399": {
+        "pasig ortigas ctr-po box# 5300 to 5399": [
+            1693
+        ]
+    },
+    "pasig ortigas ctr-po box# 5400 to 5499": {
+        "pasig ortigas ctr-po box# 5400 to 5499": [
+            1694
+        ]
+    },
+    "pasig ortigas ctr-po box# 5500 to 5599": {
+        "pasig ortigas ctr-po box# 5500 to 5599": [
+            1695
+        ]
+    },
+    "pasig ortigas ctr-po box# 5600 to 5699": {
+        "pasig ortigas ctr-po box# 5600 to 5699": [
+            1696
+        ]
+    },
+    "pasig ortigas ctr-po box# 5700 to 5799": {
+        "pasig ortigas ctr-po box# 5700 to 5799": [
+            1697
+        ]
+    },
+    "pasig ortigas ctr-po box# 5800 to 5899": {
+        "pasig ortigas ctr-po box# 5800 to 5899": [
+            1698
+        ]
+    },
+    "pasig ortigas ctr-po box# 5900 to 5999": {
+        "pasig ortigas ctr-po box# 5900 to 5999": [
+            1699
+        ]
+    },
+    "aguho": {
+        "aguho": [
+            1620
+        ]
+    },
+    "amihan": {
+        "amihan": [
+            1102
+        ]
+    },
+    "apolonio samson": {
+        "apolonio samson": [
+            1106
+        ]
+    },
+    "araneta center": {
+        "araneta center": [
+            "0810"
+        ]
+    },
+    "araneta center p.o. boxes": {
+        "araneta center p.o. boxes": [
+            1135
+        ]
+    },
+    "bagbag": {
+        "bagbag": [
+            1116
+        ]
+    },
+    "bagong bayan": {
+        "bagong bayan": [
+            1110
+        ]
+    },
+    "bagong buhay": {
+        "bagong buhay": [
+            1109
+        ]
+    },
+    "bagong lipunan": {
+        "bagong lipunan": [
+            1111
+        ]
+    },
+    "bagong pag-asa": {
+        "bagong pag-asa": [
+            1105
+        ]
+    },
+    "bagong silangan": {
+        "bagong silangan": [
+            1119
+        ]
+    },
+    "bahay toro": {
+        "bahay toro": [
+            1106
+        ]
+    },
+    "balingasa": {
+        "balingasa": [
+            1115
+        ]
+    },
+    "balintawak": {
+        "balintawak": [
+            1106
+        ]
+    },
+    "balumbato": {
+        "balumbato": [
+            1106
+        ]
+    },
+    "batasan hills": {
+        "batasan hills": [
+            1126
+        ]
+    },
+    "bayanihan": {
+        "bayanihan": [
+            1109
+        ]
+    },
+    "bf homes": {
+        "bf homes": [
+            1120
+        ]
+    },
+    "blue ridge": {
+        "blue ridge": [
+            1109
+        ]
+    },
+    "broadway center p.o. boxes": {
+        "broadway center p.o. boxes": [
+            1141
+        ]
+    },
+    "bungad": {
+        "bungad": [
+            1105
+        ]
+    },
+    "bureau of internal revenue": {
+        "bureau of internal revenue": [
+            "0820"
+        ]
+    },
+    "camp aguinaldo": {
+        "camp aguinaldo": [
+            "0802",
+            1110
+        ]
+    },
+    "camp crame": {
+        "camp crame": [
+            "0801"
+        ]
+    },
+    "capitol hills/park": {
+        "capitol hills/park": [
+            1126
+        ]
+    },
+    "capri": {
+        "capri": [
+            1117
+        ]
+    },
+    "central": {
+        "central": [
+            1100
+        ]
+    },
+    "claro": {
+        "claro": [
+            1102
+        ]
+    },
+    "commission on audit": {
+        "commission on audit": [
+            "0880"
+        ]
+    },
+    "commonwealth": {
+        "commonwealth": [
+            1121
+        ]
+    },
+    "crame": {
+        "crame": [
+            1111
+        ]
+    },
+    "cubao": {
+        "cubao": [
+            1109
+        ]
+    },
+    "culiat": {
+        "culiat": [
+            1128
+        ]
+    },
+    "damar": {
+        "damar": [
+            1115
+        ]
+    },
+    "damayan": {
+        "damayan": [
+            1104
+        ]
+    },
+    "damayan lagi": {
+        "damayan lagi": [
+            1112
+        ]
+    },
+    "damong maliit": {
+        "damong maliit": [
+            1123
+        ]
+    },
+    "del monte": {
+        "del monte": [
+            1105
+        ]
+    },
+    "diliman": {
+        "diliman": [
+            1104
+        ]
+    },
+    "dioquino zobel": {
+        "dioquino zobel": [
+            1109
+        ]
+    },
+    "don manuel": {
+        "don manuel": [
+            1113
+        ]
+    },
+    "doña aurora": {
+        "doña aurora": [
+            1113
+        ]
+    },
+    "doña faustina subdivision": {
+        "doña faustina subdivision": [
+            1125
+        ]
+    },
+    "doña imelda": {
+        "doña imelda": [
+            1113
+        ]
+    },
+    "doña josefa": {
+        "doña josefa": [
+            1113
+        ]
+    },
+    "duyan-duyan": {
+        "duyan-duyan": [
+            1102
+        ]
+    },
+    "e. rodriguez": {
+        "e. rodriguez": [
+            1102
+        ]
+    },
+    "escopa": {
+        "escopa": [
+            1109
+        ]
+    },
+    "fairview": {
+        "fairview": [
+            1118
+        ]
+    },
+    "fairview [north]": {
+        "fairview [north]": [
+            1121
+        ]
+    },
+    "fairview [south]": {
+        "fairview [south]": [
+            1122
+        ]
+    },
+    "gintong silahis": {
+        "gintong silahis": [
+            1114
+        ]
+    },
+    "gulod": {
+        "gulod": [
+            1117
+        ]
+    },
+    "holy spirit": {
+        "holy spirit": [
+            1127
+        ]
+    },
+    "horseshoe": {
+        "horseshoe": [
+            1112
+        ]
+    },
+    "immaculate concepcion": {
+        "immaculate concepcion": [
+            1111
+        ]
+    },
+    "kaligayahan": {
+        "kaligayahan": [
+            1124
+        ]
+    },
+    "kalusugan": {
+        "kalusugan": [
+            1112
+        ]
+    },
+    "kamias": {
+        "kamias": [
+            1102
+        ]
+    },
+    "kamuning": {
+        "kamuning": [
+            1103
+        ]
+    },
+    "katipunan": {
+        "katipunan": [
+            1105,
+            7109
+        ]
+    },
+    "kaunlaran": {
+        "kaunlaran": [
+            1111
+        ]
+    },
+    "kristong hari": {
+        "kristong hari": [
+            1112
+        ]
+    },
+    "krus na ligas": {
+        "krus na ligas": [
+            1101
+        ]
+    },
+    "la loma": {
+        "la loma": [
+            1114
+        ]
+    },
+    "laging handa": {
+        "laging handa": [
+            1103
+        ]
+    },
+    "libis": {
+        "libis": [
+            1110
+        ]
+    },
+    "lourdes": {
+        "lourdes": [
+            1114
+        ]
+    },
+    "loyola heights": {
+        "loyola heights": [
+            1108
+        ]
+    },
+    "maharlika": {
+        "maharlika": [
+            1114
+        ]
+    },
+    "malaya": {
+        "malaya": [
+            1101
+        ]
+    },
+    "mangga": {
+        "mangga": [
+            1109
+        ]
+    },
+    "manresa": {
+        "manresa": [
+            1115
+        ]
+    },
+    "mariana": {
+        "mariana": [
+            1112
+        ]
+    },
+    "mariblo": {
+        "mariblo": [
+            1104
+        ]
+    },
+    "marilag": {
+        "marilag": [
+            1109
+        ]
+    },
+    "masagana": {
+        "masagana": [
+            1109
+        ]
+    },
+    "masambong": {
+        "masambong": [
+            1115
+        ]
+    },
+    "matalahib": {
+        "matalahib": [
+            1114
+        ]
+    },
+    "matandang balara": {
+        "matandang balara": [
+            1119
+        ]
+    },
+    "milagrosa": {
+        "milagrosa": [
+            1109
+        ]
+    },
+    "murphy district p.o. boxes": {
+        "murphy district p.o. boxes": [
+            1138
+        ]
+    },
+    "nagkaisang nayon": {
+        "nagkaisang nayon": [
+            1125
+        ]
+    },
+    "national irrigation administration": {
+        "national irrigation administration": [
+            "0830"
+        ]
+    },
+    "nayon kaunlaran": {
+        "nayon kaunlaran": [
+            1104
+        ]
+    },
+    "new era": {
+        "new era": [
+            1107
+        ]
+    },
+    "novaliches p.o. boxes": {
+        "novaliches p.o. boxes": [
+            1147
+        ]
+    },
+    "novaliches proper": {
+        "novaliches proper": [
+            1123
+        ]
+    },
+    "obrero": {
+        "obrero": [
+            1103
+        ]
+    },
+    "old capitol site": {
+        "old capitol site": [
+            1101
+        ]
+    },
+    "paang bundok": {
+        "paang bundok": [
+            1114
+        ]
+    },
+    "pag-ibig sa nayon": {
+        "pag-ibig sa nayon": [
+            1115
+        ]
+    },
+    "paligsahan": {
+        "paligsahan": [
+            1103
+        ]
+    },
+    "paltok": {
+        "paltok": [
+            1105
+        ]
+    },
+    "pansol": {
+        "pansol": [
+            1108
+        ]
+    },
+    "paraiso": {
+        "paraiso": [
+            1104,
+            6123
+        ]
+    },
+    "pasong putik": {
+        "pasong putik": [
+            1118
+        ]
+    },
+    "pasong tamo": {
+        "pasong tamo": [
+            1107
+        ]
+    },
+    "payatas": {
+        "payatas": [
+            1119
+        ]
+    },
+    "phil-am": {
+        "phil-am": [
+            1104
+        ]
+    },
+    "philippine heart center": {
+        "philippine heart center": [
+            "0850"
+        ]
+    },
+    "pinagkaisahan": {
+        "pinagkaisahan": [
+            1111
+        ]
+    },
+    "piñahan": {
+        "piñahan": [
+            1100
+        ]
+    },
+    "project 4": {
+        "project 4": [
+            1109
+        ]
+    },
+    "project 6": {
+        "project 6": [
+            1100
+        ]
+    },
+    "project 7": {
+        "project 7": [
+            1105
+        ]
+    },
+    "project 8": {
+        "project 8": [
+            1106
+        ]
+    },
+    "quezon city cpo": {
+        "quezon city cpo": [
+            1100
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 1000 to 1099": {
+        "quezon city cpo - p.o. box nos. 1000 to 1099": [
+            1150
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 1100 to 1199": {
+        "quezon city cpo - p.o. box nos. 1100 to 1199": [
+            1151
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 1200 to 1299": {
+        "quezon city cpo - p.o. box nos. 1200 to 1299": [
+            1152
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 1300 to 1399": {
+        "quezon city cpo - p.o. box nos. 1300 to 1399": [
+            1153
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 1400 to 1499": {
+        "quezon city cpo - p.o. box nos. 1400 to 1499": [
+            1154
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 1500 to 1599": {
+        "quezon city cpo - p.o. box nos. 1500 to 1599": [
+            1155
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 1600 to 1699": {
+        "quezon city cpo - p.o. box nos. 1600 to 1699": [
+            1156
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 1700 to 1799": {
+        "quezon city cpo - p.o. box nos. 1700 to 1799": [
+            1157
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 1800 to 1899": {
+        "quezon city cpo - p.o. box nos. 1800 to 1899": [
+            1158
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 1900 to 1999": {
+        "quezon city cpo - p.o. box nos. 1900 to 1999": [
+            1159
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 2000 to 2099": {
+        "quezon city cpo - p.o. box nos. 2000 to 2099": [
+            1160
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 2100 to 2199": {
+        "quezon city cpo - p.o. box nos. 2100 to 2199": [
+            1161
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 2200 to 2299": {
+        "quezon city cpo - p.o. box nos. 2200 to 2299": [
+            1162
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 2300 to 2399": {
+        "quezon city cpo - p.o. box nos. 2300 to 2399": [
+            1163
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 2400 to 2499": {
+        "quezon city cpo - p.o. box nos. 2400 to 2499": [
+            1164
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 2500 to 2599": {
+        "quezon city cpo - p.o. box nos. 2500 to 2599": [
+            1165
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 2600 to 2699": {
+        "quezon city cpo - p.o. box nos. 2600 to 2699": [
+            1166
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 2700 to 2799": {
+        "quezon city cpo - p.o. box nos. 2700 to 2799": [
+            1167
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 2800 to 2899": {
+        "quezon city cpo - p.o. box nos. 2800 to 2899": [
+            1168
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 2900 to 2999": {
+        "quezon city cpo - p.o. box nos. 2900 to 2999": [
+            1169
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 3000 to 3099": {
+        "quezon city cpo - p.o. box nos. 3000 to 3099": [
+            1170
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 3100 to 3199": {
+        "quezon city cpo - p.o. box nos. 3100 to 3199": [
+            1171
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 3200 to 3299": {
+        "quezon city cpo - p.o. box nos. 3200 to 3299": [
+            1172
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 3300 to 3399": {
+        "quezon city cpo - p.o. box nos. 3300 to 3399": [
+            1173
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 3400 to 3499": {
+        "quezon city cpo - p.o. box nos. 3400 to 3499": [
+            1174
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 3500 to 3599": {
+        "quezon city cpo - p.o. box nos. 3500 to 3599": [
+            1175
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 3600 to 3699": {
+        "quezon city cpo - p.o. box nos. 3600 to 3699": [
+            1176
+        ]
+    },
+    "quezon city cpo - p.o. box nos. 3700 to 3799": {
+        "quezon city cpo - p.o. box nos. 3700 to 3799": [
+            1177
+        ]
+    },
+    "quezon city hall": {
+        "quezon city hall": [
+            "0860"
+        ]
+    },
+    "quirino district": {
+        "quirino district": [
+            1102
+        ]
+    },
+    "r. magsaysay": {
+        "r. magsaysay": [
+            1105
+        ]
+    },
+    "roxas district": {
+        "roxas district": [
+            1103
+        ]
+    },
+    "sacred heart": {
+        "sacred heart": [
+            1103
+        ]
+    },
+    "salvacion": {
+        "salvacion": [
+            1114
+        ]
+    },
+    "quezon city": {
+        "san antonio": [
+            1105
+        ]
+    },
+    "san antonio": {
+        "quezon city": [
+            1105
+        ],
+        "san antonio": [
+            2206,
+            3108,
+            4324,
+            6407
+        ]
+    },
+    "san bartolome": {
+        "san bartolome": [
+            1116
+        ]
+    },
+    "san isidro labrador": {
+        "san isidro labrador": [
+            1114
+        ]
+    },
+    "santa monica": {
+        "santa monica": [
+            1117,
+            8422
+        ]
+    },
+    "santo cristo": {
+        "santo cristo": [
+            1105
+        ]
+    },
+    "sauyo": {
+        "sauyo": [
+            1116
+        ]
+    },
+    "sienna": {
+        "sienna": [
+            1114
+        ]
+    },
+    "sikatuna village": {
+        "sikatuna village": [
+            1101
+        ]
+    },
+    "silangan": {
+        "silangan": [
+            1102
+        ]
+    },
+    "social security system": {
+        "social security system": [
+            "0800"
+        ]
+    },
+    "socorro": {
+        "socorro": [
+            1109,
+            5207,
+            8416
+        ]
+    },
+    "south triangle": {
+        "south triangle": [
+            1103
+        ]
+    },
+    "st. ignatius": {
+        "st. ignatius": [
+            1110
+        ]
+    },
+    "st. martin de porres": {
+        "st. martin de porres": [
+            1111
+        ]
+    },
+    "st. peter": {
+        "st. peter": [
+            1114
+        ]
+    },
+    "tagumpay": {
+        "tagumpay": [
+            1109
+        ]
+    },
+    "talampas": {
+        "talampas": [
+            1110
+        ]
+    },
+    "talipapa": {
+        "talipapa": [
+            1116
+        ]
+    },
+    "tandang sora": {
+        "tandang sora": [
+            1116
+        ]
+    },
+    "tatalon": {
+        "tatalon": [
+            1113
+        ]
+    },
+    "teachers village": {
+        "teachers village": [
+            1101
+        ]
+    },
+    "ugong norte": {
+        "ugong norte": [
+            1110
+        ]
+    },
+    "unang sigaw": {
+        "unang sigaw": [
+            1106
+        ]
+    },
+    "university of the philippines post office": {
+        "university of the philippines post office": [
+            1101
+        ]
+    },
+    "university of the philippines p.o. boxes": {
+        "university of the philippines p.o. boxes": [
+            1144
+        ]
+    },
+    "university of the philippines village": {
+        "university of the philippines village": [
+            1101
+        ]
+    },
+    "v. luna hospital": {
+        "v. luna hospital": [
+            "0840"
+        ]
+    },
+    "vasra": {
+        "vasra": [
+            1128
+        ]
+    },
+    "veterans hospital": {
+        "veterans hospital": [
+            "0870"
+        ]
+    },
+    "veterans village": {
+        "veterans village": [
+            1105
+        ]
+    },
+    "villa maria clara": {
+        "villa maria clara": [
+            1109
+        ]
+    },
+    "violago homes": {
+        "violago homes": [
+            1120
+        ]
+    },
+    "west triangle": {
+        "west triangle": [
+            1104
+        ]
+    },
+    "white plains": {
+        "white plains": [
+            1110
+        ]
+    },
+    "eisenhower - crame": {
+        "eisenhower - crame": [
+            1504
+        ]
+    },
+    "greenhills post office": {
+        "greenhills post office": [
+            1502
+        ]
+    },
+    "greenhills [north]": {
+        "greenhills [north]": [
+            1503
+        ]
+    },
+    "san juan central post office": {
+        "san juan central post office": [
+            1500
+        ]
+    },
+    "international correspondence school": {
+        "international correspondence school": [
+            "0400"
+        ]
+    },
+    "radio bible class": {
+        "radio bible class": [
+            "0410"
+        ]
+    },
+    "bible school on the air": {
+        "bible school on the air": [
+            "0420"
+        ]
+    },
+    "greenhills p.o. box nos. 1000 to 1099": {
+        "greenhills p.o. box nos. 1000 to 1099": [
+            1530
+        ]
+    },
+    "greenhills p.o. box nos. 1100 to 1199": {
+        "greenhills p.o. box nos. 1100 to 1199": [
+            1531
+        ]
+    },
+    "greenhills p.o. box nos. 1200 to 1299": {
+        "greenhills p.o. box nos. 1200 to 1299": [
+            1532
+        ]
+    },
+    "greenhills p.o. box nos. 1300 to 1399": {
+        "greenhills p.o. box nos. 1300 to 1399": [
+            1533
+        ]
+    },
+    "greenhills p.o. box nos. 1400 to 1499": {
+        "greenhills p.o. box nos. 1400 to 1499": [
+            1534
+        ]
+    },
+    "greenhills p.o. box nos. 1500 to 1599": {
+        "greenhills p.o. box nos. 1500 to 1599": [
+            1535
+        ]
+    },
+    "greenhills p.o. box nos. 1600 to 1699": {
+        "greenhills p.o. box nos. 1600 to 1699": [
+            1536
+        ]
+    },
+    "bay breeze executive village": {
+        "bay breeze executive village": [
+            1636
+        ]
+    },
+    "bicutan": {
+        "bicutan": [
+            1631
+        ]
+    },
+    "ususan": {
+        "ususan": [
+            1632
+        ]
+    },
+    "upper bicutan": {
+        "upper bicutan": [
+            1633
+        ]
+    },
+    "western bicutan": {
+        "western bicutan": [
+            1630
+        ]
+    },
+    "ligid": {
+        "ligid": [
+            1638
+        ]
+    },
+    "nichols - mckinley": {
+        "nichols - mckinley": [
+            1634
+        ]
+    },
+    "tuktukan": {
+        "tuktukan": [
+            1637
+        ]
+    },
+    "arkong bato": {
+        "arkong bato": [
+            1444
+        ]
+    },
+    "balangkas - caloong": {
+        "balangkas - caloong": [
+            1445
+        ]
+    },
+    "dalandanan - west canumay": {
+        "dalandanan - west canumay": [
+            1443
+        ]
+    },
+    "east canumay - lawang bato punturin": {
+        "east canumay - lawang bato punturin": [
+            1447
+        ]
+    },
+    "fortune village": {
+        "fortune village": [
+            1442
+        ]
+    },
+    "general t. de leon": {
+        "general t. de leon": [
+            1442
+        ]
+    },
+    "karuhatan": {
+        "karuhatan": [
+            1441
+        ]
+    },
+    "lingunan": {
+        "lingunan": [
+            1446
+        ]
+    },
+    "mabolo": {
+        "mabolo": [
+            1444
+        ]
+    },
+    "mapulang lupa": {
+        "mapulang lupa": [
+            1448
+        ]
+    },
+    "paso de blas": {
+        "paso de blas": [
+            1442
+        ]
+    },
+    "pasolo": {
+        "pasolo": [
+            1444
+        ]
+    },
+    "polo": {
+        "polo": [
+            1444
+        ]
+    },
+    "rincon": {
+        "rincon": [
+            1444
+        ]
+    },
+    "valenzuela central post office - malinta": {
+        "valenzuela central post office - malinta": [
+            1440
+        ]
+    },
+    "valenzuela p.o. boxes": {
+        "valenzuela p.o. boxes": [
+            1469
+        ]
+    },
+    "febias college of bible": {
+        "febias college of bible": [
+            "0550"
+        ]
+    },
+    "aloran": {
+        "aloran": [
+            7206
+        ]
+    },
+    "baliangao": {
+        "baliangao": [
+            7211
+        ]
+    },
+    "bonifacio": {
+        "bonifacio": [
+            7215
+        ]
+    },
+    "calamba": {
+        "calamba": [
+            7210
+        ]
+    },
+    "jimenez": {
+        "jimenez": [
+            7204
+        ]
+    },
+    "lopez jaena": {
+        "lopez jaena": [
+            7208
+        ]
+    },
+    "oroquieta city": {
+        "oroquieta city": [
+            7207
+        ]
+    },
+    "ozamis city": {
+        "ozamis city": [
+            7200
+        ]
+    },
+    "panaon": {
+        "panaon": [
+            7205
+        ]
+    },
+    "sapang dalaga": {
+        "sapang dalaga": [
+            7212
+        ]
+    },
+    "sinacaban": {
+        "sinacaban": [
+            7203
+        ]
+    },
+    "tangub city": {
+        "tangub city": [
+            7214
+        ]
+    },
+    "alubijid": {
+        "alubijid": [
+            9018
+        ]
+    },
+    "balingasag": {
+        "balingasag": [
+            9005
+        ]
+    },
+    "balinguan": {
+        "balinguan": [
+            9011
+        ]
+    },
+    "binuangan": {
+        "binuangan": [
+            9008
+        ]
+    },
+    "cagayan de oro city": {
+        "cagayan de oro city": [
+            9000
+        ]
+    },
+    "el salvador": {
+        "el salvador": [
+            9017
+        ]
+    },
+    "gingoog city": {
+        "gingoog city": [
+            9014
+        ]
+    },
+    "gitagum": {
+        "gitagum": [
+            9020
+        ]
+    },
+    "initao": {
+        "initao": [
+            9022
+        ]
+    },
+    "jasaan": {
+        "jasaan": [
+            9003
+        ]
+    },
+    "kinogitan": {
+        "kinogitan": [
+            9010
+        ]
+    },
+    "lagonglong": {
+        "lagonglong": [
+            9006
+        ]
+    },
+    "laguindingan": {
+        "laguindingan": [
+            9019
+        ]
+    },
+    "lugait": {
+        "lugait": [
+            9025
+        ]
+    },
+    "manticao": {
+        "manticao": [
+            9024
+        ]
+    },
+    "medina": {
+        "medina": [
+            9013
+        ]
+    },
+    "naawan": {
+        "naawan": [
+            9023
+        ]
+    },
+    "opol": {
+        "opol": [
+            9016
+        ]
+    },
+    "salay": {
+        "salay": [
+            9007
+        ]
+    },
+    "sugbungcogon": {
+        "sugbungcogon": [
+            9009
+        ]
+    },
+    "talisayan": {
+        "talisayan": [
+            9012
+        ]
+    },
+    "villanueva": {
+        "villanueva": [
+            9002
+        ]
+    },
+    "barlig": {
+        "barlig": [
+            2623
+        ]
+    },
+    "bauko": {
+        "bauko": [
+            2621
+        ]
+    },
+    "besao": {
+        "besao": [
+            2618
+        ]
+    },
+    "bontoc": {
+        "bontoc": [
+            2616,
+            6604
+        ]
+    },
+    "natonin": {
+        "natonin": [
+            2624
+        ]
+    },
+    "paracelis": {
+        "paracelis": [
+            2625
+        ]
+    },
+    "sabangan": {
+        "sabangan": [
+            2622
+        ]
+    },
+    "sadanga": {
+        "sadanga": [
+            2617
+        ]
+    },
+    "sagada": {
+        "sagada": [
+            2619
+        ]
+    },
+    "tadian": {
+        "tadian": [
+            2620
+        ]
+    },
+    "bacolod city": {
+        "bacolod city": [
+            6100
+        ]
+    },
+    "bago city": {
+        "bago city": [
+            6101
+        ]
+    },
+    "binalbagan city": {
+        "binalbagan city": [
+            6107
+        ]
+    },
+    "cadiz city": {
+        "cadiz city": [
+            6121
+        ]
+    },
+    "calatrava": {
+        "calatrava": [
+            5503,
+            6126
+        ]
+    },
+    "candoni": {
+        "candoni": [
+            6110
+        ]
+    },
+    "enrique magalona": {
+        "enrique magalona": [
+            6118
+        ]
+    },
+    "escalante city": {
+        "escalante city": [
+            6124
+        ]
+    },
+    "himamaylan city": {
+        "himamaylan city": [
+            6108
+        ]
+    },
+    "hinigaran city": {
+        "hinigaran city": [
+            6106
+        ]
+    },
+    "hinoba-an": {
+        "hinoba-an": [
+            6114
+        ]
+    },
+    "ilog": {
+        "ilog": [
+            6109
+        ]
+    },
+    "isabela": {
+        "isabela": [
+            6128
+        ]
+    },
+    "kabankalan city": {
+        "kabankalan city": [
+            6111
+        ]
+    },
+    "cauayan": {
+        "cauayan": [
+            6112
+        ]
+    },
+    "la carlota city": {
+        "la carlota city": [
+            6130
+        ]
+    },
+    "la castillana": {
+        "la castillana": [
+            6131
+        ]
+    },
+    "manapla": {
+        "manapla": [
+            6120
+        ]
+    },
+    "moises padilla": {
+        "moises padilla": [
+            6132
+        ]
+    },
+    "murcia": {
+        "murcia": [
+            6129
+        ]
+    },
+    "pulupandan": {
+        "pulupandan": [
+            6102
+        ]
+    },
+    "sagay city": {
+        "sagay city": [
+            6122
+        ]
+    },
+    "san carlos city": {
+        "san carlos city": [
+            2420,
+            6127
+        ]
+    },
+    "silay city": {
+        "silay city": [
+            6116
+        ]
+    },
+    "silay hawaiian central": {
+        "silay hawaiian central": [
+            6117
+        ]
+    },
+    "sipalay city": {
+        "sipalay city": [
+            6113
+        ]
+    },
+    "toboso": {
+        "toboso": [
+            6125
+        ]
+    },
+    "valladolid": {
+        "valladolid": [
+            6103
+        ]
+    },
+    "victorias city": {
+        "victorias city": [
+            6119
+        ]
+    },
+    "amlan": {
+        "amlan": [
+            6203
+        ]
+    },
+    "ayungon": {
+        "ayungon": [
+            6210
+        ]
+    },
+    "bacong": {
+        "bacong": [
+            6216
+        ]
+    },
+    "bais city": {
+        "bais city": [
+            6206
+        ]
+    },
+    "basay": {
+        "basay": [
+            6222
+        ]
+    },
+    "bayawan city": {
+        "bayawan city": [
+            6221
+        ]
+    },
+    "bindoy": {
+        "bindoy": [
+            6209
+        ]
+    },
+    "canlaon city": {
+        "canlaon city": [
+            6223
+        ]
+    },
+    "dauin": {
+        "dauin": [
+            6217
+        ]
+    },
+    "dumaguete city": {
+        "dumaguete city": [
+            6200
+        ]
+    },
+    "guihulngan": {
+        "guihulngan": [
+            6214
+        ]
+    },
+    "jimalalud": {
+        "jimalalud": [
+            6212
+        ]
+    },
+    "la libertad": {
+        "la libertad": [
+            6213,
+            7119
+        ]
+    },
+    "mabinay": {
+        "mabinay": [
+            6207
+        ]
+    },
+    "manjuyod": {
+        "manjuyod": [
+            6208
+        ]
+    },
+    "siaton": {
+        "siaton": [
+            6219
+        ]
+    },
+    "sibulan": {
+        "sibulan": [
+            6201
+        ]
+    },
+    "sta. catalina": {
+        "sta. catalina": [
+            6220
+        ]
+    },
+    "tanjay city": {
+        "tanjay city": [
+            6204
+        ]
+    },
+    "tayasan": {
+        "tayasan": [
+            6211
+        ]
+    },
+    "valle hermoso": {
+        "valle hermoso": [
+            6224
+        ]
+    },
+    "zamboanguita": {
+        "zamboanguita": [
+            6218
+        ]
+    },
+    "allen": {
+        "allen": [
+            6405
+        ]
+    },
+    "biri": {
+        "biri": [
+            6410
+        ]
+    },
+    "bobon": {
+        "bobon": [
+            6401
+        ]
+    },
+    "capul": {
+        "capul": [
+            6408
+        ]
+    },
+    "catubig": {
+        "catubig": [
+            6418
+        ]
+    },
+    "gamay": {
+        "gamay": [
+            6422
+        ]
+    },
+    "laoang": {
+        "laoang": [
+            6411
+        ]
+    },
+    "lapinig": {
+        "lapinig": [
+            6423
+        ]
+    },
+    "las navas": {
+        "las navas": [
+            6420
+        ]
+    },
+    "lavezares": {
+        "lavezares": [
+            6404
+        ]
+    },
+    "lope de vega": {
+        "lope de vega": [
+            6403
+        ]
+    },
+    "mapanas": {
+        "mapanas": [
+            6412
+        ]
+    },
+    "mondragon": {
+        "mondragon": [
+            6417
+        ]
+    },
+    "palapag": {
+        "palapag": [
+            6421
+        ]
+    },
+    "pambujan": {
+        "pambujan": [
+            6413
+        ]
+    },
+    "silvino lobos": {
+        "silvino lobos": [
+            6414
+        ]
+    },
+    "aliaga": {
+        "aliaga": [
+            3111
+        ]
+    },
+    "bongabon": {
+        "bongabon": [
+            3128,
+            5211
+        ]
+    },
+    "cabanatuan city": {
+        "cabanatuan city": [
+            3100
+        ]
+    },
+    "cabiao": {
+        "cabiao": [
+            3107
+        ]
+    },
+    "carranglan": {
+        "carranglan": [
+            3123
+        ]
+    },
+    "central luzon state university": {
+        "central luzon state university": [
+            3120
+        ]
+    },
+    "cuyapo": {
+        "cuyapo": [
+            3117
+        ]
+    },
+    "fort magsaysay": {
+        "fort magsaysay": [
+            3130
+        ]
+    },
+    "gabaldon": {
+        "gabaldon": [
+            3131
+        ]
+    },
+    "gapan city": {
+        "gapan city": [
+            3105
+        ]
+    },
+    "general m. natividad": {
+        "general m. natividad": [
+            3125
+        ]
+    },
+    "general tinio": {
+        "general tinio": [
+            3104
+        ]
+    },
+    "guimba": {
+        "guimba": [
+            3115
+        ]
+    },
+    "jaen": {
+        "jaen": [
+            3109
+        ]
+    },
+    "laur": {
+        "laur": [
+            3129
+        ]
+    },
+    "licab": {
+        "licab": [
+            3112
+        ]
+    },
+    "llanera": {
+        "llanera": [
+            3126
+        ]
+    },
+    "lupao": {
+        "lupao": [
+            3122
+        ]
+    },
+    "science city of muñoz": {
+        "science city of muñoz": [
+            3119
+        ]
+    },
+    "nampicuan": {
+        "nampicuan": [
+            3116
+        ]
+    },
+    "palayan city": {
+        "palayan city": [
+            3132
+        ]
+    },
+    "pantabangan": {
+        "pantabangan": [
+            3124
+        ]
+    },
+    "peñaranda": {
+        "peñaranda": [
+            3103
+        ]
+    },
+    "san jose city": {
+        "san jose city": [
+            3121
+        ]
+    },
+    "san leonardo": {
+        "san leonardo": [
+            3102
+        ]
+    },
+    "santa rosa": {
+        "santa rosa": [
+            3101
+        ]
+    },
+    "talavera": {
+        "talavera": [
+            3114
+        ]
+    },
+    "talugtog": {
+        "talugtog": [
+            3118
+        ]
+    },
+    "zaragoza": {
+        "zaragoza": [
+            3110
+        ]
+    },
+    "alfonso castañeda": {
+        "alfonso castañeda": [
+            3714
+        ]
+    },
+    "ambaguio": {
+        "ambaguio": [
+            3701
+        ]
+    },
+    "aritao": {
+        "aritao": [
+            3704
+        ]
+    },
+    "bagabag": {
+        "bagabag": [
+            3711
+        ]
+    },
+    "bambang": {
+        "bambang": [
+            3702
+        ]
+    },
+    "bayombong": {
+        "bayombong": [
+            3700
+        ]
+    },
+    "diadi": {
+        "diadi": [
+            3712
+        ]
+    },
+    "dupax del norte": {
+        "dupax del norte": [
+            3706
+        ]
+    },
+    "dupax del sur": {
+        "dupax del sur": [
+            3707
+        ]
+    },
+    "kasibu": {
+        "kasibu": [
+            3703
+        ]
+    },
+    "kayapa": {
+        "kayapa": [
+            3708
+        ]
+    },
+    "solano": {
+        "solano": [
+            3709
+        ]
+    },
+    "villa verde": {
+        "villa verde": [
+            3710
+        ]
+    },
+    "abra de ilog": {
+        "abra de ilog": [
+            5108
+        ]
+    },
+    "calintaan": {
+        "calintaan": [
+            5102
+        ]
+    },
+    "looc": {
+        "looc": [
+            5111,
+            5507
+        ]
+    },
+    "lubang": {
+        "lubang": [
+            5109
+        ]
+    },
+    "mamburao": {
+        "mamburao": [
+            5106
+        ]
+    },
+    "paluan": {
+        "paluan": [
+            5107
+        ]
+    },
+    "sablayan": {
+        "sablayan": [
+            5104
+        ]
+    },
+    "tilik": {
+        "tilik": [
+            5110
+        ]
+    },
+    "baco": {
+        "baco": [
+            5201
+        ]
+    },
+    "bansud": {
+        "bansud": [
+            5210
+        ]
+    },
+    "bulalacao": {
+        "bulalacao": [
+            5214
+        ]
+    },
+    "calapan": {
+        "calapan": [
+            5200
+        ]
+    },
+    "gloria": {
+        "gloria": [
+            5209
+        ]
+    },
+    "mansalay": {
+        "mansalay": [
+            5213
+        ]
+    },
+    "naujan": {
+        "naujan": [
+            5204
+        ]
+    },
+    "pinamalayan": {
+        "pinamalayan": [
+            5208
+        ]
+    },
+    "pola": {
+        "pola": [
+            5206
+        ]
+    },
+    "puerto galera": {
+        "puerto galera": [
+            5203
+        ]
+    },
+    "san teodoro": {
+        "san teodoro": [
+            5202
+        ]
+    },
+    "puerto princesa": {
+        "puerto princesa": [
+            5300
+        ]
+    },
+    "iwahig penal colony": {
+        "iwahig penal colony": [
+            5301
+        ]
+    },
+    "aborlan": {
+        "aborlan": [
+            5302
+        ]
+    },
+    "narra": {
+        "narra": [
+            5303
+        ]
+    },
+    "brooke's point": {
+        "brooke's point": [
+            5305
+        ]
+    },
+    "bataraza": {
+        "bataraza": [
+            5306
+        ]
+    },
+    "balabac": {
+        "balabac": [
+            5307
+        ]
+    },
+    "dumaran": {
+        "dumaran": [
+            5310
+        ]
+    },
+    "araceli": {
+        "araceli": [
+            5311
+        ]
+    },
+    "taytay": {
+        "taytay": [
+            1920,
+            5312
+        ]
+    },
+    "el nido": {
+        "el nido": [
+            5313
+        ]
+    },
+    "linapacan": {
+        "linapacan": [
+            5314
+        ]
+    },
+    "culion": {
+        "culion": [
+            5315
+        ]
+    },
+    "coron": {
+        "coron": [
+            5316
+        ]
+    },
+    "busuanga": {
+        "busuanga": [
+            5317
+        ]
+    },
+    "cuyo": {
+        "cuyo": [
+            5318
+        ]
+    },
+    "agutaya": {
+        "agutaya": [
+            5320
+        ]
+    },
+    "cagayancillo": {
+        "cagayancillo": [
+            5321
+        ]
+    },
+    "angeles city/clark special economic zonebalibago a barangay in angeles city has its own zip code 2024": {
+        "angeles city/clark special economic zonebalibago a barangay in angeles city has its own zip code 2024": [
+            2009
+        ]
+    },
+    "apalit": {
+        "apalit": [
+            2016
+        ]
+    },
+    "arayat": {
+        "arayat": [
+            2012
+        ]
+    },
+    "bacolor": {
+        "bacolor": [
+            2001
+        ]
+    },
+    "basa airbase": {
+        "basa airbase": [
+            2007
+        ]
+    },
+    "candaba": {
+        "candaba": [
+            2013
+        ]
+    },
+    "floridablanca": {
+        "floridablanca": [
+            2006
+        ]
+    },
+    "guagua": {
+        "guagua": [
+            2003
+        ]
+    },
+    "lubao": {
+        "lubao": [
+            2005
+        ]
+    },
+    "mabalacat": {
+        "mabalacat": [
+            2010
+        ]
+    },
+    "macabebe": {
+        "macabebe": [
+            2018
+        ]
+    },
+    "magalang": {
+        "magalang": [
+            2011
+        ]
+    },
+    "masantol": {
+        "masantol": [
+            2017
+        ]
+    },
+    "mexico": {
+        "mexico": [
+            2021
+        ]
+    },
+    "minalin": {
+        "minalin": [
+            2019
+        ]
+    },
+    "porac": {
+        "porac": [
+            2008
+        ]
+    },
+    "city of san fernando": {
+        "city of san fernando": [
+            2000
+        ]
+    },
+    "san simon": {
+        "san simon": [
+            2015
+        ]
+    },
+    "santa rita": {
+        "santa rita": [
+            2002,
+            6718
+        ]
+    },
+    "sasmuan": {
+        "sasmuan": [
+            2004
+        ]
+    },
+    "agno": {
+        "agno": [
+            2408
+        ]
+    },
+    "aguilar": {
+        "aguilar": [
+            2415
+        ]
+    },
+    "asingan": {
+        "asingan": [
+            2439
+        ]
+    },
+    "balungao": {
+        "balungao": [
+            2442
+        ]
+    },
+    "bani": {
+        "bani": [
+            2407
+        ]
+    },
+    "basista": {
+        "basista": [
+            2422
+        ]
+    },
+    "bautista": {
+        "bautista": [
+            2424
+        ]
+    },
+    "bayambang": {
+        "bayambang": [
+            2423
+        ]
+    },
+    "binalonan": {
+        "binalonan": [
+            2436
+        ]
+    },
+    "binmaley": {
+        "binmaley": [
+            2417
+        ]
+    },
+    "bolinao": {
+        "bolinao": [
+            2406
+        ]
+    },
+    "bugallon": {
+        "bugallon": [
+            2416
+        ]
+    },
+    "calasiao": {
+        "calasiao": [
+            2418
+        ]
+    },
+    "dagupan city": {
+        "dagupan city": [
+            2400
+        ]
+    },
+    "dasol": {
+        "dasol": [
+            2411
+        ]
+    },
+    "infanta": {
+        "infanta": [
+            2412,
+            4336
+        ]
+    },
+    "labrador": {
+        "labrador": [
+            2402
+        ]
+    },
+    "laoac": {
+        "laoac": [
+            2437
+        ]
+    },
+    "lingayen": {
+        "lingayen": [
+            2401
+        ]
+    },
+    "malasiqui": {
+        "malasiqui": [
+            2421
+        ]
+    },
+    "manaoag": {
+        "manaoag": [
+            2430
+        ]
+    },
+    "mangaldan": {
+        "mangaldan": [
+            2432
+        ]
+    },
+    "mangatarem": {
+        "mangatarem": [
+            2413
+        ]
+    },
+    "mapandan": {
+        "mapandan": [
+            2429
+        ]
+    },
+    "natividad": {
+        "natividad": [
+            2446
+        ]
+    },
+    "pozorrubio": {
+        "pozorrubio": [
+            2435
+        ]
+    },
+    "rosales": {
+        "rosales": [
+            2441
+        ]
+    },
+    "san fabian": {
+        "san fabian": [
+            2433
+        ]
+    },
+    "sison": {
+        "sison": [
+            2434,
+            8404
+        ]
+    },
+    "sual": {
+        "sual": [
+            2403
+        ]
+    },
+    "tayug": {
+        "tayug": [
+            2445
+        ]
+    },
+    "umingan": {
+        "umingan": [
+            2443
+        ]
+    },
+    "urbiztondo": {
+        "urbiztondo": [
+            2414
+        ]
+    },
+    "urdaneta": {
+        "urdaneta": [
+            2428
+        ]
+    },
+    "villasis": {
+        "villasis": [
+            2427
+        ]
+    },
+    "agdangan": {
+        "agdangan": [
+            4304
+        ]
+    },
+    "alabat": {
+        "alabat": [
+            4333
+        ]
+    },
+    "atimonan": {
+        "atimonan": [
+            4331
+        ]
+    },
+    "burdeos": {
+        "burdeos": [
+            4340
+        ]
+    },
+    "calauag": {
+        "calauag": [
+            4318
+        ]
+    },
+    "candelaria": {
+        "candelaria": [
+            2212,
+            4323
+        ]
+    },
+    "catanauan": {
+        "catanauan": [
+            4311
+        ]
+    },
+    "general antonio luna": {
+        "general antonio luna": [
+            4310
+        ]
+    },
+    "general nakar": {
+        "general nakar": [
+            4338
+        ]
+    },
+    "guinayangan": {
+        "guinayangan": [
+            4319
+        ]
+    },
+    "gumaca": {
+        "gumaca": [
+            4307
+        ]
+    },
+    "hondagua": {
+        "hondagua": [
+            4317
+        ]
+    },
+    "jomalig": {
+        "jomalig": [
+            4342
+        ]
+    },
+    "lopez": {
+        "lopez": [
+            4316
+        ]
+    },
+    "lucban": {
+        "lucban": [
+            4328
+        ]
+    },
+    "lucena city": {
+        "lucena city": [
+            4301
+        ],
+        "provincial capitol": [
+            4300
+        ]
+    },
+    "macalelon": {
+        "macalelon": [
+            4309
+        ]
+    },
+    "mauban": {
+        "mauban": [
+            4330
+        ]
+    },
+    "mulanay": {
+        "mulanay": [
+            4312
+        ]
+    },
+    "padre burgos": {
+        "padre burgos": [
+            4303,
+            6602
+        ]
+    },
+    "pagbilao": {
+        "pagbilao": [
+            4302
+        ]
+    },
+    "panukulan": {
+        "panukulan": [
+            4337
+        ]
+    },
+    "patnanungan": {
+        "patnanungan": [
+            4341
+        ]
+    },
+    "perez": {
+        "perez": [
+            4334
+        ]
+    },
+    "pitogo": {
+        "pitogo": [
+            4308,
+            7033
+        ]
+    },
+    "polilio": {
+        "polilio": [
+            4339
+        ]
+    },
+    "provincial capitol": {
+        "lucena city": [
+            4300
+        ]
+    },
+    "real": {
+        "real": [
+            4335
+        ]
+    },
+    "sampaloc": {
+        "sampaloc": [
+            4329
+        ]
+    },
+    "san narciso": {
+        "san narciso": [
+            2205,
+            4313
+        ]
+    },
+    "sariaya": {
+        "sariaya": [
+            4322
+        ]
+    },
+    "tagkawayan": {
+        "tagkawayan": [
+            4321
+        ]
+    },
+    "tayabas": {
+        "tayabas": [
+            4327
+        ]
+    },
+    "tiaong": {
+        "tiaong": [
+            4325
+        ]
+    },
+    "unisan": {
+        "unisan": [
+            4305
+        ]
+    },
+    "cabarroguis": {
+        "cabarroguis": [
+            3400
+        ]
+    },
+    "diffun": {
+        "diffun": [
+            3401
+        ]
+    },
+    "saguday": {
+        "saguday": [
+            3402
+        ]
+    },
+    "aglipay": {
+        "aglipay": [
+            3403
+        ]
+    },
+    "maddela": {
+        "maddela": [
+            3404
+        ]
+    },
+    "nagtipunan": {
+        "nagtipunan": [
+            3405
+        ]
+    },
+    "rodriguez": {
+        "rodriguez": [
+            1860
+        ]
+    },
+    "antipolo city": {
+        "antipolo city": [
+            1870
+        ]
+    },
+    "teresa": {
+        "teresa": [
+            1880
+        ]
+    },
+    "cainta": {
+        "cainta": [
+            1900
+        ]
+    },
+    "pililla": {
+        "pililla": [
+            1910
+        ]
+    },
+    "angono": {
+        "angono": [
+            1930
+        ]
+    },
+    "binangonan": {
+        "binangonan": [
+            1940
+        ]
+    },
+    "cardona": {
+        "cardona": [
+            1950
+        ]
+    },
+    "tanay": {
+        "tanay": [
+            1980
+        ]
+    },
+    "jalajala": {
+        "jalajala": [
+            1900
+        ]
+    },
+    "banton": {
+        "banton": [
+            5515
+        ]
+    },
+    "cajidiocan": {
+        "cajidiocan": [
+            5512
+        ]
+    },
+    "corcuera": {
+        "corcuera": [
+            5514
+        ]
+    },
+    "ferrol": {
+        "ferrol": [
+            5506
+        ]
+    },
+    "imelda": {
+        "imelda": [
+            5502,
+            7007
+        ]
+    },
+    "magdiwang": {
+        "magdiwang": [
+            5511
+        ]
+    },
+    "odiongan": {
+        "odiongan": [
+            5505
+        ]
+    },
+    "romblon": {
+        "romblon": [
+            5500
+        ]
+    },
+    "alabel": {
+        "alabel": [
+            9501
+        ]
+    },
+    "glan": {
+        "glan": [
+            9517
+        ]
+    },
+    "kiamba": {
+        "kiamba": [
+            9514
+        ]
+    },
+    "maasim": {
+        "maasim": [
+            9502
+        ]
+    },
+    "maitum": {
+        "maitum": [
+            9515
+        ]
+    },
+    "malapatan": {
+        "malapatan": [
+            9516
+        ]
+    },
+    "malungon": {
+        "malungon": [
+            9503
+        ]
+    },
+    "barira": {
+        "barira": [
+            9614
+        ]
+    },
+    "buldon": {
+        "buldon": [
+            9615
+        ]
+    },
+    "datu odin sinsuat": {
+        "datu odin sinsuat": [
+            9601
+        ]
+    },
+    "kabuntalan/northern kabuntalan": {
+        "kabuntalan/northern kabuntalan": [
+            9606
+        ]
+    },
+    "matanog": {
+        "matanog": [
+            9613
+        ]
+    },
+    "sultan kudarat/sultan mastura": {
+        "sultan kudarat/sultan mastura": [
+            9605
+        ]
+    },
+    "upi/datu blah t. sinsuat": {
+        "upi/datu blah t. sinsuat": [
+            9602
+        ]
+    },
+    "ampatuan city": {
+        "ampatuan city": [
+            9603
+        ]
+    },
+    "enrique villanueva": {
+        "enrique villanueva": [
+            6230
+        ]
+    },
+    "larena": {
+        "larena": [
+            6226
+        ]
+    },
+    "lazi": {
+        "lazi": [
+            6228
+        ]
+    },
+    "maria": {
+        "maria": [
+            6229
+        ]
+    },
+    "siquij": {
+        "siquij": [
+            6225
+        ]
+    },
+    "bacon": {
+        "bacon": [
+            4701
+        ]
+    },
+    "barcelona": {
+        "barcelona": [
+            4712
+        ]
+    },
+    "bulan": {
+        "bulan": [
+            4706
+        ]
+    },
+    "bulusan": {
+        "bulusan": [
+            4704
+        ]
+    },
+    "castilla": {
+        "castilla": [
+            4713
+        ]
+    },
+    "donsol": {
+        "donsol": [
+            4715
+        ]
+    },
+    "gubat": {
+        "gubat": [
+            4710
+        ]
+    },
+    "irosin": {
+        "irosin": [
+            4707
+        ]
+    },
+    "juban": {
+        "juban": [
+            4703
+        ]
+    },
+    "matnog": {
+        "matnog": [
+            4708
+        ]
+    },
+    "prieto diaz": {
+        "prieto diaz": [
+            4711
+        ]
+    },
+    "santa magdalena": {
+        "santa magdalena": [
+            4709
+        ]
+    },
+    "sorsogon": {
+        "sorsogon": [
+            4700
+        ]
+    },
+    "general santos city": {
+        "general santos city": [
+            9500
+        ]
+    },
+    "koronadal city": {
+        "koronadal city": [
+            9506
+        ]
+    },
+    "norala": {
+        "norala": [
+            9508
+        ]
+    },
+    "polomolok": {
+        "polomolok": [
+            9504
+        ]
+    },
+    "sto. niño": {
+        "sto. niño": [
+            9509
+        ]
+    },
+    "surallah": {
+        "surallah": [
+            9512
+        ]
+    },
+    "tampakan": {
+        "tampakan": [
+            9507
+        ]
+    },
+    "tantangan": {
+        "tantangan": [
+            9510
+        ]
+    },
+    "t'boli": {
+        "t'boli": [
+            9513
+        ]
+    },
+    "tupi": {
+        "tupi": [
+            9505
+        ]
+    },
+    "anahawan": {
+        "anahawan": [
+            6610
+        ]
+    },
+    "hinunangan": {
+        "hinunangan": [
+            6608
+        ]
+    },
+    "hinundayan": {
+        "hinundayan": [
+            6609
+        ]
+    },
+    "libagon": {
+        "libagon": [
+            6615
+        ]
+    },
+    "macrohon": {
+        "macrohon": [
+            6601
+        ]
+    },
+    "pintuyan": {
+        "pintuyan": [
+            6614
+        ]
+    },
+    "san ricardo": {
+        "san ricardo": [
+            6617
+        ]
+    },
+    "silago": {
+        "silago": [
+            6607
+        ]
+    },
+    "st. bernard": {
+        "st. bernard": [
+            6616
+        ]
+    },
+    "tomas oppus": {
+        "tomas oppus": [
+            6605
+        ]
+    },
+    "bagumbayan": {
+        "bagumbayan": [
+            9810
+        ]
+    },
+    "columbio": {
+        "columbio": [
+            9801
+        ]
+    },
+    "isulan": {
+        "isulan": [
+            9805
+        ]
+    },
+    "kalamansig": {
+        "kalamansig": [
+            9808
+        ]
+    },
+    "lebak": {
+        "lebak": [
+            9807
+        ]
+    },
+    "lutayan": {
+        "lutayan": [
+            9803
+        ]
+    },
+    "mariano marcos": {
+        "mariano marcos": [
+            9802
+        ]
+    },
+    "palimbang": {
+        "palimbang": [
+            9809
+        ]
+    },
+    "pres. quirino": {
+        "pres. quirino": [
+            9804
+        ]
+    },
+    "sen. ninoy aquino": {
+        "sen. ninoy aquino": [
+            9811
+        ]
+    },
+    "tacurong": {
+        "tacurong": [
+            9800
+        ]
+    },
+    "indanan": {
+        "indanan": [
+            7407
+        ]
+    },
+    "jolo": {
+        "jolo": [
+            7400
+        ]
+    },
+    "kalingalan kalauang": {
+        "kalingalan kalauang": [
+            7416
+        ]
+    },
+    "lugus": {
+        "lugus": [
+            7411
+        ]
+    },
+    "luuk": {
+        "luuk": [
+            7404
+        ]
+    },
+    "maimbung": {
+        "maimbung": [
+            7409
+        ]
+    },
+    "marungas": {
+        "marungas": [
+            7413
+        ]
+    },
+    "panamao": {
+        "panamao": [
+            7402
+        ]
+    },
+    "panglima estino": {
+        "panglima estino": [
+            7415
+        ]
+    },
+    "panguntaran": {
+        "panguntaran": [
+            7414
+        ]
+    },
+    "pata": {
+        "pata": [
+            7405
+        ]
+    },
+    "patikul": {
+        "patikul": [
+            7401
+        ]
+    },
+    "siasi": {
+        "siasi": [
+            7412
+        ]
+    },
+    "talipao": {
+        "talipao": [
+            7403
+        ]
+    },
+    "tapul": {
+        "tapul": [
+            7410
+        ]
+    },
+    "tongkil": {
+        "tongkil": [
+            7406
+        ]
+    },
+    "bacuag": {
+        "bacuag": [
+            8408
+        ]
+    },
+    "claver": {
+        "claver": [
+            8410
+        ]
+    },
+    "dapa": {
+        "dapa": [
+            8417
+        ]
+    },
+    "del carmen": {
+        "del carmen": [
+            8418
+        ]
+    },
+    "gen. luna": {
+        "gen. luna": [
+            8419
+        ]
+    },
+    "gigaquit": {
+        "gigaquit": [
+            8409
+        ]
+    },
+    "mainit": {
+        "mainit": [
+            8407
+        ]
+    },
+    "malimano": {
+        "malimano": [
+            8402
+        ]
+    },
+    "san benito": {
+        "san benito": [
+            8423
+        ]
+    },
+    "surigao city": {
+        "surigao city": [
+            8400
+        ]
+    },
+    "tagana-an": {
+        "tagana-an": [
+            8403
+        ]
+    },
+    "barobo": {
+        "barobo": [
+            8309
+        ]
+    },
+    "bayabas": {
+        "bayabas": [
+            8303
+        ]
+    },
+    "bislig": {
+        "bislig": [
+            8311
+        ]
+    },
+    "cagwait": {
+        "cagwait": [
+            8304
+        ]
+    },
+    "cantillan": {
+        "cantillan": [
+            8317
+        ]
+    },
+    "carrascal": {
+        "carrascal": [
+            8318
+        ]
+    },
+    "cortez": {
+        "cortez": [
+            8313
+        ]
+    },
+    "hinatuan": {
+        "hinatuan": [
+            8310
+        ]
+    },
+    "lanuza": {
+        "lanuza": [
+            8314
+        ]
+    },
+    "lianga": {
+        "lianga": [
+            8307
+        ]
+    },
+    "lingig": {
+        "lingig": [
+            8312
+        ]
+    },
+    "madrid": {
+        "madrid": [
+            8316
+        ]
+    },
+    "marihatag": {
+        "marihatag": [
+            8306
+        ]
+    },
+    "tagbina": {
+        "tagbina": [
+            8308
+        ]
+    },
+    "tago": {
+        "tago": [
+            8302
+        ]
+    },
+    "tandag": {
+        "tandag": [
+            8300
+        ]
+    },
+    "anao": {
+        "anao": [
+            2310
+        ]
+    },
+    "bamban": {
+        "bamban": [
+            2317
+        ]
+    },
+    "camiling": {
+        "camiling": [
+            2306
+        ]
+    },
+    "capas": {
+        "capas": [
+            2333
+        ]
+    },
+    "gerona": {
+        "gerona": [
+            2302
+        ]
+    },
+    "mayantoc": {
+        "mayantoc": [
+            2304
+        ]
+    },
+    "moncada": {
+        "moncada": [
+            2334
+        ]
+    },
+    "[paniqui]": {
+        "[paniqui]": [
+            2307
+        ]
+    },
+    "pura": {
+        "pura": [
+            2312
+        ]
+    },
+    "ramos": {
+        "ramos": [
+            2311
+        ]
+    },
+    "san clemente": {
+        "san clemente": [
+            2305
+        ]
+    },
+    "santa ignacia": {
+        "santa ignacia": [
+            2303
+        ]
+    },
+    "tarlac city": {
+        "tarlac city": [
+            2300
+        ]
+    },
+    "bongao": {
+        "bongao": [
+            7500
+        ]
+    },
+    "mapun": {
+        "mapun": [
+            7508
+        ]
+    },
+    "languyan": {
+        "languyan": [
+            7509
+        ]
+    },
+    "panglima sugala": {
+        "panglima sugala": [
+            7501
+        ]
+    },
+    "sapa-sapa": {
+        "sapa-sapa": [
+            7503
+        ]
+    },
+    "simunul": {
+        "simunul": [
+            7505
+        ]
+    },
+    "sitangkai": {
+        "sitangkai": [
+            7506
+        ]
+    },
+    "south ubian": {
+        "south ubian": [
+            7504
+        ]
+    },
+    "turtle island": {
+        "turtle island": [
+            7507
+        ]
+    },
+    "tandubas": {
+        "tandubas": [
+            7502
+        ]
+    },
+    "almagro": {
+        "almagro": [
+            6724
+        ]
+    },
+    "basey": {
+        "basey": [
+            6720
+        ]
+    },
+    "calbayog city": {
+        "calbayog city": [
+            6710
+        ]
+    },
+    "calbiga": {
+        "calbiga": [
+            6715
+        ]
+    },
+    "catbalogan": {
+        "catbalogan": [
+            6700
+        ]
+    },
+    "daram": {
+        "daram": [
+            6722
+        ]
+    },
+    "gandara": {
+        "gandara": [
+            6706
+        ]
+    },
+    "hinabangan": {
+        "hinabangan": [
+            6713
+        ]
+    },
+    "jiabong": {
+        "jiabong": [
+            6701
+        ]
+    },
+    "marabut": {
+        "marabut": [
+            6721
+        ]
+    },
+    "matuguinao": {
+        "matuguinao": [
+            6708
+        ]
+    },
+    "motiong": {
+        "motiong": [
+            6702
+        ]
+    },
+    "pagsanghan": {
+        "pagsanghan": [
+            6705
+        ]
+    },
+    "paranas": {
+        "paranas": [
+            6703
+        ]
+    },
+    "pinabacdao": {
+        "pinabacdao": [
+            6716
+        ]
+    },
+    "san jorge": {
+        "san jorge": [
+            6707
+        ]
+    },
+    "san jose de buan": {
+        "san jose de buan": [
+            6723
+        ]
+    },
+    "san sebastian": {
+        "san sebastian": [
+            6714
+        ]
+    },
+    "santa margarita": {
+        "santa margarita": [
+            6709
+        ]
+    },
+    "tagapul-an": {
+        "tagapul-an": [
+            6712
+        ]
+    },
+    "talalora": {
+        "talalora": [
+            6719
+        ]
+    },
+    "tarangnan": {
+        "tarangnan": [
+            6704
+        ]
+    },
+    "villareal": {
+        "villareal": [
+            6717
+        ]
+    },
+    "zumarraga": {
+        "zumarraga": [
+            6725
+        ]
+    },
+    "botolan": {
+        "botolan": [
+            2202
+        ]
+    },
+    "cabangan": {
+        "cabangan": [
+            2203
+        ]
+    },
+    "castillejos": {
+        "castillejos": [
+            2208
+        ]
+    },
+    "iba": {
+        "iba": [
+            2201
+        ]
+    },
+    "masinloc": {
+        "masinloc": [
+            2211
+        ]
+    },
+    "olongapo city": {
+        "olongapo city": [
+            2200
+        ]
+    },
+    "palauig & scarborough shoal": {
+        "palauig & scarborough shoal": [
+            2210
+        ]
+    },
+    "san felipe": {
+        "san felipe": [
+            2204
+        ]
+    },
+    "san marcelino": {
+        "san marcelino": [
+            2207
+        ]
+    },
+    "subic": {
+        "subic": [
+            2209
+        ]
+    },
+    "subic bay freeport zone": {
+        "subic bay freeport zone": [
+            2222
+        ]
+    },
+    "baliguian": {
+        "baliguian": [
+            7123
+        ]
+    },
+    "dapitan city": {
+        "dapitan city": [
+            7101
+        ]
+    },
+    "dipolog city": {
+        "dipolog city": [
+            7100
+        ]
+    },
+    "gutalac": {
+        "gutalac": [
+            7118
+        ]
+    },
+    "jose dalman": {
+        "jose dalman": [
+            7111
+        ]
+    },
+    "kalawit": {
+        "kalawit": [
+            7124
+        ]
+    },
+    "labason": {
+        "labason": [
+            7117
+        ]
+    },
+    "liloy": {
+        "liloy": [
+            7115
+        ]
+    },
+    "manukan": {
+        "manukan": [
+            7110
+        ]
+    },
+    "mutia": {
+        "mutia": [
+            7107
+        ]
+    },
+    "pinan": {
+        "pinan": [
+            7105
+        ]
+    },
+    "polanco": {
+        "polanco": [
+            7106
+        ]
+    },
+    "salug": {
+        "salug": [
+            7114
+        ]
+    },
+    "sergio osmeña": {
+        "sergio osmeña": [
+            7108
+        ]
+    },
+    "siayan": {
+        "siayan": [
+            7113
+        ]
+    },
+    "sibuco": {
+        "sibuco": [
+            7122
+        ]
+    },
+    "sibutad": {
+        "sibutad": [
+            7103
+        ]
+    },
+    "sindangan": {
+        "sindangan": [
+            7112
+        ]
+    },
+    "siocon": {
+        "siocon": [
+            7120
+        ]
+    },
+    "siraway": {
+        "siraway": [
+            7121
+        ]
+    },
+    "tampilisan": {
+        "tampilisan": [
+            7116
+        ]
+    },
+    "bayog": {
+        "bayog": [
+            7011
+        ]
+    },
+    "dimataling": {
+        "dimataling": [
+            7032
+        ]
+    },
+    "dinas": {
+        "dinas": [
+            7030
+        ]
+    },
+    "dumalinao": {
+        "dumalinao": [
+            7015
+        ]
+    },
+    "dumingag": {
+        "dumingag": [
+            7028
+        ]
+    },
+    "guipos": {
+        "guipos": [
+            7042
+        ]
+    },
+    "josefina": {
+        "josefina": [
+            7027
+        ]
+    },
+    "kumalarang": {
+        "kumalarang": [
+            7005
+        ]
+    },
+    "labangan": {
+        "labangan": [
+            7017
+        ]
+    },
+    "lakewood": {
+        "lakewood": [
+            7014
+        ]
+    },
+    "lapuyan": {
+        "lapuyan": [
+            7037
+        ]
+    },
+    "mahayag": {
+        "mahayag": [
+            7026
+        ]
+    },
+    "margosatubig": {
+        "margosatubig": [
+            7035
+        ]
+    },
+    "midsalip": {
+        "midsalip": [
+            7021
+        ]
+    },
+    "molave": {
+        "molave": [
+            7023
+        ]
+    },
+    "pagadian city": {
+        "pagadian city": [
+            7016
+        ]
+    },
+    "ramon magsaysay": {
+        "ramon magsaysay": [
+            7024
+        ]
+    },
+    "sominot": {
+        "sominot": [
+            7022
+        ]
+    },
+    "tabina": {
+        "tabina": [
+            7034
+        ]
+    },
+    "tambulig": {
+        "tambulig": [
+            7025
+        ]
+    },
+    "zamboanga city": {
+        "zamboanga city": [
+            7000
+        ]
+    },
+    "tigbao": {
+        "tigbao": [
+            7043
+        ]
+    },
+    "tukuran": {
+        "tukuran": [
+            7019
+        ]
+    },
+    "vincenzo a. sagun": {
+        "vincenzo a. sagun": [
+            7036
+        ]
+    },
+    "buug": {
+        "buug": [
+            7009
+        ]
+    },
+    "diplahan": {
+        "diplahan": [
+            7039
+        ]
+    },
+    "ipil": {
+        "ipil": [
+            7001
+        ]
+    },
+    "kabasalan": {
+        "kabasalan": [
+            7005
+        ]
+    },
+    "mabuhay": {
+        "mabuhay": [
+            7010
+        ]
+    },
+    "malangas": {
+        "malangas": [
+            7038
+        ]
+    },
+    "olutanga": {
+        "olutanga": [
+            7041
+        ]
+    },
+    "payao": {
+        "payao": [
+            7008
+        ]
+    },
+    "roseller t. lim": {
+        "roseller t. lim": [
+            7002
+        ]
+    },
+    "siay": {
+        "siay": [
+            7006
+        ]
+    },
+    "talusan": {
+        "talusan": [
+            7012
+        ]
+    },
+    "titay": {
+        "titay": [
+            7003
+        ]
+    },
+    "tungawan": {
+        "tungawan": [
+            7018
+        ]
+    }
+}

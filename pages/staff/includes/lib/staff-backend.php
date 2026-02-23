@@ -380,11 +380,6 @@ if (!function_exists('resolveStaffIdentityContext')) {
             $context['office_name'] = cleanText($employmentRow['office']['office_name'] ?? null);
         }
 
-        if ($roleKey !== 'admin' && $context['office_id'] === null) {
-            $context['error'] = 'Staff role assignment has no office scope. Please contact HR/admin.';
-            return $context;
-        }
-
         $context['is_valid'] = true;
         $context['error'] = null;
 
@@ -471,6 +466,16 @@ if (!function_exists('canTransitionStatus')) {
                 'computed' => ['approved', 'cancelled'],
                 'approved' => ['released', 'cancelled'],
             ],
+            'learning_courses' => [
+                'draft' => ['published'],
+                'published' => ['archived'],
+            ],
+            'learning_enrollments' => [
+                'pending' => ['approved', 'rejected'],
+            ],
+            'praise_nominations' => [
+                'pending' => ['approved', 'rejected', 'cancelled'],
+            ],
         ];
 
         if (!isset($rules[$entityKey][$oldKey])) {
@@ -508,6 +513,321 @@ if (!function_exists('sanitizeUuidListForInFilter')) {
         }
 
         return implode(',', array_keys($sanitized));
+    }
+}
+
+if (!function_exists('staffSystemSettingReadValue')) {
+    function staffSystemSettingReadValue(string $supabaseUrl, array $headers, string $settingKey): mixed
+    {
+        if ($supabaseUrl === '' || empty($headers) || trim($settingKey) === '') {
+            return null;
+        }
+
+        $response = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/system_settings?select=setting_value&setting_key=eq.' . rawurlencode($settingKey) . '&limit=1',
+            $headers
+        );
+
+        if (!isSuccessful($response)) {
+            return null;
+        }
+
+        $rawValue = $response['data'][0]['setting_value'] ?? null;
+        if (is_array($rawValue) && array_key_exists('value', $rawValue)) {
+            return $rawValue['value'];
+        }
+
+        return $rawValue;
+    }
+}
+
+if (!function_exists('staffSystemSettingUpsertValue')) {
+    function staffSystemSettingUpsertValue(string $supabaseUrl, array $headers, string $settingKey, mixed $value, ?string $updatedByUserId = null): bool
+    {
+        if ($supabaseUrl === '' || empty($headers) || trim($settingKey) === '') {
+            return false;
+        }
+
+        $payload = [[
+            'setting_key' => $settingKey,
+            'setting_value' => ['value' => $value],
+            'updated_by' => isValidUuid((string)$updatedByUserId) ? $updatedByUserId : null,
+            'updated_at' => gmdate('c'),
+        ]];
+
+        $upsertResponse = apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/system_settings?on_conflict=setting_key',
+            array_merge($headers, ['Prefer: resolution=merge-duplicates,return=minimal']),
+            $payload
+        );
+
+        if (isSuccessful($upsertResponse)) {
+            return true;
+        }
+
+        $patchResponse = apiRequest(
+            'PATCH',
+            $supabaseUrl . '/rest/v1/system_settings?setting_key=eq.' . rawurlencode($settingKey),
+            array_merge($headers, ['Prefer: return=minimal']),
+            [
+                'setting_value' => ['value' => $value],
+                'updated_by' => isValidUuid((string)$updatedByUserId) ? $updatedByUserId : null,
+                'updated_at' => gmdate('c'),
+            ]
+        );
+
+        if (isSuccessful($patchResponse)) {
+            return true;
+        }
+
+        $insertResponse = apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/system_settings',
+            array_merge($headers, ['Prefer: return=minimal']),
+            $payload
+        );
+
+        return isSuccessful($insertResponse);
+    }
+}
+
+if (!function_exists('staffApplicantEvaluationDefaultCriteria')) {
+    function staffApplicantEvaluationDefaultCriteria(): array
+    {
+        return [
+            'eligibility' => 'career service sub professional',
+            'minimum_education_years' => 2,
+            'minimum_training_hours' => 4,
+            'minimum_experience_years' => 1,
+            'threshold' => 75,
+            'weights' => [
+                'eligibility' => 25,
+                'education' => 25,
+                'training' => 25,
+                'experience' => 25,
+            ],
+        ];
+    }
+}
+
+if (!function_exists('staffApplicantEvaluationNumeric')) {
+    function staffApplicantEvaluationNumeric(mixed $value, float $default = 0.0, float $min = 0.0, float $max = 1000.0): float
+    {
+        if (!is_numeric($value)) {
+            return max($min, min($max, $default));
+        }
+
+        $number = (float)$value;
+        return max($min, min($max, $number));
+    }
+}
+
+if (!function_exists('staffApplicantEvaluationNormalizeCriteria')) {
+    function staffApplicantEvaluationNormalizeCriteria(mixed $criteria): array
+    {
+        $defaults = staffApplicantEvaluationDefaultCriteria();
+        if (!is_array($criteria)) {
+            return $defaults;
+        }
+
+        $weights = is_array($criteria['weights'] ?? null) ? (array)$criteria['weights'] : [];
+
+        return [
+            'eligibility' => strtolower(trim((string)($criteria['eligibility'] ?? $defaults['eligibility']))),
+            'minimum_education_years' => staffApplicantEvaluationNumeric($criteria['minimum_education_years'] ?? null, (float)$defaults['minimum_education_years'], 0, 20),
+            'minimum_training_hours' => staffApplicantEvaluationNumeric($criteria['minimum_training_hours'] ?? null, (float)$defaults['minimum_training_hours'], 0, 1000),
+            'minimum_experience_years' => staffApplicantEvaluationNumeric($criteria['minimum_experience_years'] ?? null, (float)$defaults['minimum_experience_years'], 0, 60),
+            'threshold' => staffApplicantEvaluationNumeric($criteria['threshold'] ?? null, (float)$defaults['threshold'], 0, 100),
+            'weights' => [
+                'eligibility' => staffApplicantEvaluationNumeric($weights['eligibility'] ?? null, (float)$defaults['weights']['eligibility'], 0, 100),
+                'education' => staffApplicantEvaluationNumeric($weights['education'] ?? null, (float)$defaults['weights']['education'], 0, 100),
+                'training' => staffApplicantEvaluationNumeric($weights['training'] ?? null, (float)$defaults['weights']['training'], 0, 100),
+                'experience' => staffApplicantEvaluationNumeric($weights['experience'] ?? null, (float)$defaults['weights']['experience'], 0, 100),
+            ],
+        ];
+    }
+}
+
+if (!function_exists('staffApplicantEvaluationNormalizePositionKey')) {
+    function staffApplicantEvaluationNormalizePositionKey(string $positionTitle): string
+    {
+        $normalized = strtolower(trim($positionTitle));
+        if ($normalized === '') {
+            return '';
+        }
+
+        $normalized = preg_replace('/\s+/', ' ', $normalized);
+        return trim((string)$normalized);
+    }
+}
+
+if (!function_exists('staffApplicantEvaluationLoadCriteriaMap')) {
+    function staffApplicantEvaluationLoadCriteriaMap(string $supabaseUrl, array $headers): array
+    {
+        $candidateKeys = [
+            'evaluation.applicant.criteria_by_position_title',
+            'evaluation.rule_based.criteria_by_position_title',
+            'evaluation.rule_based.position_criteria',
+        ];
+
+        foreach ($candidateKeys as $key) {
+            $stored = staffSystemSettingReadValue($supabaseUrl, $headers, $key);
+            if (!is_array($stored)) {
+                continue;
+            }
+
+            return $stored;
+        }
+
+        return [];
+    }
+}
+
+if (!function_exists('staffApplicantEvaluationResolveCriteria')) {
+    function staffApplicantEvaluationResolveCriteria(string $supabaseUrl, array $headers, string $positionTitle): array
+    {
+        $defaults = staffApplicantEvaluationDefaultCriteria();
+        $positionKey = staffApplicantEvaluationNormalizePositionKey($positionTitle);
+        $criteriaMap = staffApplicantEvaluationLoadCriteriaMap($supabaseUrl, $headers);
+
+        if ($positionKey !== '' && isset($criteriaMap[$positionKey])) {
+            return staffApplicantEvaluationNormalizeCriteria($criteriaMap[$positionKey]);
+        }
+
+        foreach ($criteriaMap as $key => $value) {
+            if (!is_string($key)) {
+                continue;
+            }
+
+            if (staffApplicantEvaluationNormalizePositionKey($key) === $positionKey && is_array($value)) {
+                return staffApplicantEvaluationNormalizeCriteria($value);
+            }
+        }
+
+        $globalCandidates = [
+            'evaluation.applicant.default_criteria',
+            'evaluation.rule_based.default_criteria',
+            'evaluation.rule_based.criteria',
+        ];
+
+        foreach ($globalCandidates as $settingKey) {
+            $storedDefault = staffSystemSettingReadValue($supabaseUrl, $headers, $settingKey);
+            if (is_array($storedDefault)) {
+                return staffApplicantEvaluationNormalizeCriteria($storedDefault);
+            }
+        }
+
+        return $defaults;
+    }
+}
+
+if (!function_exists('staffApplicantEvaluationNormalizeProfile')) {
+    function staffApplicantEvaluationNormalizeProfile(array $profile): array
+    {
+        return [
+            'eligibility' => strtolower(trim((string)($profile['eligibility'] ?? 'n/a'))),
+            'education_years' => staffApplicantEvaluationNumeric($profile['education_years'] ?? null, 0, 0, 20),
+            'training_hours' => staffApplicantEvaluationNumeric($profile['training_hours'] ?? null, 0, 0, 1000),
+            'experience_years' => staffApplicantEvaluationNumeric($profile['experience_years'] ?? null, 0, 0, 60),
+        ];
+    }
+}
+
+if (!function_exists('staffApplicantEvaluationMatchEligibility')) {
+    function staffApplicantEvaluationMatchEligibility(string $required, string $actual): bool
+    {
+        $requiredKey = strtolower(trim($required));
+        $actualKey = strtolower(trim($actual));
+
+        if ($requiredKey === '' || in_array($requiredKey, ['n/a', 'na', 'none', 'not applicable', 'not_applicable'], true)) {
+            return true;
+        }
+
+        if ($actualKey === '' || in_array($actualKey, ['n/a', 'na', 'none'], true)) {
+            return false;
+        }
+
+        if ($actualKey === $requiredKey) {
+            return true;
+        }
+
+        return str_contains($actualKey, $requiredKey) || str_contains($requiredKey, $actualKey);
+    }
+}
+
+if (!function_exists('staffApplicantEvaluationCompute')) {
+    function staffApplicantEvaluationCompute(array $applicantProfile, array $criteria): array
+    {
+        $normalizedCriteria = staffApplicantEvaluationNormalizeCriteria($criteria);
+        $normalizedProfile = staffApplicantEvaluationNormalizeProfile($applicantProfile);
+
+        $weights = (array)($normalizedCriteria['weights'] ?? []);
+        $eligibilityWeight = (float)($weights['eligibility'] ?? 25);
+        $educationWeight = (float)($weights['education'] ?? 25);
+        $trainingWeight = (float)($weights['training'] ?? 25);
+        $experienceWeight = (float)($weights['experience'] ?? 25);
+
+        $eligibilityMeets = staffApplicantEvaluationMatchEligibility(
+            (string)($normalizedCriteria['eligibility'] ?? 'n/a'),
+            (string)($normalizedProfile['eligibility'] ?? 'n/a')
+        );
+        $educationMeets = (float)($normalizedProfile['education_years'] ?? 0) >= (float)($normalizedCriteria['minimum_education_years'] ?? 2);
+        $trainingMeets = (float)($normalizedProfile['training_hours'] ?? 0) >= (float)($normalizedCriteria['minimum_training_hours'] ?? 8);
+        $experienceMeets = (float)($normalizedProfile['experience_years'] ?? 0) >= (float)($normalizedCriteria['minimum_experience_years'] ?? 1);
+
+        $eligibilityScore = $eligibilityMeets ? $eligibilityWeight : 0;
+        $educationScore = $educationMeets ? $educationWeight : 0;
+        $trainingScore = $trainingMeets ? $trainingWeight : 0;
+        $experienceScore = $experienceMeets ? $experienceWeight : 0;
+
+        $totalScore = (float)($eligibilityScore + $educationScore + $trainingScore + $experienceScore);
+        $threshold = (float)($normalizedCriteria['threshold'] ?? 75);
+
+        $allCriteriaMet = $eligibilityMeets && $educationMeets && $trainingMeets && $experienceMeets;
+        $isQualified = $allCriteriaMet && $totalScore >= $threshold;
+
+        $status = $isQualified ? 'Qualified for Evaluation' : 'Not Qualified';
+        $statusClass = $isQualified ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800';
+
+        $failedCriteria = [];
+        if (!$eligibilityMeets) {
+            $failedCriteria[] = 'eligibility';
+        }
+        if (!$educationMeets) {
+            $failedCriteria[] = 'education';
+        }
+        if (!$trainingMeets) {
+            $failedCriteria[] = 'training';
+        }
+        if (!$experienceMeets) {
+            $failedCriteria[] = 'experience';
+        }
+
+        return [
+            'status' => $status,
+            'status_class' => $statusClass,
+            'qualified' => $isQualified,
+            'all_criteria_met' => $allCriteriaMet,
+            'threshold' => $threshold,
+            'total_score' => (int)round($totalScore),
+            'scores' => [
+                'eligibility' => (int)round($eligibilityScore),
+                'education' => (int)round($educationScore),
+                'training' => (int)round($trainingScore),
+                'experience' => (int)round($experienceScore),
+            ],
+            'criteria_met' => [
+                'eligibility' => $eligibilityMeets,
+                'education' => $educationMeets,
+                'training' => $trainingMeets,
+                'experience' => $experienceMeets,
+            ],
+            'failed_criteria' => $failedCriteria,
+            'criteria' => $normalizedCriteria,
+            'profile' => $normalizedProfile,
+        ];
     }
 }
 

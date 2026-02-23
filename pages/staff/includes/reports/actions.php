@@ -72,18 +72,13 @@ if (!function_exists('staffReportDepartmentMatches')) {
 }
 
 if (!function_exists('staffReportScopedEmploymentContext')) {
-    function staffReportScopedEmploymentContext(string $supabaseUrl, array $headers, bool $isAdminScope, ?string $staffOfficeId): array
+    function staffReportScopedEmploymentContext(string $supabaseUrl, array $headers): array
     {
-        $officeFilter = (!$isAdminScope && isValidUuid((string)$staffOfficeId))
-            ? '&office_id=eq.' . rawurlencode((string)$staffOfficeId)
-            : '';
-
         $employmentResponse = apiRequest(
             'GET',
             $supabaseUrl
             . '/rest/v1/employment_records?select=person_id,office_id,is_current'
             . '&is_current=eq.true'
-            . $officeFilter
             . '&limit=5000',
             $headers
         );
@@ -140,26 +135,17 @@ if (!function_exists('staffReportBuildDataset')) {
         string $department,
         array $dateRange,
         string $supabaseUrl,
-        array $headers,
-        bool $isAdminScope,
-        ?string $staffOfficeId
+        array $headers
     ): array {
         $startDate = (string)($dateRange['start_date'] ?? gmdate('Y-m-d'));
         $endDate = (string)($dateRange['end_date'] ?? gmdate('Y-m-d'));
         $startDateTime = $startDate . 'T00:00:00Z';
         $endDateTime = $endDate . 'T23:59:59Z';
 
-        $context = staffReportScopedEmploymentContext($supabaseUrl, $headers, $isAdminScope, $staffOfficeId);
+        $context = staffReportScopedEmploymentContext($supabaseUrl, $headers);
         $scopedPersonIds = (array)($context['scoped_person_ids'] ?? []);
         $personDepartmentById = (array)($context['person_department_by_id'] ?? []);
         $officeNameById = (array)($context['office_name_by_id'] ?? []);
-
-        if (empty($scopedPersonIds) && !$isAdminScope) {
-            return [
-                ['Notice'],
-                [['No scoped records available for your office.']],
-            ];
-        }
 
         $personInFilter = sanitizeUuidListForInFilter($scopedPersonIds);
         $personFilter = $personInFilter !== ''
@@ -232,10 +218,6 @@ if (!function_exists('staffReportBuildDataset')) {
                 }
 
                 $runOfficeId = cleanText($item['payroll_run']['office_id'] ?? null) ?? '';
-                if (!$isAdminScope && isValidUuid((string)$staffOfficeId) && strcasecmp($runOfficeId, (string)$staffOfficeId) !== 0) {
-                    continue;
-                }
-
                 $period = is_array($item['payroll_run']['payroll_period'] ?? null)
                     ? (array)$item['payroll_run']['payroll_period']
                     : [];
@@ -287,10 +269,6 @@ if (!function_exists('staffReportBuildDataset')) {
             $rows = [];
             foreach ((array)($response['data'] ?? []) as $item) {
                 $personId = cleanText($item['employee_person_id'] ?? null) ?? '';
-                if ($personId !== '' && !in_array($personId, $scopedPersonIds, true)) {
-                    continue;
-                }
-
                 if (!staffReportDepartmentMatches($department, $personDepartmentById[$personId] ?? null)) {
                     continue;
                 }
@@ -307,6 +285,52 @@ if (!function_exists('staffReportBuildDataset')) {
                     (string)($item['final_rating'] ?? '-'),
                     (string)(cleanText($item['status'] ?? null) ?? '-'),
                     (string)(cleanText($item['updated_at'] ?? null) ?? '-'),
+                ];
+            }
+
+            return [$columns, $rows];
+        }
+
+        if ($reportType === 'training_completion') {
+            $response = apiRequest(
+                'GET',
+                $supabaseUrl
+                . '/rest/v1/training_enrollments?select=person_id,enrollment_status,completion_date,updated_at,program:training_programs(title),person:people(first_name,surname)'
+                . '&order=updated_at.desc&limit=5000',
+                $headers
+            );
+
+            if (!isSuccessful($response)) {
+                throw new RuntimeException('Failed to fetch training completion data.');
+            }
+
+            $columns = ['Employee', 'Training Program', 'Enrollment Status', 'Completion Date', 'Updated At'];
+            $rows = [];
+            foreach ((array)($response['data'] ?? []) as $item) {
+                $personId = cleanText($item['person_id'] ?? null) ?? '';
+                if (!staffReportDepartmentMatches($department, $personDepartmentById[$personId] ?? null)) {
+                    continue;
+                }
+
+                $completionDate = cleanText($item['completion_date'] ?? null) ?? '';
+                $updatedAtRaw = cleanText($item['updated_at'] ?? null) ?? '';
+                $windowDate = $completionDate !== '' ? $completionDate : substr($updatedAtRaw, 0, 10);
+                if ($windowDate === '' || $windowDate < $startDate || $windowDate > $endDate) {
+                    continue;
+                }
+
+                $employeeName = trim(
+                    (string)(cleanText($item['person']['first_name'] ?? null) ?? '')
+                    . ' '
+                    . (string)(cleanText($item['person']['surname'] ?? null) ?? '')
+                );
+
+                $rows[] = [
+                    $employeeName !== '' ? $employeeName : 'Unknown Employee',
+                    (string)(cleanText($item['program']['title'] ?? null) ?? '-'),
+                    (string)(cleanText($item['enrollment_status'] ?? null) ?? '-'),
+                    $completionDate !== '' ? $completionDate : '-',
+                    $updatedAtRaw !== '' ? $updatedAtRaw : '-',
                 ];
             }
 
@@ -332,10 +356,6 @@ if (!function_exists('staffReportBuildDataset')) {
             $rows = [];
             foreach ((array)($response['data'] ?? []) as $item) {
                 $personId = cleanText($item['owner_person_id'] ?? null) ?? '';
-                if ($personId !== '' && !in_array($personId, $scopedPersonIds, true)) {
-                    continue;
-                }
-
                 if (!staffReportDepartmentMatches($department, $personDepartmentById[$personId] ?? null)) {
                     continue;
                 }
@@ -352,6 +372,48 @@ if (!function_exists('staffReportBuildDataset')) {
                     (string)(cleanText($item['category']['category_name'] ?? null) ?? '-'),
                     (string)(cleanText($item['document_status'] ?? null) ?? '-'),
                     (string)(cleanText($item['updated_at'] ?? null) ?? '-'),
+                ];
+            }
+
+            return [$columns, $rows];
+        }
+
+        if ($reportType === 'hired_applicants') {
+            $response = apiRequest(
+                'GET',
+                $supabaseUrl
+                . '/rest/v1/applications?select=application_ref_no,application_status,submitted_at,updated_at,job:job_postings(title,office_id),applicant:applicant_profiles(full_name,email)'
+                . '&application_status=eq.hired'
+                . '&order=updated_at.desc&limit=5000',
+                $headers
+            );
+
+            if (!isSuccessful($response)) {
+                throw new RuntimeException('Failed to fetch hired applicants data.');
+            }
+
+            $columns = ['Reference No', 'Applicant', 'Email', 'Position', 'Status', 'Hired/Updated At'];
+            $rows = [];
+            foreach ((array)($response['data'] ?? []) as $item) {
+                $jobOfficeId = cleanText($item['job']['office_id'] ?? null) ?? '';
+                $jobDepartment = (string)($officeNameById[$jobOfficeId] ?? '');
+                if (!staffReportDepartmentMatches($department, $jobDepartment)) {
+                    continue;
+                }
+
+                $updatedAt = cleanText($item['updated_at'] ?? null) ?? '';
+                $windowDate = $updatedAt !== '' ? substr($updatedAt, 0, 10) : '';
+                if ($windowDate === '' || $windowDate < $startDate || $windowDate > $endDate) {
+                    continue;
+                }
+
+                $rows[] = [
+                    (string)(cleanText($item['application_ref_no'] ?? null) ?? '-'),
+                    (string)(cleanText($item['applicant']['full_name'] ?? null) ?? '-'),
+                    (string)(cleanText($item['applicant']['email'] ?? null) ?? '-'),
+                    (string)(cleanText($item['job']['title'] ?? null) ?? '-'),
+                    'hired',
+                    $updatedAt,
                 ];
             }
 
@@ -376,10 +438,6 @@ if (!function_exists('staffReportBuildDataset')) {
         $rows = [];
         foreach ((array)($response['data'] ?? []) as $item) {
             $jobOfficeId = cleanText($item['job']['office_id'] ?? null) ?? '';
-            if (!$isAdminScope && isValidUuid((string)$staffOfficeId) && strcasecmp($jobOfficeId, (string)$staffOfficeId) !== 0) {
-                continue;
-            }
-
             $jobDepartment = (string)($officeNameById[$jobOfficeId] ?? '');
             if (!staffReportDepartmentMatches($department, $jobDepartment)) {
                 continue;
@@ -396,6 +454,71 @@ if (!function_exists('staffReportBuildDataset')) {
         }
 
         return [$columns, $rows];
+    }
+}
+
+if (!function_exists('staffReportBuildDatasetWithFallback')) {
+    function staffReportBuildDatasetWithFallback(
+        string $reportType,
+        string $coverage,
+        string $department,
+        array $dateRange,
+        string $supabaseUrl,
+        array $headers
+    ): array {
+        [$columns, $rows] = staffReportBuildDataset(
+            $reportType,
+            $coverage,
+            $department,
+            $dateRange,
+            $supabaseUrl,
+            $headers
+        );
+
+        if (!empty($rows) || strtolower(trim($coverage)) === 'custom_range') {
+            return [$columns, $rows, $dateRange];
+        }
+
+        $today = gmdate('Y-m-d');
+        $fallbackRanges = [
+            ['start_date' => gmdate('Y-m-d', strtotime('-30 days')), 'end_date' => $today],
+            ['start_date' => gmdate('Y-m-d', strtotime('-90 days')), 'end_date' => $today],
+            ['start_date' => gmdate('Y-m-d', strtotime('-365 days')), 'end_date' => $today],
+        ];
+
+        foreach ($fallbackRanges as $fallbackRange) {
+            [$fallbackColumns, $fallbackRows] = staffReportBuildDataset(
+                $reportType,
+                'custom_range',
+                $department,
+                $fallbackRange,
+                $supabaseUrl,
+                $headers
+            );
+
+            if (!empty($fallbackRows)) {
+                return [$fallbackColumns, $fallbackRows, $fallbackRange];
+            }
+        }
+
+        $unboundedRange = [
+            'start_date' => '1970-01-01',
+            'end_date' => $today,
+        ];
+        [$unboundedColumns, $unboundedRows] = staffReportBuildDataset(
+            $reportType,
+            'custom_range',
+            $department,
+            $unboundedRange,
+            $supabaseUrl,
+            $headers
+        );
+
+        if (!empty($unboundedRows)) {
+            return [$unboundedColumns, $unboundedRows, $unboundedRange];
+        }
+
+        return [$columns, $rows, $dateRange];
     }
 }
 
@@ -431,9 +554,21 @@ if (!function_exists('staffReportWriteSpreadsheet')) {
 }
 
 if (!function_exists('staffReportWritePdf')) {
-    function staffReportWritePdf(string $title, array $columns, array $rows, string $filePath): void
+    function staffReportWritePdf(string $title, array $columns, array $rows, string $filePath, array $exportMeta = []): void
     {
-        $html = '<h2 style="font-family: Arial, sans-serif; margin-bottom: 10px;">' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</h2>';
+        $coverage = (string)($exportMeta['coverage'] ?? '-');
+        $department = (string)($exportMeta['department_filter'] ?? 'all');
+        $startDate = (string)($exportMeta['start_date'] ?? '-');
+        $endDate = (string)($exportMeta['end_date'] ?? '-');
+        $rowCount = (int)($exportMeta['row_count'] ?? count($rows));
+
+        $html = '<h2 style="font-family: Arial, sans-serif; margin-bottom: 8px;">' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</h2>';
+        $html .= '<p style="font-family: Arial, sans-serif; font-size: 11px; color: #334155; margin: 0 0 10px 0;">'
+            . 'Coverage: ' . htmlspecialchars($coverage, ENT_QUOTES, 'UTF-8')
+            . ' | Department: ' . htmlspecialchars($department, ENT_QUOTES, 'UTF-8')
+            . ' | Date Range: ' . htmlspecialchars($startDate, ENT_QUOTES, 'UTF-8') . ' to ' . htmlspecialchars($endDate, ENT_QUOTES, 'UTF-8')
+            . ' | Rows: ' . $rowCount
+            . '</p>';
         $html .= '<table width="100%" cellspacing="0" cellpadding="6" border="1" style="border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px;">';
         $html .= '<thead><tr>';
         foreach ($columns as $columnName) {
@@ -511,7 +646,7 @@ $department = cleanText($_POST['department_filter'] ?? null) ?? 'all';
 $customStartDate = cleanText($_POST['custom_start_date'] ?? null);
 $customEndDate = cleanText($_POST['custom_end_date'] ?? null);
 
-$allowedTypes = ['attendance', 'payroll', 'performance', 'documents', 'recruitment'];
+$allowedTypes = ['attendance', 'payroll', 'performance', 'documents', 'recruitment', 'training_completion', 'hired_applicants'];
 if (!in_array($reportType, $allowedTypes, true)) {
     redirectWithState('error', 'Invalid report type selected.');
 }
@@ -548,8 +683,6 @@ if (in_array($fileFormat, ['xlsx', 'csv'], true) && !class_exists('PhpOffice\\Ph
     redirectWithState('error', 'PhpSpreadsheet is not available. Install it with composer require phpoffice/phpspreadsheet');
 }
 
-$isAdminScope = strtolower((string)($staffRoleKey ?? '')) === 'admin';
-
 $insertResponse = apiRequest(
     'POST',
     $supabaseUrl . '/rest/v1/generated_reports',
@@ -562,8 +695,8 @@ $insertResponse = apiRequest(
             'department_filter' => $department,
             'start_date' => (string)($dateRange['start_date'] ?? ''),
             'end_date' => (string)($dateRange['end_date'] ?? ''),
-            'scope' => $isAdminScope ? 'admin' : 'office',
-            'office_id' => $isAdminScope ? null : $staffOfficeId,
+            'scope' => 'organization',
+            'office_id' => null,
         ],
         'file_format' => $fileFormat,
         'status' => 'queued',
@@ -577,15 +710,13 @@ if (!isSuccessful($insertResponse)) {
 $reportId = cleanText($insertResponse['data'][0]['id'] ?? null) ?? '';
 
 try {
-    [$columns, $rows] = staffReportBuildDataset(
+    [$columns, $rows, $resolvedDateRange] = staffReportBuildDatasetWithFallback(
         $reportType,
         (string)$coverage,
         $department,
         $dateRange,
         $supabaseUrl,
-        $headers,
-        $isAdminScope,
-        $staffOfficeId
+        $headers
     );
 
     $exportsDir = $projectRoot . '/storage/reports';
@@ -599,9 +730,24 @@ try {
     $absolutePath = $exportsDir . '/' . $fileName;
     $storagePath = 'storage/reports/' . $fileName;
 
-    $title = strtoupper($reportType) . ' REPORT';
+    $titleMap = [
+        'attendance' => 'ATTENDANCE REPORT',
+        'payroll' => 'PAYROLL REPORT',
+        'performance' => 'PERFORMANCE REPORT',
+        'documents' => 'DOCUMENTS REPORT',
+        'recruitment' => 'RECRUITMENT REPORT',
+        'training_completion' => 'TRAINING COMPLETION REPORT',
+        'hired_applicants' => 'HIRED APPLICANTS REPORT',
+    ];
+    $title = (string)($titleMap[$reportType] ?? (strtoupper($reportType) . ' REPORT'));
     if ($fileFormat === 'pdf') {
-        staffReportWritePdf($title, $columns, $rows, $absolutePath);
+        staffReportWritePdf($title, $columns, $rows, $absolutePath, [
+            'coverage' => $coverage,
+            'department_filter' => $department,
+            'start_date' => (string)($resolvedDateRange['start_date'] ?? ''),
+            'end_date' => (string)($resolvedDateRange['end_date'] ?? ''),
+            'row_count' => count($rows),
+        ]);
     } else {
         staffReportWriteSpreadsheet($fileFormat, $columns, $rows, $absolutePath);
     }
@@ -624,12 +770,12 @@ try {
                 'coverage' => $coverage,
                 'file_format' => $fileFormat,
                 'department_filter' => $department,
-                'start_date' => (string)($dateRange['start_date'] ?? ''),
-                'end_date' => (string)($dateRange['end_date'] ?? ''),
+                'start_date' => (string)($resolvedDateRange['start_date'] ?? ''),
+                'end_date' => (string)($resolvedDateRange['end_date'] ?? ''),
                 'storage_path' => $storagePath,
                 'row_count' => count($rows),
-                'scope' => $isAdminScope ? 'admin' : 'office',
-                'office_id' => $isAdminScope ? null : $staffOfficeId,
+                'scope' => 'organization',
+                'office_id' => null,
             ],
             'ip_address' => clientIp(),
         ]]

@@ -203,3 +203,375 @@ if (!function_exists('isSuccessful')) {
         return $status >= 200 && $status < 300;
     }
 }
+
+if (!function_exists('normalizeZipLookupPart')) {
+    function normalizeZipLookupPart(?string $value): string
+    {
+        $text = strtolower(trim((string)$value));
+        if ($text === '') {
+            return '';
+        }
+
+        $text = preg_replace('/\s+/', ' ', $text) ?? $text;
+        return trim($text);
+    }
+}
+
+if (!function_exists('buildZipLookupCandidatesFromLocation')) {
+    function buildZipLookupCandidatesFromLocation(string $locationText): array
+    {
+        $normalized = trim((string)preg_replace('/\s+/', ' ', $locationText));
+        if ($normalized === '') {
+            return [];
+        }
+
+        $cleaned = trim((string)preg_replace('/\s*\(.*?\)\s*/', ' ', $normalized));
+        $cleaned = trim((string)preg_replace('/\s+/', ' ', $cleaned));
+        if ($cleaned === '') {
+            return [];
+        }
+
+        $candidates = [];
+
+        if (str_contains($cleaned, '|')) {
+            $parts = array_values(array_filter(array_map('trim', explode('|', $cleaned)), static fn ($part) => $part !== ''));
+            if (count($parts) >= 2) {
+                $candidates[] = ['city' => $parts[0], 'barangay' => $parts[1]];
+            }
+        }
+
+        if (str_contains($cleaned, ',')) {
+            $parts = array_values(array_filter(array_map('trim', explode(',', $cleaned)), static fn ($part) => $part !== ''));
+            if (count($parts) >= 2) {
+                $first = $parts[0];
+                $second = $parts[1];
+                $secondLower = strtolower($second);
+
+                $looksLikeSupplement = str_starts_with($secondLower, 'incl')
+                    || str_starts_with($secondLower, 'including')
+                    || str_starts_with($secondLower, 'and ')
+                    || str_contains($secondLower, 'village')
+                    || str_contains($secondLower, 'highway')
+                    || str_contains($secondLower, 'road')
+                    || str_contains($secondLower, 'complex');
+
+                if (!$looksLikeSupplement) {
+                    $candidates[] = ['city' => $second, 'barangay' => $first];
+                    $candidates[] = ['city' => $first, 'barangay' => $second];
+                }
+            }
+        }
+
+        if (empty($candidates)) {
+            $cityLike = trim((string)preg_replace('/\s*\(.*?\)\s*/', ' ', $cleaned));
+            $cityLike = trim((string)preg_replace('/\s+/', ' ', $cityLike));
+            if ($cityLike !== '') {
+                $candidates[] = ['city' => $cityLike, 'barangay' => $cityLike];
+            }
+        }
+
+        return $candidates;
+    }
+}
+
+if (!function_exists('loadZipCodeLookupFromFile')) {
+    function loadZipCodeLookupFromFile(string $filePath): array
+    {
+        static $cache = [];
+
+        $resolvedPath = trim($filePath);
+        if ($resolvedPath === '') {
+            return [];
+        }
+
+        if (array_key_exists($resolvedPath, $cache)) {
+            return $cache[$resolvedPath];
+        }
+
+        if (!is_file($resolvedPath) || !is_readable($resolvedPath)) {
+            $cache[$resolvedPath] = [];
+            return $cache[$resolvedPath];
+        }
+
+        $lookup = [];
+        $extension = strtolower((string)pathinfo($resolvedPath, PATHINFO_EXTENSION));
+
+        if ($extension === 'json') {
+            $rawJson = file_get_contents($resolvedPath);
+            $decoded = is_string($rawJson) ? json_decode($rawJson, true) : null;
+
+            if (is_array($decoded)) {
+                if (array_is_list($decoded)) {
+                    foreach ($decoded as $entry) {
+                        if (!is_array($entry)) {
+                            continue;
+                        }
+
+                        $cityKey = normalizeZipLookupPart((string)($entry['city'] ?? $entry['city_municipality'] ?? ''));
+                        $barangayKey = normalizeZipLookupPart((string)($entry['barangay'] ?? ''));
+                        $zipCode = trim((string)($entry['zip'] ?? $entry['zip_code'] ?? ''));
+                        if ($cityKey === '' || $barangayKey === '' || $zipCode === '') {
+                            continue;
+                        }
+
+                        if (!isset($lookup[$cityKey])) {
+                            $lookup[$cityKey] = [];
+                        }
+                        if (!isset($lookup[$cityKey][$barangayKey])) {
+                            $lookup[$cityKey][$barangayKey] = [];
+                        }
+                        $lookup[$cityKey][$barangayKey][$zipCode] = true;
+                    }
+                } else {
+                    foreach ($decoded as $city => $barangays) {
+                        $cityKey = normalizeZipLookupPart((string)$city);
+                        if ($cityKey === '' || !is_array($barangays)) {
+                            continue;
+                        }
+
+                        foreach ($barangays as $barangay => $zipValues) {
+                            $barangayKey = normalizeZipLookupPart((string)$barangay);
+                            if ($barangayKey === '') {
+                                continue;
+                            }
+
+                            $zipList = is_array($zipValues) ? $zipValues : [$zipValues];
+                            foreach ($zipList as $zipValue) {
+                                $zipCode = trim((string)$zipValue);
+                                if ($zipCode === '') {
+                                    continue;
+                                }
+
+                                if (!isset($lookup[$cityKey])) {
+                                    $lookup[$cityKey] = [];
+                                }
+                                if (!isset($lookup[$cityKey][$barangayKey])) {
+                                    $lookup[$cityKey][$barangayKey] = [];
+                                }
+                                $lookup[$cityKey][$barangayKey][$zipCode] = true;
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            $lines = file($resolvedPath, FILE_IGNORE_NEW_LINES);
+            if ($lines === false) {
+                $cache[$resolvedPath] = [];
+                return $cache[$resolvedPath];
+            }
+
+            foreach ($lines as $line) {
+                $trimmed = trim((string)$line);
+                if ($trimmed === '') {
+                    continue;
+                }
+
+                $zipCode = '';
+                $candidates = [];
+
+                if (preg_match('/^(\d{4})\s*:\s*(.+)$/u', $trimmed, $matches)) {
+                    $zipCode = trim((string)($matches[1] ?? ''));
+                    $locationText = trim((string)($matches[2] ?? ''));
+                    if ($locationText !== '') {
+                        $candidates = buildZipLookupCandidatesFromLocation($locationText);
+                    }
+                } elseif (preg_match('/^(.+?)\|(.+?)\|\s*(\d{4})$/u', $trimmed, $matches)) {
+                    $zipCode = trim((string)($matches[3] ?? ''));
+                    $candidates[] = [
+                        'city' => trim((string)($matches[1] ?? '')),
+                        'barangay' => trim((string)($matches[2] ?? '')),
+                    ];
+                } elseif (preg_match('/^(.+?),\s*(.+?),\s*(\d{4})$/u', $trimmed, $matches)) {
+                    $zipCode = trim((string)($matches[3] ?? ''));
+                    $candidates[] = [
+                        'city' => trim((string)($matches[1] ?? '')),
+                        'barangay' => trim((string)($matches[2] ?? '')),
+                    ];
+                }
+
+                if ($zipCode === '' || empty($candidates)) {
+                    continue;
+                }
+
+                foreach ($candidates as $candidate) {
+                    $cityKey = normalizeZipLookupPart((string)($candidate['city'] ?? ''));
+                    $barangayKey = normalizeZipLookupPart((string)($candidate['barangay'] ?? ''));
+                    if ($cityKey === '' || $barangayKey === '') {
+                        continue;
+                    }
+
+                    if (!isset($lookup[$cityKey])) {
+                        $lookup[$cityKey] = [];
+                    }
+                    if (!isset($lookup[$cityKey][$barangayKey])) {
+                        $lookup[$cityKey][$barangayKey] = [];
+                    }
+
+                    $lookup[$cityKey][$barangayKey][$zipCode] = true;
+                }
+            }
+        }
+
+        foreach ($lookup as $cityKey => $barangays) {
+            foreach ($barangays as $barangayKey => $zipSet) {
+                $zipList = array_keys($zipSet);
+                sort($zipList, SORT_NATURAL | SORT_FLAG_CASE);
+                $lookup[$cityKey][$barangayKey] = $zipList;
+            }
+        }
+
+        $cache[$resolvedPath] = $lookup;
+        return $cache[$resolvedPath];
+    }
+}
+
+if (!function_exists('findUniqueZipCodeByCityBarangay')) {
+    function findUniqueZipCodeByCityBarangay(string $city, string $barangay, string $filePath): ?string
+    {
+        $cityKey = normalizeZipLookupPart($city);
+        $barangayKey = normalizeZipLookupPart($barangay);
+        if ($cityKey === '' || $barangayKey === '') {
+            return null;
+        }
+
+        $lookup = loadZipCodeLookupFromFile($filePath);
+        $zipList = $lookup[$cityKey][$barangayKey] ?? [];
+        if (!is_array($zipList) || count($zipList) !== 1) {
+            return null;
+        }
+
+        $zipCode = trim((string)$zipList[0]);
+        return $zipCode !== '' ? $zipCode : null;
+    }
+}
+
+if (!function_exists('buildZipLookupVariants')) {
+    function buildZipLookupVariants(?string $value, bool $isBarangay = false): array
+    {
+        $raw = trim((string)$value);
+        if ($raw === '') {
+            return [];
+        }
+
+        $variants = [];
+        $queue = [$raw];
+
+        while (!empty($queue)) {
+            $current = array_shift($queue);
+            if (!is_string($current)) {
+                continue;
+            }
+
+            $normalized = normalizeZipLookupPart($current);
+            if ($normalized === '' || isset($variants[$normalized])) {
+                continue;
+            }
+
+            $variants[$normalized] = true;
+
+            $withoutParens = trim((string)preg_replace('/\s*\(.*?\)\s*/u', ' ', $normalized));
+            $withoutParens = trim((string)preg_replace('/\s+/', ' ', $withoutParens));
+            if ($withoutParens !== '' && !isset($variants[$withoutParens])) {
+                $queue[] = $withoutParens;
+            }
+
+            $withoutSuffix = trim((string)preg_replace('/\s*,\s*.*$/u', '', $normalized));
+            if ($withoutSuffix !== '' && !isset($variants[$withoutSuffix])) {
+                $queue[] = $withoutSuffix;
+            }
+
+            if ($isBarangay) {
+                $withoutBarangayPrefix = trim((string)preg_replace('/^(barangay|brgy\.?|brg\.?|bgy\.?)\s+/u', '', $normalized));
+                if ($withoutBarangayPrefix !== '' && !isset($variants[$withoutBarangayPrefix])) {
+                    $queue[] = $withoutBarangayPrefix;
+                }
+            } else {
+                $withoutCityPrefix = trim((string)preg_replace('/^(city|city of|municipality|municipality of|mun\.?|municipio de)\s+/u', '', $normalized));
+                if ($withoutCityPrefix !== '' && !isset($variants[$withoutCityPrefix])) {
+                    $queue[] = $withoutCityPrefix;
+                }
+
+                $withoutCitySuffix = trim((string)preg_replace('/\s+city$/u', '', $normalized));
+                if ($withoutCitySuffix !== '' && !isset($variants[$withoutCitySuffix])) {
+                    $queue[] = $withoutCitySuffix;
+                }
+            }
+        }
+
+        return array_keys($variants);
+    }
+}
+
+if (!function_exists('resolveZipCodeByCityBarangay')) {
+    function resolveZipCodeByCityBarangay(string $city, string $barangay, string $filePath): ?string
+    {
+        $lookup = loadZipCodeLookupFromFile($filePath);
+        if (empty($lookup)) {
+            return null;
+        }
+
+        $cityVariants = buildZipLookupVariants($city, false);
+        $barangayVariants = buildZipLookupVariants($barangay, true);
+        if (empty($cityVariants) || empty($barangayVariants)) {
+            return null;
+        }
+
+        $exactZipSet = [];
+        foreach ($cityVariants as $cityKey) {
+            $barangays = $lookup[$cityKey] ?? null;
+            if (!is_array($barangays)) {
+                continue;
+            }
+
+            foreach ($barangayVariants as $barangayKey) {
+                $zipList = $barangays[$barangayKey] ?? null;
+                if (!is_array($zipList)) {
+                    continue;
+                }
+
+                foreach ($zipList as $zipValue) {
+                    $zipCode = trim((string)$zipValue);
+                    if ($zipCode !== '') {
+                        $exactZipSet[$zipCode] = true;
+                    }
+                }
+            }
+        }
+
+        if (count($exactZipSet) === 1) {
+            return (string)array_key_first($exactZipSet);
+        }
+
+        if (!empty($exactZipSet)) {
+            return null;
+        }
+
+        $cityZipSet = [];
+        foreach ($cityVariants as $cityKey) {
+            $barangays = $lookup[$cityKey] ?? null;
+            if (!is_array($barangays)) {
+                continue;
+            }
+
+            foreach ($barangays as $zipList) {
+                if (!is_array($zipList)) {
+                    continue;
+                }
+
+                foreach ($zipList as $zipValue) {
+                    $zipCode = trim((string)$zipValue);
+                    if ($zipCode !== '') {
+                        $cityZipSet[$zipCode] = true;
+                    }
+                }
+            }
+        }
+
+        if (count($cityZipSet) === 1) {
+            return (string)array_key_first($cityZipSet);
+        }
+
+        return null;
+    }
+}

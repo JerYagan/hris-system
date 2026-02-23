@@ -15,7 +15,7 @@ ob_start();
 
 <div class="mb-6">
     <h1 class="text-2xl font-bold text-gray-800">Timekeeping</h1>
-    <p class="text-sm text-gray-500">Review attendance and process office-scoped leave, overtime, and adjustment requests.</p>
+    <p class="text-sm text-gray-500">Review attendance and process employee leave, overtime, and adjustment requests across the organization.</p>
 </div>
 
 <?php if ($state && $message): ?>
@@ -51,12 +51,91 @@ ob_start();
 
 <section class="bg-white border rounded-xl mb-6">
     <header class="px-6 py-4 border-b">
-        <h2 class="text-lg font-semibold text-gray-800">Attendance Snapshot</h2>
-        <p class="text-sm text-gray-500 mt-1">Latest attendance records in your current office scope.</p>
+        <h2 class="text-lg font-semibold text-gray-800">RFID Employee Registration</h2>
+        <p class="text-sm text-gray-500 mt-1">Static registration form for now. Use this to capture employee details and generate an RFID card record.</p>
     </header>
 
+    <form id="rfidRegistrationForm" class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        <div>
+            <label for="rfidEmployeeId" class="text-gray-600">Employee ID</label>
+            <input id="rfidEmployeeId" type="text" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="EMP-0001" required>
+        </div>
+        <div>
+            <label for="rfidEmployeeName" class="text-gray-600">Employee Name</label>
+            <input id="rfidEmployeeName" type="text" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Juan Dela Cruz" required>
+        </div>
+        <div>
+            <label for="rfidDepartment" class="text-gray-600">Department</label>
+            <input id="rfidDepartment" type="text" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="HR Division" required>
+        </div>
+        <div>
+            <label for="rfidPosition" class="text-gray-600">Position</label>
+            <input id="rfidPosition" type="text" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="HR Assistant I" required>
+        </div>
+        <div>
+            <label for="rfidCardUid" class="text-gray-600">RFID Card UID</label>
+            <input id="rfidCardUid" type="text" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Auto-generate if blank">
+        </div>
+        <div class="md:col-span-3 flex justify-end">
+            <button type="submit" id="rfidGenerateButton" class="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-green-700 text-white hover:bg-green-800">
+                <span class="material-symbols-outlined text-sm">contactless</span>
+                Generate RFID Card
+            </button>
+        </div>
+    </form>
+</section>
+
+<section class="bg-white border rounded-xl mb-6">
+    <header class="px-6 py-4 border-b">
+        <h2 class="text-lg font-semibold text-gray-800">RFID Attendance Assist</h2>
+        <p class="text-sm text-gray-500 mt-1">Static attendance logging helper for employee RFID usage while scanner integration is pending.</p>
+    </header>
+
+    <form id="rfidAttendanceAssistForm" class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        <div>
+            <label for="rfidAttendanceEmployeeId" class="text-gray-600">Employee ID</label>
+            <input id="rfidAttendanceEmployeeId" type="text" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="EMP-0001" required>
+        </div>
+        <div>
+            <label for="rfidAttendanceEmployeeName" class="text-gray-600">Employee Name</label>
+            <input id="rfidAttendanceEmployeeName" type="text" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Juan Dela Cruz" required>
+        </div>
+        <div class="md:col-span-1 flex items-end">
+            <button type="submit" id="rfidLogAttendanceButton" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-green-700 text-white hover:bg-green-800">
+                <span class="material-symbols-outlined text-sm">fact_check</span>
+                Log Attendance
+            </button>
+        </div>
+    </form>
+</section>
+
+<section class="bg-white border rounded-xl mb-6">
+    <header class="px-6 py-4 border-b">
+        <h2 class="text-lg font-semibold text-gray-800">Attendance Logs</h2>
+        <p class="text-sm text-gray-500 mt-1">Latest attendance records across all active employees.</p>
+    </header>
+
+    <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div>
+            <label for="attendanceDatePreset" class="text-sm text-gray-600">Date Filter</label>
+            <select id="attendanceDatePreset" class="w-full mt-1 border rounded-md px-3 py-2 text-sm">
+                <option value="today" selected>Today</option>
+                <option value="all">All Dates</option>
+                <option value="custom">Custom Range</option>
+            </select>
+        </div>
+        <div>
+            <label for="attendanceDateFrom" class="text-sm text-gray-600">From</label>
+            <input id="attendanceDateFrom" type="date" class="w-full mt-1 border rounded-md px-3 py-2 text-sm">
+        </div>
+        <div>
+            <label for="attendanceDateTo" class="text-sm text-gray-600">To</label>
+            <input id="attendanceDateTo" type="date" class="w-full mt-1 border rounded-md px-3 py-2 text-sm">
+        </div>
+    </div>
+
     <div class="p-6 overflow-x-auto">
-        <table class="w-full text-sm">
+        <table class="w-full text-sm" id="attendanceSnapshotTable">
             <thead class="bg-gray-50 text-gray-600">
                 <tr>
                     <th class="text-left px-4 py-3">Employee</th>
@@ -70,11 +149,11 @@ ob_start();
             <tbody class="divide-y">
                 <?php if (empty($attendanceRows)): ?>
                     <tr>
-                        <td class="px-4 py-3 text-gray-500" colspan="6">No attendance logs found in your scope.</td>
+                        <td class="px-4 py-3 text-gray-500" colspan="6">No attendance logs found.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($attendanceRows as $row): ?>
-                        <tr>
+                        <tr data-attendance-row data-attendance-date="<?= htmlspecialchars((string)($row['attendance_date_raw'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['employee_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['office_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['date_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
@@ -86,6 +165,13 @@ ob_start();
                 <?php endif; ?>
             </tbody>
         </table>
+    </div>
+    <div class="px-6 pb-4 flex items-center justify-between gap-3">
+        <p id="attendancePaginationInfo" class="text-xs text-slate-500">Page 1 of 1</p>
+        <div class="flex items-center gap-2">
+            <button type="button" id="attendancePrevPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Previous</button>
+            <button type="button" id="attendanceNextPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Next</button>
+        </div>
     </div>
 </section>
 
@@ -128,7 +214,7 @@ ob_start();
             <tbody class="divide-y">
                 <?php if (empty($leaveRequestRows)): ?>
                     <tr>
-                        <td class="px-4 py-3 text-gray-500" colspan="7">No leave requests found in your scope.</td>
+                        <td class="px-4 py-3 text-gray-500" colspan="7">No leave requests found.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($leaveRequestRows as $row): ?>
@@ -151,8 +237,10 @@ ob_start();
                                     data-current-status="<?= htmlspecialchars((string)($row['status_raw'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                     data-current-status-label="<?= htmlspecialchars((string)($row['status_label'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                     data-date-range="<?= htmlspecialchars((string)($row['date_range'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                    class="px-3 py-1.5 text-xs rounded-md border border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
+                                    data-reason="<?= htmlspecialchars((string)($row['reason'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
+                                    class="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-md border border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
                                 >
+                                    <span class="material-symbols-outlined text-sm">fact_check</span>
                                     Review
                                 </button>
                             </td>
@@ -164,6 +252,13 @@ ob_start();
                 </tr>
             </tbody>
         </table>
+    </div>
+    <div class="px-6 pb-4 flex items-center justify-between gap-3">
+        <p id="leavePaginationInfo" class="text-xs text-slate-500">Page 1 of 1</p>
+        <div class="flex items-center gap-2">
+            <button type="button" id="leavePrevPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Previous</button>
+            <button type="button" id="leaveNextPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Next</button>
+        </div>
     </div>
 </section>
 
@@ -208,7 +303,7 @@ ob_start();
             <tbody class="divide-y">
                 <?php if (empty($overtimeRequestRows)): ?>
                     <tr>
-                        <td class="px-4 py-3 text-gray-500" colspan="7">No overtime requests found in your scope.</td>
+                        <td class="px-4 py-3 text-gray-500" colspan="7">No overtime requests found.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($overtimeRequestRows as $row): ?>
@@ -231,8 +326,10 @@ ob_start();
                                     data-current-status="<?= htmlspecialchars((string)($row['status_raw'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                     data-current-status-label="<?= htmlspecialchars((string)($row['status_label'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                     data-requested-window="<?= htmlspecialchars((string)($row['time_window'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                    class="px-3 py-1.5 text-xs rounded-md border border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
+                                    data-reason="<?= htmlspecialchars((string)($row['reason'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
+                                    class="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-md border border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
                                 >
+                                    <span class="material-symbols-outlined text-sm">fact_check</span>
                                     Review
                                 </button>
                             </td>
@@ -244,6 +341,13 @@ ob_start();
                 </tr>
             </tbody>
         </table>
+    </div>
+    <div class="px-6 pb-4 flex items-center justify-between gap-3">
+        <p id="overtimePaginationInfo" class="text-xs text-slate-500">Page 1 of 1</p>
+        <div class="flex items-center gap-2">
+            <button type="button" id="overtimePrevPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Previous</button>
+            <button type="button" id="overtimeNextPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Next</button>
+        </div>
     </div>
 </section>
 
@@ -286,7 +390,7 @@ ob_start();
             <tbody class="divide-y">
                 <?php if (empty($adjustmentRequestRows)): ?>
                     <tr>
-                        <td class="px-4 py-3 text-gray-500" colspan="7">No adjustment requests found in your scope.</td>
+                        <td class="px-4 py-3 text-gray-500" colspan="7">No adjustment requests found.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($adjustmentRequestRows as $row): ?>
@@ -309,8 +413,10 @@ ob_start();
                                     data-current-status="<?= htmlspecialchars((string)($row['status_raw'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                     data-current-status-label="<?= htmlspecialchars((string)($row['status_label'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                     data-requested-window="<?= htmlspecialchars((string)($row['requested_window'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                    class="px-3 py-1.5 text-xs rounded-md border border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
+                                    data-reason="<?= htmlspecialchars((string)($row['reason'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
+                                    class="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-md border border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
                                 >
+                                    <span class="material-symbols-outlined text-sm">fact_check</span>
                                     Review
                                 </button>
                             </td>
@@ -323,12 +429,19 @@ ob_start();
             </tbody>
         </table>
     </div>
+    <div class="px-6 pb-4 flex items-center justify-between gap-3">
+        <p id="adjustmentPaginationInfo" class="text-xs text-slate-500">Page 1 of 1</p>
+        <div class="flex items-center gap-2">
+            <button type="button" id="adjustmentPrevPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Previous</button>
+            <button type="button" id="adjustmentNextPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Next</button>
+        </div>
+    </div>
 </section>
 
 <div id="leaveRequestModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4">
     <div class="w-full max-w-lg rounded-xl bg-white border shadow-lg">
         <div class="flex items-center justify-between px-6 py-4 border-b">
-            <h3 class="text-lg font-semibold text-gray-800">Review Leave Request</h3>
+            <h3 class="text-lg font-semibold text-gray-800">Recommend Leave Decision</h3>
             <button type="button" id="leaveModalClose" class="text-gray-500 hover:text-gray-700" aria-label="Close modal"><span class="material-symbols-outlined">close</span></button>
         </div>
         <form id="leaveForm" method="POST" action="timekeeping.php" class="px-6 py-4 space-y-4 text-sm">
@@ -349,21 +462,25 @@ ob_start();
                 <p id="leaveDateRange" class="mt-1 text-sm text-gray-700">-</p>
             </div>
             <div>
-                <label for="leaveDecision" class="text-gray-600">Decision</label>
+                <label class="text-gray-600">Reason</label>
+                <p id="leaveReason" class="mt-1 text-sm text-gray-700">-</p>
+            </div>
+            <div>
+                <label for="leaveDecision" class="text-gray-600">Recommendation</label>
                 <select id="leaveDecision" name="decision" class="w-full mt-1 border rounded-md px-3 py-2" required>
-                    <option value="">Select decision</option>
-                    <option value="approved">Approve</option>
-                    <option value="rejected">Reject</option>
-                    <option value="cancelled">Cancel</option>
+                    <option value="">Select recommendation</option>
+                    <option value="approved">Recommend Approval</option>
+                    <option value="rejected">Recommend Rejection</option>
+                    <option value="cancelled">Recommend Cancellation</option>
                 </select>
             </div>
             <div>
                 <label for="leaveNotes" class="text-gray-600">Notes</label>
-                <textarea id="leaveNotes" name="notes" rows="3" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Add approval or rejection notes."></textarea>
+                <textarea id="leaveNotes" name="notes" rows="3" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Add recommendation notes for admin review."></textarea>
             </div>
             <div class="flex justify-end gap-3">
                 <button type="button" id="leaveModalCancel" class="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
-                <button type="submit" id="leaveSubmit" class="px-4 py-2 rounded-md bg-green-700 text-white hover:bg-green-800">Save Decision</button>
+                <button type="submit" id="leaveSubmit" class="px-4 py-2 rounded-md bg-green-700 text-white hover:bg-green-800">Submit Recommendation</button>
             </div>
         </form>
     </div>
@@ -372,7 +489,7 @@ ob_start();
 <div id="overtimeRequestModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4">
     <div class="w-full max-w-lg rounded-xl bg-white border shadow-lg">
         <div class="flex items-center justify-between px-6 py-4 border-b">
-            <h3 class="text-lg font-semibold text-gray-800">Review Overtime Request</h3>
+            <h3 class="text-lg font-semibold text-gray-800">Recommend Overtime Decision</h3>
             <button type="button" id="overtimeModalClose" class="text-gray-500 hover:text-gray-700" aria-label="Close modal"><span class="material-symbols-outlined">close</span></button>
         </div>
         <form id="overtimeForm" method="POST" action="timekeeping.php" class="px-6 py-4 space-y-4 text-sm">
@@ -393,21 +510,25 @@ ob_start();
                 <p id="overtimeRequestedWindow" class="mt-1 text-sm text-gray-700">-</p>
             </div>
             <div>
-                <label for="overtimeDecision" class="text-gray-600">Decision</label>
+                <label class="text-gray-600">Reason</label>
+                <p id="overtimeReason" class="mt-1 text-sm text-gray-700">-</p>
+            </div>
+            <div>
+                <label for="overtimeDecision" class="text-gray-600">Recommendation</label>
                 <select id="overtimeDecision" name="decision" class="w-full mt-1 border rounded-md px-3 py-2" required>
-                    <option value="">Select decision</option>
-                    <option value="approved">Approve</option>
-                    <option value="rejected">Reject</option>
-                    <option value="cancelled">Cancel</option>
+                    <option value="">Select recommendation</option>
+                    <option value="approved">Recommend Approval</option>
+                    <option value="rejected">Recommend Rejection</option>
+                    <option value="cancelled">Recommend Cancellation</option>
                 </select>
             </div>
             <div>
                 <label for="overtimeNotes" class="text-gray-600">Notes</label>
-                <textarea id="overtimeNotes" name="notes" rows="3" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Add overtime review notes."></textarea>
+                <textarea id="overtimeNotes" name="notes" rows="3" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Add recommendation notes for admin review."></textarea>
             </div>
             <div class="flex justify-end gap-3">
                 <button type="button" id="overtimeModalCancel" class="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
-                <button type="submit" id="overtimeSubmit" class="px-4 py-2 rounded-md bg-green-700 text-white hover:bg-green-800">Save Decision</button>
+                <button type="submit" id="overtimeSubmit" class="px-4 py-2 rounded-md bg-green-700 text-white hover:bg-green-800">Submit Recommendation</button>
             </div>
         </form>
     </div>
@@ -416,7 +537,7 @@ ob_start();
 <div id="adjustmentRequestModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4">
     <div class="w-full max-w-lg rounded-xl bg-white border shadow-lg">
         <div class="flex items-center justify-between px-6 py-4 border-b">
-            <h3 class="text-lg font-semibold text-gray-800">Review Time Adjustment</h3>
+            <h3 class="text-lg font-semibold text-gray-800">Recommend Time Adjustment Decision</h3>
             <button type="button" id="adjustmentModalClose" class="text-gray-500 hover:text-gray-700" aria-label="Close modal"><span class="material-symbols-outlined">close</span></button>
         </div>
         <form id="adjustmentForm" method="POST" action="timekeeping.php" class="px-6 py-4 space-y-4 text-sm">
@@ -437,21 +558,25 @@ ob_start();
                 <p id="adjustmentRequestedWindow" class="mt-1 text-sm text-gray-700">-</p>
             </div>
             <div>
-                <label for="adjustmentDecision" class="text-gray-600">Decision</label>
+                <label class="text-gray-600">Reason</label>
+                <p id="adjustmentReason" class="mt-1 text-sm text-gray-700">-</p>
+            </div>
+            <div>
+                <label for="adjustmentDecision" class="text-gray-600">Recommendation</label>
                 <select id="adjustmentDecision" name="decision" class="w-full mt-1 border rounded-md px-3 py-2" required>
-                    <option value="">Select decision</option>
-                    <option value="approved">Approve</option>
-                    <option value="rejected">Reject</option>
-                    <option value="needs_revision">Needs Revision</option>
+                    <option value="">Select recommendation</option>
+                    <option value="approved">Recommend Approval</option>
+                    <option value="rejected">Recommend Rejection</option>
+                    <option value="needs_revision">Recommend Needs Revision</option>
                 </select>
             </div>
             <div>
                 <label for="adjustmentNotes" class="text-gray-600">Notes</label>
-                <textarea id="adjustmentNotes" name="notes" rows="3" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Add correction notes for the requester."></textarea>
+                <textarea id="adjustmentNotes" name="notes" rows="3" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Add recommendation notes for admin review."></textarea>
             </div>
             <div class="flex justify-end gap-3">
                 <button type="button" id="adjustmentModalCancel" class="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
-                <button type="submit" id="adjustmentSubmit" class="px-4 py-2 rounded-md bg-green-700 text-white hover:bg-green-800">Save Decision</button>
+                <button type="submit" id="adjustmentSubmit" class="px-4 py-2 rounded-md bg-green-700 text-white hover:bg-green-800">Submit Recommendation</button>
             </div>
         </form>
     </div>

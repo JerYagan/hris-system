@@ -1,0 +1,2985 @@
+List of ZIP codes
+Abra
+
+    2800: Bangued
+    2801: Dolores
+    2802: Lagangilang
+    2803: Tayum
+    2804: Peñarrubia
+    2805: Bucay
+    2806: Pidigan
+    2807: Langiden
+    2808: San Quintin
+    2809: San Isidro
+    2810: Manabo
+    2811: Villaviciosa
+    2812: Pilar
+    2813: Luba
+    2814: Tubo
+    2815: Boliney
+    2816: Daguioman
+    2817: Bucloc
+    2818: Sallapadan
+    2819: Licuan (Baay)
+    2820: Malibcong
+    2821: Lacub
+    2822: Tineg
+    2823: San Juan
+    2824: Lagayan
+    2825: Danglas
+    2826: La Paz
+
+Agusan del Norte
+
+    8600: Butuan City
+    8601: Buenavista
+    8602: Nasipit
+    8603: Carmen
+    8605: Cabadbaran City
+    8604: Magallanes
+
+	
+
+    8606: Tubay
+    8607: Jabonga
+    8608: Santiago
+    8609: Kitcharao
+    8610: Las Nieves
+    8611: Remedios T. Romualdez
+
+Agusan del Sur
+
+    8500: Prosperidad
+    8501: San Francisco
+    8502: Bayugan
+    8503: Sibagat
+    8504: Rosario
+    8505: Trento
+    8506: Bunawan
+
+	
+
+    8507: Loreto
+    8508: La Paz
+    8509: Veruela
+    8510: Talacogon
+    8511: San Luis
+    8512: Santa Josefa
+    8513: Esperanza
+
+Aklan
+
+    5616: Altavas
+    5614: Balete
+    5601: Banga
+    5615: Batan
+    5609: Buruanga
+
+	
+
+    5613: Ibajay
+    5600: Kalibo
+    5605: Lezo
+    5602: Libacao
+    5603: Madalag
+    5611: Makato
+
+	
+
+    5608: Malay
+    5606: Malinao
+    5607: Nabas
+    5610: New Washington
+    5604: Numancia
+    5612: Tangalan
+
+Albay
+
+    4509: Bacacay
+    4502: Camalig
+    4501: Daraga (Locsin)
+    4503: Guinobatan
+    4515: Jovellar
+    4500: Legazpi City
+
+	
+
+    4507: Libon
+    4504: Ligao City
+    4510: Malilipot
+    4512: Malinao
+    4514: Manito
+    4505: Oas
+
+	
+
+    4516: Pio Duran (Malacbalac)
+    4506: Polangui
+    4517: Rapu-Rapu
+    4508: Santo Domingo
+    4511: Tabaco City
+    4513: Tiwi
+
+Antique
+
+    5717: Anini-y
+    5706: Barbaza
+    5701: Belison
+    5704: Bugasong
+    5711: Caluya
+    5708: Culasi
+
+	
+
+    5715: Hamtic
+    5705: Laua-an
+    5710: Libertad
+    5712: Pandan
+    5702: Patnongon
+    5700: San Jose
+
+	
+
+    5714: San Remigio
+    5709: Sebaste
+    5713: Sibalom
+    5707: Tibiao
+    5716: Tobias Fornier (Dao)
+    5703: Valderrama
+
+Apayao
+
+    3814: Calanasan (Bayag)
+    3807: Conner
+    3810: Flora
+    3809: Kabugao
+    3813: Luna
+    3812: Pudtol
+    3811: Santa Marcela
+
+Aurora
+
+    3200: Baler
+    3204: Casiguran
+    3205: Dilasag
+    3206: Dinalungan
+
+	
+
+    3207: Dingalan
+    3203: Dipaculao
+    3202: Maria Aurora
+    3201: San Luis
+
+Basilan
+
+    7300: Isabela City
+    7301: Lantawan
+    7302: Lamitan City
+    7303: Maluso
+
+	
+
+    7304: Tipo-Tipo
+    7305: Sumisip
+    7306: Tuburan
+    7308: Froilie
+
+Bataan
+
+    2114: Abucay
+    2107: Bagac
+    2100: Balanga City
+    2106: Mariveles (Bataan Export Processing Zone)
+    2110: Dinalupihan
+
+	
+
+    2111: Hermosa
+    2104: Lamao
+    2103: Limay
+    2105: Mariveles
+    2108: Morong
+
+	
+
+    2112: Orani
+    2102: Orion
+    2101: Pilar
+    2109: Morong (Refugee Processing Center)
+    2113: Samal
+
+Batanes
+
+    3900: Basco
+    3905: Itbayat
+    3902: Ivana
+
+	
+
+    3901: Mahatao
+    3904: Sabtang
+    3903: Uyugan
+
+Batangas
+
+    4211: Agoncillo
+    4205: Alitagtag
+    4213: Balayan
+    4219: Balete
+    4200: Batangas City
+    4201: Bauan
+    4212: Calaca
+    4215: Calatagan, incl. Punta Baluarte
+    4222: Cuenca
+    4218: Fernando Airbase
+    4230: Ibaan
+
+	
+
+    4221: Laurel, incl. Diokno Highway
+    4209: Lemery
+    4216: Lian, incl. Matabungkay
+    4217: Lipa City
+    4229: Lobo, incl. Laiya
+    4202: Mabini
+    4233: Malvar
+    4223: Mataas na Kahoy
+    4231: Nasugbu, incl. Punta Fuego and Calaruega
+    4224: Padre Garcia
+    4225: Rosario
+    4227: San Jose
+
+	
+
+    4226: San Juan
+    4210: San Luis
+    4207: San Nicolas
+    4204: San Pascual
+    4206: Santa Teresita
+    4234: Santo Tomas
+    4208: Taal
+    4220: Talisay
+    4232: Tanauan City
+    4228: Taysan
+    4203: Tingloy
+    4214: Tuy
+
+Benguet
+
+    2612: Atok
+    2600: Baguio City
+    2610: Bakun
+    2605: Bokod
+    2607: Buguias
+
+	
+
+    2604: Itogon
+    2606: Kabayan
+    2613: Kapangan
+    2611: Kibungan
+    2601: La Trinidad, including Pico
+
+	
+
+    2609: Lepanto, Mankayan
+    2608: Mankayan
+    2602: Philippine Military Academy
+    2614: Sablan
+    2603: Tuba, including Marcos Highway and Kennon Road
+    2615: Tublay
+
+Biliran
+
+    6544: Almeria
+    6549: Biliran
+    6550: Cabucgayan
+    6548: Caibiran
+
+	
+
+    6547: Culaba
+    6545: Kawayan
+    6546: Maripipi
+    6543: Naval
+
+Bohol
+
+    6302: Alburquerque
+    6314: Alicia
+    6311: Anda
+    6335: Antequera
+    6301: Baclayon
+    6342: Balilihan
+    6318: Batuan
+    6326: Bien Unido
+    6317: Bilar
+    6333: Buenavista
+    6328: Calape
+    6312: Candijay
+    6346: Pres. Carlos P. Garcia (Pitogo)
+    6319: Carmen
+    6343: Catigbian
+    6330: Clarin
+
+	
+
+    6337: Corella
+    6341: Cortes
+    6322: Dagohoy
+    6344: Danao
+    6339: Dauis
+    6305: Dimiao
+    6309: Duero
+    6307: Garcia Hernandez
+    6310: Guindulman
+    6332: Inabanga
+    6308: Jagna
+    6334: Jetafe
+    6304: Lila
+    6202: Loay
+    6316: Loboc
+    6327: Loon
+
+	
+
+    6313: Mabini
+    6336: Maribojoc
+    6340: Panglao
+    6321: Pilar
+    6331: Sagbayan
+    6345: San Isidro
+    6323: San Miguel
+    6347: Sevilla
+    6320: Sierra Bullones
+    6338: Sikatuna
+    6300: Tagbilaran City
+    6325: Talibon
+    6324: Trinidad
+    6329: Tubigon
+    6315: Ubay
+    6306: Valencia
+
+Bukidnon
+
+    8707: Baungon
+    8723: Cabanglasan
+    8721: Damulog
+    8719: Dangcagan
+    8712: Don Carlos
+    8702: Impasugong
+    8713: Kadingilan
+    8718: Kalilangan
+
+	
+
+    8720: Kibawe
+    8716: Kitaotao
+    8722: Lantapan
+    8706: Libona
+    8700: Malaybalay City
+    8704: Malitbog
+    8703: Manolo Fortich
+    8714: Maramag
+
+	
+
+    8710: Musuan
+    8717: Pangantucan
+    8705: Phillips
+    8715: Quezon
+    8711: San Fernando
+    8701: Sumilao
+    8708: Talakag
+    8709: Valencia City
+
+Bulacan
+
+    3012: Angat
+    3016: Balagtas (Bigaa)
+    3006: Baliuag
+    3018: Bocaue
+    3017: Bulacan
+    3007: Bustos
+    3003: Calumpit
+    3009: Dona Remedios Trinidad
+
+	
+
+    3015: Guiguinto
+    3002: Hagonoy
+    3000: Malolos City
+    3019: Marilao
+    3020: Meycauayan City
+    3013: Norzagaray
+    3021: Obando
+    3014: Pandi
+
+	
+
+    3001: Paombong
+    3004: Plaridel
+    3005: Pulilan
+    3010: San Ildefonso
+    3023: San Jose del Monte City
+    3011: San Miguel
+    3008: San Rafael
+    3022: Santa Maria
+    3024: Sapang Palay, San Jose del Monte City
+
+Cagayan
+
+    3517: Abulug
+    3507: Alcala
+    3523: Allacapan
+    3505: Amulung
+    3515: Aparri
+    3506: Baggao
+    3516: Ballesteros
+    3511: Buguey
+    3520: Calayan
+
+	
+
+    3510: Camalaniugan
+    3519: Claveria
+    3501: Enrile
+    3508: Gattaran
+    3513: Gonzaga
+    3504: Iguig
+    3509: Lal-Lo
+    3524: Lasam
+    3522: Pamplona
+    3502: Peñablanca
+
+	
+
+    3527: Piat
+    3526: Rizal
+    3518: Sanchez-Mira
+    3514: Santa Ana
+    3521: Santa Praxedes
+    3512: Santa Teresita
+    3525: Santo Niño
+    3503: Solana
+    3528: Tuao
+    3500: Tuguegarao City
+
+Camarines Norte
+
+    4608: Basud
+    4607: Capalonga
+    4600: Daet
+    4610: Imelda / San Lorenzo Ruiz
+
+	
+
+    4606: Jose Panganiban
+    4604: Labo
+    4601: Mercedes
+    4605: Paracale
+
+	
+
+    4609: San Vicente
+    4611: Santa Elena
+    4602: Talisay
+    4612: Tulay-na-Lupa
+    4603: Vinzons
+
+Camarines Sur
+
+    4432: Baao
+    4436: Balatan
+    4435: Bato
+    4404: Bombon
+    4433: Buhi
+    4430: Bula
+    4406: Cabusao
+    4405: Calabanga
+    4401: Camaligan
+    4402: Canaman
+    4429: Caramoan
+    4411: Del Gallego
+
+	
+
+    4412: Gainza
+    4428: Garchitorena
+    4422: Goa
+    4431: Iriga City
+    4425: Lagonoy
+    4407: Libmanan
+    4409: Lupi
+    4403: Magarao
+    4413: Milaor
+    4414: Minalabac
+    4434: Nabua
+    4400: Naga City
+
+	
+
+    4419: Ocampo
+    4416: Pamplona
+    4417: Pasacao
+    4418: Pili
+    4424: Presentacion
+    4410: Ragay
+    4421: Sagnay
+    4415: San Fernando
+    4423: San Jose
+    4408: Sipocot
+    4427: Siruma
+    4420: Tigaon
+    4426: Tinambac
+
+Camiguin
+
+    9100: Mambajao
+    9101: Mahinog
+    9102: Guinsiliban
+    9103: Sagay
+    9104: Catarman
+
+Capiz
+
+    5811: Cuartero
+    5810: Dao
+    5813: Dumalag
+    5812: Dumarao
+    5805: Ivisan
+    5808: Jamindan
+
+	
+
+    5809: Ma-ayon
+    5807: Mambusao
+    5801: Panay
+    5815: Panitan
+    5804: Pilar
+    5802: Pontevedra
+
+	
+
+    5803: President Roxas
+    5800: Roxas City
+    5806: Sapian
+    5816: Sigma
+    5814: Tapaz
+
+Catanduanes
+
+    4807: Bagamanoc
+    4803: Baras
+    4801: Bato
+    4808: Caramoran
+    4804: Gigmoto
+
+	
+
+    4809: Pandan
+    4806: Panganiban
+    4810: San Andres
+    4802: San Miguel
+    4805: Viga
+    4800: Virac
+
+Cavite
+
+    4133: Bailen
+    4123: Alfonso
+    4119: Amadeo
+    4102: Bacoor
+    4116: Carmona
+    4100: Cavite City
+    4101: Sangley Point Naval Base
+    4125: Corregidor Island
+    4114: Dasmariñas
+
+	
+
+    4115: Dasmarinas Resettlement Area
+    4124: General Emilio Aguinaldo (Bailen)
+    4117: General Mariano Alvarez
+    4107: General Trias
+    4103: Imus
+    4122: Indang
+    4104: Kawit
+    4113: Magallanes
+    4112: Maragondon
+
+	
+
+    4121: Mendez (Mendez-Nuñez)
+    4110: Naic
+    4105: Noveleta
+    4106: Rosario
+    4118: Silang
+    4120: Tagaytay City
+    4108: Tanza
+    4111: Ternate incl. Caylabne Bay & Puerto Azul
+    4109: Trece Martires City
+
+Cebu
+
+    6055: Alcantara
+    6066: Alcoy
+    6077: Alegria
+    6088: Aloguinsan
+    6099: Argao
+    6010: Asturias
+    6011: Badian
+    6041: Balamban
+    6052: Bantayan
+    6036: Barili
+    6010: Bogo City
+    6024: Boljoon
+    6008: Borbon
+    6019: Carcar City
+    6005: Carmen
+    6006: Catmon
+    6000: Cebu City
+    6003: Compostela
+
+	
+
+    6001: Consolacion
+    6017: Cordova
+    6013: Daanbantayan
+    6022: Dalaguete
+    6004: Danao City
+    6035: Dumanjug
+    6028: Ginatilan
+    6015: Lapu-Lapu City (Opon)
+    6002: Liloan
+    6016: Mactan Airport
+    6053: Madridejos
+    6029: Malabuyoc
+    6014: Mandaue City
+    6012: Medellin
+    6046: Minglanilla
+    6032: Moalboal
+    6037: Naga
+    6025: Oslob
+
+	
+
+    6048: Pilar
+    6039: Pinamungahan
+    6049: Poro
+    6034: Ronda
+    6027: Samboan
+    6018: San Fernando
+    6050: San Francisco
+    6011: San Remigio
+    6047: Santa Fe
+    6026: Santander
+    6020: Sibonga
+    6007: Sogod
+    6009: Tabogon
+    6044: Tabuelan
+    6045: Talisay City
+    6038: Toledo City
+    6043: Tuburan
+    6051: Tudela
+
+Compostela Valley
+
+    8109: Compostela
+    8103: Laak (San Vicente)
+    8115: Mabini (Doña Alicia)
+    8114: Maco
+    8116: Maragusan (San Mariano)
+    8108: Mawab
+    8111: Monkayo
+    8107: Montevista
+    8106: Nabunturan
+    8110: New Bataan
+    8117: Pantukan
+
+Cotabato
+
+    9413: Alamada
+    9415: Aleosan
+    9414: Antipas
+    9417: Arakan
+    9416: Banisilan
+    9408: Carmen
+    9407: Kabacan
+    9400: Kidapawan City
+    9411: Libungan
+
+	
+
+    9404: Magpet
+    9401: Makilala
+    9406: Matalam
+    9410: Midsayap
+    9402: M'Lang
+    9412: Pigkawayan
+    9409: Pikit
+    9405: President Roxas
+    9403: Tulunan
+
+Davao del Norte
+
+    8102: Asuncion
+    8118: Babak
+    8101: Carmen
+    8113: Kapalong
+    8120: Kaputian
+    8104: New Corella
+    8105: Panabo City
+    8119: Island Garden City of Samal
+    8112: Santo Tomas
+    8100: Tagum City
+
+Davao del Sur
+
+    8005: Bansalan
+    8000: Davao City
+        8016: Ateneo de Davao University
+    8002: Digos City
+    8013: Don Marcelino
+    8006: Hagonoy
+
+	
+
+    8014: Jose Abad Santos
+    8008: Kiblawan
+    8004: Magsaysay
+    8010: Malalag
+    8012: Malita
+
+	
+
+    8003: Matanao
+    8007: Padada
+    8001: Santa Cruz
+    8011: Santa Maria
+    8015: Sarangani
+    8009: Sulop
+
+
+    8200: Mati
+    8209: San Isidro
+    8201: Tarragona
+
+|}
+Dinagat Islands
+
+    8413: Basilisa (Rizal)
+    8411: Cagdianao
+    8412: Dinagat
+    8414: Libjo (Albor)
+    8415: Loreto
+    8427: San Jose
+    8426: Tubajon
+
+Eastern Samar
+
+    6822: Arteche
+    6812: Balangiga
+    6801: Balangkayan
+    6800: Borongan
+    6806: Can-avid
+    6817: Dolores
+    6805: General MacArthur
+
+	
+
+    6811: Giporlos
+    6809: Guiuan
+    6804: Hernani
+    6819: Jipapad
+    6813: Lawaan
+    6803: Llorente
+    6820: Maslog
+    6802: Maydolong
+
+	
+
+    6808: Mercedes
+    6818: Oras
+    6810: Quinapondan
+    6807: Salcedo
+    6814: San Julian
+    6821: San Policarpo
+    6815: Sulat
+    6816: Taft
+
+Guimaras
+
+    5044: Buenavista
+    5045: Jordan
+    5046: Nueva Valencia
+    5047: San Lorenzo
+    5048: Sibunag
+
+Ifugao
+
+    3606: Aguinaldo
+    3608: Alfonso Lista (Potia)
+    3610: Asipulo
+    3601: Banaue
+    3607: Hingyon
+    3603: Hungduan
+
+	
+
+    3604: Kiangan
+    3600: Lagawe
+    3605: Lamut
+    3602: Mayoyao (Mayaoyao)
+    3609: Tinoc
+
+Ilocos Norte
+
+    2922: Adams
+    2916: Bacarra
+    2904: Badoc
+    2920: Bangui
+    2908: Banna (Espiritu)
+    2906: Batac
+    2918: Burgos
+    2911: Carasi
+
+	
+
+    2903: Currimao
+    2913: Dingras
+    2921: Dumalneg
+    2900: Laoag City
+    2907: Marcos
+    2909: Nueva Era
+    2919: Pagudpud
+
+	
+
+    2902: Paoay
+    2917: Pasuquin
+    2912: Piddig
+    2905: Pinili
+    2901: San Nicolas
+    2914: Sarrat
+    2910: Solsona
+    2915: Vintar
+
+Ilocos Sur
+
+    2716: Alilem
+    2708: Banayoyo
+    2727: Bantay
+    2724: Burgos
+    2732: Cabugao
+    2710: Candon City
+    2702: Caoayan
+    2718: Cervantes
+    2709: Galimuyod
+    2720: Gregorio del Pilar
+    2723: Lidlidda
+
+	
+
+    2730: Magsingal
+    2725: Nagbukel
+    2704: Narvacan
+    2721: Quirino (Angkaki)
+    2711: Salcedo (Baugen)
+    2722: San Emilio
+    2706: San Esteban
+    2728: San Ildefonso
+    2731: San Juan (Lapog)
+    2726: San Vicente
+    2703: Santa
+
+	
+
+    2701: Santa Catalina
+    2713: Santa Cruz
+    2712: Santa Lucia
+    2705: Santa Maria
+    2707: Santiago
+    2729: Santo Domingo
+    2719: Sigay
+    2733: Sinait
+    2717: Sugpon
+    2715: Suyo
+    2714: Tagudin
+    2700: Vigan City
+
+Iloilo
+
+    5012: Ajuy
+    5028: Alimodian
+    5009: Anilao
+    5033: Badiangan
+    5018: Balasan
+    5010: Banate
+    5007: Barotoc Nuevo
+    5011: Barotoc Viejo
+    5016: Batad
+    5041: Bingawan
+    5031: Cabatuan
+    5040: Calinog
+    5019: Carles
+    5013: Concepcion
+
+	
+
+    5035: Dingle
+    5038: Duenas
+    5006: Dumangas
+    5017: Estancia
+    5022: Guimbal
+    5029: Igbaras
+    5000: Iloilo City
+    5034: Janiuay
+    5042: Lambunao
+    5003: Leganes
+    5043: Lemery
+    5026: Leon
+    5030: Maasin
+    5023: Miagao
+    5032: Mina
+
+	
+
+    5005: New Lucena
+    5020: Oton
+    5037: Passi City
+    5001: Pavia
+    5008: Pototan
+    5015: San Dionisio
+    5036: San Enrique
+    5024: San Joaquin
+    5025: San Miguel
+    5039: San Rafael
+    5002: Santa Barbara
+    5014: Sara
+    5021: Tigbauan
+    5027: Tubungan
+    5004: Zarraga
+
+Isabela
+
+    3306: Alicia
+    3307: Angadanan
+    3316: Aurora
+    3331: Benito Soliven
+    3322: Burgos
+    3328: Cabagan
+    3315: Cabatuan
+    3305: Cauayan City
+    3312: Cordon
+    3326: Delfin Albano
+    3336: Dinapigui
+    3335: Divilacan
+
+	
+
+    3309: Echague
+    3301: Gamu
+    3300: Ilagan
+    3313: Jones
+    3304: Luna
+    3333: Maconacon
+    3323: Mallig
+    3302: Naguillan
+    3334: Palanan
+    3324: Quezon
+    3321: Quirino
+    3319: Ramon
+
+	
+
+    3303: Reina Mercedes
+    3320: Roxas
+    3314: San Agustin
+    3308: San Guillermo
+    3310: San Isidro
+    3317: San Manuel (Callang)
+    3332: San Mariano
+    3318: San Mateo
+    3329: San Pablo
+    3330: Santa Maria
+    3311: Santiago City
+    3327: Santo Tomas
+    3325: Tumauini
+
+Kalinga
+
+    3801: Balbalan
+    3808: Liwan (Rizal)
+    3802: Lubuagan
+    3803: Pasil
+    3806: Pinukpuk
+    3800: Tabuk City
+    3805: Tanudan
+    3804: Tinglayan
+
+La Union
+
+    2504: Agoo
+    2503: Aringay
+    2515: Bacnotan
+    2512: Bagulin
+    2517: Balaoan
+    2519: Bangar
+    2501: Bauang
+
+	
+
+    2510: Burgos
+    2502: Caba
+    2507: Damortis
+    2518: Luna
+    2511: Naguillan
+    2508: Pugo
+    2506: Rosario
+
+	
+
+    2500: San Fernando City
+    2513: San Gabriel
+    2514: San Juan
+    2505: Santo Tomas
+    2516: Santol
+    2520: Sudepen
+    2509: Tubao
+
+Laguna
+
+    4001: Alaminos
+    4033: Bay
+    4024: Biñan City
+    4006: Botocan, Magdalena
+    4025: Cabuyao
+    4027: Calamba City
+    4012: Calauan
+    4029: Camp Vicente Lim
+    4028: Canlubang, Calamba City
+    4013: Cavinti
+    4021: Famy
+
+	
+
+    4015: Kalayaan
+    4004: Liliw
+    4030: Los Baños
+    4032: Luisiana
+    4014: Lumban
+    4020: Mabitac
+    4007: Magdalena
+    4005: Majayjay
+    4002: Nagcarlan
+    4016: Paete
+    4008: Pagsanjan
+
+	
+
+    4017: Pakil
+    4018: Pangil
+    4010: Pila
+    4003: Rizal
+    4000: San Pablo City
+    4023: San Pedro
+    4009: Santa Cruz
+    4022: Santa Maria
+    4026: Santa Rosa City
+    4019: Siniloan
+    4031: University of the Philippines, Los Baños
+    4011: Victoria
+
+Lanao del Norte
+
+    9205: Bacolod
+    9217: Baloi
+    9210: Baroy
+    9200: Iligan City
+    9214: Kapatagan
+    9215: Karomatan
+    9202: Kauswagan
+
+	
+
+    9207: Kolambogan
+    9211: Lala
+    9201: Linamon
+    9221: Magsaysay
+    9206: Maigo
+    9203: Matungao
+    9219: Munai
+    9216: Nunungan
+
+	
+
+    9208: Pantao Ragat
+    9218: Pantar
+    9204: Poona Piagapo
+    9212: Salvador
+    9213: Sapad
+    9222: Tagoloan
+    9220: Tangkal
+    9209: Tubod
+
+Lanao del Sur
+
+    9316: Bacolod Kalawi
+    9302: Balabagan
+    9318: Balindong
+    9309: Bayang
+    9310: Binidayan
+    9714: Buadiposo Buntong
+    9708: Bubong
+    9320: Bumbaran
+    9305: Butig
+    9319: Calanogas
+    9311: Ganassi
+    9709: Kapai
+
+	
+
+    9703: Lumba Bayabao
+    9307: Lumbatan
+    9306: Lumbayanague
+    9308: Macadar Andong
+    9315: Madalum
+    9314: Madamba
+    9715: Maguing
+    9300: Malabang
+    9303: Marogong
+    9711: Marantao
+    9700: Marawi City
+    9706: Masui
+    9702: Mulondo
+
+	
+
+    9312: Pagayawan
+    9710: Piagapo
+    9705: Poona Bayabao
+    9313: Pualas
+    9713: Ramain-Ditsaan
+    9701: Saguiaran
+    9301: Picong(Sultan Gumander)
+    9321: Tagoloan-II
+    9704: Tamparan
+    9712: Taraka
+    9304: Tubaran
+    9317: Tugaya
+    9716: Wao
+
+Leyte
+
+    6510: Abuyog
+    6517: Alangalang
+    6542: Albuera
+    6520: Babatngon
+    6519: Barugo
+    6525: Bato
+    6521: Baybay
+    6516: Burauen
+    6534: Calubian
+    6530: Capoocan
+    6529: Carigara
+    6515: Dagami
+    6505: Dulag
+    6524: Hilongos
+
+	
+
+    6523: Hindang
+    6522: Inopacan
+    6539: Isabel
+    6527: Jaro
+    6511: Javier
+    6506: Julita
+    6531: Kananga
+    6508: La Paz
+    6533: Leyte
+    6509: Macarthur
+    6512: Mahaplag
+    6532: Matag-ob
+    6526: Matalom
+    6507: Mayorga
+
+	
+
+    6540: Merida
+    6541: Ormoc City
+    6501: Palo
+    6538: Palompon
+    6514: Pastrana
+    6535: San Isidro
+    6518: San Miguel
+    6513: Santa Fe
+    6536: Tabango
+    6504: Tabontabon
+    6500: Tacloban City
+    6502: Tanuan
+    6503: Tolosa
+    6528: Tunga
+    6537: Villaba
+
+Maguindanao
+
+    9600: Cotabato City
+    9609: Ampatuan
+    9616: Buluan
+    9617: Datu Paglas
+
+	
+
+    9607: Datu Piang
+    9618: Gen. S.K. Pendatun
+    9608: Sarip Aguak (Maganoy)
+
+	
+
+    9610: Pagalungan
+    9603: South Upi
+    9611: Sultan sa Barongis
+    9612: Talayan
+
+Marinduque
+
+    4900: Boac
+    4901: Mogpog
+    4902: Santa Cruz
+    4903: Torrijos
+    4904: Buenavista
+    4905: Gasan
+
+Masbate
+
+    5414: Aroroy
+    5413: Baleno
+    5412: Balud
+    5415: Batuan
+    5421: Buenavista
+    5405: Cataingan
+    5409: Cawayan
+
+	
+
+    5419: Claveria
+    5403: Dimasalang
+    5407: Esperanza
+    5411: Mandaon
+    5400: Masbate City
+    5410: Milagros
+    5401: Mobo
+
+	
+
+    5418: Monreal
+    5404: Palanas
+    5406: Pio V. Corpuz
+    5408: Placer
+    5416: San Fernando
+    5417: San Jacinto
+    5420: San Pascual
+    5402: Uson
+
+Metro Manila
+Caloocan City
+
+Caloocan City North
+
+    1420: Kaybiga/Deparo
+    1421: Bagumbong/Pag-asa
+    1422: Novaliches North
+    1423: Lilles Ville Subdivision
+    1424: Captol Parkland Subdivision
+    1425: Amparo Subdivision
+    1426: Bankers Village
+    1427: Tala Leprosarium and Victory Heights
+    1428: Bagong Silang
+    14??: Cefels Park Subdivision
+
+	
+
+Caloocan City South
+
+    1400: Caloocan City Central Post Office
+    1401: Baesa
+    1402: Santa Quiteria
+    1403: Grace Park East
+    1404: San Jose
+    1405: First Avenue to Seventh Avenue West
+    1406: Grace Park West
+    1407: University Hills
+    1408: Sangandaan
+    1409: Kaunlaran Village (shared with Malabon City and Navotas)
+    1410: Maypajo sawata area 2
+
+    1411: Fish Market (shared with Navotas)
+    1412: Isla de Cocomo
+    1413: Kapitbayahan
+
+Las Piñas City
+
+    1740: Las Piñas Central Post Office
+    1741: Greymarville Subdivision
+    1742: Pulang Lupa and Zapote
+    1743: Cut-cut
+    1744: Manuyo
+    1745: Gatchalian Subdivision
+    1746: Verdant Acres Subdivision
+
+	
+
+    1747: Moonwalk Subdivision and Talon
+    1748: Manila Doctors Village
+    1749: Angela Village
+    1750: Almanza
+    1751: T.S. Cruz Subdivision
+    1752: Soldiers Hills Subdivision
+
+Makati City
+
+Makati
+
+    1200: Makati Central Post Office
+    1201: Fort Bonifacio (now part of Taguig City)
+    1202: Fort Bonifacio Naval Station
+    1203: San Antonio Village
+    1204: La Paz, Singkamas, and Tejeros
+    1205: Santa Cruz
+    1206: Kasilawan
+    1207: Carmona and Olympia
+    1208: Valenzuela (includes Rizal, San Miguel, and Santiago Villages)
+    1209: Bel-Air
+    1210: Poblacion
+    1211: Guadalupe Viejo (includes Palm Village)
+    1212: Guadalupe Nuevo (includes Visayan Village)
+    1213: Pinagkaisahan - Pitogo
+    1214: Cembo
+    1215: West Rembo
+    1216: East Rembo and Malapad na Bato
+    1217: Comembo
+    1218: Pembo
+    1219: Forbes Park North
+    1220: Forbes Park South
+    1221: Dasmariñas Village North
+    1222: Dasmariñas Village South
+    1223: San Lorenzo Village
+    1224: Makati Commercial Center
+    1225: Urdaneta Village
+    1226: Ayala Avenue-Paseo de Roxas
+    1227: Salcedo Village
+    1228: Greenbelt
+    1229: Legaspi Village
+    1230: Pio del Pilar
+    1231: Pasong Tamo and Ecology Village
+    1232: Magallanes Village
+    1233: Bangkal
+    1234: San Isidro
+    1235: Palanan
+
+Big users
+
+    0700: Plain-Truth
+    0701: Colgate Palmolive Philippines
+    0702: Citibank
+    0703: Sarmiento Enterprises
+    0704: Producers Bank
+    0705: Union Ajinomoto
+    0706: Faith Embassy
+    0707: Canadian Embassy
+    0708: Philippine National Oil Company
+    0709: A-Z Direct Marketing
+    0710: American Express
+    0711: Land Bank of the Philippines
+    0712: Prudential Bank
+    0713: BPI Family Savings Bank
+    0714: Philippine Manila Mission
+    0715: Marcopper Mining Corporation
+    0716: Allied Bank
+    0717: Diners Club
+    0718: International Center for Aquatic Resources
+    0719: Security Bank
+    0720: Bank of the Philippine Islands
+    0721: Philippine Long Distance Telephone Company
+    0722: World Executive Digest
+    0723: Japanese Embassy
+    0724: Sun Life Financial
+    0725: Insular Life Assurance Company
+    0726: Equitable PCI Bank
+    0727: Rizal Commercial Banking Corporation
+    0728: United Coconut Planters Bank
+    0729: Not used
+    0730: Zuellig Pharma
+    0731: BCD Direct Marketing
+    0732: Export and Industry Bank
+    0733-0739: Not used
+    0740: Sycip, Gorres and Velayo
+    0750: Philippine Airlines
+    0760: Pilipinas Shell (subsidiary of Royal Dutch Shell)
+    0770: ACCRA Law Offices
+    0780: Mead Johnson Philippines
+    0788: Directories Pilipinas Corporation
+    0790: Atlantic, Gulf and Pacific
+
+	
+
+Post Office boxes
+
+    1250: Makati CPO-PO Box# 1000 to 1099
+    1251: Makati CPO-PO Box# 1100 to 1199
+    1252: Makati CPO-PO Box# 1200 to 1299
+    1253: Makati CPO-PO Box# 1300 to 1399
+    1254: Makati CPO-PO Box# 1400 to 1499
+    1255: Makati CPO-PO Box# 1500 to 1599
+    1256: Makati CPO-PO Box# 1600 to 1699
+    1257: Makati CPO-PO Box# 1700 to 1799
+    1258: Makati CPO-PO Box# 1800 to 1899
+    1259: Makati CPO-PO Box# 1900 to 1999
+    1260: Makati CPO-PO Box# 2000 to 2099
+    1261: Makati CPO-PO Box# 2100 to 2199
+    1262: Makati CPO-PO Box# 2200 to 2299
+    1263: Makati CPO-PO Box# 2300 to 2399
+    1264: Makati CPO-PO Box# 2400 to 2499
+    1265: Makati CPO-PO Box# 2500 to 2599
+    1266: Makati CPO-PO Box# 2600 to 2699
+    1267: Makati CPO-PO Box# 2700 to 2799
+    1268: Makati CPO-PO Box# 2800 to 2899
+    1269: Makati CPO-PO Box# 2900 to 2999
+    1270: Makati CPO-PO Box# 3000 to 3099
+    1271: Makati CPO-PO Box# 3100 to 3199
+    1272: Makati CPO-PO Box# 3200 to 3299
+    1273: Makati CPO-PO Box# 3300 to 3399
+    1274: Makati CPO-PO Box# 3400 to 3499
+    1275: Makati CPO-PO Box# 3500 to 3599
+    1276: Makati CPO-PO Box# 3600 to 3699
+    1277: Makati CPO-PO Box# 3700 to 3799
+    1278: Makati CPO-PO Box# 3800 to 3899
+    1279: Makati CPO-PO Box# 3900 to 3999
+    1280: Makati CPO-PO Box# 4000 to 4099
+    1281: Makati CPO-PO Box# 4100 to 4199
+    1282: Makati CPO-PO Box# 4200 to 4299
+    1283: Makati CPO-PO Box# 4300 to 4399
+    1284: Makati CPO-PO Box# 4400 to 4499
+    1285: Makati CPO-PO Box# 4500 to 4599
+    1286: Makati CPO-PO Box# 4600 to 4699
+    1287: Makati CPO-PO Box# 4700 to 4799
+    1288: Makati CPO-PO Box# 4800 to 4899
+    1289: Makati CPO-PO Box# 4900 to 4999
+    1290: Makati CPO-PO Box# 5000 to 5099
+    1291: Makati CPO-PO Box# 5100 to 5199
+    1292: Makati CPO-PO Box# 5200 to 5299
+    1293: Makati CPO-PO Box# 5300 to 5399
+    1294: Makati CPO-PO Box# 5400 to 5499
+    1295: Makati CPO-PO Box# 5500 to 5599
+    1296: Makati CPO-PO Box# 5600 to 5699
+    1297: Makati CPO-PO Box# 5700 to 5799
+    1298: Makati CPO-PO Box# 5800 to 5899
+    1299: Makati CPO-PO Box# 5900 to 5999
+
+Malabon City
+
+    1409: Kaunlaran Village (shared with Caloocan City and Navotas)
+    1470: Malabon
+    1471: Flores
+    1472: Longos
+    1473: Tonsuya
+    1474: Acacia
+
+	
+
+    1475: Potrero
+    1476: Araneta Subdivision
+    1477: Maysilo
+    1478: Santolan
+    1479: Muzon
+    1480: Dampalit
+    1470: Tinajeros
+
+Mandaluyong City
+
+    1550: Mandaluyong Central Post Office
+    1551: Vergara
+    1552: Shaw Boulevard
+    1553: National Center for Mental Health
+    1554: East EDSA
+    1555: Wack Wack
+    1556: Greenhills South
+
+Manila
+
+    1000: Manila Central Post Office
+    1001: Quiapo
+    1002: Intramuros
+    1003: Santa Cruz South
+    1004: Malate
+    1005: San Miguel
+    1006: Binondo
+    1007: Paco
+    1008: Sampaloc East
+    1009: Santa Ana
+    1010: San Nicolas
+    1011: Pandacan
+    1012: Tondo South
+    1013: Tondo North
+    1014: Santa Cruz North
+    1015: Sampaloc West
+    1016: Santa Mesa
+    1017: San Andres
+    1018: Port Area South
+
+	
+
+Big users
+
+    0900: Manila Bulletin
+    0901: Adventist University of the Philippines
+    0902: Far East Broadcasting Corporation
+    0903: Manila Hilton
+    0904: Midland Hotel
+    0905: The Philippine Star
+    0906: Manila Medical Center
+    0907: San Miguel Corporation
+    0908: Pan-Filipino Shipping
+    0909: Summer Institute of Linguistics
+    0910: Department of Labor and Employment
+    0911: National Statistics Office
+    0912: Bureau of Plant Industry
+    0913: Manila Hotel
+    0914: Philippine Refining Company and Unilever Philippines
+    0915: International Correspondence Institute
+    0916: Radio Veritas
+    0917: Ateneo de Manila University
+    0918: Fil-Japan Shipping Company
+    0919: Manila Police District
+    0920: Sunbursts Publications
+    0921: Philippine Plaza Hotel
+    0922: De La Salle University
+    0923: Don Stewart Evangelistic Association
+    0924: World Map
+    0925: Chinabank
+    0926: Caltex Philippines
+    0927: Philippine Veterans Affairs Office
+    0928: Philippine Campus Crusade
+    0929: Not used
+    0930: United States Embassy
+    0940: Philippine National Bank
+    0950: Manila Midtown Hotel
+    0960: International Rice Research Institute
+    0970: Department of Justice
+    0980: Asian Development Bank
+    0990: Philamlife
+
+	
+
+Post Office boxes
+
+    1035: Santa Mesa P.O. Box
+    1040: Santa Cruz P.O. Box
+    1045: Ermita P.O. Box
+
+Manila CPO - P.O. Box Nos
+
+    1050: Manila CPO-PO Box# 1000 to 1099
+    1051: Manila CPO-PO Box# 1100 to 1199
+    1052: Manila CPO-PO Box# 1200 to 1299
+    1053: Manila CPO-PO Box# 1300 to 1399
+    1054: Manila CPO-PO Box# 1400 to 1499
+    1055: Manila CPO-PO Box# 1500 to 1599
+    1056: Manila CPO-PO Box# 1600 to 1699
+    1057: Manila CPO-PO Box# 1700 to 1799
+    1058: Manila CPO-PO Box# 1800 to 1899
+    1059: Manila CPO-PO Box# 1900 to 1999
+    1060: Manila CPO-PO Box# 2000 to 2099
+    1061: Manila CPO-PO Box# 2100 to 2199
+    1062: Manila CPO-PO Box# 2200 to 2299
+    1063: Manila CPO-PO Box# 2300 to 2399
+    1064: Manila CPO-PO Box# 2400 to 2499
+    1065: Manila CPO-PO Box# 2500 to 2599
+    1066: Manila CPO-PO Box# 2600 to 2699
+    1067: Manila CPO-PO Box# 2700 to 2799
+    1068: Manila CPO-PO Box# 2800 to 2899
+    1069: Manila CPO-PO Box# 2900 to 2999
+    1070: Manila CPO-PO Box# 3000 to 3099
+    1071: Manila CPO-PO Box# 3100 to 3199
+    1072: Manila CPO-PO Box# 3200 to 3299
+    1073: Manila CPO-PO Box# 3300 to 3399
+    1074: Manila CPO-PO Box# 3400 to 3499
+    1075: Manila CPO-PO Box# 3500 to 3599
+    1076: Manila CPO-PO Box# 3600 to 3699
+    1077: Manila CPO-PO Box# 3700 to 3799
+    1078: Manila CPO-PO Box# 3800 to 3899
+    1079: Manila CPO-PO Box# 3900 to 3999
+    1080: Manila CPO-PO Box# 4000 to 4099
+    1081: Manila CPO-PO Box# 4100 to 4199
+    1082: Manila CPO-PO Box# 4200 to 4299
+    1083: Manila CPO-PO Box# 4300 to 4399
+    1084: Manila CPO-PO Box# 4400 to 4499
+    1085: Manila CPO-PO Box# 4500 to 4599
+    1086: Manila CPO-PO Box# 4600 to 4699
+    1087: Manila CPO-PO Box# 4700 to 4799
+    1088: Manila CPO-PO Box# 4800 to 4899
+    1089: Manila CPO-PO Box# 4900 to 4999
+    1090: Manila CPO-PO Box# 5000 to 5099
+    1091: Manila CPO-PO Box# 5100 to 5199
+    1092: Manila CPO-PO Box# 5200 to 5299
+    1093: Manila CPO-PO Box# 5300 to 5399
+    1094: Manila CPO-PO Box# 5400 to 5499
+    1095: Manila CPO-PO Box# 5500 to 5599
+    1096: Manila CPO-PO Box# 5600 to 5699
+
+Marikina City
+
+    1800: Marikina Central Post Office
+    1801: San Roque-Calumpang
+    1802: Industrial Valley
+    1803: Barangka and Tañong
+    1804: J. De La Peña
+    1805: Malanday
+    1806: Northern and Western Marikina River
+
+	
+
+    1807: Concepcion tarlac
+    1808: Nangka
+    1809: Parang
+    1810: Marikina Heights
+    1811: Concepcion 2
+    1812-1819: Not used
+    1820: Bagong Nayon, Cupang, Mambagat, and Mayamot
+
+Muntinlupa City
+
+    1770: Muntinlupa Central Post Office
+    1771: Buli/Cupang
+    1772: Bayanan/Putatan
+    1772: Soldiers' Hills
+    1773: Tunasan
+    1774: Susana Heights
+    1775: Pearl Heights
+    1776: Poblacion
+    1777: Pleasant Village
+    1780: Ayala Alabang Subdivision
+    1781: Valerio & Associates Law Offices (Filinvest City)
+    1799: Ayala Alabang P.O. Boxes
+
+Navotas City
+
+    1411: Fish Market
+    1412: Isla de Cocomo
+    1413: Kapitbahayan [East]
+    1409: Kaunlaran Village
+    1485: Navotas
+    1489: Tangos
+    1490: Tanza
+
+Parañaque City
+
+    1714: Aeropark Subdivision
+    1702: Baclaran
+    1711: Better Living Subdivision
+    1720: BF Homes 1
+    1718: BF Homes 2
+    1375: Domestic Airport P.O. - P.O. Box Nos. 1000 to 1099
+    1376: Domestic Airport P.O. - P.O. Box Nos. 1100 to 1199
+    1377: Domestic Airport P.O. - P.O. Box Nos. 1200 to 1299
+    1378: Domestic Airport P.O. - P.O. Box Nos. 1300 to 1399
+    1379: Domestic Airport P.O. - P.O. Box Nos. 1400 to 1499
+    1380: Domestic Airport P.O. - P.O. Box Nos. 1500 to 1599
+    1381: Domestic Airport P.O. - P.O. Box Nos. 1600 to 1699
+    1710: Executive Heights Subdivision
+    1719: Ireneville Subdivision I & III
+    1714: Ireneville Subdivision II
+
+	
+
+    1717: Manila Memorial Park
+    1703: Marina Subdivision (Reclamation)
+    1719: Maywood Village I
+    1716: Maywood Village II
+    1712: Miramar Subdivision
+    1708: Multinational Village
+    1705: Ninoy Aquino International Airport
+    1700: Parañaque CPO
+    1706: Pulo
+    1715: San Antonio Valley 1
+    1707: San Antonio Valley 11 & 12
+    1704: Santo Niño
+    1709: South Admiral Village, Merville Park & Moonwalk Subdivision
+    1701: Tambo
+    1713: United Parañaque Subdivision
+
+	
+Pasay City
+
+    1300: Pasay City Central Post Office
+    1301: Domestic Airport P.O.
+    1302: San Rafael
+    1303: San Roque
+    1304: Santa Clara
+    1305: San Jose
+    1306: San Isidro
+    1307: Philippine International Convention Center
+    1308: Bay City
+    1309: Villamor Airbase
+
+	
+
+    1350: Pasay City CPO - P.O. Box Nos. 1000 to 1099
+    1351: Pasay City CPO - P.O. Box Nos. 1100 to 1199
+    1352: Pasay City CPO - P.O. Box Nos. 1200 to 1299
+    1353: Pasay City CPO - P.O. Box Nos. 1300 to 1399
+    1354: Pasay City CPO - P.O. Box Nos. 1400 to 1499
+
+Pasig City
+
+    1600: Pasig Central Post Office
+    1601: San Joaquin
+    1602: Pinagbuhatan
+    1603: Kapitolyo
+    1604: Ugong
+    1605: Ortigas Post Office
+    1606: Caniogan
+    1607: Maybunga
+    1608: Santa Lucia
+    1609: Rosario
+    1610: Santolan
+    1611: Manggahan
+    1612: Green Park
+
+	
+
+Pasig CPO - P.O. Box Nos
+
+    1650: Pasig Ortigas CTR-PO Box# 1000 to 1099
+    1651: Pasig Ortigas CTR-PO Box# 1100 to 1199
+    1652: Pasig Ortigas CTR-PO Box# 1200 to 1299
+    1653: Pasig Ortigas CTR-PO Box# 1300 to 1399
+    1654: Pasig Ortigas CTR-PO Box# 1400 to 1499
+    1655: Pasig Ortigas CTR-PO Box# 1500 to 1599
+    1656: Pasig Ortigas CTR-PO Box# 1600 to 1699
+    1657: Pasig Ortigas CTR-PO Box# 1700 to 1799
+    1658: Pasig Ortigas CTR-PO Box# 1800 to 1899
+    1659: Pasig Ortigas CTR-PO Box# 1900 to 1999
+    1660: Pasig Ortigas CTR-PO Box# 2000 to 2099
+    1661: Pasig Ortigas CTR-PO Box# 2100 to 2199
+    1662: Pasig Ortigas CTR-PO Box# 2200 to 2299
+    1663: Pasig Ortigas CTR-PO Box# 2300 to 2399
+    1664: Pasig Ortigas CTR-PO Box# 2400 to 2499
+    1665: Pasig Ortigas CTR-PO Box# 2500 to 2599
+    1666: Pasig Ortigas CTR-PO Box# 2600 to 2699
+    1667: Pasig Ortigas CTR-PO Box# 2700 to 2799
+    1668: Pasig Ortigas CTR-PO Box# 2800 to 2899
+    1669: Pasig Ortigas CTR-PO Box# 2900 to 2999
+    1670: Pasig Ortigas CTR-PO Box# 3000 to 3099
+    1671: Pasig Ortigas CTR-PO Box# 3100 to 3199
+    1672: Pasig Ortigas CTR-PO Box# 3200 to 3299
+    1673: Pasig Ortigas CTR-PO Box# 3300 to 3399
+    1674: Pasig Ortigas CTR-PO Box# 3400 to 3499
+    1675: Pasig Ortigas CTR-PO Box# 3500 to 3599
+    1676: Pasig Ortigas CTR-PO Box# 3600 to 3699
+    1677: Pasig Ortigas CTR-PO Box# 3700 to 3799
+    1678: Pasig Ortigas CTR-PO Box# 3800 to 3899
+    1679: Pasig Ortigas CTR-PO Box# 3900 to 3999
+    1680: Pasig Ortigas CTR-PO Box# 4000 to 4099
+    1681: Pasig Ortigas CTR-PO Box# 4100 to 4199
+    1682: Pasig Ortigas CTR-PO Box# 4200 to 4299
+    1683: Pasig Ortigas CTR-PO Box# 4300 to 4399
+    1684: Pasig Ortigas CTR-PO Box# 4400 to 4499
+    1685: Pasig Ortigas CTR-PO Box# 4500 to 4599
+    1686: Pasig Ortigas CTR-PO Box# 4600 to 4699
+    1687: Pasig Ortigas CTR-PO Box# 4700 to 4799
+    1688: Pasig Ortigas CTR-PO Box# 4800 to 4899
+    1689: Pasig Ortigas CTR-PO Box# 4900 to 4999
+    1690: Pasig Ortigas CTR-PO Box# 5000 to 5099
+    1691: Pasig Ortigas CTR-PO Box# 5100 to 5199
+    1692: Pasig Ortigas CTR-PO Box# 5200 to 5299
+    1693: Pasig Ortigas CTR-PO Box# 5300 to 5399
+    1694: Pasig Ortigas CTR-PO Box# 5400 to 5499
+    1695: Pasig Ortigas CTR-PO Box# 5500 to 5599
+    1696: Pasig Ortigas CTR-PO Box# 5600 to 5699
+    1697: Pasig Ortigas CTR-PO Box# 5700 to 5799
+    1698: Pasig Ortigas CTR-PO Box# 5800 to 5899
+    1699: Pasig Ortigas CTR-PO Box# 5900 to 5999
+
+Pateros
+
+    1620: Aguho
+    1621: Santa Ana
+
+Quezon City
+
+    1105: Alicia
+    1102: Amihan
+    1106: Apolonio Samson
+    0810: Araneta Center
+    1135: Araneta Center P.O. Boxes
+    1106: Baesa
+    1116: Bagbag
+    1110: Bagong Bayan
+    1109: Bagong Buhay
+    1111: Bagong Lipunan
+    1105: Bagong Pag-Asa
+    1119: Bagong Silangan
+    1106: Bahay Toro
+    1115: Balingasa
+    1106: Balintawak
+    1106: Balumbato
+    1126: Batasan Hills
+    1109: Bayanihan
+    1120: BF Homes
+    1109: Blue Ridge
+    1101: Botocan
+    1141: Broadway Center P.O. Boxes
+    1105: Bungad
+    0820: Bureau of Internal Revenue
+    1110: Camp Aguinaldo
+    0802: Camp Aguinaldo
+    0801: Camp Crame
+    1126: Capitol Hills/Park
+    1117: Capri
+    1100: Central
+    1102: Claro
+    0880: Commission on Audit
+    1121: Commonwealth
+    1111: Crame
+    1109: Cubao
+    1128: Culiat
+    1115: Damar
+    1104: Damayan
+    1112: Damayan Lagi
+    1123: Damong Maliit
+    1105: Del Monte
+    1104: Diliman
+    1109: Dioquino Zobel
+    1113: Don Manuel
+    1113: Doña Aurora
+    1125: Doña Faustina Subdivision
+    1113: Doña Imelda
+    1113: Doña Josefa
+    1102: Duyan-Duyan
+    1102: E. Rodriguez
+    1109: Escopa
+    1118: Fairview
+    1121: Fairview [North]
+    1122: Fairview [South]
+    1114: Gintong Silahis
+    1117: Gulod
+    1127: Holy Spirit
+    1112: Horseshoe
+    1111: Immaculate Concepcion
+    1124: Kaligayahan
+    1112: Kalusugan
+    1102: Kamias
+    1103: Kamuning
+    1105: Katipunan
+
+	
+
+    1111: Kaunlaran
+    1112: Kristong Hari
+    1101: Krus na Ligas
+    1114: La Loma
+    1103: Laging Handa
+    1110: Libis
+    1114: Lourdes
+    1108: Loyola Heights
+    1114: Maharlika
+    1101: Malaya
+    1109: Mangga
+    1115: Manresa
+    1112: Mariana
+    1104: Mariblo
+    1109: Marilag
+    1109: Masagana
+    1115: Masambong
+    1114: Matalahib
+    1119: Matandang Balara
+    1109: Milagrosa
+    1138: Murphy District P.O. Boxes
+    1125: Nagkaisang Nayon
+    0830: National Irrigation Administration
+    1104: Nayon Kaunlaran
+    1107: New Era
+    1147: Novaliches P.O. Boxes
+    1123: Novaliches Proper
+    1103: Obrero
+    1101: Old Capitol Site
+    1114: Paang Bundok
+    1115: Pag-Ibig sa Nayon
+    1103: Paligsahan
+    1105: Paltok
+    1108: Pansol
+    1104: Paraiso
+    1118: Pasong Putik
+    1107: Pasong Tamo
+    1119: Payatas
+    1104: Phil-Am
+    0850: Philippine Heart Center
+    1111: Pinagkaisahan
+    1100: Piñahan
+    1109: Project 4
+    1100: Project 6
+    1105: Project 7
+    1106: Project 8
+    1100: Quezon City CPO
+    1150: Quezon City CPO - P.O. Box Nos. 1000 to 1099
+    1151: Quezon City CPO - P.O. Box Nos. 1100 to 1199
+    1152: Quezon City CPO - P.O. Box Nos. 1200 to 1299
+    1153: Quezon City CPO - P.O. Box Nos. 1300 to 1399
+    1154: Quezon City CPO - P.O. Box Nos. 1400 to 1499
+    1155: Quezon City CPO - P.O. Box Nos. 1500 to 1599
+    1156: Quezon City CPO - P.O. Box Nos. 1600 to 1699
+    1157: Quezon City CPO - P.O. Box Nos. 1700 to 1799
+    1158: Quezon City CPO - P.O. Box Nos. 1800 to 1899
+    1159: Quezon City CPO - P.O. Box Nos. 1900 to 1999
+    1160: Quezon City CPO - P.O. Box Nos. 2000 to 2099
+    1161: Quezon City CPO - P.O. Box Nos. 2100 to 2199
+    1162: Quezon City CPO - P.O. Box Nos. 2200 to 2299
+    1163: Quezon City CPO - P.O. Box Nos. 2300 to 2399
+    1164: Quezon City CPO - P.O. Box Nos. 2400 to 2499
+    1165: Quezon City CPO - P.O. Box Nos. 2500 to 2599
+    1166: Quezon City CPO - P.O. Box Nos. 2600 to 2699
+
+	
+
+    1167: Quezon City CPO - P.O. Box Nos. 2700 to 2799
+    1168: Quezon City CPO - P.O. Box Nos. 2800 to 2899
+    1169: Quezon City CPO - P.O. Box Nos. 2900 to 2999
+    1170: Quezon City CPO - P.O. Box Nos. 3000 to 3099
+    1171: Quezon City CPO - P.O. Box Nos. 3100 to 3199
+    1172: Quezon City CPO - P.O. Box Nos. 3200 to 3299
+    1173: Quezon City CPO - P.O. Box Nos. 3300 to 3399
+    1174: Quezon City CPO - P.O. Box Nos. 3400 to 3499
+    1175: Quezon City CPO - P.O. Box Nos. 3500 to 3599
+    1176: Quezon City CPO - P.O. Box Nos. 3600 to 3699
+    1177: Quezon City CPO - P.O. Box Nos. 3700 to 3799
+    0860: Quezon City Hall
+    1102: Quirino District (Project 2 & 3)
+    1105: R. Magsaysay
+    1103: Roxas District
+    1103: Sacred Heart
+    1114: Salvacion
+    1117: San Agustin
+    1105: San Antonio, Quezon City
+    1116: San Bartolome
+    1113: San Isidro
+    1114: San Isidro Labrador
+    1115: San Jose
+    1109: San Roque
+    1101: San Vicente
+    1116: Sangandaan
+    1104: Santa Cruz
+    1117: Santa Lucia
+    1117: Santa Monica
+    1114: Santa Teresita
+    1105: Santo Cristo
+    1113: Santo Niño
+    1113: Santol
+    1116: Sauyo
+    1114: Sienna
+    1101: Sikatuna Village
+    1102: Silangan
+    0800: Social Security System
+    1109: Socorro
+    1103: South Triangle
+    1110: St. Ignatius
+    1111: St. Martin de Porres
+    1114: St. Peter
+    1109: Tagumpay
+    1110: Talampas
+    1104: Talayan
+    1116: Talipapa
+    1116: Tandang Sora
+    1113: Tatalon
+    1101: Teachers Village
+    1110: Ugong Norte
+    1106: Unang Sigaw
+    1101: University of the Philippines Post Office
+    1144: University of the Philippines P.O. Boxes
+    1101: University of the Philippines Village
+    0840: V. Luna Hospital
+    1112: Valencia
+    1128: Vasra
+    0870: Veterans Hospital
+    1105: Veterans Village
+    1109: Villa Maria Clara
+    1120: Violago Homes
+    1104: West Triangle
+    1110: White Plains
+
+San Juan City
+
+    1504: Eisenhower - Crame
+    1502: Greenhills Post Office
+    1503: Greenhills [North]
+    1500: San Juan Central Post Office
+
+Big users
+
+    0400: International Correspondence School
+    0401: Asian Development Bank
+    0410: Radio Bible Class
+    0420: Bible School on the Air
+
+	
+
+Post Office boxes
+
+    1530: Greenhills P.O. Box Nos. 1000 to 1099
+    1531: Greenhills P.O. Box Nos. 1100 to 1199
+    1532: Greenhills P.O. Box Nos. 1200 to 1299
+    1533: Greenhills P.O. Box Nos. 1300 to 1399
+    1534: Greenhills P.O. Box Nos. 1400 to 1499
+    1535: Greenhills P.O. Box Nos. 1500 to 1599
+    1536: Greenhills P.O. Box Nos. 1600 to 1699
+
+Taguig City
+
+    1636: Bay Breeze Executive Village
+    1631: Bicutan
+    1632: ususan
+    1633: Upper Bicutan
+
+	
+
+    1630: Western Bicutan (including Food Terminal, Inc. complex)
+    1638: Ligid
+    1634: Nichols - McKinley
+    1637: Tuktukan
+
+Valenzuela City
+
+    1444: Arkong Bato
+    1445: Balangkas - Caloong
+    1443: Dalandanan - West Canumay
+    1447: East Canumay - Lawang Bato Punturin
+    1442: Fortune Village
+    1442: General T. de Leon
+    1441: Karuhatan
+    1446: Lingunan
+    1444: Mabolo
+    1444: Malanday
+
+	
+
+    1448: Mapulang Lupa
+    1442: Paso de Blas
+    1444: Pasolo
+    1444: Polo
+    1444: Rincon
+    1440: Valenzuela Central Post Office - Malinta
+    1469: Valenzuela P.O. Boxes
+
+Big users
+
+    0560: Far East Broadcasting Corporation
+    0550: Febias College of Bible
+
+Misamis Occidental
+
+    7206: Aloran
+    7211: Baliangao
+    7215: Bonifacio
+    7210: Calamba
+    7201: Clarin
+    7213: Concepcion
+    7204: Jimenez
+    7208: Lopez Jaena
+
+	
+
+    7207: Oroquieta City
+    7200: Ozamis City
+    7205: Panaon
+    7209: Plaridel
+    7212: Sapang Dalaga
+    7203: Sinacaban
+    7214: Tangub City
+    7202: Tudela
+
+Misamis Oriental
+
+    9018: Alubijid
+    9005: Balingasag
+    9011: Balinguan
+    9008: Binuangan
+    9000: Cagayan de Oro City
+    9004: Claveria
+    9017: El Salvador
+    9014: Gingoog City
+
+	
+
+    9020: Gitagum
+    9022: Initao
+    9003: Jasaan
+    9010: Kinogitan
+    9006: Lagonglong
+    9019: Laguindingan
+    9021: Libertad
+    9025: Lugait
+    9015: Magsaysay
+
+	
+
+    9024: Manticao
+    9013: Medina
+    9023: Naawan
+    9016: Opol
+    9007: Salay
+    9009: Sugbungcogon
+    9001: Tagoloan
+    9012: Talisayan
+    9002: Villanueva
+
+Mountain Province
+
+    2623: Barlig
+    2621: Bauko
+    2618: Besao
+    2616: Bontoc
+    2624: Natonin
+    2625: Paracelis
+    2622: Sabangan
+    2617: Sadanga
+    2619: Sagada
+    2620: Tadian
+
+Negros Occidental
+
+    6100: Bacolod City
+    6101: Bago City
+    6107: Binalbagan City
+    6121: Cadiz City
+    6126: Calatrava
+    6110: Candoni
+    6118: Enrique Magalona
+    6124: Escalante City
+    6108: Himamaylan City
+    6106: Hinigaran City
+    6114: Hinoba-an
+
+	
+
+    6109: Ilog
+    6128: Isabela
+    6111: Kabankalan City
+    6112: Cauayan
+    6130: La Carlota City
+    6131: La Castillana
+    6120: Manapla
+    6132: Moises Padilla
+    6129: Murcia
+    6123: Paraiso (Fabrica)
+    6105: Pontevedra
+
+	
+
+    6102: Pulupandan
+    6122: Sagay City
+    6127: San Carlos City
+    6104: San Enrique
+    6116: Silay City
+    6117: Silay Hawaiian Central
+    6113: Sipalay City
+    6115: Talisay City
+    6125: Toboso
+    6103: Valladolid
+    6119: Victorias City
+
+Negros Oriental
+
+    6203: Amlan
+    6210: Ayungon
+    6216: Bacong
+    6206: Bais City
+    6222: Basay
+    6221: Bayawan City
+    6209: Bindoy
+    6223: Canlaon City
+
+	
+
+    6217: Dauin
+    6200: Dumaguete City
+    6214: Guihulngan
+    6212: Jimalalud
+    6213: La Libertad
+    6207: Mabinay
+    6208: Manjuyod
+    6205: Pamplona
+
+	
+
+    6202: San Jose
+    6219: Siaton
+    6201: Sibulan
+    6220: Sta. Catalina
+    6204: Tanjay City
+    6211: Tayasan
+    6215: Valencia
+    6224: Valle Hermoso
+
+6218: Zamboanguita
+Northern Samar
+
+    6405: Allen
+    6410: Biri
+    6401: Bobon
+    6408: Capul
+    6400: Catarman
+    6418: Catubig
+    6422: Gamay
+    6411: Laoang
+
+	
+
+    6423: Lapinig
+    6420: Las Navas
+    6404: Lavezares
+    6403: Lope de Vega
+    6412: Mapanas
+    6417: Mondragon
+    6421: Palapag
+    6413: Pambujan
+
+	
+
+    6416: Rosario
+    6407: San Antonio
+    6409: San Isidro
+    6402: San Jose
+    6415: San Roque
+    6419: San Vicente
+    6414: Silvino Lobos
+    6406: Victoria
+
+Nueva Ecija
+
+    3111: Aliaga
+    3128: Bongabon
+    3100: Cabanatuan City
+    3107: Cabiao
+    3123: Carranglan
+    3120: Central Luzon State University
+    3117: Cuyapo
+    3130: Fort Magsaysay
+    3131: Gabaldon
+    3105: Gapan City
+    3125: General M. Natividad
+
+	
+
+    3104: General Tinio
+    3115: Guimba
+    3109: Jaen
+    3129: Laur
+    3112: Licab
+    3126: Llanera
+    3122: Lupao
+    3119: Science City of Muñoz
+    3116: Nampicuan
+    3132: Palayan City
+    3124: Pantabangan
+
+	
+
+    3103: Peñaranda
+    3113: Quezon
+    3127: Rizal
+    3108: San Antonio
+    3106: San Isidro
+    3121: San Jose City
+    3102: San Leonardo
+    3101: Santa Rosa
+    3133: Santo Domingo
+    3114: Talavera
+    3118: Talugtog
+    3110: Zaragoza
+
+Nueva Vizcaya
+
+    3714: Alfonso Castañeda
+    3701: Ambaguio
+    3704: Aritao
+    3711: Bagabag
+    3702: Bambang
+
+	
+
+    3700: Bayombong
+    3712: Diadi
+    3706: Dupax del Norte
+    3707: Dupax del Sur
+    3703: Kasibu
+
+	
+
+    3708: Kayapa
+    3714: Quezon
+    3709: Solano
+    3705: Santa Fe (Imugan)
+    3710: Villa Verde (Ibung)
+
+Occidental Mindoro
+
+    5108: Abra de Ilog
+    5102: Calintaan
+    5111: Looc
+    5109: Lubang
+    5101: Magsaysay
+    5106: Mamburao
+
+	
+
+    5107: Paluan
+    5103: Rizal
+    5104: Sablayan
+    5100: San Jose
+    5105: Santa Cruz
+    5110: Tilik
+
+Oriental Mindoro
+
+    5201: Baco
+    5210: Bansud
+    5211: Bongabon
+    5214: Bulalacao
+    5200: Calapan
+
+	
+
+    5209: Gloria
+    5213: Mansalay
+    5204: Naujan
+    5208: Pinamalayan
+    5206: Pola
+
+	
+
+    5203: Puerto Galera
+    5212: Roxas
+    5202: San Teodoro
+    5207: Socorro
+    5205: Victoria
+
+Palawan
+
+    5300: Puerto Princesa
+    5301: Iwahig Penal Colony
+    5302: Aborlan
+    5303: Narra (Panacan)
+    5304: Quezon
+    5305: Brooke's Point
+    5306: Bataraza
+
+	
+
+    5307: Balabac
+    5308: Roxas
+    5309: San Vicente
+    5310: Dumaran
+    5311: Araceli
+    5312: Taytay
+    5313: El Nido (Bacuit)
+    5314: Linapacan
+
+	
+
+    5315: Culion
+    5316: Coron
+    5317: Busuanga
+    5318: Cuyo
+    5319: Magsaysay
+    5320: Agutaya
+    5321: Cagayancillo
+    5322: Kalayaan
+
+Pampanga
+
+    2009: Angeles City/Clark Special Economic ZoneBalibago a Barangay in Angeles city has its own zip code 2024
+    2016: Apalit
+    2012: Arayat
+    2001: Bacolor
+    2007: Basa Airbase
+    2013: Candaba
+    2006: Floridablanca
+
+	
+
+    2003: Guagua
+    2005: Lubao
+    2010: Mabalacat
+    2018: Macabebe
+    2011: Magalang
+    2017: Masantol
+    2021: Mexico
+    2019: Minalin
+
+	
+
+    2008: Porac
+    2000: City of San Fernando
+    2014: San Luis
+    2015: San Simon
+    2022: Santa Ana
+    2002: Santa Rita
+    2020: Santo Tomas
+    2004: Sasmuan (Sexmoan)
+
+Pangasinan
+
+    2408: Agno
+    2415: Aguilar
+    2404: Alaminos
+    2425: Alcala
+    2405: Anda
+    2439: Asingan
+    2442: Balungao
+    2407: Bani
+    2422: Basista
+    2424: Bautista
+    2423: Bayambang
+    2436: Binalonan
+    2417: Binmaley
+    2406: Bolinao
+    2416: Bugallon
+    2410: Burgos
+
+	
+
+    2418: Calasiao
+    2400: Dagupan City
+    2411: Dasol
+    2412: Infanta
+    2402: Labrador
+    2437: Laoac
+    2401: Lingayen
+    2409: Mabini
+    2421: Malasiqui
+    2430: Manaoag
+    2432: Mangaldan
+    2413: Mangatarem
+    2429: Mapandan
+    2446: Natividad
+    2435: Pozorrubio
+    2441: Rosales
+
+	
+
+    2420: San Carlos City
+    2433: San Fabian
+    2431: San Jacinto
+    2438: San Manuel
+    2447: San Nicolas
+    2444: San Quintin
+    2419: Santa Barbara
+    2440: Santa Maria
+    2426: Santo Tomas
+    2434: Sison
+    2403: Sual
+    2445: Tayug
+    2443: Umingan
+    2414: Urbiztondo
+    2428: Urdaneta
+    2427: Villasis
+
+Quezon
+
+    4304: Agdangan
+    4333: Alabat
+    4331: Atimonan
+    4320: Buenavista
+    4340: Burdeos
+    4318: Calauag
+    4323: Candelaria
+    4311: Catanauan
+    4326: Dolores
+    4310: General Antonio Luna
+    4338: General Nakar
+    4319: Guinayangan
+    4307: Gumaca
+    4317: Hondagua
+
+	
+
+    4336: Infanta
+    4342: Jomalig
+    4316: Lopez
+    4328: Lucban
+    4301: Lucena City
+    4309: Macalelon
+    4330: Mauban
+    4312: Mulanay
+    4303: Padre Burgos
+    4302: Pagbilao
+    4337: Panukulan
+    4341: Patnanungan
+    4334: Perez
+    4308: Pitogo
+    4306: Plaridel
+
+	
+
+    4339: Polilio
+    4332: Quezon
+    4300: Provincial Capitol, Lucena City
+    4335: Real
+    4329: Sampaloc
+    4314: San Andres
+    4324: San Antonio
+    4315: San Francisco (Aurora)
+    4313: San Narciso
+    4322: Sariaya
+    4321: Tagkawayan
+    4327: Tayabas
+    4325: Tiaong
+    4305: Unisan
+
+Quirino
+
+    3400: Cabarroguis
+    3401: Diffun
+    3402: Saguday
+    3403: Aglipay
+    3404: Maddela
+    3405: Nagtipunan (Abbag)
+
+Rizal
+
+    1850: San Mateo
+    1860: Rodriguez
+    1870: Antipolo City
+    1880: Teresa
+    1900: Cainta
+    1910: Pililla
+    1920: Taytay
+
+	
+
+    1930: Angono
+    1940: Binangonan
+    1950: Cardona
+    1960: Morong
+    1970: Baras
+    1980: Tanay
+    1900: Jalajala
+
+Romblon
+
+    5509: Alcantara
+    5515: Banton (Jones)
+    5512: Cajidiocan
+    5503: Calatrava
+    5516: Concepcion
+
+	
+
+    5514: Corcuera
+    5506: Ferrol
+    5502: Imelda
+    5507: Looc
+    5511: Magdiwang
+    5505: Odiongan
+
+	
+
+    5500: Romblon
+    5501: San Agustin
+    5504: San Andres
+    5513: San Fernando
+    5510: San Jose
+    5508: Santa Fe
+
+Sarangani
+
+    9501: Alabel
+    9517: Glan
+    9514: Kiamba
+    9502: Maasim
+    9515: Maitum
+    9516: Malapatan
+    9503: Malungon
+
+Shariff Kabunsuan
+
+    9614: Barira
+    9615: Buldon
+    9601: Datu Odin Sinsuat (Dinaig)
+    9606: Kabuntalan/Northern Kabuntalan
+    9613: Matanog
+    9604: Parang
+    9605: Sultan Kudarat/Sultan Mastura
+    9602: Upi/Datu Blah T. Sinsuat
+    9603: Ampatuan City
+
+Siquijor
+
+    6230: Enrique Villanueva
+    6226: Larena
+    6228: Lazi
+    6229: Maria
+    6227: San Juan
+    6225: Siquij
+
+Sorsogon
+
+    4701: Bacon
+    4712: Barcelona
+    4706: Bulan
+    4704: Bulusan
+    4702: Casiguran
+
+	
+
+    4713: Castilla
+    4715: Donsol
+    4710: Gubat
+    4707: Irosin
+    4703: Juban
+
+	
+
+    4705: Magallanes
+    4708: Matnog
+    4714: Pilar
+    4711: Prieto Diaz
+    4709: Santa Magdalena
+    4700: Sorsogon
+
+South Cotabato
+
+    9511: Banga
+    9500: General Santos City (Dadiangas)
+    9506: Koronadal City
+    9508: Norala
+    9504: Polomolok
+    9509: Sto. Niño
+    9512: Surallah
+    9507: Tampakan
+    9510: Tantangan
+    9513: T'Boli
+    9505: Tupi
+
+Southern Leyte
+
+    6610: Anahawan
+    6604: Bontoc
+    6608: Hinunangan
+    6609: Hinundayan
+    6615: Libagon
+    6612: Liloan
+
+	
+
+    6600: Maasin
+    6601: Macrohon
+    6603: Malitbog
+    6602: Padre Burgos
+    6614: Pintuyan
+    6613: San Francisco
+
+	
+
+    6611: San Juan (Cabalian)
+    6617: San Ricardo
+    6607: Silago
+    6606: Sogod
+    6616: St. Bernard
+    6605: Tomas Oppus
+
+Sultan Kudarat
+
+    9810: Bagumbayan
+    9801: Columbio
+    9806: Esperanza (Ampatuan)
+    9805: Isulan
+    9808: Kalamansig
+    9807: Lebak (Salaman)
+
+	
+
+    9803: Lutayan
+    9802: Mariano Marcos
+    9809: Palimbang
+    9804: Pres. Quirino
+    9811: Sen. Ninoy Aquino
+    9800: Tacurong
+
+Sulu
+
+    7407: Indanan
+    7400: Jolo
+    7416: Kalingalan Kalauang
+    7411: Lugus
+    7404: Luuk
+
+	
+
+    7409: Maimbung
+    7413: Marungas
+    7402: Panamao
+    7415: Panglima Estino
+    7414: Panguntaran
+    7408: Parang
+
+	
+
+    7405: Pata
+    7401: Patikul
+    7412: Siasi
+    7403: Talipao
+    7410: Tapul
+    7406: Tongkil
+
+Surigao del Norte
+
+    8425: Alegria
+    8408: Bacuag
+    8424: Burgos
+    8410: Claver
+    8417: Dapa
+    8418: Del Carmen
+    8419: Gen. Luna
+
+	
+
+    8409: Gigaquit
+    8407: Mainit
+    8402: Malimano
+    8420: Pilar
+    8405: Placer
+    8423: San Benito
+    8401: San Francisco
+
+	
+
+    8421: San Isidro
+    8422: Santa Monica
+    8404: Sison
+    8416: Socorro
+    8400: Surigao City
+    8403: Tagana-an
+    8406: Tubod
+
+Surigao del Sur
+
+    8309: Barobo
+    8303: Bayabas
+    8311: Bislig
+    8304: Cagwait
+    8317: Cantillan
+    8315: Carmen
+
+	
+
+    8318: Carrascal
+    8313: Cortez
+    8310: Hinatuan
+    8314: Lanuza
+    8307: Lianga
+    8312: Lingig
+
+	
+
+    8316: Madrid
+    8306: Marihatag
+    8305: San Agustin
+    8301: San Miguel
+    8308: Tagbina
+    8302: Tago
+    8300: Tandag
+
+Tarlac
+
+    2310: Anao
+    2317: Bamban
+    2306: Camiling
+    2333: Capas
+    2316: Concepcion
+    2302: Gerona
+
+	
+
+    2314: La Paz
+    2304: Mayantoc
+    2334: Moncada
+    2307: [Paniqui]
+    2312: Pura
+    2311: Ramos
+
+	
+
+    2305: San Clemente
+    2309: San Manuel
+    2301: San Jose
+    2303: Santa Ignacia
+    2300: Tarlac City
+    2313: Victoria
+
+
+    7500: Bongao
+    7508: Mapun (Cagayan de Sulu)
+    7509: Languyan
+    7501: Panglima Sugala (Balimbing)
+    7503: Sapa-Sapa
+
+| width="50%" align="left" valign="top" |
+
+    7505: Simunul
+    7506: Sitangkai
+    7504: South Ubian
+    7507: Turtle Island (Taganak)
+    7502: Tandubas
+
+|}
+Western Samar
+
+    6724: Almagro
+    6720: Basey
+    6710: Calbayog City
+    6715: Calbiga
+    6700: Catbalogan
+    6722: Daram
+    6706: Gandara
+    6713: Hinabangan
+    6701: Jiabong
+
+	
+
+    6721: Marabut
+    6708: Matuguinao
+    6702: Motiong
+    6705: Pagsanghan
+    6703: Paranas (Wright)
+    6716: Pinabacdao
+    6707: San Jorge
+    6723: San Jose De Buan
+    6714: San Sebastian
+
+	
+
+    6709: Santa Margarita
+    6718: Santa Rita
+    6711: Santo Niño
+    6712: Tagapul-an
+    6719: Talalora
+    6704: Tarangnan
+    6717: Villareal
+    6725: Zumarraga
+
+Zambales
+
+    2202: Botolan
+    2203: Cabangan
+    2212: Candelaria
+    2208: Castillejos
+    2201: Iba
+
+	
+
+    2211: Masinloc
+    2200: Olongapo City
+    2210: Palauig & Scarborough Shoal
+    2206: San Antonio
+    2204: San Felipe
+
+	
+
+    2207: San Marcelino
+    2205: San Narciso
+    2213: Santa Cruz
+    2209: Subic
+    2222: Subic Bay Freeport Zone (Metro Subic)
+
+Zamboanga del Norte
+
+    7123: Baliguian
+    7101: Dapitan City
+    7100: Dipolog City
+    7118: Gutalac
+    7111: Jose Dalman (Ponot)
+    7124: Kalawit
+    7109: Katipunan
+    7119: La Libertad
+    7117: Labason
+    7115: Liloy
+    7110: Manukan
+    7107: Mutia
+    7105: Pinan
+
+	
+
+    7106: Polanco
+    7104: Rizal
+    7102: Roxas
+    7114: Salug
+    7108: Sergio Osmeña
+    7113: Siayan
+    7122: Sibuco
+    7103: Sibutad
+    7112: Sindangan (Leon B. Postigo)
+    7120: Siocon
+    7121: Siraway
+    7116: Tampilisan
+
+Zamboanga del Sur
+
+    7020: Aurora
+    7011: Bayog
+    7032: Dimataling
+    7030: Dinas
+    7015: Dumalinao
+    7028: Dumingag
+    7042: Guipos
+    7027: Josefina
+    7005: Kumalarang
+    7017: Labangan
+    7014: Lakewood
+    7037: Lapuyan
+    7026: Mahayag
+
+	
+
+    7035: Margosatubig
+    7021: Midsalip
+    7023: Molave
+    7016: Pagadian City
+    7033: Pitogo
+    7024: Ramon Magsaysay (Liargo)
+    7029: San Miguel
+    7031: San Pablo
+    7022: Sominot (Don Mariano Marcos)
+    7034: Tabina
+    7025: Tambulig
+    7000: Zamboanga City
+    7043: Tigbao
+    7019: Tukuran
+    7036: Vincenzo A. Sagun
+
+Zamboanga Sibugay
+
+    7040: Alicia
+    7009: Buug
+    7039: Diplahan
+    7007: Imelda
+    7001: Ipil
+
+	
+
+    7005: Kabasalan
+    7010: Mabuhay
+    7038: Malangas
+    7004: Naga
+    7041: Olutanga
+
+	
+
+    7008: Payao
+    7002: Roseller T. Lim
+    7006: Siay
+    7012: Talusan
+    7003: Titay
+    7018: Tungawan

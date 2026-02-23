@@ -27,17 +27,11 @@ $appendDataError = static function (string $label, array $response) use (&$dataL
 };
 
 
-$isAdminScope = strtolower((string)($staffRoleKey ?? '')) === 'admin';
-$officeScopedFilter = (!$isAdminScope && isValidUuid((string)$staffOfficeId))
-    ? '&office_id=eq.' . rawurlencode((string)$staffOfficeId)
-    : '';
-
 $scopeResponse = apiRequest(
     'GET',
     $supabaseUrl
     . '/rest/v1/employment_records?select=person_id,person:people!employment_records_person_id_fkey(first_name,surname,user_id),office:offices(office_name)'
     . '&is_current=eq.true'
-    . $officeScopedFilter
     . '&limit=5000',
     $headers
 );
@@ -68,7 +62,7 @@ foreach ($employmentScopeRows as $scopeRow) {
 }
 
 $personIds = array_keys($scopedPersonMap);
-if (empty($personIds) && !$isAdminScope) {
+if (empty($personIds)) {
     return;
 }
 
@@ -157,6 +151,7 @@ foreach ($attendanceLogs as $log) {
     $attendanceRows[] = [
         'employee_name' => $employee['employee_name'],
         'office_name' => $employee['office_name'],
+        'attendance_date_raw' => cleanText($log['attendance_date'] ?? null) ?? '',
         'date_label' => formatDateTimeForPhilippines(cleanText($log['attendance_date'] ?? null), 'M d, Y'),
         'time_in_label' => formatDateTimeForPhilippines(cleanText($log['time_in'] ?? null), 'h:i A'),
         'time_out_label' => formatDateTimeForPhilippines(cleanText($log['time_out'] ?? null), 'h:i A'),

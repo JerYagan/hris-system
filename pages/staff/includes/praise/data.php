@@ -2,11 +2,16 @@
 
 $praiseAwardRows = [];
 $praiseNominationRows = [];
+$praisePublishQueueRows = [];
+$employeeNomineeOptions = [];
+$awardSelectionOptions = [];
+$cycleSelectionOptions = [];
 $praiseMetrics = [
     'active_awards' => 0,
     'pending_nominations' => 0,
     'approved_nominations' => 0,
     'rejected_nominations' => 0,
+    'ready_to_publish' => 0,
 ];
 $dataLoadError = null;
 
@@ -23,34 +28,6 @@ $appendDataError = static function (string $label, array $response) use (&$dataL
 
     $dataLoadError = $dataLoadError ? ($dataLoadError . ' ' . $message) : $message;
 };
-
-
-$isAdminScope = strtolower((string)($staffRoleKey ?? '')) === 'admin';
-
-$personScopeMap = [];
-if (!$isAdminScope && isValidUuid((string)$staffOfficeId)) {
-    $scopeResponse = apiRequest(
-        'GET',
-        $supabaseUrl
-        . '/rest/v1/employment_records?select=person_id'
-        . '&office_id=eq.' . rawurlencode((string)$staffOfficeId)
-        . '&is_current=eq.true'
-        . '&limit=5000',
-        $headers
-    );
-
-    $appendDataError('PRAISE scope', $scopeResponse);
-    $scopeRows = isSuccessful($scopeResponse) ? (array)($scopeResponse['data'] ?? []) : [];
-
-    foreach ($scopeRows as $scopeRow) {
-        $personId = cleanText($scopeRow['person_id'] ?? null);
-        if ($personId === null || !isValidUuid($personId)) {
-            continue;
-        }
-
-        $personScopeMap[$personId] = true;
-    }
-}
 
 $awardsResponse = apiRequest(
     'GET',
@@ -83,20 +60,80 @@ foreach ($awardRows as $award) {
         'status_label' => $isActive ? 'Active' : 'Inactive',
         'status_class' => $isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700',
     ];
+
+    if ($isActive) {
+        $awardSelectionOptions[] = [
+            'id' => $awardId,
+            'label' => (cleanText($award['award_name'] ?? null) ?? 'Unnamed Award') . ' (' . (cleanText($award['award_code'] ?? null) ?? 'N/A') . ')',
+        ];
+    }
+}
+
+$cyclesResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/performance_cycles?select=id,cycle_name,status,period_start,period_end'
+    . '&status=in.(draft,open,closed,archived)'
+    . '&order=period_start.desc&limit=200',
+    $headers
+);
+$appendDataError('PRAISE cycles', $cyclesResponse);
+$cycleRows = isSuccessful($cyclesResponse) ? (array)($cyclesResponse['data'] ?? []) : [];
+
+foreach ($cycleRows as $cycle) {
+    $cycleId = cleanText($cycle['id'] ?? null) ?? '';
+    if (!isValidUuid($cycleId)) {
+        continue;
+    }
+
+    $cycleName = cleanText($cycle['cycle_name'] ?? null) ?? 'Unnamed Cycle';
+    $periodStart = cleanText($cycle['period_start'] ?? null) ?? '';
+    $periodEnd = cleanText($cycle['period_end'] ?? null) ?? '';
+    $window = $periodStart !== '' && $periodEnd !== '' ? ' [' . $periodStart . ' - ' . $periodEnd . ']' : '';
+
+    $cycleSelectionOptions[] = [
+        'id' => $cycleId,
+        'label' => $cycleName . $window,
+    ];
+}
+
+$employeesResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/employment_records?select=person_id,office:offices(office_name),person:people!employment_records_person_id_fkey(id,first_name,surname,user_id)'
+    . '&is_current=eq.true'
+    . '&limit=5000',
+    $headers
+);
+$appendDataError('PRAISE employees', $employeesResponse);
+$employeeRows = isSuccessful($employeesResponse) ? (array)($employeesResponse['data'] ?? []) : [];
+
+$seenEmployeeNominees = [];
+foreach ($employeeRows as $employee) {
+    $personId = cleanText($employee['person_id'] ?? null) ?? '';
+    if (!isValidUuid($personId) || isset($seenEmployeeNominees[$personId])) {
+        continue;
+    }
+
+    $firstName = cleanText($employee['person']['first_name'] ?? null) ?? '';
+    $surname = cleanText($employee['person']['surname'] ?? null) ?? '';
+    $employeeName = trim($firstName . ' ' . $surname);
+    if ($employeeName === '') {
+        $employeeName = 'Unnamed Employee';
+    }
+
+    $officeName = cleanText($employee['office']['office_name'] ?? null) ?? 'Unassigned Office';
+    $employeeNomineeOptions[] = [
+        'person_id' => $personId,
+        'label' => $employeeName . ' - ' . $officeName,
+    ];
+
+    $seenEmployeeNominees[$personId] = true;
 }
 
 $nominationEndpoint = $supabaseUrl
     . '/rest/v1/praise_nominations?select=id,award_id,nominee_person_id,nominated_by_user_id,cycle_id,justification,status,reviewed_at,created_at,award:award_id(award_name),nominee:nominee_person_id(first_name,surname,user_id),nominator:nominated_by_user_id(email),cycle:cycle_id(cycle_name)'
     . '&order=created_at.desc&limit=2000';
-
-if (!$isAdminScope) {
-    $personIds = array_keys($personScopeMap);
-    if (empty($personIds)) {
-        $nominationEndpoint .= '&id=is.null';
-    } else {
-        $nominationEndpoint .= '&nominee_person_id=in.' . rawurlencode('(' . implode(',', $personIds) . ')');
-    }
-}
 
 $nominationsResponse = apiRequest('GET', $nominationEndpoint, $headers);
 $appendDataError('PRAISE nominations', $nominationsResponse);
@@ -158,4 +195,28 @@ foreach ($nominationRows as $nomination) {
         'submitted_label' => formatDateTimeForPhilippines(cleanText($nomination['created_at'] ?? null), 'M d, Y'),
         'search_text' => strtolower(trim($nomineeName . ' ' . $awardName . ' ' . $cycleName . ' ' . $nominatedBy . ' ' . $statusLabel . ' ' . $justification)),
     ];
+
+    if ($statusRaw === 'approved') {
+        $praiseMetrics['ready_to_publish']++;
+        $praisePublishQueueRows[] = [
+            'id' => $nominationId,
+            'nominee_name' => $nomineeName,
+            'award_name' => $awardName,
+            'cycle_name' => $cycleName,
+            'approved_label' => formatDateTimeForPhilippines(cleanText($nomination['reviewed_at'] ?? null), 'M d, Y h:i A'),
+            'search_text' => strtolower(trim($nomineeName . ' ' . $awardName . ' ' . $cycleName . ' approved')),
+        ];
+    }
 }
+
+usort($employeeNomineeOptions, static function (array $left, array $right): int {
+    return strcmp((string)($left['label'] ?? ''), (string)($right['label'] ?? ''));
+});
+
+usort($awardSelectionOptions, static function (array $left, array $right): int {
+    return strcmp((string)($left['label'] ?? ''), (string)($right['label'] ?? ''));
+});
+
+usort($cycleSelectionOptions, static function (array $left, array $right): int {
+    return strcmp((string)($left['label'] ?? ''), (string)($right['label'] ?? ''));
+});

@@ -26,7 +26,7 @@ $accountRow = isSuccessful($accountResponse) ? ($accountResponse['data'][0] ?? n
 
 $personResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/people?select=id,first_name,middle_name,surname,name_extension,personal_email,mobile_no,user_id&user_id=eq.' . rawurlencode($staffUserId) . '&limit=1',
+    $supabaseUrl . '/rest/v1/people?select=id,first_name,middle_name,surname,name_extension,personal_email,mobile_no,profile_photo_url,user_id&user_id=eq.' . rawurlencode($staffUserId) . '&limit=1',
     $headers
 );
 $appendDataError('Person profile', $personResponse);
@@ -75,6 +75,7 @@ $profileSummary = [
     'username' => cleanText($accountRow['username'] ?? null) ?? '',
     'mobile_no' => cleanText($personRow['mobile_no'] ?? null) ?? cleanText($accountRow['mobile_no'] ?? null) ?? '',
     'personal_email' => cleanText($personRow['personal_email'] ?? null) ?? '',
+    'profile_photo_url' => cleanText($personRow['profile_photo_url'] ?? null) ?? '',
     'role_name' => cleanText($roleRow['role']['role_name'] ?? null) ?? cleanText($staffRoleName ?? null) ?? 'Staff',
     'office_name' => cleanText($roleRow['office']['office_name'] ?? null) ?? cleanText($staffOfficeName ?? null) ?? 'Organization Scope',
     'account_status' => $accountStatusLabel,
@@ -82,3 +83,10 @@ $profileSummary = [
     'last_login' => formatDateTimeForPhilippines(cleanText($accountRow['last_login_at'] ?? null), 'M d, Y · h:i A'),
     'member_since' => formatDateTimeForPhilippines(cleanText($accountRow['created_at'] ?? null), 'M d, Y'),
 ];
+
+$rawProfilePhotoPath = trim((string)($profileSummary['profile_photo_url'] ?? ''));
+$profileSummary['resolved_profile_photo_url'] = $rawProfilePhotoPath === ''
+    ? ''
+    : (str_starts_with($rawProfilePhotoPath, 'http://') || str_starts_with($rawProfilePhotoPath, 'https://') || str_starts_with($rawProfilePhotoPath, '/')
+        ? $rawProfilePhotoPath
+        : '/hris-system/storage/document/' . ltrim($rawProfilePhotoPath, '/'));

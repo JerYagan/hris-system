@@ -3,6 +3,11 @@ require_once __DIR__ . '/includes/reports/bootstrap.php';
 require_once __DIR__ . '/includes/reports/actions.php';
 require_once __DIR__ . '/includes/reports/data.php';
 
+if (!headers_sent()) {
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+}
+
 $pageTitle = 'Reports | Staff';
 $activePage = 'reports.php';
 $breadcrumbs = ['Reports'];
@@ -14,8 +19,8 @@ ob_start();
 ?>
 
 <div class="mb-6">
-    <h1 class="text-2xl font-bold text-gray-800">Reports and Exports</h1>
-    <p class="text-sm text-gray-500">Generate office-scoped HR analytics and export attendance, payroll, performance, document, and recruitment reports.</p>
+    <h1 class="text-2xl font-bold text-gray-800">Reports and Analytics</h1>
+    <p class="text-sm text-gray-500">Review operational HR insights for timekeeping, payroll, and recruitment, then export reports from the latest organization-wide records.</p>
 </div>
 
 <?php if ($state && $message): ?>
@@ -152,7 +157,7 @@ $employeeStatusPill = static function (string $status): string {
                     </tr>
                 <?php else: ?>
                     <?php foreach ($employeeRows as $row): ?>
-                        <tr data-staff-report-row data-staff-report-search="<?= htmlspecialchars((string)$row['search_text'], ENT_QUOTES, 'UTF-8') ?>" data-staff-report-status="<?= htmlspecialchars((string)$row['status_label'], ENT_QUOTES, 'UTF-8') ?>" data-staff-report-department="<?= htmlspecialchars((string)$row['department'], ENT_QUOTES, 'UTF-8') ?>">
+                        <tr data-report-row="employees" data-report-search="<?= htmlspecialchars((string)$row['search_text'], ENT_QUOTES, 'UTF-8') ?>" data-report-status="<?= htmlspecialchars((string)$row['status_label'], ENT_QUOTES, 'UTF-8') ?>" data-report-department="<?= htmlspecialchars((string)$row['department'], ENT_QUOTES, 'UTF-8') ?>" data-report-date="">
                             <td class="px-4 py-3 font-medium text-slate-800"><?= htmlspecialchars((string)$row['name'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)$row['person_id'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)$row['department'], ENT_QUOTES, 'UTF-8') ?></td>
@@ -166,14 +171,46 @@ $employeeStatusPill = static function (string $status): string {
                 </tr>
             </tbody>
         </table>
+
+        <div id="staffReportEmployeesPagination" class="mt-4 flex items-center justify-between gap-3 text-sm text-slate-600">
+            <p id="staffReportEmployeesPaginationInfo">Showing 0 to 0 of 0 entries</p>
+            <div class="flex items-center gap-2">
+                <button type="button" id="staffReportEmployeesPrev" class="px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50">Previous</button>
+                <span id="staffReportEmployeesPageLabel">Page 1 of 1</span>
+                <button type="button" id="staffReportEmployeesNext" class="px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50">Next</button>
+            </div>
+        </div>
     </div>
 </section>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800">Attendance and Payroll Summary</h2>
-        <p class="text-sm text-slate-500 mt-1">Rolling 30-day comparison against the previous 30-day window.</p>
+        <h2 class="text-lg font-semibold text-slate-800">Operational Analytics Snapshot</h2>
+        <p class="text-sm text-slate-500 mt-1">Organization-wide trend indicators for timekeeping, payroll, and recruitment.</p>
     </header>
+
+    <div class="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 text-sm">
+        <article class="rounded-xl border border-slate-200 p-4 bg-slate-50">
+            <p class="text-xs uppercase tracking-wide text-slate-500">Attendance (Present)</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)$attendancePresentCount, ENT_QUOTES, 'UTF-8') ?></p>
+            <p class="text-xs text-slate-500 mt-1">Present logs captured in the latest dataset.</p>
+        </article>
+        <article class="rounded-xl border border-slate-200 p-4 bg-amber-50">
+            <p class="text-xs uppercase tracking-wide text-amber-700">Payroll Records</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)$payrollProcessedCount, ENT_QUOTES, 'UTF-8') ?></p>
+            <p class="text-xs text-slate-500 mt-1">Payroll item records included in summaries.</p>
+        </article>
+        <article class="rounded-xl border border-slate-200 p-4 bg-emerald-50">
+            <p class="text-xs uppercase tracking-wide text-emerald-700">Net Payroll</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars($money((float)$payrollTotalNet), ENT_QUOTES, 'UTF-8') ?></p>
+            <p class="text-xs text-slate-500 mt-1">Total net amount across payroll summary rows.</p>
+        </article>
+        <article class="rounded-xl border border-slate-200 p-4 bg-indigo-50">
+            <p class="text-xs uppercase tracking-wide text-indigo-700">Recruitment (Submitted)</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)$recruitmentSubmittedCount, ENT_QUOTES, 'UTF-8') ?></p>
+            <p class="text-xs text-slate-500 mt-1">Submitted applications in recruitment metrics.</p>
+        </article>
+    </div>
 
     <div class="p-6 overflow-x-auto">
         <table class="w-full text-sm">
@@ -215,11 +252,286 @@ $employeeStatusPill = static function (string $status): string {
     </div>
 </section>
 
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-800">Timekeeping Trends</h2>
+        <p class="text-sm text-slate-500 mt-1">Analyze attendance activity by date range, department, and attendance status.</p>
+    </header>
+
+    <div class="px-6 pt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 text-sm">
+        <div class="xl:col-span-2">
+            <label class="text-slate-600" for="staffReportTimekeepingSearch">Search</label>
+            <input id="staffReportTimekeepingSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Search employee, department, status, or date">
+        </div>
+        <div>
+            <label class="text-slate-600" for="staffReportTimekeepingStartDate">Date From</label>
+            <input id="staffReportTimekeepingStartDate" type="date" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+        </div>
+        <div>
+            <label class="text-slate-600" for="staffReportTimekeepingEndDate">Date To</label>
+            <input id="staffReportTimekeepingEndDate" type="date" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+        </div>
+        <div>
+            <label class="text-slate-600" for="staffReportTimekeepingDepartmentFilter">Department</label>
+            <select id="staffReportTimekeepingDepartmentFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                <option value="">All Departments</option>
+                <?php foreach ($timekeepingDepartmentFilters as $departmentName): ?>
+                    <option value="<?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div>
+            <label class="text-slate-600" for="staffReportTimekeepingStatusFilter">Attendance Status</label>
+            <select id="staffReportTimekeepingStatusFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                <option value="">All Statuses</option>
+                <?php foreach ($timekeepingStatusFilters as $statusLabel): ?>
+                    <option value="<?= htmlspecialchars((string)$statusLabel, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$statusLabel, ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+    </div>
+
+    <div class="p-6 overflow-x-auto">
+        <table id="staffReportTimekeepingTable" class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600">
+                <tr>
+                    <th class="text-left px-4 py-3">Date</th>
+                    <th class="text-left px-4 py-3">Employee</th>
+                    <th class="text-left px-4 py-3">Department</th>
+                    <th class="text-left px-4 py-3">Status</th>
+                    <th class="text-left px-4 py-3">Late (Minutes)</th>
+                    <th class="text-left px-4 py-3">Hours Worked</th>
+                    <th class="text-left px-4 py-3">Source</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                <?php if (empty($timekeepingRows)): ?>
+                    <tr>
+                        <td class="px-4 py-3 text-slate-500" colspan="7">No timekeeping records found.</td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($timekeepingRows as $row): ?>
+                        <tr
+                            data-report-row="timekeeping"
+                            data-report-search="<?= htmlspecialchars((string)$row['search_text'], ENT_QUOTES, 'UTF-8') ?>"
+                            data-report-department="<?= htmlspecialchars((string)$row['department'], ENT_QUOTES, 'UTF-8') ?>"
+                            data-report-status="<?= htmlspecialchars((string)$row['status_label'], ENT_QUOTES, 'UTF-8') ?>"
+                            data-report-date="<?= htmlspecialchars((string)$row['date_key'], ENT_QUOTES, 'UTF-8') ?>"
+                        >
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['date_label'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 font-medium text-slate-800"><?= htmlspecialchars((string)$row['employee_name'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['department'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['status_label'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['late_minutes'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['hours_worked'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['source_label'], ENT_QUOTES, 'UTF-8') ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+                <tr id="staffReportTimekeepingFilterEmpty" class="hidden">
+                    <td class="px-4 py-3 text-slate-500" colspan="7">No timekeeping records match your filters.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div id="staffReportTimekeepingPagination" class="mt-4 flex items-center justify-between gap-3 text-sm text-slate-600">
+            <p id="staffReportTimekeepingPaginationInfo">Showing 0 to 0 of 0 entries</p>
+            <div class="flex items-center gap-2">
+                <button type="button" id="staffReportTimekeepingPrev" class="px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50">Previous</button>
+                <span id="staffReportTimekeepingPageLabel">Page 1 of 1</span>
+                <button type="button" id="staffReportTimekeepingNext" class="px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50">Next</button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-800">Payroll Summaries</h2>
+        <p class="text-sm text-slate-500 mt-1">Track payroll totals and run progress with department and date filters.</p>
+    </header>
+
+    <div class="px-6 pt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 text-sm">
+        <div class="xl:col-span-2">
+            <label class="text-slate-600" for="staffReportPayrollSearch">Search</label>
+            <input id="staffReportPayrollSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Search employee, period, or department">
+        </div>
+        <div>
+            <label class="text-slate-600" for="staffReportPayrollStartDate">Date From</label>
+            <input id="staffReportPayrollStartDate" type="date" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+        </div>
+        <div>
+            <label class="text-slate-600" for="staffReportPayrollEndDate">Date To</label>
+            <input id="staffReportPayrollEndDate" type="date" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+        </div>
+        <div>
+            <label class="text-slate-600" for="staffReportPayrollDepartmentFilter">Department</label>
+            <select id="staffReportPayrollDepartmentFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                <option value="">All Departments</option>
+                <?php foreach ($payrollDepartmentFilters as $departmentName): ?>
+                    <option value="<?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div>
+            <label class="text-slate-600" for="staffReportPayrollStatusFilter">Run Status</label>
+            <select id="staffReportPayrollStatusFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                <option value="">All Statuses</option>
+                <?php foreach ($payrollStatusFilters as $statusLabel): ?>
+                    <option value="<?= htmlspecialchars((string)$statusLabel, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$statusLabel, ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+    </div>
+
+    <div class="p-6 overflow-x-auto">
+        <table id="staffReportPayrollTable" class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600">
+                <tr>
+                    <th class="text-left px-4 py-3">Period</th>
+                    <th class="text-left px-4 py-3">Employee</th>
+                    <th class="text-left px-4 py-3">Department</th>
+                    <th class="text-left px-4 py-3">Run Status</th>
+                    <th class="text-left px-4 py-3">Gross Pay</th>
+                    <th class="text-left px-4 py-3">Net Pay</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                <?php if (empty($payrollSummaryRows)): ?>
+                    <tr>
+                        <td class="px-4 py-3 text-slate-500" colspan="6">No payroll records found.</td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($payrollSummaryRows as $row): ?>
+                        <tr
+                            data-report-row="payroll"
+                            data-report-search="<?= htmlspecialchars((string)$row['search_text'], ENT_QUOTES, 'UTF-8') ?>"
+                            data-report-department="<?= htmlspecialchars((string)$row['department'], ENT_QUOTES, 'UTF-8') ?>"
+                            data-report-status="<?= htmlspecialchars((string)$row['run_status'], ENT_QUOTES, 'UTF-8') ?>"
+                            data-report-date="<?= htmlspecialchars((string)$row['date_key'], ENT_QUOTES, 'UTF-8') ?>"
+                        >
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['period_label'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 font-medium text-slate-800"><?= htmlspecialchars((string)$row['employee_name'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['department'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['run_status'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['gross_label'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['net_label'], ENT_QUOTES, 'UTF-8') ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+                <tr id="staffReportPayrollFilterEmpty" class="hidden">
+                    <td class="px-4 py-3 text-slate-500" colspan="6">No payroll records match your filters.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div id="staffReportPayrollPagination" class="mt-4 flex items-center justify-between gap-3 text-sm text-slate-600">
+            <p id="staffReportPayrollPaginationInfo">Showing 0 to 0 of 0 entries</p>
+            <div class="flex items-center gap-2">
+                <button type="button" id="staffReportPayrollPrev" class="px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50">Previous</button>
+                <span id="staffReportPayrollPageLabel">Page 1 of 1</span>
+                <button type="button" id="staffReportPayrollNext" class="px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50">Next</button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-800">Recruitment Metrics</h2>
+        <p class="text-sm text-slate-500 mt-1">Monitor recruitment pipeline activity with date range, department, and status filters.</p>
+    </header>
+
+    <div class="px-6 pt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 text-sm">
+        <div class="xl:col-span-2">
+            <label class="text-slate-600" for="staffReportRecruitmentSearch">Search</label>
+            <input id="staffReportRecruitmentSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Search reference, applicant, position, or department">
+        </div>
+        <div>
+            <label class="text-slate-600" for="staffReportRecruitmentStartDate">Date From</label>
+            <input id="staffReportRecruitmentStartDate" type="date" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+        </div>
+        <div>
+            <label class="text-slate-600" for="staffReportRecruitmentEndDate">Date To</label>
+            <input id="staffReportRecruitmentEndDate" type="date" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+        </div>
+        <div>
+            <label class="text-slate-600" for="staffReportRecruitmentDepartmentFilter">Department</label>
+            <select id="staffReportRecruitmentDepartmentFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                <option value="">All Departments</option>
+                <?php foreach ($recruitmentDepartmentFilters as $departmentName): ?>
+                    <option value="<?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div>
+            <label class="text-slate-600" for="staffReportRecruitmentStatusFilter">Application Status</label>
+            <select id="staffReportRecruitmentStatusFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                <option value="">All Statuses</option>
+                <?php foreach ($recruitmentStatusFilters as $statusLabel): ?>
+                    <option value="<?= htmlspecialchars((string)$statusLabel, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$statusLabel, ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+    </div>
+
+    <div class="p-6 overflow-x-auto">
+        <table id="staffReportRecruitmentTable" class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600">
+                <tr>
+                    <th class="text-left px-4 py-3">Submitted Date</th>
+                    <th class="text-left px-4 py-3">Reference No.</th>
+                    <th class="text-left px-4 py-3">Applicant</th>
+                    <th class="text-left px-4 py-3">Position</th>
+                    <th class="text-left px-4 py-3">Department</th>
+                    <th class="text-left px-4 py-3">Status</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                <?php if (empty($recruitmentMetricRows)): ?>
+                    <tr>
+                        <td class="px-4 py-3 text-slate-500" colspan="6">No recruitment records found.</td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($recruitmentMetricRows as $row): ?>
+                        <tr
+                            data-report-row="recruitment"
+                            data-report-search="<?= htmlspecialchars((string)$row['search_text'], ENT_QUOTES, 'UTF-8') ?>"
+                            data-report-department="<?= htmlspecialchars((string)$row['department'], ENT_QUOTES, 'UTF-8') ?>"
+                            data-report-status="<?= htmlspecialchars((string)$row['status_label'], ENT_QUOTES, 'UTF-8') ?>"
+                            data-report-date="<?= htmlspecialchars((string)$row['date_key'], ENT_QUOTES, 'UTF-8') ?>"
+                        >
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['submitted_label'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['reference_no'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 font-medium text-slate-800"><?= htmlspecialchars((string)$row['applicant_name'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['position_title'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['department'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['status_label'], ENT_QUOTES, 'UTF-8') ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+                <tr id="staffReportRecruitmentFilterEmpty" class="hidden">
+                    <td class="px-4 py-3 text-slate-500" colspan="6">No recruitment records match your filters.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div id="staffReportRecruitmentPagination" class="mt-4 flex items-center justify-between gap-3 text-sm text-slate-600">
+            <p id="staffReportRecruitmentPaginationInfo">Showing 0 to 0 of 0 entries</p>
+            <div class="flex items-center gap-2">
+                <button type="button" id="staffReportRecruitmentPrev" class="px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50">Previous</button>
+                <span id="staffReportRecruitmentPageLabel">Page 1 of 1</span>
+                <button type="button" id="staffReportRecruitmentNext" class="px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50">Next</button>
+            </div>
+        </div>
+    </div>
+</section>
+
 <section class="bg-white border border-slate-200 rounded-2xl">
     <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
         <div>
             <h2 class="text-lg font-semibold text-gray-800">Export Reports</h2>
-            <p class="text-sm text-gray-500 mt-1">Generate and download scoped report files with export activity logs.</p>
+            <p class="text-sm text-gray-500 mt-1">Generate and download organization-wide report files with export activity logs.</p>
         </div>
     </header>
 
@@ -235,6 +547,8 @@ $employeeStatusPill = static function (string $status): string {
                 <option value="performance">Performance</option>
                 <option value="documents">Documents</option>
                 <option value="recruitment">Recruitment</option>
+                <option value="training_completion">Training Completion</option>
+                <option value="hired_applicants">Hired Applicants</option>
             </select>
         </div>
         <div>

@@ -32,24 +32,22 @@ ob_start();
 
 <section class="bg-white border rounded-xl mb-6">
     <header class="px-6 py-4 border-b">
-        <h2 class="text-lg font-semibold text-gray-800">Registration Queue</h2>
-        <p class="text-sm text-gray-500 mt-1">Search and filter application registrations, then apply verification decisions.</p>
+        <h2 class="text-lg font-semibold text-gray-800">View Registered Applicants</h2>
+        <p class="text-sm text-gray-500 mt-1">Review applicants by posting, submission date, and screening status.</p>
     </header>
 
     <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-3 gap-3">
         <div class="md:col-span-2">
-            <label for="registrationSearchInput" class="text-sm text-gray-600">Search Requests</label>
-            <input id="registrationSearchInput" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search applicant, posting, email, status">
+            <label for="registrationSearchInput" class="text-sm text-gray-600">Search Applicants</label>
+            <input id="registrationSearchInput" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search by applicant, email, or position">
         </div>
         <div>
-            <label for="registrationStatusFilter" class="text-sm text-gray-600">All Statuses</label>
+            <label for="registrationStatusFilter" class="text-sm text-gray-600">Screening Filter</label>
             <select id="registrationStatusFilter" class="w-full mt-1 border rounded-md px-3 py-2 text-sm">
-                <option value="">All Statuses</option>
-                <option value="submitted">Submitted</option>
-                <option value="screening">Screening</option>
-                <option value="shortlisted">Shortlisted</option>
-                <option value="interview">Interview</option>
-                <option value="offer">Offer</option>
+                <option value="">All</option>
+                <option value="for review">For Review</option>
+                <option value="verified">Verified</option>
+                <option value="disqualified">Disqualified</option>
             </select>
         </div>
     </div>
@@ -59,10 +57,10 @@ ob_start();
             <thead class="bg-gray-50 text-gray-600">
                 <tr>
                     <th class="text-left px-4 py-3">Applicant</th>
-                    <th class="text-left px-4 py-3">Posting</th>
-                    <th class="text-left px-4 py-3">Submitted</th>
-                    <th class="text-left px-4 py-3">Documents</th>
-                    <th class="text-left px-4 py-3">Status</th>
+                    <th class="text-left px-4 py-3">Applied Position</th>
+                    <th class="text-left px-4 py-3">Date Submitted</th>
+                    <th class="text-left px-4 py-3">Initial Screening</th>
+                    <th class="text-left px-4 py-3">Basis</th>
                     <th class="text-left px-4 py-3">Action</th>
                 </tr>
             </thead>
@@ -80,20 +78,16 @@ ob_start();
                             </td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['posting_title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['submitted_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= (int)($row['document_count'] ?? 0) ?></td>
                             <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)($row['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($row['status_label'] ?? 'Unknown'), ENT_QUOTES, 'UTF-8') ?></span></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['basis'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3">
                                 <button
                                     type="button"
                                     data-open-registration-modal
                                     data-application-id="<?= htmlspecialchars((string)($row['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                    data-applicant-name="<?= htmlspecialchars((string)($row['applicant_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                    data-posting-title="<?= htmlspecialchars((string)($row['posting_title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                    data-current-status="<?= htmlspecialchars((string)($row['status_raw'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                    data-current-status-label="<?= htmlspecialchars((string)($row['status_label'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                    class="px-3 py-1.5 text-xs rounded-md border border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm"
                                 >
-                                    Review
+                                    <span class="material-symbols-outlined text-[16px]">person_search</span>View Profile
                                 </button>
                             </td>
                         </tr>
@@ -107,52 +101,84 @@ ob_start();
     </div>
 </section>
 
-<div id="registrationModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4">
-    <div class="w-full max-w-lg rounded-xl bg-white border shadow-lg">
-        <div class="flex items-center justify-between px-6 py-4 border-b">
-            <h3 class="text-lg font-semibold text-gray-800">Review Registration Decision</h3>
-            <button type="button" id="registrationModalClose" class="text-gray-500 hover:text-gray-700" aria-label="Close modal">
-                <span class="material-symbols-outlined">close</span>
-            </button>
+<div id="registrationModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-slate-900/60" data-registration-modal-close="registrationModal"></div>
+    <div class="relative min-h-full flex items-center justify-center p-4">
+        <div class="w-full max-w-3xl max-h-[calc(100vh-2rem)] bg-white rounded-2xl border border-slate-200 shadow-xl flex flex-col overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-slate-800">Applicant Profile</h3>
+                <button type="button" data-registration-modal-close="registrationModal" class="text-slate-500 hover:text-slate-700">✕</button>
+            </div>
+
+            <form id="registrationForm" method="POST" action="applicant-registration.php" class="flex-1 min-h-0 flex flex-col">
+                <input type="hidden" name="form_action" value="save_applicant_decision">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="application_id" id="registrationApplicationId" value="" required>
+
+                <div class="flex-1 min-h-0 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div class="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <p class="text-xs uppercase text-slate-500 tracking-wide">Selected Applicant</p>
+                        <p id="registrationApplicantName" class="text-base font-semibold text-slate-800 mt-1">-</p>
+                        <p id="registrationApplicantMeta" class="text-sm text-slate-600 mt-1">-</p>
+                        <p id="registrationApplicantContact" class="text-xs text-slate-500 mt-2">-</p>
+                        <p id="registrationApplicationRef" class="text-xs text-slate-500 mt-1">-</p>
+                    </div>
+
+                    <div>
+                        <label class="text-slate-600">Decision</label>
+                        <select id="registrationDecision" name="decision" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                            <option value="approve_for_next_stage">Approve for next stage</option>
+                            <option value="disqualify_application">Disqualify application</option>
+                            <option value="return_for_compliance">Return for compliance</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-slate-600">Decision Date</label>
+                        <input type="date" name="decision_date" value="<?= date('Y-m-d') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                    </div>
+                    <div>
+                        <label class="text-slate-600">Basis</label>
+                        <select name="basis" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                            <option value="Meets Minimum Qualification Standards">Meets Minimum Qualification Standards</option>
+                            <option value="Incomplete Documentary Requirements">Incomplete Documentary Requirements</option>
+                            <option value="Did Not Meet Required Eligibility">Did Not Meet Required Eligibility</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="text-slate-600">Notes</label>
+                        <textarea id="registrationDecisionNotes" name="remarks" rows="3" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Add notes for your decision"></textarea>
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <p class="text-slate-600">Submitted Documents</p>
+                        <div class="mt-2 overflow-x-auto border border-slate-200 rounded-lg">
+                            <table class="w-full text-sm">
+                                <thead class="bg-slate-50 text-slate-600">
+                                    <tr>
+                                        <th class="text-left px-3 py-2">Document Type</th>
+                                        <th class="text-left px-3 py-2">File Name</th>
+                                        <th class="text-left px-3 py-2">Uploaded</th>
+                                        <th class="text-left px-3 py-2">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="registrationDocumentsBody" class="divide-y divide-slate-100">
+                                    <tr><td class="px-3 py-3 text-slate-500" colspan="4">No document selected.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="px-6 py-4 border-t border-slate-200 bg-white sticky bottom-0 flex justify-end gap-3">
+                    <button type="button" data-registration-modal-close="registrationModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button>
+                    <button type="submit" id="registrationSubmit" class="px-5 py-2 rounded-md bg-green-700 text-white hover:bg-green-800">Save Decision</button>
+                </div>
+            </form>
         </div>
-
-        <form id="registrationForm" method="POST" action="applicant-registration.php" class="px-6 py-4 space-y-4 text-sm">
-            <input type="hidden" name="form_action" value="registration_decision">
-            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
-            <input type="hidden" name="application_id" id="registrationApplicationId" value="">
-
-            <div>
-                <label class="text-gray-600">Applicant</label>
-                <p id="registrationApplicantName" class="mt-1 text-sm font-medium text-gray-800">-</p>
-            </div>
-            <div>
-                <label class="text-gray-600">Posting</label>
-                <p id="registrationPostingTitle" class="mt-1 text-sm text-gray-700">-</p>
-            </div>
-            <div>
-                <label class="text-gray-600">Current Status</label>
-                <p id="registrationCurrentStatus" class="mt-1 text-sm text-gray-700">-</p>
-            </div>
-            <div>
-                <label for="registrationNewStatus" class="text-gray-600">Decision</label>
-                <select id="registrationNewStatus" name="new_status" class="w-full mt-1 border rounded-md px-3 py-2" required>
-                    <option value="">Select decision</option>
-                    <option value="screening">Move to Screening</option>
-                    <option value="shortlisted">Forward to Shortlisted</option>
-                    <option value="rejected">Reject Application</option>
-                </select>
-            </div>
-            <div>
-                <label for="registrationDecisionNotes" class="text-gray-600">Notes</label>
-                <textarea id="registrationDecisionNotes" name="decision_notes" rows="3" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Add verification notes or endorsement remarks."></textarea>
-            </div>
-            <div class="flex justify-end gap-3">
-                <button type="button" id="registrationModalCancel" class="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
-                <button type="submit" id="registrationSubmit" class="px-4 py-2 rounded-md bg-green-700 text-white hover:bg-green-800">Save Decision</button>
-            </div>
-        </form>
     </div>
 </div>
+
+<script id="registrationViewData" type="application/json"><?= (string)json_encode($registrationViewById, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 
 <script src="../../assets/js/staff/applicant-registration/index.js" defer></script>
 

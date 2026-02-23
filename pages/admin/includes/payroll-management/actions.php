@@ -1141,6 +1141,95 @@ if ($action === 'review_payroll_batch') {
     redirectWithState('success', 'Payroll batch updated successfully.');
 }
 
+if ($action === 'review_salary_adjustment') {
+    $adjustmentId = cleanText($_POST['adjustment_id'] ?? null) ?? '';
+    $decision = strtolower((string)(cleanText($_POST['decision'] ?? null) ?? ''));
+    $notes = cleanText($_POST['notes'] ?? null);
+
+    if (!isValidUuid($adjustmentId)) {
+        redirectWithState('error', 'Invalid salary adjustment selected.');
+    }
+
+    if (!in_array($decision, ['approved', 'rejected'], true)) {
+        redirectWithState('error', 'Invalid salary adjustment decision selected.');
+    }
+
+    $adjustmentResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/payroll_adjustments?select=id,adjustment_code,payroll_item_id,item:payroll_items(id,person_id,person:people(id,user_id))'
+        . '&id=eq.' . $adjustmentId
+        . '&limit=1',
+        $headers
+    );
+
+    $adjustmentRow = $adjustmentResponse['data'][0] ?? null;
+    if (!is_array($adjustmentRow)) {
+        redirectWithState('error', 'Salary adjustment not found.');
+    }
+
+    $previousStatus = 'pending';
+    $lastDecisionResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/activity_logs?select=new_data,created_at'
+        . '&entity_name=eq.payroll_adjustments'
+        . '&action_name=eq.review_payroll_adjustment'
+        . '&entity_id=eq.' . $adjustmentId
+        . '&order=created_at.desc&limit=1',
+        $headers
+    );
+
+    if (isSuccessful($lastDecisionResponse) && !empty((array)($lastDecisionResponse['data'] ?? []))) {
+        $lastLogRow = (array)$lastDecisionResponse['data'][0];
+        $newData = is_array($lastLogRow['new_data'] ?? null) ? (array)$lastLogRow['new_data'] : [];
+        $previousStatus = strtolower((string)(cleanText($newData['review_status'] ?? null) ?? 'pending'));
+        if (!in_array($previousStatus, ['pending', 'approved', 'rejected'], true)) {
+            $previousStatus = 'pending';
+        }
+    }
+
+    if ($previousStatus !== 'pending') {
+        redirectWithState('error', 'This salary adjustment has already been reviewed.');
+    }
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $adminUserId !== '' ? $adminUserId : null,
+            'module_name' => 'payroll_management',
+            'entity_name' => 'payroll_adjustments',
+            'entity_id' => $adjustmentId,
+            'action_name' => 'review_payroll_adjustment',
+            'old_data' => ['review_status' => $previousStatus],
+            'new_data' => ['review_status' => $decision, 'notes' => $notes],
+            'ip_address' => clientIp(),
+        ]]
+    );
+
+    $personRow = is_array($adjustmentRow['item']['person'] ?? null) ? (array)$adjustmentRow['item']['person'] : [];
+    $recipientUserId = cleanText($personRow['user_id'] ?? null) ?? '';
+    if (isValidUuid($recipientUserId)) {
+        $adjustmentCode = cleanText($adjustmentRow['adjustment_code'] ?? null) ?? 'Salary adjustment';
+        apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/notifications',
+            array_merge($headers, ['Prefer: return=minimal']),
+            [[
+                'recipient_user_id' => $recipientUserId,
+                'category' => 'payroll',
+                'title' => 'Salary Adjustment Reviewed',
+                'body' => $adjustmentCode . ' has been ' . $decision . ' by Admin.',
+                'link_url' => '/hris-system/pages/employee/payroll.php',
+            ]]
+        );
+    }
+
+    redirectWithState('success', 'Salary adjustment marked as ' . $decision . '.');
+}
+
 if ($action === 'release_payslips') {
     $runId = cleanText($_POST['payroll_run_id'] ?? null) ?? '';
     $recipientGroup = cleanText($_POST['recipient_group'] ?? null) ?? 'all_active';

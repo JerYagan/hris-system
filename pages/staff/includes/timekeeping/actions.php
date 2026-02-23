@@ -5,24 +5,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $action = cleanText($_POST['form_action'] ?? null) ?? '';
+$actorUserId = isValidUuid((string)($staffUserId ?? '')) ? (string)$staffUserId : null;
 
 if (!isValidCsrfToken($_POST['csrf_token'] ?? null)) {
     redirectWithState('error', 'Invalid request token. Please refresh and try again.');
 }
 
-$isAdminScope = strtolower((string)($staffRoleKey ?? '')) === 'admin';
-$resolvedStaffOfficeId = cleanText($staffOfficeId ?? null) ?? '';
-
-$isPersonInScope = static function (string $personId) use ($isAdminScope, $resolvedStaffOfficeId, $supabaseUrl, $headers): bool {
+$isPersonInScope = static function (string $personId) use ($supabaseUrl, $headers): bool {
     if (!isValidUuid($personId)) {
-        return false;
-    }
-
-    if ($isAdminScope) {
-        return true;
-    }
-
-    if (!isValidUuid($resolvedStaffOfficeId)) {
         return false;
     }
 
@@ -31,7 +21,6 @@ $isPersonInScope = static function (string $personId) use ($isAdminScope, $resol
         $supabaseUrl
         . '/rest/v1/employment_records?select=id'
         . '&person_id=eq.' . rawurlencode($personId)
-        . '&office_id=eq.' . rawurlencode($resolvedStaffOfficeId)
         . '&is_current=eq.true'
         . '&limit=1',
         $headers
@@ -59,13 +48,35 @@ $notifyRequester = static function (string $recipientUserId, string $title, stri
     );
 };
 
-$writeActivityLog = static function (string $entityName, string $entityId, string $actionName, array $oldData, array $newData) use ($supabaseUrl, $headers, $staffUserId): void {
+$notifyAdmins = static function (string $title, string $body) use ($supabaseUrl, $headers): void {
+    $adminUserIdMap = fetchActiveRoleUserIdMap($supabaseUrl, $headers, 'admin');
+    foreach (array_keys($adminUserIdMap) as $adminUserId) {
+        if (!isValidUuid((string)$adminUserId)) {
+            continue;
+        }
+
+        apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/notifications',
+            array_merge($headers, ['Prefer: return=minimal']),
+            [[
+                'recipient_user_id' => (string)$adminUserId,
+                'category' => 'timekeeping',
+                'title' => $title,
+                'body' => $body,
+                'link_url' => '/hris-system/pages/admin/timekeeping.php',
+            ]]
+        );
+    }
+};
+
+$writeActivityLog = static function (string $entityName, string $entityId, string $actionName, array $oldData, array $newData) use ($supabaseUrl, $headers, $actorUserId): void {
     apiRequest(
         'POST',
         $supabaseUrl . '/rest/v1/activity_logs',
         array_merge($headers, ['Prefer: return=minimal']),
         [[
-            'actor_user_id' => $staffUserId,
+            'actor_user_id' => $actorUserId,
             'module_name' => 'timekeeping',
             'entity_name' => $entityName,
             'entity_id' => $entityId,
@@ -105,7 +116,7 @@ if ($action === 'review_leave_request') {
     $recipientUserId = cleanText($requestRow['person']['user_id'] ?? null) ?? '';
 
     if (!$isPersonInScope($personId)) {
-        redirectWithState('error', 'Leave request is outside your office scope.');
+        redirectWithState('error', 'Leave request target is invalid or no longer active.');
     }
 
     $oldStatus = strtolower((string)(cleanText($requestRow['status'] ?? null) ?? 'pending'));
@@ -113,38 +124,31 @@ if ($action === 'review_leave_request') {
         redirectWithState('error', 'Invalid leave request transition from ' . $oldStatus . ' to ' . $decision . '.');
     }
 
-    $updateResponse = apiRequest(
-        'PATCH',
-        $supabaseUrl . '/rest/v1/leave_requests?id=eq.' . rawurlencode($requestId),
-        array_merge($headers, ['Prefer: return=minimal']),
-        [
-            'status' => $decision,
-            'reviewed_by' => $staffUserId,
-            'reviewed_at' => gmdate('c'),
-            'review_notes' => $notes,
-            'updated_at' => gmdate('c'),
-        ]
-    );
-
-    if (!isSuccessful($updateResponse)) {
-        redirectWithState('error', 'Failed to update leave request status.');
-    }
-
     $notifyRequester(
         $recipientUserId,
-        'Leave Request Updated',
-        'Your leave request was marked as ' . str_replace('_', ' ', $decision) . '.'
+        'Leave Recommendation Submitted',
+        'A staff recommendation (' . str_replace('_', ' ', $decision) . ') was submitted for your leave request. Final approval will be done by admin.'
+    );
+
+    $notifyAdmins(
+        'Leave Recommendation Pending Approval',
+        'A staff recommendation was submitted for a leave request: ' . str_replace('_', ' ', $decision) . '. Please review for final decision.'
     );
 
     $writeActivityLog(
         'leave_requests',
         $requestId,
-        'review_leave_request',
+        'recommend_leave_request',
         ['status' => $oldStatus],
-        ['status' => $decision, 'notes' => $notes]
+        [
+            'status' => $oldStatus,
+            'recommended_status' => $decision,
+            'notes' => $notes,
+            'submitted_for_admin_approval' => true,
+        ]
     );
 
-    redirectWithState('success', 'Leave request updated successfully.');
+    redirectWithState('success', 'Leave recommendation submitted to admin for final approval.');
 }
 
 if ($action === 'review_overtime_request') {
@@ -175,7 +179,7 @@ if ($action === 'review_overtime_request') {
     $recipientUserId = cleanText($requestRow['person']['user_id'] ?? null) ?? '';
 
     if (!$isPersonInScope($personId)) {
-        redirectWithState('error', 'Overtime request is outside your office scope.');
+        redirectWithState('error', 'Overtime request target is invalid or no longer active.');
     }
 
     $oldStatus = strtolower((string)(cleanText($requestRow['status'] ?? null) ?? 'pending'));
@@ -183,36 +187,31 @@ if ($action === 'review_overtime_request') {
         redirectWithState('error', 'Invalid overtime request transition from ' . $oldStatus . ' to ' . $decision . '.');
     }
 
-    $updateResponse = apiRequest(
-        'PATCH',
-        $supabaseUrl . '/rest/v1/overtime_requests?id=eq.' . rawurlencode($requestId),
-        array_merge($headers, ['Prefer: return=minimal']),
-        [
-            'status' => $decision,
-            'approved_by' => $staffUserId,
-            'approved_at' => gmdate('c'),
-        ]
-    );
-
-    if (!isSuccessful($updateResponse)) {
-        redirectWithState('error', 'Failed to update overtime request status.');
-    }
-
     $notifyRequester(
         $recipientUserId,
-        'Overtime Request Updated',
-        'Your overtime request was marked as ' . str_replace('_', ' ', $decision) . '.'
+        'Overtime Recommendation Submitted',
+        'A staff recommendation (' . str_replace('_', ' ', $decision) . ') was submitted for your overtime request. Final approval will be done by admin.'
+    );
+
+    $notifyAdmins(
+        'Overtime Recommendation Pending Approval',
+        'A staff recommendation was submitted for an overtime request: ' . str_replace('_', ' ', $decision) . '. Please review for final decision.'
     );
 
     $writeActivityLog(
         'overtime_requests',
         $requestId,
-        'review_overtime_request',
+        'recommend_overtime_request',
         ['status' => $oldStatus],
-        ['status' => $decision, 'notes' => $notes]
+        [
+            'status' => $oldStatus,
+            'recommended_status' => $decision,
+            'notes' => $notes,
+            'submitted_for_admin_approval' => true,
+        ]
     );
 
-    redirectWithState('success', 'Overtime request updated successfully.');
+    redirectWithState('success', 'Overtime recommendation submitted to admin for final approval.');
 }
 
 if ($action === 'review_time_adjustment') {
@@ -243,7 +242,7 @@ if ($action === 'review_time_adjustment') {
     $recipientUserId = cleanText($requestRow['person']['user_id'] ?? null) ?? '';
 
     if (!$isPersonInScope($personId)) {
-        redirectWithState('error', 'Adjustment request is outside your office scope.');
+        redirectWithState('error', 'Adjustment request target is invalid or no longer active.');
     }
 
     $oldStatus = strtolower((string)(cleanText($requestRow['status'] ?? null) ?? 'pending'));
@@ -251,59 +250,31 @@ if ($action === 'review_time_adjustment') {
         redirectWithState('error', 'Invalid adjustment transition from ' . $oldStatus . ' to ' . $decision . '.');
     }
 
-    $updateResponse = apiRequest(
-        'PATCH',
-        $supabaseUrl . '/rest/v1/time_adjustment_requests?id=eq.' . rawurlencode($requestId),
-        array_merge($headers, ['Prefer: return=minimal']),
-        [
-            'status' => $decision,
-            'reviewed_by' => $staffUserId,
-            'reviewed_at' => gmdate('c'),
-        ]
-    );
-
-    if (!isSuccessful($updateResponse)) {
-        redirectWithState('error', 'Failed to update time adjustment status.');
-    }
-
-    $attendanceLogId = cleanText($requestRow['attendance_log_id'] ?? null) ?? '';
-    $requestedTimeIn = cleanText($requestRow['requested_time_in'] ?? null);
-    $requestedTimeOut = cleanText($requestRow['requested_time_out'] ?? null);
-
-    if ($decision === 'approved' && isValidUuid($attendanceLogId) && ($requestedTimeIn || $requestedTimeOut)) {
-        $attendancePayload = [];
-        if ($requestedTimeIn) {
-            $attendancePayload['time_in'] = $requestedTimeIn;
-        }
-        if ($requestedTimeOut) {
-            $attendancePayload['time_out'] = $requestedTimeOut;
-        }
-
-        if (!empty($attendancePayload)) {
-            apiRequest(
-                'PATCH',
-                $supabaseUrl . '/rest/v1/attendance_logs?id=eq.' . rawurlencode($attendanceLogId),
-                array_merge($headers, ['Prefer: return=minimal']),
-                $attendancePayload
-            );
-        }
-    }
-
     $notifyRequester(
         $recipientUserId,
-        'Time Adjustment Request Updated',
-        'Your time adjustment request was marked as ' . str_replace('_', ' ', $decision) . '.'
+        'Time Adjustment Recommendation Submitted',
+        'A staff recommendation (' . str_replace('_', ' ', $decision) . ') was submitted for your time adjustment request. Final approval will be done by admin.'
+    );
+
+    $notifyAdmins(
+        'Time Adjustment Recommendation Pending Approval',
+        'A staff recommendation was submitted for a time adjustment request: ' . str_replace('_', ' ', $decision) . '. Please review for final decision.'
     );
 
     $writeActivityLog(
         'time_adjustment_requests',
         $requestId,
-        'review_time_adjustment',
+        'recommend_time_adjustment',
         ['status' => $oldStatus],
-        ['status' => $decision, 'notes' => $notes]
+        [
+            'status' => $oldStatus,
+            'recommended_status' => $decision,
+            'notes' => $notes,
+            'submitted_for_admin_approval' => true,
+        ]
     );
 
-    redirectWithState('success', 'Time adjustment request updated successfully.');
+    redirectWithState('success', 'Time adjustment recommendation submitted to admin for final approval.');
 }
 
 redirectWithState('error', 'Unknown timekeeping action.');

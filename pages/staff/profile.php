@@ -43,6 +43,33 @@ ob_start();
         </a>
     </header>
 
+    <div class="px-6 pt-6 pb-2">
+        <div class="flex items-start gap-4">
+            <?php if (!empty($profileSummary['resolved_profile_photo_url'])): ?>
+                <img src="<?= htmlspecialchars((string)$profileSummary['resolved_profile_photo_url'], ENT_QUOTES, 'UTF-8') ?>" alt="Staff profile photo" class="h-20 w-20 rounded-full object-cover border border-slate-200">
+            <?php else: ?>
+                <div class="h-20 w-20 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-2xl font-semibold">
+                    <?= htmlspecialchars(strtoupper(substr((string)($profileSummary['first_name'] ?? 'S'), 0, 1) . substr((string)($profileSummary['surname'] ?? 'T'), 0, 1)), ENT_QUOTES, 'UTF-8') ?>
+                </div>
+            <?php endif; ?>
+
+            <form action="profile.php" method="POST" enctype="multipart/form-data" class="flex-1 max-w-md" id="staffProfilePhotoForm">
+                <input type="hidden" name="form_action" value="upload_profile_photo">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+
+                <label for="staffProfilePhotoInput" class="text-sm text-gray-600">Profile Picture</label>
+                <input id="staffProfilePhotoInput" name="profile_photo" type="file" accept="image/jpeg,image/png,image/webp" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" required>
+                <p class="text-xs text-gray-500 mt-1">Accepted: JPG, PNG, WEBP (max 3MB).</p>
+                <div class="mt-3">
+                    <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-green-700 text-white text-sm hover:bg-green-800">
+                        <span class="material-symbols-outlined text-sm">upload</span>
+                        Upload Photo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
         <div>
             <p class="text-gray-500">Full Name</p>

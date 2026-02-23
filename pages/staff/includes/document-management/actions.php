@@ -6,7 +6,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $action = cleanText($_POST['form_action'] ?? null) ?? '';
 
-if ($action !== 'review_document') {
+if (!in_array($action, ['review_document', 'archive_document', 'restore_document'], true)) {
     redirectWithState('error', 'Unknown document action request.');
 }
 
@@ -22,7 +22,7 @@ if (!isValidUuid($documentId)) {
     redirectWithState('error', 'Invalid document identifier.');
 }
 
-if (!in_array($reviewStatus, ['approved', 'rejected', 'needs_revision'], true)) {
+if ($action === 'review_document' && !in_array($reviewStatus, ['approved', 'rejected'], true)) {
     redirectWithState('error', 'Invalid review status selected.');
 }
 
@@ -54,53 +54,91 @@ if (isValidUuid($ownerPersonId)) {
 }
 
 if ($currentStatus === 'archived') {
-    redirectWithState('error', 'Archived documents can no longer be reviewed.');
+    if ($action === 'review_document') {
+        redirectWithState('error', 'Archived documents can no longer be reviewed.');
+    }
 }
 
-if (!canTransitionStatus('documents', $currentStatus, $reviewStatus)) {
-    redirectWithState('error', 'Invalid document transition from ' . $currentStatus . ' to ' . $reviewStatus . '.');
+if ($action === 'review_document' && in_array($currentStatus, ['approved', 'rejected'], true)) {
+    redirectWithState('error', 'Finalized documents can no longer receive staff recommendations.');
 }
 
-$isAdminScope = strtolower((string)($staffRoleKey ?? '')) === 'admin';
-if (!$isAdminScope) {
-    if (!isValidUuid($ownerPersonId) || !isValidUuid((string)$staffOfficeId)) {
-        redirectWithState('error', 'Document scope validation failed for your office context.');
+if ($action === 'archive_document') {
+    if ($currentStatus === 'archived') {
+        redirectWithState('success', 'Document is already archived.');
     }
 
-    $scopeResponse = apiRequest(
-        'GET',
-        $supabaseUrl
-        . '/rest/v1/employment_records?select=id'
-        . '&person_id=eq.' . rawurlencode($ownerPersonId)
-        . '&office_id=eq.' . rawurlencode((string)$staffOfficeId)
-        . '&is_current=eq.true&limit=1',
-        $headers
+    $archiveReason = cleanText($_POST['archive_reason'] ?? null);
+
+    $archiveResponse = apiRequest(
+        'PATCH',
+        $supabaseUrl . '/rest/v1/documents?id=eq.' . rawurlencode($documentId),
+        array_merge($headers, ['Prefer: return=minimal']),
+        [
+            'document_status' => 'archived',
+            'updated_at' => gmdate('c'),
+        ]
     );
 
-    $scopeRow = isSuccessful($scopeResponse) ? ($scopeResponse['data'][0] ?? null) : null;
-    if (!is_array($scopeRow)) {
-        redirectWithState('error', 'You are not allowed to review documents outside your office scope.');
+    if (!isSuccessful($archiveResponse)) {
+        redirectWithState('error', 'Failed to archive document.');
     }
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $staffUserId,
+            'module_name' => 'document_management',
+            'entity_name' => 'documents',
+            'entity_id' => $documentId,
+            'action_name' => 'archive_document',
+            'old_data' => ['document_status' => $currentStatus],
+            'new_data' => ['document_status' => 'archived', 'archive_reason' => $archiveReason],
+            'ip_address' => clientIp(),
+        ]]
+    );
+
+    redirectWithState('success', 'Document "' . $documentTitle . '" has been archived.');
 }
 
-$mappedDocumentStatus = match ($reviewStatus) {
-    'approved' => 'approved',
-    'rejected' => 'rejected',
-    default => 'draft',
-};
+if ($action === 'restore_document') {
+    if ($currentStatus !== 'archived') {
+        redirectWithState('error', 'Only archived documents can be restored.');
+    }
 
-$updateResponse = apiRequest(
-    'PATCH',
-    $supabaseUrl . '/rest/v1/documents?id=eq.' . rawurlencode($documentId),
-    array_merge($headers, ['Prefer: return=minimal']),
-    [
-        'document_status' => $mappedDocumentStatus,
-        'updated_at' => gmdate('c'),
-    ]
-);
+    $restoreResponse = apiRequest(
+        'PATCH',
+        $supabaseUrl . '/rest/v1/documents?id=eq.' . rawurlencode($documentId),
+        array_merge($headers, ['Prefer: return=minimal']),
+        [
+            'document_status' => 'submitted',
+            'updated_at' => gmdate('c'),
+        ]
+    );
 
-if (!isSuccessful($updateResponse)) {
-    redirectWithState('error', 'Failed to update document status.');
+    if (!isSuccessful($restoreResponse)) {
+        redirectWithState('error', 'Failed to restore document.');
+    }
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $staffUserId,
+            'module_name' => 'document_management',
+            'entity_name' => 'documents',
+            'entity_id' => $documentId,
+            'action_name' => 'restore_document',
+            'old_data' => ['document_status' => $currentStatus],
+            'new_data' => ['document_status' => 'submitted'],
+            'ip_address' => clientIp(),
+        ]]
+    );
+
+    redirectWithState('success', 'Document "' . $documentTitle . '" has been restored to submitted status.');
 }
 
 $reviewInsertResponse = apiRequest(
@@ -117,7 +155,7 @@ $reviewInsertResponse = apiRequest(
 );
 
 if (!isSuccessful($reviewInsertResponse)) {
-    redirectWithState('error', 'Document status updated, but review log insert failed.');
+    redirectWithState('error', 'Failed to save recommendation review log.');
 }
 
 if (isValidUuid($uploaderUserId)) {
@@ -128,9 +166,29 @@ if (isValidUuid($uploaderUserId)) {
         [[
             'recipient_user_id' => $uploaderUserId,
             'category' => 'documents',
-            'title' => 'Document Review Updated',
-            'body' => 'Your document "' . $documentTitle . '" was marked as ' . str_replace('_', ' ', $reviewStatus) . '.',
+            'title' => 'Document Recommendation Submitted',
+            'body' => 'A staff recommendation was submitted for "' . $documentTitle . '". Final decision will come from admin.',
             'link_url' => '/hris-system/pages/employee/document-management.php',
+        ]]
+    );
+}
+
+$adminUserIdMap = fetchActiveRoleUserIdMap($supabaseUrl, $headers, 'admin');
+foreach (array_keys($adminUserIdMap) as $adminUserId) {
+    if (!isValidUuid((string)$adminUserId)) {
+        continue;
+    }
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/notifications',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'recipient_user_id' => (string)$adminUserId,
+            'category' => 'documents',
+            'title' => 'Staff Document Recommendation',
+            'body' => 'Recommendation for "' . $documentTitle . '": ' . str_replace('_', ' ', $reviewStatus) . '. Review and finalize the document decision.',
+            'link_url' => '/hris-system/pages/admin/document-management.php',
         ]]
     );
 }
@@ -144,15 +202,16 @@ apiRequest(
         'module_name' => 'document_management',
         'entity_name' => 'documents',
         'entity_id' => $documentId,
-        'action_name' => 'review_document',
+        'action_name' => 'recommend_document',
         'old_data' => ['document_status' => $currentStatus],
         'new_data' => [
-            'document_status' => $mappedDocumentStatus,
+            'document_status' => $currentStatus,
             'review_status' => $reviewStatus,
             'review_notes' => $reviewNotes,
+            'recommendation_only' => true,
         ],
         'ip_address' => clientIp(),
     ]]
 );
 
-redirectWithState('success', 'Document "' . $documentTitle . '" has been marked as ' . str_replace('_', ' ', $reviewStatus) . '.');
+redirectWithState('success', 'Recommendation for "' . $documentTitle . '" was sent to admin for final decision.');

@@ -30,3 +30,8 @@ $staffOfficeName = cleanText($staffContext['office_name'] ?? null);
 $staffPositionId = cleanText($staffContext['position_id'] ?? null);
 $staffPositionTitle = cleanText($staffContext['position_title'] ?? null);
 $staffEmploymentStatus = cleanText($staffContext['employment_status'] ?? null);
+
+$payrollAllowedRoleKeys = ['admin', 'hr_officer', 'staff'];
+if (!in_array(strtolower((string)$staffRoleKey), $payrollAllowedRoleKeys, true)) {
+	renderStaffContextErrorAndExit('Your current role is not allowed to access Payroll Management.');
+}

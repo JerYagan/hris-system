@@ -91,6 +91,7 @@ $employeeMother = [
 $employeeChildren = [];
 $employeeEducationRows = [];
 $employeeDocuments = [];
+$employeeApprovedEvaluations = [];
 
 if (!(bool)($employeeContextResolved ?? false)) {
     $dataLoadError = (string)($employeeContextError ?? 'Employee context could not be resolved.');
@@ -421,6 +422,35 @@ if (isSuccessful($documentsResponse)) {
             'created_at' => cleanText($document['created_at'] ?? null),
             'updated_at' => cleanText($document['updated_at'] ?? null),
             'category_name' => (string)($category['category_name'] ?? 'Uncategorized'),
+        ];
+    }
+}
+
+$approvedEvaluationsResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/performance_evaluations?select=id,final_rating,remarks,status,updated_at,cycle:cycle_id(cycle_name,period_start,period_end),evaluator:evaluator_user_id(email)'
+    . '&employee_person_id=eq.' . rawurlencode((string)$employeePersonId)
+    . '&status=eq.approved'
+    . '&order=updated_at.desc&limit=100',
+    $headers
+);
+
+if (isSuccessful($approvedEvaluationsResponse)) {
+    foreach ((array)($approvedEvaluationsResponse['data'] ?? []) as $evaluationRaw) {
+        $evaluation = (array)$evaluationRaw;
+        $cycle = is_array($evaluation['cycle'] ?? null) ? (array)$evaluation['cycle'] : [];
+        $evaluator = is_array($evaluation['evaluator'] ?? null) ? (array)$evaluation['evaluator'] : [];
+
+        $employeeApprovedEvaluations[] = [
+            'id' => (string)($evaluation['id'] ?? ''),
+            'cycle_name' => (string)(cleanText($cycle['cycle_name'] ?? null) ?? 'Evaluation Cycle'),
+            'period_start' => cleanText($cycle['period_start'] ?? null),
+            'period_end' => cleanText($cycle['period_end'] ?? null),
+            'final_rating' => is_numeric($evaluation['final_rating'] ?? null) ? number_format((float)$evaluation['final_rating'], 2) . ' / 5.00' : '-',
+            'remarks' => (string)(cleanText($evaluation['remarks'] ?? null) ?? '-'),
+            'approved_at' => cleanText($evaluation['updated_at'] ?? null),
+            'evaluator_email' => (string)(cleanText($evaluator['email'] ?? null) ?? '-'),
         ];
     }
 }

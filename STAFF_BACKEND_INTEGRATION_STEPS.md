@@ -9,6 +9,7 @@ Target area:
 - [pages/staff/recruitment.php](pages/staff/recruitment.php)
 - [pages/staff/applicant-tracking.php](pages/staff/applicant-tracking.php)
 - [pages/staff/applicant-registration.php](pages/staff/applicant-registration.php)
+- [pages/staff/learning-development.php](pages/staff/learning-development.php)
 - [pages/staff/timekeeping.php](pages/staff/timekeeping.php)
 - [pages/staff/payroll-management.php](pages/staff/payroll-management.php)
 - [pages/staff/evaluation.php](pages/staff/evaluation.php)
@@ -40,6 +41,7 @@ Admin UI reference (tables/search/filter + review modals):
 - ✅ Phase 11 completed (Notifications + audit)
 - ✅ Phase 12 completed (Security hardening + RLS validation)
 - ✅ Phase 13 completed (UI consistency + QA completion)
+- 🔄 Phase 14 planned (Learning and Development module)
 
 ### Completed Implementation Notes (Phase 1-13)
 
@@ -84,6 +86,11 @@ Admin UI reference (tables/search/filter + review modals):
   - [pages/staff/profile.php](pages/staff/profile.php)
   - [assets/js/staff/profile/index.js](assets/js/staff/profile/index.js)
 - Staff personal information now uses backend-driven office-scoped employee list/search/filter, modal-based employee profile update flow, modal-based status transition decisions with confirmation, and server-side CSRF/scope/transition validation with notification + activity logging side effects.
+- Staff Personal Information is now aligned with Admin-style employee management UX, including the Employee Management table contract, action-icon dropdown menu, and three wired modals (Edit Employee Profile, Assign Department and Position, Manage Employee Status) with office-scoped data hydration and SweetAlert status-change confirmation.
+- Staff Personal Information Edit Profile modal now mirrors Employee-side tabbed UI (Personal Information, Family Background, Educational Background), including tab step navigation and dynamic add/remove rows.
+- Children and educational background entries now default to one row each and support add/remove interactions to reduce form clutter while preserving multi-entry support.
+- City/municipality + barangay remain free-text inputs and now use PSGC-backed lookup suggestions (municipalities + barangays) while preserving ZIP autofill based on unique city-barangay mappings plus existing address records.
+- Personal address section now includes a "Same as residential address" checkbox that copies residential address values into permanent address fields.
 - Staff profile page now loads live account/person/role context and supports profile updates through secured backend actions with audit logs and redirect-based success/error alerts.
 - Recruitment + applicant tracking backend workflow is now live in:
   - [pages/staff/includes/recruitment/actions.php](pages/staff/includes/recruitment/actions.php)
@@ -145,9 +152,27 @@ Admin UI reference (tables/search/filter + review modals):
   - [tools/staff_phase13_ui_qa_runner.php](tools/staff_phase13_ui_qa_runner.php)
   - [STAFF_PHASE13_TEST_REPORT.md](STAFF_PHASE13_TEST_REPORT.md)
   - [pages/staff/includes/dashboard/actions.php](pages/staff/includes/dashboard/actions.php)
+  - [pages/staff/includes/layout.php](pages/staff/includes/layout.php)
+  - [pages/staff/includes/sidebar.php](pages/staff/includes/sidebar.php)
+  - [pages/staff/includes/topnav.php](pages/staff/includes/topnav.php)
+  - [pages/staff/includes/document-management/data.php](pages/staff/includes/document-management/data.php)
+  - [pages/staff/document-management.php](pages/staff/document-management.php)
+  - [assets/js/staff/document-management/index.js](assets/js/staff/document-management/index.js)
 - Staff module QA execution now includes automated checks for page/bootstrap wiring, localized JS include coverage, and POST+CSRF guard baselines across all staff action handlers.
 - Dashboard actions are now aligned with shared request guard consistency via `requireStaffPostWithCsrf(...)`.
 - Phase 13 test evidence is documented in a dedicated staff report with automated/static pass results and runtime UAT checklist scenarios.
+- Staff shell UI now follows the Employee-side visual pattern for sidebar/topnav structure while preserving staff-specific module content and navigation grouping.
+- Staff sidebar Notifications entry has been removed, and topnav notification badge count now resolves dynamically from unread staff notifications.
+- Staff Document Management now includes a Document Uploaders section (employee + applicant), with account type, total uploads, last upload, and a View Documents modal containing per-document View/Download actions.
+- Staff Document Management uploader modal now includes document-type icon badges, searchable/filterable table controls, and enabled View/Download actions when source files are available.
+- Staff Document Management now separates active and archived records, with archived rows rendered as retention-only entries where View/Download actions are disabled.
+- Staff Employee Document Registry now supports archive action flow with confirmation prompt, server-side archive mutation, and `activity_logs` entry creation.
+- Staff Employee Document Registry status filter now excludes `Draft` from the UI options while preserving active review workflows.
+- Staff Archived Documents section now includes a restore action that returns archived files to `submitted` status and logs `restore_document` activity entries.
+- Staff Document Management now surfaces active/archived summary chips above the registry tables for quick retention-state visibility.
+- Staff archive confirmation now uses SweetAlert (`Swal.fire`) for a consistent modal confirmation UX.
+- Staff document review flow now uses only Approve/Reject decision options (Need Revision removed) with review notes retained for rejection feedback.
+- Staff document category filtering is now constrained to 201 file types only (`PDS`, `SSS`, `Pagibig`, `Philhealth`, `NBI`, `Mayors Permits`, `Medical`, `Drug Test`, `Health Card`, `Cedula`, `Resume/CV`) across registry and uploader modal controls.
 
 ---
 
@@ -176,7 +201,7 @@ Implement now:
 Defer:
 - Realtime subscriptions.
 - Advanced analytics beyond current reports pages.
-- New module creation outside existing staff pages.
+- New module creation outside existing staff pages, except the planned Learning and Development module in this document.
 
 ### 1.1 User Handling Integration Plan (Staff as Employee-First + Applicant in Recruitment)
 
@@ -539,6 +564,20 @@ Deliverables:
 - hardening pass across all `pages/staff/includes/*` files
 - final checklist report.
 
+## Phase 14 – Learning and Development
+
+- Add `learning-development.php` to the staff portal for HR officers and supervisors to manage training programs, participation, and effectiveness tracking.
+- Implement course creation, enrollment management, progress tracking, and feedback collection using the shared table and modal contracts in Section 3.
+- Align UI patterns and data handling with existing Admin and Employee module conventions while keeping staff-specific workflow needs.
+- Link training history and development plans to existing employee records to keep employee-first data continuity.
+- Enforce role-based access and scope checks for management actions; employee-facing views remain self-scoped in Employee portal flows.
+- Enforce transition guards for training workflows (`course: draft -> published -> archived`, `enrollment: pending -> approved/rejected`).
+
+Deliverables:
+- `pages/staff/learning-development.php`
+- `pages/staff/includes/learning-development/{actions.php,data.php}`
+- `assets/js/staff/learning-development/index.js`
+
 ---
 
 ## 6) Status Transition Matrix (Minimum Rules)
@@ -552,6 +591,8 @@ Enforce in server logic via `canTransitionStatus($entity, $old, $new)`.
 - `documents`: draft/submitted -> approved/rejected/needs_revision
 - `payroll_periods`: open -> processing -> posted -> closed
 - `payroll_runs`: draft -> computed -> approved -> released/cancelled
+- `learning_courses`: draft -> published -> archived
+- `learning_enrollments`: pending -> approved/rejected
 
 Invalid transitions must:
 1. block update,
@@ -596,11 +637,12 @@ E. **Performance compliance**
 4. `feat(staff): integrate timekeeping and payroll status decision flows`
 5. `feat(staff): standardize table filters, review modals, and status alerts`
 6. `chore(staff): harden validation, transition guards, and audit logging`
-7. `test(staff): complete backend integration QA checklist`
+7. `feat(staff): add learning-development module with course/enrollment workflows`
+8. `test(staff): complete backend integration QA checklist`
 
 ---
 
-## 9) Commit Comment (Phase 1-13)
+## 9) Commit Comment (Phase 1-14)
 
 - `feat(staff): scaffold Phase 1 backend foundation with shared lib, identity resolver, and per-module bootstrap wiring`
 - `feat(staff): complete Phase 2 identity-role context enforcement with fail-closed staff bootstrap validation`
@@ -615,3 +657,163 @@ E. **Performance compliance**
 - `feat(staff): complete Phase 11 notifications and audit workflow with scoped inbox actions, read-state controls, and staff activity trail`
 - `chore(staff): complete Phase 12 security hardening with shared request guards and staff RLS validation runner`
 - `test(staff): complete Phase 13 UI consistency and QA pass with staff module checker and execution report`
+- `feat(staff): add Phase 14 learning-development workflow with course lifecycle, enrollment decisions, and employee-linked training history`
+- `feat(staff): align sidebar/topnav UI with employee shell and add document uploader modal workflow for employee/applicant records`
+- `feat(staff): refine document-management retention workflow with archive actions, 201-only categories, and uploader modal type/search controls`
+- `feat(staff): add archived restore workflow, summary count chips, and sweetalert archive confirmation in document-management`
+
+## Learning and Development Module
+
+### Functional Scope
+
+- Staff can create and manage training courses, review employee enrollments, and track employee-linked training history.
+- Module behavior must follow existing staff backend architecture (`bootstrap.php`, `actions.php`, `data.php`) and shared UI contracts in Section 3.
+- Access remains employee-first and office-scoped for non-admin staff; no applicant-facing data or actions are exposed in this module.
+- Status transitions must be server-validated using transition guards:
+  - Course lifecycle: `draft -> published -> archived`
+  - Enrollment lifecycle: `pending -> approved/rejected`
+- Enrollment decisions must trigger employee notifications, and all mutating actions must write `activity_logs` entries.
+
+### Table and Modal Requirements
+
+- Tables must support:
+  - search (course title, code, employee name)
+  - course status filter (`draft`, `published`, `archived`)
+  - enrollment status filter (`pending`, `approved`, `rejected`)
+- Course create/edit modal must follow the shared staff modal pattern and include:
+  - course details input fields
+  - course status selector
+  - enrollment management controls (for review/update flows)
+- The Course Lifecycle action set must include `View`, opening a modal that shows:
+  - course details
+  - enrolled employees
+  - profile links to employee records
+
+### Required Sections (Replace Current L&D Sections)
+
+1. **Reports and Analytics**
+   - Purpose: training effectiveness and completion metrics.
+   - Table focus: completion rate, pass/fail trends, participation by office/unit.
+   - Controls: search + period/type/status filters.
+
+2. **Employee Training Records**
+   - Purpose: employee-level training history tied to staff-managed employee records.
+   - Table focus: employee, course, completion/progress, result/feedback.
+   - Controls: search + employee/course/status filters.
+
+3. **Training Schedule**
+   - Purpose: planning and visibility of upcoming and active training sessions.
+   - Table focus: course/session, schedule window, facilitator/mode, seat usage.
+   - Controls: search + date range + course status filters.
+   - Actions: `View` (course/session details and enrollment list modal).
+
+4. **Attendance Tracker**
+   - Purpose: attendance monitoring for scheduled training sessions.
+   - Table focus: participant attendance state, timestamps/remarks, session linkage.
+   - Controls: search + session/date + attendance status filters.
+   - Actions: `Update` (modal to adjust attendance state with notes, using the shared modal contract).
+
+### Consistency and Reference Constraints
+
+- Use Admin-side course/enrollment workflow patterns as reference for interaction details, while preserving staff employee-first scope and staff office restrictions.
+- Keep confirmation dialogs, success/error alerts, and transition validation behavior consistent with all existing staff status-change workflows.
+
+## Staff: Evaluation Module Revision
+- Create a helper for computing user evaluation based on this:
+
+RULE-BASED ALGORITHM
+This algorithm will automatically screen applicants, check if minimum qualifications are met, reduce manual evaluation time, standardize screening process and it is used for initial qualification filtering, not final hiring decision,
+
+The admin should have option to set the criteria for each position title:
+
+CRITERIA
+
+    Eligibility - Career Service Sub Professional
+    Education - 2 Years in College
+    Training - 4 hours relevant training
+    Work Experience - 1 Year relevant experience
+
+How Rule-Based Algorithm Works;
+
+It uses IF-THEN logic
+
+Example rule-based logic
+IF eligibility == required_eligibility
+AND education_years >= required_education_years
+AND training_hours >= required_training_hours
+AND experience_years >= required_experience_years
+THEN status = "Qualified for Evaluation"
+ELSE status = "Not Qualified"
+
+This is the sample process:
+Step 1- Applicant uploads documents based on the required requirements.
+
+    Eligibilty certificate (PRC/CSC)
+    Transcript of Records
+    -Training Certificate
+    Certificate of Employment
+
+Step 2- Applicant Inputs Structured Data
+Along with upload, they must fill
+
+    Eligibility type (dropdown)
+    Years in college (number field)
+    -Training hours (number field)
+    Years of experience (number field)
+
+The uploaded file is for verification, not for automatic reading.
+
+The algorithm first evaluates based on encoded data. Then the Admin can see the auto result (Qualified/ Not Qualified) with scoring For example:
+Eligibibilty = 25%
+Education = 25%
+Training = 25%
+Experience = 25%
+
+If total score ≥ 75 → Qualified
+
+The uploaded documents is for validation. Then the Admin can approve or reject the applicant and put remarks the reason why it is rejected to notify the applicant.
+
+The Admin can update the ff:
+
+    Required Eligibility
+    Required Education
+    Required Training hours
+    Required Experience
+
+Rules are dynamic and the algorithm always checks againts the current job requirements.
+
+Reference link that we can use:
+https://csc.gov.ph/career/job/5123356 for sample criteria and position title.
+
+## Staff: All Modules
+- Double check that all status-changing actions have confirmation dialogs and that the server-side handlers validate allowed transitions before applying updates. Use SweetAlert for confirmation dialogs to maintain consistency across modules.
+
+- Double check that all tables have a limit of 10 entries per page, with pagination and navigation, and that the search inputs are debounced to prevent excessive re-rendering and ensure responsive interactions, especially on larger datasets.
+
+- All actions buttons in the table should have a logo
+
+- Make sure that every module is not office-scoped anymore. Staff should be able to see all records regardless of office.
+
+- Make sure that every module has a correct timezone. The time zone should be consistent across all modules and should be set to the local time zone of the staff users. For reference the timezone should be set to `Asia/Manila` (UTC+8) to reflect the local time in the Philippines. This will ensure that all date and time information displayed in the staff modules is accurate and relevant to the users' location.
+
+- Instead of the sidebar pushing the main content to the right, the sidebar should now overlay on top of the main content when opened. This will allow staff users to access the sidebar menu without losing sight of the main content and will provide a more seamless navigation experience.
+
+## Staff: Personal Information Module Revision
+- Add a small Recommendations History section on this same page so staff can see which profile recommendations are still pending admin action.
+
+## Staff: Dashboard Module Revision
+- Remove office scope from all dashboard cards and activity feed queries so that staff can see organization-wide pending tasks and recent activities.
+
+## Staff: Document Management Module Revision
+- Viewing document still results in bucket not found error, make sure to fix this issue so that staff can view the documents that are uploaded by the employees and applicants. See Document Uploader section in Document mnagement Module
+
+## Staff: Reports and Analytics Module Revision
+- Address the broken page layout
+
+## Staff: PRAISE Module Revisions
+- In the nomination modal, the Employee should be searchable. The search should be debounced to prevent excessive re-rendering and ensure responsive interactions, especially on larger datasets.
+
+## Staff: Evaluation Module (Applicant) Revision
+- Record interview results
+- Add HR remarks
+- Submit final evaluation (For admin approval)
