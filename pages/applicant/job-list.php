@@ -136,7 +136,10 @@ ob_start();
                 <article class="flex h-full flex-col rounded-xl border bg-gray-50 p-5">
                     <div class="flex-1">
                         <div class="flex flex-wrap items-center gap-2">
-                            <h3 class="text-lg font-semibold text-gray-800"><?= htmlspecialchars((string)($job['title'] ?? 'Untitled Position'), ENT_QUOTES, 'UTF-8') ?></h3>
+                            <h3 class="text-lg font-semibold text-gray-800\"><?= htmlspecialchars((string)($job['title'] ?? 'Untitled Position'), ENT_QUOTES, 'UTF-8') ?></h3>
+                            <span class="inline-flex rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700">
+                                Plantilla Item No.: <?= htmlspecialchars((string)($job['plantilla_item_no'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
+                            </span>
                             <?php if (!empty($job['employment_type'])): ?>
                                 <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium <?= $badgeClass ?>">
                                     <?= htmlspecialchars(ucwords(str_replace('_', ' ', (string)$job['employment_type'])), ENT_QUOTES, 'UTF-8') ?>
@@ -144,7 +147,6 @@ ob_start();
                             <?php endif; ?>
                         </div>
                         <p class="mt-1 text-sm text-gray-600"><?= htmlspecialchars((string)($job['office_name'] ?? 'Office not specified'), ENT_QUOTES, 'UTF-8') ?></p>
-                        <p class="mt-1 text-xs text-gray-500">Plantilla Item No.: <?= htmlspecialchars((string)($job['plantilla_item_no'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
 
                         <div class="mt-3 flex flex-wrap gap-2 text-xs text-gray-600">
                             <span class="inline-flex items-center gap-1 rounded-full border bg-white px-2.5 py-1">

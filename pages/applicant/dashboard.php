@@ -26,6 +26,62 @@ ob_start();
 </section>
 <?php endif; ?>
 
+<?php if (!empty($profileCompletionReminder['show_modal'])): ?>
+<div id="profileCompletionModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div class="w-full max-w-lg rounded-xl border bg-white p-5 shadow-xl">
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-800">Complete Your Profile Before Applying</h2>
+                <p class="mt-1 text-sm text-gray-600">Your profile is missing required background details needed for automatic qualification checks.</p>
+            </div>
+            <button type="button" id="closeProfileCompletionModal" class="rounded-md border px-2 py-1 text-xs text-gray-600 hover:bg-gray-50">Close</button>
+        </div>
+
+        <div class="mt-4 space-y-2 text-sm">
+            <p class="rounded-md border px-3 py-2 <?= ((int)($profileCompletionReminder['education_entries'] ?? 0) > 0) ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-800' ?>">
+                Education Entries: <?= (int)($profileCompletionReminder['education_entries'] ?? 0) ?>
+            </p>
+            <p class="rounded-md border px-3 py-2 <?= ((int)($profileCompletionReminder['work_entries'] ?? 0) > 0) ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-800' ?>">
+                Work Experience Entries: <?= (int)($profileCompletionReminder['work_entries'] ?? 0) ?>
+            </p>
+        </div>
+
+        <div class="mt-5 flex flex-wrap justify-end gap-2">
+            <button type="button" id="laterProfileCompletionModal" class="inline-flex items-center rounded-md border px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Remind Me Later</button>
+            <a href="profile.php?edit=true" class="inline-flex items-center rounded-md bg-green-700 px-3 py-2 text-sm font-medium text-white hover:bg-green-800">Go to Profile</a>
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+    var modal = document.getElementById('profileCompletionModal');
+    if (!modal) {
+        return;
+    }
+
+    function closeModal() {
+        modal.classList.add('hidden');
+    }
+
+    var closeButton = document.getElementById('closeProfileCompletionModal');
+    var laterButton = document.getElementById('laterProfileCompletionModal');
+
+    if (closeButton) {
+        closeButton.addEventListener('click', closeModal);
+    }
+    if (laterButton) {
+        laterButton.addEventListener('click', closeModal);
+    }
+
+    modal.addEventListener('click', function (event) {
+        if (event.target === modal) {
+            closeModal();
+        }
+    });
+})();
+</script>
+<?php endif; ?>
+
 <!-- HERO -->
 <section class="mb-5 rounded-xl border bg-white p-4 sm:p-5">
     <div class="overflow-hidden rounded-xl border bg-gradient-to-r from-green-50 via-white to-green-50 p-4 sm:p-5">

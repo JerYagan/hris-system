@@ -182,6 +182,40 @@ ob_start();
 
         <section class="rounded-xl border bg-white">
             <header class="flex items-center gap-2 border-b px-6 py-4">
+                <span class="material-symbols-outlined text-green-700">event</span>
+                <h3 class="font-semibold text-gray-800">Interview Schedule Details</h3>
+            </header>
+
+            <?php if ($selectedApplication === null): ?>
+                <div class="p-6 text-sm text-gray-600">Select an application to view interview schedule details.</div>
+            <?php elseif (empty($selectedInterviewSchedules)): ?>
+                <div class="p-6 text-sm text-gray-600">No interview schedule has been posted yet for this application.</div>
+            <?php else: ?>
+                <div class="space-y-3 p-6">
+                    <?php foreach ($selectedInterviewSchedules as $interviewSchedule): ?>
+                        <article class="rounded-lg border bg-gray-50 p-4 text-sm">
+                            <div class="flex items-start justify-between gap-2">
+                                <div>
+                                    <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($interviewSchedule['stage'] ?? 'Interview'), ENT_QUOTES, 'UTF-8') ?></p>
+                                    <p class="mt-1 text-xs text-gray-600">Date &amp; Time: <?= htmlspecialchars((string)($interviewSchedule['scheduled_display'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                                    <p class="mt-1 text-xs text-gray-600">Interviewer: <?= htmlspecialchars((string)($interviewSchedule['interviewer'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                                    <p class="mt-1 text-xs text-gray-600">Location / Mode: <?= htmlspecialchars((string)($interviewSchedule['location'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                                </div>
+                                <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium <?= htmlspecialchars((string)($interviewSchedule['status_class'] ?? 'bg-gray-100 text-gray-700'), ENT_QUOTES, 'UTF-8') ?>">
+                                    <?= htmlspecialchars((string)($interviewSchedule['status'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?>
+                                </span>
+                            </div>
+                            <?php if (!empty($interviewSchedule['remarks'])): ?>
+                                <p class="mt-2 text-xs text-gray-600">Remarks: <?= htmlspecialchars((string)$interviewSchedule['remarks'], ENT_QUOTES, 'UTF-8') ?></p>
+                            <?php endif; ?>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </section>
+
+        <section class="rounded-xl border bg-white">
+            <header class="flex items-center gap-2 border-b px-6 py-4">
                 <span class="material-symbols-outlined text-green-700">timeline</span>
                 <h3 class="font-semibold text-gray-800">Status Timeline</h3>
             </header>

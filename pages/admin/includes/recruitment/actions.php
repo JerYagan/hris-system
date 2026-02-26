@@ -157,6 +157,55 @@ if (!function_exists('recruitmentEligibilityOptionToRequirement')) {
     }
 }
 
+if (!function_exists('recruitmentNormalizeEducationLevel')) {
+    function recruitmentNormalizeEducationLevel(string $rawValue): string
+    {
+        $key = strtolower(trim($rawValue));
+
+        return match ($key) {
+            'elementary' => 'elementary',
+            'secondary', 'highschool', 'high_school', 'high-school' => 'secondary',
+            'vocational', 'trade', 'trade_course', 'vocational_trade_course', 'vocational/trade course', 'tvet' => 'vocational',
+            'college', 'bachelor', 'bachelors', "bachelor's", "bachelor's degree" => 'college',
+            'graduate', 'graduate_studies', 'masters', 'masteral', 'doctorate', 'phd' => 'graduate',
+            default => 'college',
+        };
+    }
+}
+
+if (!function_exists('recruitmentEducationLevelToYears')) {
+    function recruitmentEducationLevelToYears(string $educationLevel): float
+    {
+        return match (recruitmentNormalizeEducationLevel($educationLevel)) {
+            'graduate' => 6.0,
+            'college' => 4.0,
+            'vocational' => 2.0,
+            'secondary' => 1.0,
+            default => 0.0,
+        };
+    }
+}
+
+if (!function_exists('recruitmentEducationYearsToLevel')) {
+    function recruitmentEducationYearsToLevel(float $educationYears): string
+    {
+        if ($educationYears >= 6) {
+            return 'graduate';
+        }
+        if ($educationYears >= 4) {
+            return 'college';
+        }
+        if ($educationYears >= 2) {
+            return 'vocational';
+        }
+        if ($educationYears >= 1) {
+            return 'secondary';
+        }
+
+        return 'elementary';
+    }
+}
+
 if (!function_exists('recruitmentSavePositionCriteria')) {
     function recruitmentSavePositionCriteria(
         string $supabaseUrl,
@@ -164,7 +213,7 @@ if (!function_exists('recruitmentSavePositionCriteria')) {
         string $adminUserId,
         string $positionId,
         string $eligibilityOption,
-        float $educationYears,
+        string $educationLevel,
         float $trainingHours,
         float $experienceYears
     ): void {
@@ -177,9 +226,11 @@ if (!function_exists('recruitmentSavePositionCriteria')) {
         $positionOverrides = is_array($settings['position_overrides'] ?? null) ? (array)$settings['position_overrides'] : [];
 
         $normalizedPositionId = strtolower(trim($positionId));
+        $normalizedEducationLevel = recruitmentNormalizeEducationLevel($educationLevel);
         $positionOverrides[$normalizedPositionId] = [
             'eligibility' => recruitmentResolveEligibilityOption($eligibilityOption),
-            'minimum_education_years' => max(0, $educationYears),
+            'minimum_education_level' => $normalizedEducationLevel,
+            'minimum_education_years' => recruitmentEducationLevelToYears($normalizedEducationLevel),
             'minimum_training_hours' => max(0, $trainingHours),
             'minimum_experience_years' => max(0, $experienceYears),
             'updated_at' => gmdate('c'),
@@ -262,9 +313,10 @@ if ($action === 'save_recruitment_email_templates') {
 }
 
 $allowedRequirementKeys = [
-    'pds' => 'PDS',
-    'wes' => 'WES',
-    'eligibility_csc_prc' => 'Eligibility (CSC/PRC)',
+    'application_letter' => 'Application Letter',
+    'updated_resume_cv' => 'Updated Resume/CV',
+    'personal_data_sheet' => 'Personal Data Sheet',
+    'valid_government_id' => 'Valid Government ID',
     'transcript_of_records' => 'Transcript of Records',
 ];
 
@@ -289,6 +341,91 @@ $resolveEmploymentType = static function (string $positionId) use ($supabaseUrl,
     return in_array($classification, ['regular', 'coterminous'], true)
         ? 'permanent'
         : 'contractual';
+};
+
+$resolveEmploymentClassification = static function (string $employmentType): ?string {
+    return match (strtolower(trim($employmentType))) {
+        'permanent' => 'regular',
+        'contractual' => 'contractual',
+        default => null,
+    };
+};
+
+$findExistingPositionId = static function (string $positionTitle, string $employmentClassification) use ($supabaseUrl, $headers): ?string {
+    $normalizedTitle = strtolower(trim($positionTitle));
+    if ($normalizedTitle === '' || $employmentClassification === '') {
+        return null;
+    }
+
+    $response = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/job_positions?select=id,position_title,employment_classification'
+        . '&employment_classification=eq.' . rawurlencode($employmentClassification)
+        . '&limit=1000',
+        $headers
+    );
+
+    if (!isSuccessful($response)) {
+        return null;
+    }
+
+    foreach ((array)($response['data'] ?? []) as $row) {
+        $title = strtolower(trim((string)($row['position_title'] ?? '')));
+        if ($title === $normalizedTitle) {
+            $id = trim((string)($row['id'] ?? ''));
+            return recruitmentIsValidUuid($id) ? $id : null;
+        }
+    }
+
+    return null;
+};
+
+$createJobPosition = static function (string $positionTitle, string $employmentClassification) use ($supabaseUrl, $headers): ?string {
+    $normalizedTitle = trim($positionTitle);
+    if ($normalizedTitle === '' || $employmentClassification === '') {
+        return null;
+    }
+
+    $prefixSource = strtoupper(preg_replace('/[^A-Z0-9]+/', ' ', strtoupper($normalizedTitle)) ?? '');
+    $tokens = array_values(array_filter(explode(' ', $prefixSource), static fn(string $token): bool => $token !== ''));
+    $prefix = '';
+    foreach ($tokens as $token) {
+        $prefix .= substr($token, 0, 1);
+        if (strlen($prefix) >= 4) {
+            break;
+        }
+    }
+    if ($prefix === '') {
+        $prefix = 'POS';
+    }
+
+    try {
+        $suffix = strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
+    } catch (Throwable) {
+        $suffix = strtoupper(substr(md5($normalizedTitle . microtime(true)), 0, 6));
+    }
+
+    $positionCode = $prefix . '-' . $suffix;
+
+    $insertResponse = apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/job_positions',
+        array_merge($headers, ['Prefer: return=representation']),
+        [[
+            'position_code' => $positionCode,
+            'position_title' => $normalizedTitle,
+            'employment_classification' => $employmentClassification,
+            'is_active' => true,
+        ]]
+    );
+
+    if (!isSuccessful($insertResponse)) {
+        return null;
+    }
+
+    $createdId = trim((string)($insertResponse['data'][0]['id'] ?? ''));
+    return recruitmentIsValidUuid($createdId) ? $createdId : null;
 };
 
 $isDuplicatePlantillaNumber = static function (string $plantillaItemNo, string $excludePostingId = '') use ($supabaseUrl, $headers): ?bool {
@@ -317,30 +454,62 @@ if ($action === 'create_job_posting') {
     $title = cleanText($_POST['title'] ?? null) ?? '';
     $officeId = cleanText($_POST['office_id'] ?? null) ?? '';
     $positionId = cleanText($_POST['position_id'] ?? null) ?? '';
+    $newPositionTitle = trim((string)(cleanText($_POST['new_position_title'] ?? null) ?? ''));
     $description = cleanText($_POST['description'] ?? null) ?? '';
     $qualifications = cleanText($_POST['qualifications'] ?? null);
     $responsibilities = cleanText($_POST['responsibilities'] ?? null);
     $employmentType = strtolower((string)(cleanText($_POST['employment_type'] ?? null) ?? ''));
     $plantillaItemNo = trim((string)(cleanText($_POST['plantilla_item_no'] ?? null) ?? ''));
     $requiredDocumentsRaw = $_POST['required_documents'] ?? [];
-    $criteriaEligibility = recruitmentResolveEligibilityOption((string)(cleanText($_POST['criteria_eligibility'] ?? null) ?? 'csc_prc'));
-    $criteriaEducationYears = (float)(cleanText($_POST['criteria_education_years'] ?? null) ?? 2);
+    $criteriaEligibilityRequiredRaw = (string)(cleanText($_POST['criteria_eligibility_required'] ?? null) ?? '0');
+    $criteriaEligibility = $criteriaEligibilityRequiredRaw === '1' ? 'csc_prc' : 'none';
+    $criteriaEducationLevelRaw = (string)(cleanText($_POST['criteria_education_level'] ?? null) ?? '');
+    $criteriaEducationYearsLegacy = (float)(cleanText($_POST['criteria_education_years'] ?? null) ?? 4);
+    $criteriaEducationLevel = $criteriaEducationLevelRaw !== ''
+        ? recruitmentNormalizeEducationLevel($criteriaEducationLevelRaw)
+        : recruitmentEducationYearsToLevel($criteriaEducationYearsLegacy);
     $criteriaTrainingHours = (float)(cleanText($_POST['criteria_training_hours'] ?? null) ?? 4);
     $criteriaExperienceYears = (float)(cleanText($_POST['criteria_experience_years'] ?? null) ?? 1);
     $openDate = cleanText($_POST['open_date'] ?? null) ?? '';
     $closeDate = cleanText($_POST['close_date'] ?? null) ?? '';
     $postingStatus = strtolower((string)(cleanText($_POST['posting_status'] ?? null) ?? 'draft'));
 
-    if ($title === '' || $description === '' || $officeId === '' || $positionId === '' || $openDate === '' || $closeDate === '' || $plantillaItemNo === '') {
-        redirectWithState('error', 'Title, office, position, plantilla number, description, open date, and close date are required.');
+    if ($title === '' || $description === '' || $officeId === '' || $openDate === '' || $closeDate === '' || $plantillaItemNo === '') {
+        redirectWithState('error', 'Title, office, plantilla number, description, open date, and close date are required.');
     }
 
-    if (!recruitmentIsValidUuid($officeId) || !recruitmentIsValidUuid($positionId)) {
-        redirectWithState('error', 'Selected office or position is invalid.');
+    if (!recruitmentIsValidUuid($officeId)) {
+        redirectWithState('error', 'Selected office is invalid.');
     }
 
     if (!in_array($employmentType, ['permanent', 'contractual'], true)) {
         redirectWithState('error', 'Please select a valid employment type.');
+    }
+
+    if ($positionId === '' && $newPositionTitle === '') {
+        redirectWithState('error', 'Select a predefined position or enter a new position title.');
+    }
+
+    if ($newPositionTitle !== '') {
+        $employmentClassification = $resolveEmploymentClassification($employmentType);
+        if ($employmentClassification === null) {
+            redirectWithState('error', 'Unable to resolve employment classification for the selected employment type.');
+        }
+
+        $existingPositionId = $findExistingPositionId($newPositionTitle, $employmentClassification);
+        if ($existingPositionId !== null) {
+            $positionId = $existingPositionId;
+        } else {
+            $createdPositionId = $createJobPosition($newPositionTitle, $employmentClassification);
+            if ($createdPositionId === null) {
+                redirectWithState('error', 'Failed to create the new position. Please try again.');
+            }
+            $positionId = $createdPositionId;
+        }
+    }
+
+    if (!recruitmentIsValidUuid($positionId)) {
+        redirectWithState('error', 'Selected position is invalid.');
     }
 
     $positionEmploymentType = $resolveEmploymentType($positionId);
@@ -369,7 +538,7 @@ if ($action === 'create_job_posting') {
         $postingStatus = 'draft';
     }
 
-    if ($criteriaEducationYears < 0 || $criteriaTrainingHours < 0 || $criteriaExperienceYears < 0) {
+    if ($criteriaTrainingHours < 0 || $criteriaExperienceYears < 0) {
         redirectWithState('error', 'Qualification criteria values cannot be negative.');
     }
 
@@ -448,7 +617,7 @@ if ($action === 'create_job_posting') {
         $adminUserId,
         $positionId,
         $criteriaEligibility,
-        $criteriaEducationYears,
+        $criteriaEducationLevel,
         $criteriaTrainingHours,
         $criteriaExperienceYears
     );
@@ -461,13 +630,20 @@ if ($action === 'edit_job_posting') {
     $title = cleanText($_POST['title'] ?? null) ?? '';
     $officeId = cleanText($_POST['office_id'] ?? null) ?? '';
     $positionId = cleanText($_POST['position_id'] ?? null) ?? '';
+    $newPositionTitle = trim((string)(cleanText($_POST['new_position_title'] ?? null) ?? ''));
     $description = cleanText($_POST['description'] ?? null) ?? '';
     $qualifications = cleanText($_POST['qualifications'] ?? null);
     $responsibilities = cleanText($_POST['responsibilities'] ?? null);
     $employmentType = strtolower((string)(cleanText($_POST['employment_type'] ?? null) ?? ''));
     $plantillaItemNo = trim((string)(cleanText($_POST['plantilla_item_no'] ?? null) ?? ''));
-    $criteriaEligibility = recruitmentResolveEligibilityOption((string)(cleanText($_POST['criteria_eligibility'] ?? null) ?? 'csc_prc'));
-    $criteriaEducationYears = (float)(cleanText($_POST['criteria_education_years'] ?? null) ?? 2);
+    $requiredDocumentsRaw = $_POST['required_documents'] ?? [];
+    $criteriaEligibilityRequiredRaw = (string)(cleanText($_POST['criteria_eligibility_required'] ?? null) ?? '0');
+    $criteriaEligibility = $criteriaEligibilityRequiredRaw === '1' ? 'csc_prc' : 'none';
+    $criteriaEducationLevelRaw = (string)(cleanText($_POST['criteria_education_level'] ?? null) ?? '');
+    $criteriaEducationYearsLegacy = (float)(cleanText($_POST['criteria_education_years'] ?? null) ?? 4);
+    $criteriaEducationLevel = $criteriaEducationLevelRaw !== ''
+        ? recruitmentNormalizeEducationLevel($criteriaEducationLevelRaw)
+        : recruitmentEducationYearsToLevel($criteriaEducationYearsLegacy);
     $criteriaTrainingHours = (float)(cleanText($_POST['criteria_training_hours'] ?? null) ?? 4);
     $criteriaExperienceYears = (float)(cleanText($_POST['criteria_experience_years'] ?? null) ?? 1);
     $openDate = cleanText($_POST['open_date'] ?? null) ?? '';
@@ -478,16 +654,42 @@ if ($action === 'edit_job_posting') {
         redirectWithState('error', 'Invalid job posting selected.');
     }
 
-    if ($title === '' || $description === '' || $officeId === '' || $positionId === '' || $openDate === '' || $closeDate === '' || $plantillaItemNo === '') {
-        redirectWithState('error', 'Title, office, position, plantilla number, description, open date, and close date are required.');
+    if ($title === '' || $description === '' || $officeId === '' || $openDate === '' || $closeDate === '' || $plantillaItemNo === '') {
+        redirectWithState('error', 'Title, office, plantilla number, description, open date, and close date are required.');
     }
 
-    if (!recruitmentIsValidUuid($officeId) || !recruitmentIsValidUuid($positionId)) {
-        redirectWithState('error', 'Selected office or position is invalid.');
+    if (!recruitmentIsValidUuid($officeId)) {
+        redirectWithState('error', 'Selected office is invalid.');
     }
 
     if (!in_array($employmentType, ['permanent', 'contractual'], true)) {
         redirectWithState('error', 'Please select a valid employment type.');
+    }
+
+    if ($positionId === '' && $newPositionTitle === '') {
+        redirectWithState('error', 'Select a predefined position or enter a new position title.');
+    }
+
+    if ($newPositionTitle !== '') {
+        $employmentClassification = $resolveEmploymentClassification($employmentType);
+        if ($employmentClassification === null) {
+            redirectWithState('error', 'Unable to resolve employment classification for the selected employment type.');
+        }
+
+        $existingPositionId = $findExistingPositionId($newPositionTitle, $employmentClassification);
+        if ($existingPositionId !== null) {
+            $positionId = $existingPositionId;
+        } else {
+            $createdPositionId = $createJobPosition($newPositionTitle, $employmentClassification);
+            if ($createdPositionId === null) {
+                redirectWithState('error', 'Failed to create the new position. Please try again.');
+            }
+            $positionId = $createdPositionId;
+        }
+    }
+
+    if (!recruitmentIsValidUuid($positionId)) {
+        redirectWithState('error', 'Selected position is invalid.');
     }
 
     $positionEmploymentType = $resolveEmploymentType($positionId);
@@ -502,8 +704,22 @@ if ($action === 'edit_job_posting') {
         $postingStatus = 'draft';
     }
 
-    if ($criteriaEducationYears < 0 || $criteriaTrainingHours < 0 || $criteriaExperienceYears < 0) {
+    if ($criteriaTrainingHours < 0 || $criteriaExperienceYears < 0) {
         redirectWithState('error', 'Qualification criteria values cannot be negative.');
+    }
+
+    $requiredDocumentKeys = [];
+    if (is_array($requiredDocumentsRaw)) {
+        foreach ($requiredDocumentsRaw as $requirementKey) {
+            $key = strtolower(trim((string)$requirementKey));
+            if ($key === '' || !isset($allowedRequirementKeys[$key])) {
+                continue;
+            }
+            $requiredDocumentKeys[$key] = $allowedRequirementKeys[$key];
+        }
+    }
+    if (empty($requiredDocumentKeys)) {
+        $requiredDocumentKeys = $allowedRequirementKeys;
     }
 
     $eligibilityRequirement = recruitmentNormalizeEligibilityRequirement(
@@ -541,6 +757,7 @@ if ($action === 'edit_job_posting') {
         'description' => $description,
         'qualifications' => $qualifications,
         'responsibilities' => $responsibilities,
+        'required_documents' => array_values($requiredDocumentKeys),
         'posting_status' => $postingStatus,
         'open_date' => $openDate,
         'close_date' => $closeDate,
@@ -598,7 +815,7 @@ if ($action === 'edit_job_posting') {
         $adminUserId,
         $positionId,
         $criteriaEligibility,
-        $criteriaEducationYears,
+        $criteriaEducationLevel,
         $criteriaTrainingHours,
         $criteriaExperienceYears
     );

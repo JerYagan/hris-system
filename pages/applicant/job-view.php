@@ -52,7 +52,7 @@ ob_start();
                     <h1 class="text-xl font-semibold text-gray-800"><?= htmlspecialchars((string)$jobData['title'], ENT_QUOTES, 'UTF-8') ?></h1>
                     <p class="text-sm text-gray-500"><?= htmlspecialchars((string)$jobData['office_name'], ENT_QUOTES, 'UTF-8') ?></p>
                     <div class="mt-3 flex flex-wrap gap-2 text-xs">
-                        <span class="inline-flex rounded-full bg-green-100 px-2.5 py-1 font-medium text-green-700"><?= htmlspecialchars(ucwords(str_replace('_', ' ', (string)$jobData['employment_type'])), ENT_QUOTES, 'UTF-8') ?></span>
+                        <span class="inline-flex rounded-full bg-green-100 px-2.5 py-1 font-medium text-green-700"><?= htmlspecialchars((string)($jobData['employment_type_label'] ?? ucwords(str_replace('_', ' ', (string)$jobData['employment_type']))), ENT_QUOTES, 'UTF-8') ?></span>
                         <span class="inline-flex rounded-full border bg-white px-2.5 py-1 text-gray-600">Salary Grade <?= htmlspecialchars((string)$jobData['salary_grade'], ENT_QUOTES, 'UTF-8') ?></span>
                         <span class="inline-flex rounded-full border bg-white px-2.5 py-1 text-gray-600">Plantilla <?= htmlspecialchars((string)($jobData['plantilla_item_no'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></span>
                     </div>
@@ -93,6 +93,31 @@ ob_start();
                 <h2 class="text-lg font-semibold text-gray-800">Qualifications</h2>
             </header>
 
+            <div class="border-b bg-green-50/60 px-4 py-4 text-sm sm:px-6">
+                <h3 class="font-medium text-gray-800">Qualification Criteria (4 Required)</h3>
+                <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                        <p class="text-xs uppercase tracking-wide text-slate-500">Eligibility</p>
+                        <p class="mt-1 font-medium text-slate-800"><?= htmlspecialchars((string)($jobData['criteria']['eligibility_label'] ?? 'None (Not Required)'), ENT_QUOTES, 'UTF-8') ?></p>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                        <p class="text-xs uppercase tracking-wide text-slate-500">Education</p>
+                        <p class="mt-1 font-medium text-slate-800">Minimum <?= htmlspecialchars((string)($jobData['criteria']['minimum_education_years'] ?? 0), ENT_QUOTES, 'UTF-8') ?> year(s)</p>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                        <p class="text-xs uppercase tracking-wide text-slate-500">Training</p>
+                        <p class="mt-1 font-medium text-slate-800">Minimum <?= htmlspecialchars((string)($jobData['criteria']['minimum_training_hours'] ?? 0), ENT_QUOTES, 'UTF-8') ?> hour(s)</p>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                        <p class="text-xs uppercase tracking-wide text-slate-500">Experience</p>
+                        <p class="mt-1 font-medium text-slate-800">Minimum <?= htmlspecialchars((string)($jobData['criteria']['minimum_experience_years'] ?? 0), ENT_QUOTES, 'UTF-8') ?> year(s)</p>
+                    </div>
+                </div>
+                <?php if (!empty($criteriaGapMessage)): ?>
+                    <p class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"><?= htmlspecialchars((string)$criteriaGapMessage, ENT_QUOTES, 'UTF-8') ?></p>
+                <?php endif; ?>
+            </div>
+
             <div class="grid grid-cols-1 gap-6 p-4 text-sm md:grid-cols-2 sm:p-6">
                 <div>
                     <p class="mb-2 font-medium text-gray-800">Minimum Requirements</p>
@@ -129,27 +154,58 @@ ob_start();
             </header>
 
             <div class="p-4 text-sm text-gray-700 sm:p-6">
-                <?php if (!empty($jobData['required_documents'])): ?>
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <?php foreach ((array)$jobData['required_documents'] as $requiredDocument): ?>
+                <div class="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+                    <p class="font-medium text-slate-800">Checklist Progress</p>
+                    <p class="mt-1 text-slate-700">
+                        <?= (int)($requiredDocumentSummary['fulfilled_required'] ?? 0) ?> / <?= (int)($requiredDocumentSummary['total_required'] ?? 0) ?> required documents already available in your uploads.
+                        <?php if ((int)($requiredDocumentSummary['missing_required'] ?? 0) > 0): ?>
+                            <span class="text-rose-700">Missing <?= (int)$requiredDocumentSummary['missing_required'] ?> required item(s).</span>
+                        <?php else: ?>
+                            <span class="text-emerald-700">All required documents are currently fulfilled.</span>
+                        <?php endif; ?>
+                    </p>
+                </div>
+
+                <?php if (!empty($requiredDocumentChecklist)): ?>
+                    <div class="grid grid-cols-1 gap-3">
+                        <?php foreach ((array)$requiredDocumentChecklist as $requiredDocument): ?>
                             <?php
                             $docLabel = (string)($requiredDocument['label'] ?? 'Required Document');
                             $docRequired = (bool)($requiredDocument['required'] ?? true);
+                            $docFulfilled = (bool)($requiredDocument['fulfilled'] ?? false);
+                            $docFileName = cleanText($requiredDocument['uploaded_file_name'] ?? null);
                             ?>
-                            <article class="rounded-lg border p-3 <?= $docRequired ? 'border-rose-200 bg-rose-50/50' : 'bg-gray-50' ?>">
+                            <article class="rounded-lg border p-3 <?= $docFulfilled ? 'border-emerald-200 bg-emerald-50/60' : ($docRequired ? 'border-rose-200 bg-rose-50/60' : 'border-slate-200 bg-slate-50') ?>">
                                 <div class="flex items-start justify-between gap-2">
                                     <p class="font-medium text-gray-800"><?= htmlspecialchars($docLabel, ENT_QUOTES, 'UTF-8') ?></p>
-                                    <?php if ($docRequired): ?>
-                                        <span class="inline-flex rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700">Required</span>
-                                    <?php else: ?>
-                                        <span class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">Optional</span>
-                                    <?php endif; ?>
+                                    <div class="flex flex-wrap justify-end gap-1">
+                                        <?php if ($docRequired): ?>
+                                            <span class="inline-flex rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700">Required</span>
+                                        <?php else: ?>
+                                            <span class="inline-flex rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">Optional</span>
+                                        <?php endif; ?>
+                                        <?php if ($docFulfilled): ?>
+                                            <span class="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">Fulfilled</span>
+                                        <?php else: ?>
+                                            <span class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">Missing</span>
+                                        <?php endif; ?>
+                                    </div>
                                 </div>
+                                <?php if ($docFulfilled && $docFileName !== null): ?>
+                                    <p class="mt-2 text-xs text-slate-600">Existing file: <?= htmlspecialchars($docFileName, ENT_QUOTES, 'UTF-8') ?></p>
+                                <?php endif; ?>
                             </article>
                         <?php endforeach; ?>
                     </div>
                 <?php else: ?>
                     <p class="text-gray-600">No document requirements were configured for this posting.</p>
+                <?php endif; ?>
+
+                <?php if ($canApply): ?>
+                    <a href="apply.php?job_id=<?= urlencode((string)$jobData['id']) ?>" class="mt-4 inline-flex items-center gap-1 rounded-md border border-green-700 px-3 py-2 text-xs font-medium text-green-700 hover:bg-green-50">
+                        <span class="material-symbols-outlined text-sm">upload_file</span>
+                        Upload missing documents while applying
+                    </a>
                 <?php endif; ?>
             </div>
         </section>
@@ -168,6 +224,14 @@ ob_start();
                 <div>
                     <p class="text-gray-500">Plantilla Item No.</p>
                     <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($jobData['plantilla_item_no'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                </div>
+                <div>
+                    <p class="text-gray-500">Employment Type</p>
+                    <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($jobData['employment_type_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                </div>
+                <div>
+                    <p class="text-gray-500">Work Location</p>
+                    <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($jobData['work_location'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
                 </div>
                 <div>
                     <p class="text-gray-500">Deadline</p>

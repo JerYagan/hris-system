@@ -78,6 +78,11 @@ ob_start();
         <p class="text-xs uppercase tracking-wide text-gray-500">Address</p>
         <p class="mt-2 font-semibold text-gray-800"><?= htmlspecialchars((string)($profileData['current_address'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
     </article>
+
+    <article class="rounded-xl border bg-white p-5">
+        <p class="text-xs uppercase tracking-wide text-gray-500">Training Hours Completed</p>
+        <p class="mt-2 font-semibold text-gray-800"><?= htmlspecialchars(number_format((float)($profileData['training_hours_completed'] ?? 0), 2), ENT_QUOTES, 'UTF-8') ?> hour(s)</p>
+    </article>
 </section>
 
 <section class="mb-6 rounded-xl border bg-white">
@@ -202,6 +207,12 @@ ob_start();
             <div>
                 <label class="text-gray-500">Address</label>
                 <input type="text" name="current_address" value="<?= htmlspecialchars((string)(($profileData['current_address'] ?? '') === '-' ? '' : ($profileData['current_address'] ?? '')), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+            </div>
+
+            <div>
+                <label class="text-gray-500">Training Hours Completed</label>
+                <input type="number" min="0" step="0.1" name="training_hours_completed" value="<?= htmlspecialchars((string)($profileData['training_hours_completed'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                <p class="mt-1 text-xs text-gray-500">Enter your accumulated training hours as reflected in your applicant profile.</p>
             </div>
         </div>
     </section>

@@ -116,10 +116,60 @@ if (!function_exists('adminApplicantsExtractStructuredInputs')) {
 
         return [
             'eligibility' => cleanText($decoded['eligibility'] ?? $decoded['eligibility_type'] ?? null),
+            'education_level' => cleanText($decoded['education_level'] ?? $decoded['highest_education_level'] ?? null),
             'education_years' => $decoded['education_years'] ?? $decoded['years_in_college'] ?? null,
             'training_hours' => $decoded['training_hours'] ?? $decoded['hours_of_training'] ?? null,
             'experience_years' => $decoded['experience_years'] ?? $decoded['years_of_experience'] ?? null,
         ];
+    }
+}
+
+if (!function_exists('adminApplicantsNormalizeEducationLevel')) {
+    function adminApplicantsNormalizeEducationLevel(string $value): string
+    {
+        $key = strtolower(trim($value));
+
+        return match ($key) {
+            'elementary' => 'elementary',
+            'secondary', 'highschool', 'high_school', 'high-school' => 'secondary',
+            'vocational', 'trade', 'trade_course', 'vocational_trade_course', 'vocational/trade course', 'tvet' => 'vocational',
+            'college', 'bachelor', 'bachelors', "bachelor's", "bachelor's degree" => 'college',
+            'graduate', 'graduate_studies', 'masters', 'masteral', 'doctorate', 'phd' => 'graduate',
+            default => 'college',
+        };
+    }
+}
+
+if (!function_exists('adminApplicantsEducationYearsToLevel')) {
+    function adminApplicantsEducationYearsToLevel(float $years): string
+    {
+        if ($years >= 6) {
+            return 'graduate';
+        }
+        if ($years >= 4) {
+            return 'college';
+        }
+        if ($years >= 2) {
+            return 'vocational';
+        }
+        if ($years >= 1) {
+            return 'secondary';
+        }
+
+        return 'elementary';
+    }
+}
+
+if (!function_exists('adminApplicantsEducationLevelRank')) {
+    function adminApplicantsEducationLevelRank(string $level): int
+    {
+        return match (adminApplicantsNormalizeEducationLevel($level)) {
+            'graduate' => 5,
+            'college' => 4,
+            'vocational' => 3,
+            'secondary' => 2,
+            default => 1,
+        };
     }
 }
 
@@ -215,6 +265,81 @@ if (!function_exists('adminApplicantsEligibilityMatchesAny')) {
     }
 }
 
+if (!function_exists('adminApplicantsNormalizeEligibilityOption')) {
+    function adminApplicantsNormalizeEligibilityOption(string $value): string
+    {
+        $key = strtolower(trim($value));
+        return match ($key) {
+            'none', 'not_applicable', 'not applicable', 'n/a', 'na', '' => 'none',
+            'csc', 'career service', 'career service sub professional' => 'csc',
+            'prc' => 'prc',
+            'csc_prc', 'csc,prc', 'csc, prc', 'csc/prc' => 'csc_prc',
+            default => 'csc_prc',
+        };
+    }
+}
+
+if (!function_exists('adminApplicantsEligibilityOptionMatches')) {
+    function adminApplicantsEligibilityOptionMatches(string $requiredOption, string $actualOption): bool
+    {
+        $required = adminApplicantsNormalizeEligibilityOption($requiredOption);
+        $actual = adminApplicantsNormalizeEligibilityOption($actualOption);
+
+        if ($required === 'none') {
+            return true;
+        }
+
+        return match ($required) {
+            'csc' => in_array($actual, ['csc', 'csc_prc'], true),
+            'prc' => in_array($actual, ['prc', 'csc_prc'], true),
+            default => in_array($actual, ['csc', 'prc', 'csc_prc'], true),
+        };
+    }
+}
+
+if (!function_exists('adminApplicantsEligibilityOptionFromDocuments')) {
+    function adminApplicantsEligibilityOptionFromDocuments(array $documents): string
+    {
+        $hasCsc = false;
+        $hasPrc = false;
+
+        foreach ($documents as $document) {
+            $documentType = strtolower(trim((string)($document['document_type'] ?? '')));
+            $fileName = strtolower(trim((string)($document['file_name'] ?? '')));
+
+            if (
+                $documentType === 'eligibility'
+                || str_contains($fileName, 'csc')
+                || str_contains($fileName, 'career service')
+                || str_contains($fileName, 'eligibility')
+            ) {
+                $hasCsc = true;
+            }
+
+            if (
+                $documentType === 'license'
+                || str_contains($fileName, 'prc')
+                || str_contains($fileName, 'board')
+                || str_contains($fileName, 'licensure')
+            ) {
+                $hasPrc = true;
+            }
+        }
+
+        if ($hasCsc && $hasPrc) {
+            return 'csc_prc';
+        }
+        if ($hasCsc) {
+            return 'csc';
+        }
+        if ($hasPrc) {
+            return 'prc';
+        }
+
+        return 'none';
+    }
+}
+
 if (!function_exists('adminApplicantsMissingCriteria')) {
     function adminApplicantsMissingCriteria(string $supabaseUrl, array $headers, array $applicationRow): array
     {
@@ -222,6 +347,14 @@ if (!function_exists('adminApplicantsMissingCriteria')) {
         if ($applicationId === '') {
             return [];
         }
+
+        $defaults = [
+            'eligibility_option' => 'none',
+            'minimum_education_level' => 'vocational',
+            'minimum_education_years' => 2.0,
+            'minimum_training_hours' => 4.0,
+            'minimum_experience_years' => 1.0,
+        ];
 
         $criteriaResponse = apiRequest(
             'GET',
@@ -235,22 +368,41 @@ if (!function_exists('adminApplicantsMissingCriteria')) {
             ? (array)($criteriaRaw['value'] ?? [])
             : (array)$criteriaRaw;
 
-        $job = is_array($applicationRow['job'] ?? null) ? (array)$applicationRow['job'] : [];
-        $positionTitle = strtolower(trim((string)($job['title'] ?? '')));
-        $positionKey = preg_replace('/[^a-z0-9]+/i', '_', $positionTitle ?? '');
-        $positionKey = trim((string)$positionKey, '_');
+        $requiredEligibilityOption = adminApplicantsNormalizeEligibilityOption((string)($criteria['eligibility'] ?? $defaults['eligibility_option']));
+        $requiredEducationYearsDefault = (float)($criteria['minimum_education_years'] ?? $defaults['minimum_education_years']);
+        $requiredEducationLevel = adminApplicantsNormalizeEducationLevel((string)($criteria['minimum_education_level'] ?? adminApplicantsEducationYearsToLevel($requiredEducationYearsDefault)));
+        $requiredTrainingHours = (float)($criteria['minimum_training_hours'] ?? $defaults['minimum_training_hours']);
+        $requiredExperienceYears = (float)($criteria['minimum_experience_years'] ?? $defaults['minimum_experience_years']);
 
-        if (!array_key_exists('minimum_education_years', $criteria)) {
-            $perPosition = is_array($criteria[$positionKey] ?? null) ? (array)$criteria[$positionKey] : [];
-            if (!empty($perPosition)) {
-                $criteria = $perPosition;
+        $job = is_array($applicationRow['job'] ?? null) ? (array)$applicationRow['job'] : [];
+        $positionId = strtolower(trim((string)($job['position_id'] ?? '')));
+        if ($positionId !== '') {
+            $positionCriteriaResponse = apiRequest(
+                'GET',
+                $supabaseUrl . '/rest/v1/system_settings?select=setting_value&setting_key=eq.' . rawurlencode('recruitment.position_criteria') . '&limit=1',
+                $headers
+            );
+
+            $positionCriteriaRaw = isSuccessful($positionCriteriaResponse)
+                ? ($positionCriteriaResponse['data'][0]['setting_value'] ?? null)
+                : null;
+            $positionCriteria = is_array($positionCriteriaRaw) && array_key_exists('value', $positionCriteriaRaw)
+                ? (array)($positionCriteriaRaw['value'] ?? [])
+                : (array)$positionCriteriaRaw;
+
+            $overrides = is_array($positionCriteria['position_overrides'] ?? null)
+                ? (array)$positionCriteria['position_overrides']
+                : [];
+            $override = is_array($overrides[$positionId] ?? null) ? (array)$overrides[$positionId] : [];
+
+            if (!empty($override)) {
+                $requiredEligibilityOption = adminApplicantsNormalizeEligibilityOption((string)($override['eligibility'] ?? $requiredEligibilityOption));
+                $overrideEducationYears = (float)($override['minimum_education_years'] ?? $requiredEducationYearsDefault);
+                $requiredEducationLevel = adminApplicantsNormalizeEducationLevel((string)($override['minimum_education_level'] ?? adminApplicantsEducationYearsToLevel($overrideEducationYears)));
+                $requiredTrainingHours = (float)($override['minimum_training_hours'] ?? $requiredTrainingHours);
+                $requiredExperienceYears = (float)($override['minimum_experience_years'] ?? $requiredExperienceYears);
             }
         }
-
-        $requiredEligibility = (string)($criteria['eligibility'] ?? 'career service sub professional');
-        $requiredEducationYears = (float)($criteria['minimum_education_years'] ?? 2);
-        $requiredTrainingHours = (float)($criteria['minimum_training_hours'] ?? 4);
-        $requiredExperienceYears = (float)($criteria['minimum_experience_years'] ?? 1);
 
         $feedbackResponse = apiRequest(
             'GET',
@@ -263,7 +415,7 @@ if (!function_exists('adminApplicantsMissingCriteria')) {
 
         $documentsResponse = apiRequest(
             'GET',
-            $supabaseUrl . '/rest/v1/application_documents?select=document_type&application_id=eq.' . rawurlencode($applicationId) . '&limit=500',
+            $supabaseUrl . '/rest/v1/application_documents?select=document_type,file_name&application_id=eq.' . rawurlencode($applicationId) . '&limit=500',
             $headers
         );
         $documents = isSuccessful($documentsResponse) ? (array)($documentsResponse['data'] ?? []) : [];
@@ -278,16 +430,114 @@ if (!function_exists('adminApplicantsMissingCriteria')) {
         $structured = adminApplicantsExtractStructuredInputs($feedbackText);
         $signals = adminApplicantsEstimateSignalInputs($applicationRow, $documents, $interviews);
 
-        $eligibilityInput = strtolower(trim((string)($structured['eligibility'] ?? $signals['eligibility'] ?? 'n/a')));
+        $structuredEligibility = strtolower(trim((string)($structured['eligibility'] ?? '')));
+        $structuredEligibilityOption = $structuredEligibility !== ''
+            ? adminApplicantsNormalizeEligibilityOption($structuredEligibility)
+            : 'none';
+        $documentEligibilityOption = adminApplicantsEligibilityOptionFromDocuments($documents);
+        $actualEligibilityOption = $structuredEligibilityOption !== 'none'
+            ? $structuredEligibilityOption
+            : $documentEligibilityOption;
+
+        $applicant = is_array($applicationRow['applicant'] ?? null) ? (array)$applicationRow['applicant'] : [];
+        $actualTrainingHours = (float)($applicant['training_hours_completed'] ?? 0);
+
+        $personId = '';
+        $applicantUserId = trim((string)($applicant['user_id'] ?? ''));
+        if ($applicantUserId !== '') {
+            $peopleResponse = apiRequest(
+                'GET',
+                $supabaseUrl . '/rest/v1/people?select=id&user_id=eq.' . rawurlencode($applicantUserId) . '&limit=1',
+                $headers
+            );
+            if (isSuccessful($peopleResponse)) {
+                $personId = strtolower(trim((string)($peopleResponse['data'][0]['id'] ?? '')));
+            }
+        }
+
+        $profileEducationLevel = '';
+        $profileExperienceYears = 0.0;
+        if ($personId !== '') {
+            $educationResponse = apiRequest(
+                'GET',
+                $supabaseUrl . '/rest/v1/person_educations?select=education_level&person_id=eq.' . rawurlencode($personId) . '&limit=500',
+                $headers
+            );
+
+            if (isSuccessful($educationResponse)) {
+                foreach ((array)($educationResponse['data'] ?? []) as $educationRow) {
+                    $level = adminApplicantsNormalizeEducationLevel((string)($educationRow['education_level'] ?? ''));
+                    if (
+                        $profileEducationLevel === ''
+                        || adminApplicantsEducationLevelRank($level) > adminApplicantsEducationLevelRank($profileEducationLevel)
+                    ) {
+                        $profileEducationLevel = $level;
+                    }
+                }
+            }
+
+            $workResponse = apiRequest(
+                'GET',
+                $supabaseUrl . '/rest/v1/person_work_experiences?select=inclusive_date_from,inclusive_date_to&person_id=eq.' . rawurlencode($personId) . '&limit=1000',
+                $headers
+            );
+
+            if (isSuccessful($workResponse)) {
+                $todayDate = new DateTimeImmutable('today');
+                $totalDays = 0;
+                foreach ((array)($workResponse['data'] ?? []) as $workRow) {
+                    $fromRaw = trim((string)($workRow['inclusive_date_from'] ?? ''));
+                    if ($fromRaw === '') {
+                        continue;
+                    }
+
+                    try {
+                        $fromDate = new DateTimeImmutable($fromRaw);
+                    } catch (Throwable) {
+                        continue;
+                    }
+
+                    $toRaw = trim((string)($workRow['inclusive_date_to'] ?? ''));
+                    if ($toRaw !== '') {
+                        try {
+                            $toDate = new DateTimeImmutable($toRaw);
+                        } catch (Throwable) {
+                            $toDate = $todayDate;
+                        }
+                    } else {
+                        $toDate = $todayDate;
+                    }
+
+                    if ($toDate < $fromDate) {
+                        continue;
+                    }
+
+                    $totalDays += (int)$fromDate->diff($toDate)->days + 1;
+                }
+
+                $profileExperienceYears = round($totalDays / 365, 2);
+            }
+        }
+
+        $educationLevelInput = trim((string)($structured['education_level'] ?? ''));
         $educationYears = (float)($structured['education_years'] ?? $signals['education_years'] ?? 0);
-        $trainingHours = (float)($structured['training_hours'] ?? $signals['training_hours'] ?? 0);
-        $experienceYears = (float)($structured['experience_years'] ?? $signals['experience_years'] ?? 0);
+        $trainingHours = $actualTrainingHours > 0
+            ? $actualTrainingHours
+            : (float)($structured['training_hours'] ?? $signals['training_hours'] ?? 0);
+        $experienceYears = $profileExperienceYears > 0
+            ? $profileExperienceYears
+            : (float)($structured['experience_years'] ?? $signals['experience_years'] ?? 0);
+        $educationLevel = $educationLevelInput !== ''
+            ? adminApplicantsNormalizeEducationLevel($educationLevelInput)
+            : ($profileEducationLevel !== ''
+                ? $profileEducationLevel
+                : adminApplicantsEducationYearsToLevel($educationYears));
 
         $missing = [];
-        if (!adminApplicantsEligibilityMatchesAny($requiredEligibility, $eligibilityInput)) {
+        if (!adminApplicantsEligibilityOptionMatches($requiredEligibilityOption, $actualEligibilityOption)) {
             $missing[] = 'eligibility';
         }
-        if ($educationYears < $requiredEducationYears) {
+        if (adminApplicantsEducationLevelRank($educationLevel) < adminApplicantsEducationLevelRank($requiredEducationLevel)) {
             $missing[] = 'education';
         }
         if ($trainingHours < $requiredTrainingHours) {
@@ -639,7 +889,7 @@ if ($decisionConfig === null) {
 
 $applicationResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/applications?select=id,application_status,applicant_profile_id,application_ref_no,job:job_postings(title),applicant:applicant_profiles(user_id,full_name,email,resume_url,portfolio_url)&id=eq.' . $applicationId . '&limit=1',
+    $supabaseUrl . '/rest/v1/applications?select=id,application_status,applicant_profile_id,application_ref_no,job:job_postings(title,position_id),applicant:applicant_profiles(user_id,full_name,email,resume_url,portfolio_url,training_hours_completed)&id=eq.' . $applicationId . '&limit=1',
     $headers
 );
 

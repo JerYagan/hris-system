@@ -153,12 +153,31 @@ if (!function_exists('redirectWithState')) {
             }
         }
 
-        $params = http_build_query([
-            'state' => $state,
-            'message' => $message,
-        ]);
+        $parsed = parse_url($targetPath);
+        $basePath = (string)($parsed['path'] ?? 'dashboard.php');
+        if ($basePath === '') {
+            $basePath = 'dashboard.php';
+        }
 
-        header('Location: ' . $targetPath . '?' . $params);
+        $existingParams = [];
+        if (!empty($parsed['query'])) {
+            parse_str((string)$parsed['query'], $existingParams);
+            if (!is_array($existingParams)) {
+                $existingParams = [];
+            }
+        }
+
+        $existingParams['state'] = $state;
+        $existingParams['message'] = $message;
+
+        $query = http_build_query($existingParams);
+        $redirectTo = $basePath . ($query !== '' ? ('?' . $query) : '');
+
+        if (!empty($parsed['fragment'])) {
+            $redirectTo .= '#' . $parsed['fragment'];
+        }
+
+        header('Location: ' . $redirectTo);
         exit;
     }
 }

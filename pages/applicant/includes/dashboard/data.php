@@ -20,6 +20,11 @@ $dashboardRecentNotifications = [];
 $dashboardProgressItems = [];
 $latestApplicationStatus = 'submitted';
 $latestApplicationId = null;
+$profileCompletionReminder = [
+	'show_modal' => false,
+	'education_entries' => 0,
+	'work_entries' => 0,
+];
 
 if ($applicantUserId === '') {
 	$dataLoadError = 'Applicant session is missing. Please login again.';
@@ -54,6 +59,42 @@ if (isSuccessful($applicantProfileResponse) && !empty((array)($applicantProfileR
 		$dashboardData['first_name'] = (string)($nameParts[0] ?? $dashboardData['first_name']);
 	}
 }
+
+$personResponse = apiRequest(
+	'GET',
+	$supabaseUrl . '/rest/v1/people?select=id&user_id=eq.' . rawurlencode($applicantUserId) . '&limit=1',
+	$headers
+);
+
+$personId = isSuccessful($personResponse)
+	? cleanText($personResponse['data'][0]['id'] ?? null)
+	: null;
+
+if ($personId !== null && isValidUuid($personId)) {
+	$educationCountResponse = apiRequest(
+		'GET',
+		$supabaseUrl . '/rest/v1/person_educations?select=id&person_id=eq.' . rawurlencode($personId) . '&limit=500',
+		$headers
+	);
+
+	if (isSuccessful($educationCountResponse)) {
+		$profileCompletionReminder['education_entries'] = count((array)($educationCountResponse['data'] ?? []));
+	}
+
+	$workCountResponse = apiRequest(
+		'GET',
+		$supabaseUrl . '/rest/v1/person_work_experiences?select=id&person_id=eq.' . rawurlencode($personId) . '&limit=500',
+		$headers
+	);
+
+	if (isSuccessful($workCountResponse)) {
+		$profileCompletionReminder['work_entries'] = count((array)($workCountResponse['data'] ?? []));
+	}
+}
+
+$profileCompletionReminder['show_modal'] =
+	((int)$profileCompletionReminder['education_entries'] < 1)
+	|| ((int)$profileCompletionReminder['work_entries'] < 1);
 
 $today = date('Y-m-d');
 $openJobsResponse = apiRequest(
@@ -181,12 +222,17 @@ $notificationsResponse = apiRequest(
 
 if (isSuccessful($notificationsResponse)) {
 	foreach ((array)($notificationsResponse['data'] ?? []) as $notificationRow) {
+		$category = strtolower((string)($notificationRow['category'] ?? 'system'));
+		if ($category === 'application') {
+			continue;
+		}
+
 		$dashboardRecentNotifications[] = [
 			'title' => (string)($notificationRow['title'] ?? 'Update'),
 			'body' => (string)($notificationRow['body'] ?? ''),
 			'created_at' => cleanText($notificationRow['created_at'] ?? null),
 			'link_url' => safeLocalLink(cleanText($notificationRow['link_url'] ?? null)),
-			'category' => strtolower((string)($notificationRow['category'] ?? 'system')),
+			'category' => $category,
 		];
 	}
 }

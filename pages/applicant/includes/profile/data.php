@@ -9,6 +9,7 @@ $profileData = [
 	'email' => cleanText($_SESSION['user']['email'] ?? null) ?? '-',
 	'mobile_no' => '-',
 	'current_address' => '-',
+	'training_hours_completed' => 0.0,
 ];
 
 $profileSpouses = [];
@@ -41,7 +42,7 @@ $peopleResponse = apiRequest(
 
 $applicantProfileResponse = apiRequest(
 	'GET',
-	$supabaseUrl . '/rest/v1/applicant_profiles?select=id,full_name,email,mobile_no,current_address,resume_url,portfolio_url&user_id=eq.' . rawurlencode($applicantUserId) . '&limit=1',
+	$supabaseUrl . '/rest/v1/applicant_profiles?select=id,full_name,email,mobile_no,current_address,resume_url,portfolio_url,training_hours_completed&user_id=eq.' . rawurlencode($applicantUserId) . '&limit=1',
 	$headers
 );
 
@@ -119,6 +120,8 @@ $profileData['current_address'] = trim((string)($applicantProfileRow['current_ad
 if ($profileData['current_address'] === '') {
 	$profileData['current_address'] = '-';
 }
+
+$profileData['training_hours_completed'] = max(0.0, (float)($applicantProfileRow['training_hours_completed'] ?? 0));
 
 if ($profileData['email'] === '') {
 	$profileData['email'] = '-';

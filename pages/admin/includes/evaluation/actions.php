@@ -12,7 +12,8 @@ if ($action === '') {
 if ($action === 'save_evaluation_criteria') {
     $eligibilityOption = evaluationNormalizeEligibilityOption((string)(cleanText($_POST['required_eligibility'] ?? null) ?? 'csc_prc'));
     $eligibility = evaluationEligibilityOptionToRequirement($eligibilityOption);
-    $minimumEducationYears = (float)(cleanText($_POST['minimum_education_years'] ?? null) ?? '2');
+    $minimumEducationLevel = evaluationNormalizeEducationLevel((string)(cleanText($_POST['minimum_education_level'] ?? null) ?? 'vocational'));
+    $minimumEducationYears = evaluationEducationLevelToYears($minimumEducationLevel);
     $minimumTrainingHours = (float)(cleanText($_POST['minimum_training_hours'] ?? null) ?? '4');
     $minimumExperienceYears = (float)(cleanText($_POST['minimum_experience_years'] ?? null) ?? '1');
     $threshold = (float)(cleanText($_POST['threshold'] ?? null) ?? '75');
@@ -20,10 +21,6 @@ if ($action === 'save_evaluation_criteria') {
 
     if ($eligibility === '') {
         redirectWithState('error', 'Required eligibility is required.');
-    }
-
-    if ($minimumEducationYears < 0 || $minimumEducationYears > 20) {
-        redirectWithState('error', 'Minimum education years must be between 0 and 20.');
     }
 
     if ($minimumTrainingHours < 0 || $minimumTrainingHours > 1000) {
@@ -40,6 +37,7 @@ if ($action === 'save_evaluation_criteria') {
 
     $criteria = [
         'eligibility' => $eligibility,
+        'minimum_education_level' => $minimumEducationLevel,
         'minimum_education_years' => $minimumEducationYears,
         'minimum_training_hours' => $minimumTrainingHours,
         'minimum_experience_years' => $minimumExperienceYears,
@@ -81,16 +79,13 @@ if ($action === 'save_evaluation_criteria') {
 if ($action === 'save_position_criteria') {
     $positionId = trim((string)(cleanText($_POST['position_id'] ?? null) ?? ''));
     $eligibilityOption = evaluationNormalizeEligibilityOption((string)(cleanText($_POST['position_required_eligibility'] ?? null) ?? 'csc_prc'));
-    $minimumEducationYears = (float)(cleanText($_POST['position_minimum_education_years'] ?? null) ?? '2');
+    $minimumEducationLevel = evaluationNormalizeEducationLevel((string)(cleanText($_POST['position_minimum_education_level'] ?? null) ?? 'vocational'));
+    $minimumEducationYears = evaluationEducationLevelToYears($minimumEducationLevel);
     $minimumTrainingHours = (float)(cleanText($_POST['position_minimum_training_hours'] ?? null) ?? '4');
     $minimumExperienceYears = (float)(cleanText($_POST['position_minimum_experience_years'] ?? null) ?? '1');
 
     if ($positionId === '' || !preg_match('/^[a-f0-9-]{36}$/i', $positionId)) {
         redirectWithState('error', 'Select a valid position before saving criteria.');
-    }
-
-    if ($minimumEducationYears < 0 || $minimumEducationYears > 20) {
-        redirectWithState('error', 'Minimum education years must be between 0 and 20.');
     }
 
     if ($minimumTrainingHours < 0 || $minimumTrainingHours > 1000) {
@@ -108,6 +103,7 @@ if ($action === 'save_position_criteria') {
 
     $positionOverrides[$normalizedPositionId] = [
         'eligibility' => $eligibilityOption,
+        'minimum_education_level' => $minimumEducationLevel,
         'minimum_education_years' => $minimumEducationYears,
         'minimum_training_hours' => $minimumTrainingHours,
         'minimum_experience_years' => $minimumExperienceYears,

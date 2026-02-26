@@ -111,9 +111,11 @@
                                             data-eligibility-scope="<?= htmlspecialchars((string)($row['eligibility_scope'] ?? 'policy'), ENT_QUOTES, 'UTF-8') ?>"
                                             data-eligibility-option="<?= htmlspecialchars((string)($row['eligibility_option'] ?? 'csc_prc'), ENT_QUOTES, 'UTF-8') ?>"
                                             data-eligibility-requirement="<?= htmlspecialchars((string)($row['eligibility_requirement'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                            data-minimum-education-level="<?= htmlspecialchars((string)($row['minimum_education_level'] ?? 'college'), ENT_QUOTES, 'UTF-8') ?>"
                                             data-minimum-education-years="<?= htmlspecialchars((string)($row['minimum_education_years'] ?? 0), ENT_QUOTES, 'UTF-8') ?>"
                                             data-minimum-training-hours="<?= htmlspecialchars((string)($row['minimum_training_hours'] ?? 0), ENT_QUOTES, 'UTF-8') ?>"
                                             data-minimum-experience-years="<?= htmlspecialchars((string)($row['minimum_experience_years'] ?? 0), ENT_QUOTES, 'UTF-8') ?>"
+                                            data-required-document-keys="<?= htmlspecialchars((string)implode(',', (array)($row['required_document_keys'] ?? [])), ENT_QUOTES, 'UTF-8') ?>"
                                             data-open-date="<?= htmlspecialchars((string)$row['open_date'], ENT_QUOTES, 'UTF-8') ?>"
                                             data-close-date="<?= htmlspecialchars((string)$row['close_date'], ENT_QUOTES, 'UTF-8') ?>"
                                             data-posting-status="<?= htmlspecialchars((string)$row['status_raw'], ENT_QUOTES, 'UTF-8') ?>"
@@ -356,11 +358,6 @@
                 </div>
 
                 <div class="rounded-lg border border-slate-200 p-4">
-                    <p class="text-xs uppercase tracking-wide text-slate-500">Career Summary</p>
-                    <p id="recruitmentApplicantCareerSummary" class="mt-2 text-slate-800 leading-relaxed">-</p>
-                </div>
-
-                <div class="rounded-lg border border-slate-200 p-4">
                     <p class="text-xs uppercase tracking-wide text-slate-500">Professional Snapshot</p>
                     <ul class="mt-2 space-y-1.5 text-slate-700">
                         <li><span class="font-medium text-slate-800">Eligibility:</span> <span id="recruitmentApplicantEligibility">-</span></li>
@@ -453,7 +450,15 @@
                                     <option value="contractual">Contractual</option>
                                 </select>
                             </div>
-                            <div>
+                            <div class="md:col-span-2">
+                                <label class="text-slate-600">Position Source</label>
+                                <select id="recruitmentCreatePositionMode" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                                    <option value="predefined">Select from predefined positions</option>
+                                    <option value="new">Type a new position</option>
+                                </select>
+                                <p class="text-xs text-slate-500 mt-1">Predefined positions auto-fill qualification criteria based on existing configuration.</p>
+                            </div>
+                            <div id="recruitmentCreatePredefinedPositionWrap">
                                 <label class="text-slate-600">Position (Available)</label>
                                 <select id="recruitmentCreatePositionId" name="position_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
                                     <option value="">Select position</option>
@@ -465,6 +470,11 @@
                                         <option value="<?= htmlspecialchars((string)($position['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-employment-type="<?= htmlspecialchars($positionEmploymentType, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($position['position_title'] ?? 'Position'), ENT_QUOTES, 'UTF-8') ?></option>
                                     <?php endforeach; ?>
                                 </select>
+                            </div>
+                            <div id="recruitmentCreateNewPositionWrap" class="hidden">
+                                <label class="text-slate-600">New Position Title</label>
+                                <input id="recruitmentCreateNewPositionTitle" name="new_position_title" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="e.g., Senior Agriculturist">
+                                <p class="text-xs text-slate-500 mt-1">The new position will be added automatically and reused in future postings.</p>
                             </div>
                             <div>
                                 <label class="text-slate-600">Open Date</label>
@@ -487,28 +497,39 @@
 
                     <section class="rounded-xl border border-slate-200 p-4">
                         <h4 class="text-sm font-semibold text-slate-800">Qualification Criteria</h4>
-                        <p class="text-xs text-slate-500 mt-1">Applicants are automatically scored against these requirements.</p>
+                        <p class="text-xs text-slate-500 mt-1">Applicants are scored against these criteria to compute recommendation results and identify missing qualifications.</p>
+                        <div class="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                            <p><span class="font-semibold text-slate-700">How scoring works:</span> Each criterion contributes to the recommendation score. Applicants who miss one or more criteria can still be scored, but gaps are flagged during screening.</p>
+                        </div>
                         <div class="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div>
-                                <label class="text-slate-600" title="Select None if no eligibility document is required.">Eligibility Requirement</label>
-                                <select name="criteria_eligibility" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
-                                    <option value="none">None</option>
-                                    <option value="csc">CSC</option>
-                                    <option value="prc">PRC</option>
-                                    <option value="csc_prc" selected>CSC or PRC</option>
-                                </select>
+                            <div class="md:col-span-4">
+                                <label class="inline-flex items-center gap-2 text-sm text-slate-700 mt-1" title="If checked, applicants must have either CSC or PRC eligibility.">
+                                    <input type="hidden" name="criteria_eligibility_required" value="0">
+                                    <input id="recruitmentCreateCriteriaEligibilityRequired" type="checkbox" name="criteria_eligibility_required" value="1" checked>
+                                    CSC/PRC Eligibility Required
+                                </label>
+                                <p class="text-xs text-slate-500 mt-1">If unchecked, eligibility is excluded from required criteria for this posting.</p>
                             </div>
                             <div>
-                                <label class="text-slate-600" title="Minimum number of years of formal education.">Minimum Education (Years)</label>
-                                <input name="criteria_education_years" type="number" min="0" step="0.5" value="2" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                                <label class="text-slate-600" title="Minimum educational attainment required.">Minimum Education Level</label>
+                                <select id="recruitmentCreateCriteriaEducationLevel" name="criteria_education_level" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                                    <option value="elementary">Elementary</option>
+                                    <option value="secondary">Secondary</option>
+                                    <option value="vocational">Vocational/Trade Course</option>
+                                    <option value="college" selected>College</option>
+                                    <option value="graduate">Graduate Studies</option>
+                                </select>
+                                <p class="text-xs text-slate-500 mt-1">The system compares against the applicant's highest educational attainment.</p>
                             </div>
                             <div>
                                 <label class="text-slate-600" title="Minimum number of training hours completed.">Minimum Training (Hours)</label>
-                                <input name="criteria_training_hours" type="number" min="0" step="0.5" value="4" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                                <input id="recruitmentCreateCriteriaTrainingHours" name="criteria_training_hours" type="number" min="0" step="0.5" value="4" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                                <p class="text-xs text-slate-500 mt-1">Total relevant training hours expected from the applicant.</p>
                             </div>
                             <div>
                                 <label class="text-slate-600" title="Minimum number of relevant work years.">Minimum Experience (Years)</label>
-                                <input name="criteria_experience_years" type="number" min="0" step="0.5" value="1" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                                <input id="recruitmentCreateCriteriaExperienceYears" name="criteria_experience_years" type="number" min="0" step="0.5" value="1" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                                <p class="text-xs text-slate-500 mt-1">Relevant professional experience required for initial recommendation.</p>
                             </div>
                         </div>
                     </section>
@@ -533,11 +554,15 @@
 
                     <section class="rounded-xl border border-slate-200 p-4">
                         <h4 class="text-sm font-semibold text-slate-800">Required Documents</h4>
-                        <p class="text-xs text-slate-500 mt-1">Select documents that applicants must upload.</p>
+                        <p class="text-xs text-slate-500 mt-1">Select the submission checklist shown to applicants. Missing checked documents are flagged during application review.</p>
+                        <div class="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                            <p><span class="font-semibold text-slate-700">Tip:</span> Keep this checklist aligned with the position requirements to avoid incomplete submissions.</p>
+                        </div>
                         <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
-                            <label class="inline-flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" name="required_documents[]" value="pds" checked> PDS</label>
-                            <label class="inline-flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" name="required_documents[]" value="wes" checked> WES</label>
-                            <label class="inline-flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" name="required_documents[]" value="eligibility_csc_prc" checked> Eligibility (CSC/PRC)</label>
+                            <label class="inline-flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" name="required_documents[]" value="application_letter" checked> Application Letter</label>
+                            <label class="inline-flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" name="required_documents[]" value="updated_resume_cv" checked> Updated Resume/CV</label>
+                            <label class="inline-flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" name="required_documents[]" value="personal_data_sheet" checked> Personal Data Sheet</label>
+                            <label class="inline-flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" name="required_documents[]" value="valid_government_id" checked> Valid Government ID</label>
                             <label class="inline-flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" name="required_documents[]" value="transcript_of_records" checked> Transcript of Records</label>
                         </div>
                     </section>
@@ -592,8 +617,16 @@
                                     <option value="contractual">Contractual</option>
                                 </select>
                             </div>
-                            <div>
-                                <label class="text-slate-600">Position</label>
+                            <div class="md:col-span-2">
+                                <label class="text-slate-600">Position Source</label>
+                                <select id="recruitmentEditPositionMode" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                                    <option value="predefined">Select from predefined positions</option>
+                                    <option value="new">Type a new position</option>
+                                </select>
+                                <p class="text-xs text-slate-500 mt-1">Predefined positions can reuse saved criteria, while new positions are added for future use.</p>
+                            </div>
+                            <div id="recruitmentEditPredefinedPositionWrap">
+                                <label class="text-slate-600">Position (Available)</label>
                                 <select id="recruitmentEditPositionId" name="position_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
                                     <option value="">Select position</option>
                                     <?php foreach ($positionOptions as $position): ?>
@@ -604,6 +637,11 @@
                                         <option value="<?= htmlspecialchars((string)($position['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-employment-type="<?= htmlspecialchars($positionEmploymentType, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($position['position_title'] ?? 'Position'), ENT_QUOTES, 'UTF-8') ?></option>
                                     <?php endforeach; ?>
                                 </select>
+                            </div>
+                            <div id="recruitmentEditNewPositionWrap" class="hidden">
+                                <label class="text-slate-600">New Position Title</label>
+                                <input id="recruitmentEditNewPositionTitle" name="new_position_title" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="e.g., Senior Agriculturist">
+                                <p class="text-xs text-slate-500 mt-1">If entered, a new position record is created automatically.</p>
                             </div>
                             <div>
                                 <label class="text-slate-600">Open Date</label>
@@ -627,28 +665,39 @@
 
                     <section class="rounded-xl border border-slate-200 p-4">
                         <h4 class="text-sm font-semibold text-slate-800">Qualification Criteria</h4>
-                        <p class="text-xs text-slate-500 mt-1">Recommendation scores update based on these values.</p>
+                        <p class="text-xs text-slate-500 mt-1">Applicants are scored against these criteria to compute recommendation results and identify missing qualifications.</p>
+                        <div class="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                            <p><span class="font-semibold text-slate-700">How scoring works:</span> Each criterion contributes to the recommendation score. Applicants who miss one or more criteria can still be scored, but gaps are flagged during screening.</p>
+                        </div>
                         <div class="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div>
-                                <label class="text-slate-600" title="Select None if no eligibility document is required.">Eligibility Requirement</label>
-                                <select id="recruitmentEditCriteriaEligibility" name="criteria_eligibility" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
-                                    <option value="none">None</option>
-                                    <option value="csc">CSC</option>
-                                    <option value="prc">PRC</option>
-                                    <option value="csc_prc">CSC or PRC</option>
-                                </select>
+                            <div class="md:col-span-4">
+                                <label class="inline-flex items-center gap-2 text-sm text-slate-700 mt-1" title="If checked, applicants must have either CSC or PRC eligibility.">
+                                    <input type="hidden" name="criteria_eligibility_required" value="0">
+                                    <input id="recruitmentEditCriteriaEligibilityRequired" type="checkbox" name="criteria_eligibility_required" value="1">
+                                    CSC/PRC Eligibility Required
+                                </label>
+                                <p class="text-xs text-slate-500 mt-1">If unchecked, eligibility is excluded from required criteria for this posting.</p>
                             </div>
                             <div>
-                                <label class="text-slate-600" title="Minimum number of years of formal education.">Minimum Education (Years)</label>
-                                <input id="recruitmentEditCriteriaEducationYears" name="criteria_education_years" type="number" min="0" step="0.5" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                                <label class="text-slate-600" title="Minimum educational attainment required.">Minimum Education Level</label>
+                                <select id="recruitmentEditCriteriaEducationLevel" name="criteria_education_level" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                                    <option value="elementary">Elementary</option>
+                                    <option value="secondary">Secondary</option>
+                                    <option value="vocational">Vocational/Trade Course</option>
+                                    <option value="college">College</option>
+                                    <option value="graduate">Graduate Studies</option>
+                                </select>
+                                <p class="text-xs text-slate-500 mt-1">The system compares against the applicant's highest educational attainment.</p>
                             </div>
                             <div>
                                 <label class="text-slate-600" title="Minimum number of training hours completed.">Minimum Training (Hours)</label>
                                 <input id="recruitmentEditCriteriaTrainingHours" name="criteria_training_hours" type="number" min="0" step="0.5" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                                <p class="text-xs text-slate-500 mt-1">Total relevant training hours expected from the applicant.</p>
                             </div>
                             <div>
                                 <label class="text-slate-600" title="Minimum number of relevant work years.">Minimum Experience (Years)</label>
                                 <input id="recruitmentEditCriteriaExperienceYears" name="criteria_experience_years" type="number" min="0" step="0.5" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                                <p class="text-xs text-slate-500 mt-1">Relevant professional experience required for initial recommendation.</p>
                             </div>
                         </div>
                     </section>
@@ -668,6 +717,21 @@
                                 <label class="text-slate-600">Responsibilities</label>
                                 <textarea id="recruitmentEditResponsibilities" name="responsibilities" rows="3" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></textarea>
                             </div>
+                        </div>
+                    </section>
+
+                    <section class="rounded-xl border border-slate-200 p-4">
+                        <h4 class="text-sm font-semibold text-slate-800">Required Documents</h4>
+                        <p class="text-xs text-slate-500 mt-1">Select the submission checklist shown to applicants. Missing checked documents are flagged during application review.</p>
+                        <div class="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                            <p><span class="font-semibold text-slate-700">Tip:</span> Keep this checklist aligned with the position requirements to avoid incomplete submissions.</p>
+                        </div>
+                        <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <label class="inline-flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" name="required_documents[]" value="application_letter" checked> Application Letter</label>
+                            <label class="inline-flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" name="required_documents[]" value="updated_resume_cv" checked> Updated Resume/CV</label>
+                            <label class="inline-flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" name="required_documents[]" value="personal_data_sheet" checked> Personal Data Sheet</label>
+                            <label class="inline-flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" name="required_documents[]" value="valid_government_id" checked> Valid Government ID</label>
+                            <label class="inline-flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" name="required_documents[]" value="transcript_of_records" checked> Transcript of Records</label>
                         </div>
                     </section>
                 </div>
@@ -751,3 +815,7 @@
 </div>
 
 <script id="recruitmentPostingViewData" type="application/json"><?= (string)json_encode($postingViewById, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
+<script id="recruitmentCreatePositionCriteriaData" type="application/json"><?= (string)json_encode([
+    'defaults' => $recruitmentCreateCriteriaDefaults,
+    'positions' => $recruitmentPositionCriteriaById,
+], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>

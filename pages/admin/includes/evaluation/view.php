@@ -176,7 +176,8 @@ $positionCriteriaJson = htmlspecialchars(json_encode($positionCriteriaOverrides,
                             <td class="px-4 py-3">
                                 <?php if (!empty($row['eligibility_required'])): ?>
                                     <p class="text-slate-800"><?= htmlspecialchars((string)($row['eligibility_input'] ?? 'n/a'), ENT_QUOTES, 'UTF-8') ?></p>
-                                    <p class="text-xs <?= !empty($row['eligibility_meets']) ? 'text-emerald-700' : 'text-rose-700' ?>"><?= !empty($row['eligibility_meets']) ? 'Meets required eligibility' : 'Does not match requirement' ?></p>
+                                    <p class="text-xs text-slate-500 mt-1">Required: <?= htmlspecialchars((string)($row['required_eligibility_label'] ?? 'CSC/PRC'), ENT_QUOTES, 'UTF-8') ?></p>
+                                    <p class="text-xs <?= !empty($row['eligibility_meets']) ? 'text-emerald-700' : 'text-rose-700' ?>"><?= !empty($row['eligibility_meets']) ? 'Meets required eligibility' : 'Does not match CSC/PRC requirement' ?></p>
                                 <?php else: ?>
                                     <p class="text-slate-800">Not Required</p>
                                     <p class="text-xs text-slate-500">Eligibility excluded for this posting</p>
@@ -186,7 +187,7 @@ $positionCriteriaJson = htmlspecialchars(json_encode($positionCriteriaOverrides,
                                 <span class="inline-flex items-center px-2 py-1 text-xs rounded-full <?= !empty($row['education_meets']) ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800' ?>">
                                     <?= !empty($row['education_meets']) ? 'Meets' : 'Below Minimum' ?>
                                 </span>
-                                <p class="text-xs text-slate-500 mt-1"><?= htmlspecialchars((string)($row['education_years'] ?? 0), ENT_QUOTES, 'UTF-8') ?> / <?= htmlspecialchars((string)($row['required_education_years'] ?? 2), ENT_QUOTES, 'UTF-8') ?> yr(s)</p>
+                                <p class="text-xs text-slate-500 mt-1"><?= htmlspecialchars((string)($row['education_level_label'] ?? 'Not Provided'), ENT_QUOTES, 'UTF-8') ?></p>
                             </td>
                             <td class="px-4 py-3">
                                 <span class="inline-flex items-center px-2 py-1 text-xs rounded-full <?= !empty($row['training_meets']) ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800' ?>">
@@ -249,8 +250,15 @@ $positionCriteriaJson = htmlspecialchars(json_encode($positionCriteriaOverrides,
                     </select>
                 </div>
                 <div>
-                    <label class="text-slate-600">Minimum Education (Years)</label>
-                    <input name="minimum_education_years" type="number" min="0" max="20" step="0.5" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?= htmlspecialchars((string)($criteria['minimum_education_years'] ?? 2), ENT_QUOTES, 'UTF-8') ?>" required>
+                    <label class="text-slate-600">Minimum Education Level</label>
+                    <select name="minimum_education_level" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-white" required>
+                        <?php $globalEducationLevel = evaluationNormalizeEducationLevel((string)($criteria['minimum_education_level'] ?? 'vocational')); ?>
+                        <option value="elementary" <?= $globalEducationLevel === 'elementary' ? 'selected' : '' ?>>Elementary</option>
+                        <option value="secondary" <?= $globalEducationLevel === 'secondary' ? 'selected' : '' ?>>Secondary</option>
+                        <option value="vocational" <?= $globalEducationLevel === 'vocational' ? 'selected' : '' ?>>Vocational/Trade Course</option>
+                        <option value="college" <?= $globalEducationLevel === 'college' ? 'selected' : '' ?>>College</option>
+                        <option value="graduate" <?= $globalEducationLevel === 'graduate' ? 'selected' : '' ?>>Graduate Studies</option>
+                    </select>
                 </div>
                 <div>
                     <label class="text-slate-600">Minimum Training (Hours)</label>
@@ -315,8 +323,15 @@ $positionCriteriaJson = htmlspecialchars(json_encode($positionCriteriaOverrides,
                     </select>
                 </div>
                 <div>
-                    <label class="text-slate-600">Minimum Education (Years)</label>
-                    <input id="evaluationPositionEducation" name="position_minimum_education_years" type="number" min="0" max="20" step="0.5" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?= htmlspecialchars((string)($criteria['minimum_education_years'] ?? 2), ENT_QUOTES, 'UTF-8') ?>" required>
+                    <label class="text-slate-600">Minimum Education Level</label>
+                    <?php $positionDefaultEducationLevel = evaluationNormalizeEducationLevel((string)($criteria['minimum_education_level'] ?? 'vocational')); ?>
+                    <select id="evaluationPositionEducation" name="position_minimum_education_level" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-white" required>
+                        <option value="elementary" <?= $positionDefaultEducationLevel === 'elementary' ? 'selected' : '' ?>>Elementary</option>
+                        <option value="secondary" <?= $positionDefaultEducationLevel === 'secondary' ? 'selected' : '' ?>>Secondary</option>
+                        <option value="vocational" <?= $positionDefaultEducationLevel === 'vocational' ? 'selected' : '' ?>>Vocational/Trade Course</option>
+                        <option value="college" <?= $positionDefaultEducationLevel === 'college' ? 'selected' : '' ?>>College</option>
+                        <option value="graduate" <?= $positionDefaultEducationLevel === 'graduate' ? 'selected' : '' ?>>Graduate Studies</option>
+                    </select>
                 </div>
                 <div>
                     <label class="text-slate-600">Minimum Training (Hours)</label>

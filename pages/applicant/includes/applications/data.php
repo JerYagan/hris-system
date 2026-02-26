@@ -11,6 +11,7 @@ $statusFilter = strtolower((string)(cleanText($_GET['status'] ?? null) ?? 'all')
 $applications = [];
 $selectedApplication = null;
 $applicationTimeline = [];
+$selectedInterviewSchedules = [];
 
 $applicationStats = [
 	'total' => 0,
@@ -180,6 +181,55 @@ if ($selectedApplication !== null) {
 			'notes' => 'Application submitted by applicant.',
 			'created_at' => cleanText($selectedApplication['submitted_at'] ?? null),
 		];
+	}
+
+	$interviewResponse = apiRequest(
+		'GET',
+		$supabaseUrl
+		. '/rest/v1/application_interviews?select=id,interview_stage,scheduled_at,interview_mode,result,remarks,interviewer_user_id,interviewer:user_accounts(email)'
+		. '&application_id=eq.' . rawurlencode((string)$selectedApplication['id'])
+		. '&order=scheduled_at.desc&limit=50',
+		$headers
+	);
+
+	if (isSuccessful($interviewResponse)) {
+		foreach ((array)($interviewResponse['data'] ?? []) as $interviewRow) {
+			$scheduledAt = cleanText($interviewRow['scheduled_at'] ?? null);
+			$interviewMode = strtolower((string)($interviewRow['interview_mode'] ?? ''));
+			$resultRaw = strtolower((string)($interviewRow['result'] ?? 'pending'));
+			$interviewer = is_array($interviewRow['interviewer'] ?? null) ? (array)$interviewRow['interviewer'] : [];
+
+			$modeLabel = match ($interviewMode) {
+				'onsite' => 'On-site',
+				'online' => 'Online',
+				'phone' => 'Phone Call',
+				default => ucfirst($interviewMode !== '' ? $interviewMode : 'Not specified'),
+			};
+
+			$statusLabel = match ($resultRaw) {
+				'pass', 'passed' => 'Passed',
+				'fail', 'failed' => 'Failed',
+				default => 'Pending',
+			};
+
+			$statusClass = match ($statusLabel) {
+				'Passed' => 'bg-emerald-100 text-emerald-700',
+				'Failed' => 'bg-rose-100 text-rose-700',
+				default => 'bg-amber-100 text-amber-700',
+			};
+
+			$selectedInterviewSchedules[] = [
+				'id' => (string)($interviewRow['id'] ?? ''),
+				'stage' => ucfirst((string)($interviewRow['interview_stage'] ?? 'Interview')),
+				'scheduled_at' => $scheduledAt,
+				'scheduled_display' => $scheduledAt ? date('M j, Y g:i A', strtotime((string)$scheduledAt)) : '-',
+				'interviewer' => (string)($interviewer['email'] ?? (string)($interviewRow['interviewer_user_id'] ?? '-')),
+				'location' => $modeLabel,
+				'status' => $statusLabel,
+				'status_class' => $statusClass,
+				'remarks' => cleanText($interviewRow['remarks'] ?? null),
+			];
+		}
 	}
 }
 

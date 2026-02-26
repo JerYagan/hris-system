@@ -12,6 +12,10 @@
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+<!-- Flatpickr -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
 <!-- Favicon -->
 <link rel="icon" type="image/png" sizes="32x32" href="/hris-system/assets/images/favicon.png">
 <link rel="icon" type="image/x-icon" href="/hris-system/assets/images/favicon.ico">

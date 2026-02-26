@@ -14,6 +14,24 @@ const parseJsonScriptNode = (id) => {
   }
 };
 
+const educationLevelFromYears = (years) => {
+  const numericYears = Number.isFinite(Number(years)) ? Number(years) : 0;
+  if (numericYears >= 6) {
+    return 'graduate';
+  }
+  if (numericYears >= 4) {
+    return 'college';
+  }
+  if (numericYears >= 2) {
+    return 'vocational';
+  }
+  if (numericYears >= 1) {
+    return 'secondary';
+  }
+
+  return 'elementary';
+};
+
 const initPositionCriteriaAutofill = () => {
   const positionSelect = document.getElementById('evaluationPositionSelect');
   const eligibilitySelect = document.getElementById('evaluationPositionEligibility');
@@ -26,7 +44,7 @@ const initPositionCriteriaAutofill = () => {
   }
 
   const overrides = parseJsonScriptNode('evaluationPositionCriteriaData');
-  const defaultEducation = educationInput.value || '2';
+  const defaultEducation = educationInput.value || 'vocational';
   const defaultTraining = trainingInput.value || '4';
   const defaultExperience = experienceInput.value || '1';
 
@@ -37,9 +55,11 @@ const initPositionCriteriaAutofill = () => {
       : null;
 
     eligibilitySelect.value = row && row.eligibility ? String(row.eligibility) : 'csc_prc';
-    educationInput.value = row && Number.isFinite(Number(row.minimum_education_years))
-      ? String(row.minimum_education_years)
-      : defaultEducation;
+    educationInput.value = row && row.minimum_education_level
+      ? String(row.minimum_education_level)
+      : (row && Number.isFinite(Number(row.minimum_education_years))
+        ? educationLevelFromYears(Number(row.minimum_education_years))
+        : defaultEducation);
     trainingInput.value = row && Number.isFinite(Number(row.minimum_training_hours))
       ? String(row.minimum_training_hours)
       : defaultTraining;

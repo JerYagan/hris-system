@@ -155,6 +155,16 @@ $fullName = cleanText($_POST['full_name'] ?? null);
 $email = cleanText($_POST['email'] ?? null);
 $mobileNo = cleanText($_POST['mobile_no'] ?? null);
 $currentAddress = cleanText($_POST['current_address'] ?? null);
+$trainingHoursRaw = cleanText($_POST['training_hours_completed'] ?? null);
+
+$trainingHoursCompleted = 0.0;
+if ($trainingHoursRaw !== null && $trainingHoursRaw !== '') {
+    if (!is_numeric($trainingHoursRaw) || (float)$trainingHoursRaw < 0) {
+        redirectWithState('error', 'Training hours must be a valid non-negative number.', 'profile.php?edit=true');
+    }
+
+    $trainingHoursCompleted = (float)$trainingHoursRaw;
+}
 
 if ($fullName === null) {
     redirectWithState('error', 'Full name is required.', 'profile.php?edit=true');
@@ -207,6 +217,7 @@ $applicantProfileUpsertResponse = apiRequest(
         'email' => strtolower($email),
         'mobile_no' => $mobileNo,
         'current_address' => $currentAddress,
+        'training_hours_completed' => $trainingHoursCompleted,
     ]]
 );
 

@@ -411,11 +411,16 @@ create table if not exists public.applicant_profiles (
   email citext not null,
   mobile_no text,
   current_address text,
+  training_hours_completed numeric(8,2) not null default 0,
   resume_url text,
   portfolio_url text,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  check (training_hours_completed >= 0)
 );
+
+alter table if exists public.applicant_profiles
+  add column if not exists training_hours_completed numeric(8,2) not null default 0;
 
 create table if not exists public.applications (
   id uuid primary key default gen_random_uuid(),

@@ -32,6 +32,37 @@ const setInputValue = (id, value) => {
   element.value = value;
 };
 
+const setCheckboxChecked = (id, checked) => {
+  const element = document.getElementById(id);
+  if (!(element instanceof HTMLInputElement) || element.type !== 'checkbox') {
+    return;
+  }
+  element.checked = Boolean(checked);
+};
+
+const parseNumericValue = (value, fallback) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const educationLevelFromYears = (years) => {
+  const numericYears = Number.isFinite(Number(years)) ? Number(years) : 0;
+  if (numericYears >= 6) {
+    return 'graduate';
+  }
+  if (numericYears >= 4) {
+    return 'college';
+  }
+  if (numericYears >= 2) {
+    return 'vocational';
+  }
+  if (numericYears >= 1) {
+    return 'secondary';
+  }
+
+  return 'elementary';
+};
+
 const initRecruitmentFilters = () => {
   bindTableFilters({
     tableId: 'recruitmentPostingsTable',
@@ -114,6 +145,159 @@ const initPositionFilters = () => {
   bind('recruitmentEditEmploymentType', 'recruitmentEditPositionId');
 };
 
+const initCreatePositionModeAndCriteria = () => {
+  const criteriaPayload = parseJsonScriptNode('recruitmentCreatePositionCriteriaData');
+  const defaults = criteriaPayload && typeof criteriaPayload.defaults === 'object'
+    ? criteriaPayload.defaults
+    : {};
+  const positions = criteriaPayload && typeof criteriaPayload.positions === 'object'
+    ? criteriaPayload.positions
+    : {};
+
+  const modeSelect = document.getElementById('recruitmentCreatePositionMode');
+  const predefinedWrap = document.getElementById('recruitmentCreatePredefinedPositionWrap');
+  const newWrap = document.getElementById('recruitmentCreateNewPositionWrap');
+  const predefinedSelect = document.getElementById('recruitmentCreatePositionId');
+  const newTitleInput = document.getElementById('recruitmentCreateNewPositionTitle');
+
+  const applyCriteriaValues = (criteria) => {
+    const source = criteria && typeof criteria === 'object' ? criteria : defaults;
+    const eligibilityOption = (source.eligibility_option || defaults.eligibility_option || 'csc_prc').toString().toLowerCase();
+    setCheckboxChecked('recruitmentCreateCriteriaEligibilityRequired', eligibilityOption !== 'none');
+
+    const educationYears = parseNumericValue(source.minimum_education_years, parseNumericValue(defaults.minimum_education_years, 2));
+    const trainingHours = parseNumericValue(source.minimum_training_hours, parseNumericValue(defaults.minimum_training_hours, 4));
+    const experienceYears = parseNumericValue(source.minimum_experience_years, parseNumericValue(defaults.minimum_experience_years, 1));
+
+    setInputValue(
+      'recruitmentCreateCriteriaEducationLevel',
+      (source.minimum_education_level || defaults.minimum_education_level || '').toString().toLowerCase() || educationLevelFromYears(educationYears)
+    );
+    setInputValue('recruitmentCreateCriteriaTrainingHours', trainingHours.toString());
+    setInputValue('recruitmentCreateCriteriaExperienceYears', experienceYears.toString());
+  };
+
+  const applyPositionCriteriaFromSelection = () => {
+    if (!(predefinedSelect instanceof HTMLSelectElement)) {
+      return;
+    }
+
+    const selectedPositionId = (predefinedSelect.value || '').trim().toLowerCase();
+    if (!selectedPositionId) {
+      applyCriteriaValues(defaults);
+      return;
+    }
+
+    applyCriteriaValues(positions[selectedPositionId] || defaults);
+  };
+
+  const applyMode = () => {
+    if (!(modeSelect instanceof HTMLSelectElement)) {
+      return;
+    }
+
+    const mode = (modeSelect.value || 'predefined').toLowerCase();
+    const useNew = mode === 'new';
+
+    if (predefinedWrap) {
+      predefinedWrap.classList.toggle('hidden', useNew);
+    }
+    if (newWrap) {
+      newWrap.classList.toggle('hidden', !useNew);
+    }
+
+    if (predefinedSelect instanceof HTMLSelectElement) {
+      predefinedSelect.required = !useNew;
+      predefinedSelect.disabled = useNew;
+      if (useNew) {
+        predefinedSelect.value = '';
+      }
+    }
+
+    if (newTitleInput instanceof HTMLInputElement) {
+      newTitleInput.required = useNew;
+      newTitleInput.disabled = !useNew;
+      if (!useNew) {
+        newTitleInput.value = '';
+      }
+    }
+
+    if (useNew) {
+      applyCriteriaValues(defaults);
+    } else {
+      applyPositionCriteriaFromSelection();
+    }
+  };
+
+  if (modeSelect instanceof HTMLSelectElement) {
+    modeSelect.addEventListener('change', applyMode);
+  }
+
+  if (predefinedSelect instanceof HTMLSelectElement) {
+    predefinedSelect.addEventListener('change', applyPositionCriteriaFromSelection);
+  }
+
+  const createEmploymentType = document.getElementById('recruitmentCreateEmploymentType');
+  if (createEmploymentType) {
+    createEmploymentType.addEventListener('change', () => {
+      window.requestAnimationFrame(() => {
+        const mode = (modeSelect instanceof HTMLSelectElement ? modeSelect.value : 'predefined').toLowerCase();
+        if (mode !== 'new') {
+          applyPositionCriteriaFromSelection();
+        }
+      });
+    });
+  }
+
+  applyMode();
+};
+
+const initEditPositionMode = () => {
+  const modeSelect = document.getElementById('recruitmentEditPositionMode');
+  const predefinedWrap = document.getElementById('recruitmentEditPredefinedPositionWrap');
+  const newWrap = document.getElementById('recruitmentEditNewPositionWrap');
+  const predefinedSelect = document.getElementById('recruitmentEditPositionId');
+  const newTitleInput = document.getElementById('recruitmentEditNewPositionTitle');
+
+  const applyMode = () => {
+    if (!(modeSelect instanceof HTMLSelectElement)) {
+      return;
+    }
+
+    const mode = (modeSelect.value || 'predefined').toLowerCase();
+    const useNew = mode === 'new';
+
+    if (predefinedWrap) {
+      predefinedWrap.classList.toggle('hidden', useNew);
+    }
+    if (newWrap) {
+      newWrap.classList.toggle('hidden', !useNew);
+    }
+
+    if (predefinedSelect instanceof HTMLSelectElement) {
+      predefinedSelect.required = !useNew;
+      predefinedSelect.disabled = useNew;
+      if (useNew) {
+        predefinedSelect.value = '';
+      }
+    }
+
+    if (newTitleInput instanceof HTMLInputElement) {
+      newTitleInput.required = useNew;
+      newTitleInput.disabled = !useNew;
+      if (!useNew) {
+        newTitleInput.value = '';
+      }
+    }
+  };
+
+  if (modeSelect instanceof HTMLSelectElement) {
+    modeSelect.addEventListener('change', applyMode);
+  }
+
+  applyMode();
+};
+
 const initRecruitmentActions = () => {
   const postingViewData = parseJsonScriptNode('recruitmentPostingViewData');
   const requirementsEl = document.getElementById('recruitmentViewRequirements');
@@ -123,7 +307,6 @@ const initRecruitmentActions = () => {
   const applicantProfileContactEl = document.getElementById('recruitmentApplicantProfileContact');
   const applicantProfilePhotoEl = document.getElementById('recruitmentApplicantProfilePhoto');
   const applicantProfilePhotoFallbackEl = document.getElementById('recruitmentApplicantProfilePhotoFallback');
-  const applicantCareerSummaryEl = document.getElementById('recruitmentApplicantCareerSummary');
   const applicantEligibilityEl = document.getElementById('recruitmentApplicantEligibility');
   const applicantEducationEl = document.getElementById('recruitmentApplicantEducation');
   const applicantTrainingEl = document.getElementById('recruitmentApplicantTraining');
@@ -224,11 +407,22 @@ const initRecruitmentActions = () => {
 
   document.querySelectorAll('[data-recruitment-job-edit]').forEach((button) => {
     button.addEventListener('click', () => {
+      const editModeSelect = document.getElementById('recruitmentEditPositionMode');
+      if (editModeSelect instanceof HTMLSelectElement) {
+        editModeSelect.value = 'predefined';
+        editModeSelect.dispatchEvent(new Event('change'));
+      }
+
       setInputValue('recruitmentEditPostingId', button.getAttribute('data-posting-id') || '');
       setInputValue('recruitmentEditTitle', button.getAttribute('data-title') || '');
       setInputValue('recruitmentEditOfficeId', button.getAttribute('data-office-id') || '');
       setInputValue('recruitmentEditEmploymentType', button.getAttribute('data-employment-type') || 'contractual');
+      const editEmploymentType = document.getElementById('recruitmentEditEmploymentType');
+      if (editEmploymentType) {
+        editEmploymentType.dispatchEvent(new Event('change'));
+      }
       setInputValue('recruitmentEditPositionId', button.getAttribute('data-position-id') || '');
+      setInputValue('recruitmentEditNewPositionTitle', '');
       setInputValue('recruitmentEditPlantillaItemNo', button.getAttribute('data-plantilla-item-no') || '');
       setInputValue('recruitmentEditOpenDate', button.getAttribute('data-open-date') || '');
       setInputValue('recruitmentEditCloseDate', button.getAttribute('data-close-date') || '');
@@ -236,10 +430,36 @@ const initRecruitmentActions = () => {
       setInputValue('recruitmentEditDescription', button.getAttribute('data-description') || '');
       setInputValue('recruitmentEditQualifications', button.getAttribute('data-qualifications') || '');
       setInputValue('recruitmentEditResponsibilities', button.getAttribute('data-responsibilities') || '');
-      setInputValue('recruitmentEditCriteriaEligibility', button.getAttribute('data-eligibility-option') || 'csc_prc');
-      setInputValue('recruitmentEditCriteriaEducationYears', button.getAttribute('data-minimum-education-years') || '0');
+      const eligibilityOption = (button.getAttribute('data-eligibility-option') || 'csc_prc').toLowerCase();
+      setCheckboxChecked('recruitmentEditCriteriaEligibilityRequired', eligibilityOption !== 'none');
+      const educationLevel = (button.getAttribute('data-minimum-education-level') || '').toLowerCase();
+      const educationYears = parseNumericValue(button.getAttribute('data-minimum-education-years') || '0', 0);
+      setInputValue('recruitmentEditCriteriaEducationLevel', educationLevel || educationLevelFromYears(educationYears));
       setInputValue('recruitmentEditCriteriaTrainingHours', button.getAttribute('data-minimum-training-hours') || '0');
       setInputValue('recruitmentEditCriteriaExperienceYears', button.getAttribute('data-minimum-experience-years') || '0');
+
+      const editModal = document.getElementById('recruitmentEditJobModal');
+      const selectedRequiredKeys = new Set(
+        (button.getAttribute('data-required-document-keys') || '')
+          .split(',')
+          .map((key) => key.trim().toLowerCase())
+          .filter((key) => key !== '')
+      );
+
+      if (editModal) {
+        editModal.querySelectorAll('input[name="required_documents[]"]').forEach((checkbox) => {
+          if (!(checkbox instanceof HTMLInputElement) || checkbox.type !== 'checkbox') {
+            return;
+          }
+
+          if (!selectedRequiredKeys.size) {
+            checkbox.checked = true;
+            return;
+          }
+
+          checkbox.checked = selectedRequiredKeys.has((checkbox.value || '').trim().toLowerCase());
+        });
+      }
 
       openModal('recruitmentEditJobModal');
     });
@@ -326,6 +546,8 @@ export default function initAdminRecruitmentPage() {
   initStatusChangeConfirmations();
   initRecruitmentFilters();
   initPositionFilters();
+  initCreatePositionModeAndCriteria();
+  initEditPositionMode();
   initRecruitmentActions();
   initRecruitmentDatePickers().catch(console.error);
 }
