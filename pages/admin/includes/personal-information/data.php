@@ -135,7 +135,7 @@ foreach ($officeRows as $office) {
     if ($officeId === '') {
         continue;
     }
-    $officeNameById[$officeId] = (string)($office['office_name'] ?? 'Unassigned Department');
+    $officeNameById[$officeId] = (string)($office['office_name'] ?? 'Unassigned Division');
 }
 
 $positionNameById = [];
@@ -380,7 +380,7 @@ foreach ($peopleRows as $person) {
     $officeId = (string)($employment['office_id'] ?? '');
     $positionId = (string)($employment['position_id'] ?? '');
     $employmentStatus = strtolower((string)($employment['employment_status'] ?? 'inactive'));
-    $departmentName = (string)($officeNameById[$officeId] ?? 'Unassigned Department');
+    $departmentName = (string)($officeNameById[$officeId] ?? 'Unassigned Division');
     $positionName = (string)($positionNameById[$positionId] ?? 'Unassigned Position');
 
     $statusLabel = $employmentStatus === 'active' ? 'Active' : 'Inactive';

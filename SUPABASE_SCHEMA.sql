@@ -29,7 +29,7 @@ create type public.account_status_enum as enum ('pending','active','suspended','
 create type public.request_status_enum as enum ('pending','approved','rejected','cancelled');
 create type public.posting_status_enum as enum ('draft','published','closed','archived');
 create type public.application_status_enum as enum ('submitted','screening','shortlisted','interview','offer','hired','rejected','withdrawn');
-create type public.doc_status_enum as enum ('draft','submitted','approved','rejected','archived');
+create type public.doc_status_enum as enum ('draft','submitted','needs_revision','approved','rejected','archived');
 create type public.approval_status_enum as enum ('pending','approved','rejected','needs_revision');
 create type public.leave_request_status_enum as enum ('pending','approved','rejected','cancelled');
 create type public.payroll_period_status_enum as enum ('open','processing','posted','closed');

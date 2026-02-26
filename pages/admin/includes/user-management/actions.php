@@ -465,11 +465,11 @@ if ($action === 'add_department') {
     $officeType = strtolower((string)(cleanText($_POST['office_type'] ?? null) ?? 'unit'));
 
     if ($officeName === '' || $officeCode === '') {
-        redirectWithState('error', 'Department name and code are required.');
+        redirectWithState('error', 'Division name and code are required.');
     }
 
     if (!userManagementIsValidCode($officeCode)) {
-        redirectWithState('error', 'Department code must be 2-20 chars using uppercase letters, numbers, dash, or underscore.');
+        redirectWithState('error', 'Division code must be 2-20 chars using uppercase letters, numbers, dash, or underscore.');
     }
 
     $allowedOfficeTypes = ['central', 'regional', 'provincial', 'division', 'unit'];
@@ -498,11 +498,11 @@ if ($action === 'add_department') {
     );
 
     if (!isSuccessful($existingOffice)) {
-        redirectWithState('error', 'Unable to validate existing departments.');
+        redirectWithState('error', 'Unable to validate existing divisions.');
     }
 
     if (!empty($existingOffice['data'])) {
-        redirectWithState('error', 'Department already exists.');
+        redirectWithState('error', 'Division already exists.');
     }
 
     $departmentPayload = [
@@ -521,7 +521,7 @@ if ($action === 'add_department') {
     );
 
     if (!isSuccessful($createOffice)) {
-        redirectWithState('error', 'Failed to create department.');
+        redirectWithState('error', 'Failed to create division.');
     }
 
     $officeId = (string)($createOffice['data'][0]['id'] ?? '');
@@ -547,7 +547,7 @@ if ($action === 'add_department') {
         ]]
     );
 
-    redirectWithState('success', 'Department added successfully.');
+    redirectWithState('success', 'Division added successfully.');
 }
 
 redirectWithState('error', 'Unknown form action.');

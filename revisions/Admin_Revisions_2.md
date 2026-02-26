@@ -74,7 +74,7 @@ USER MANAGEMENT
 
 
 
-- [ ] RULE-BASED ALGORITHM 
+RULE-BASED ALGORITHM 
 This algorithm will automatically screen applicants, check if minimum qualifications are met, reduce manual evaluation time, standardize screening process and it is used for initial qualification filtering, not final hiring decision, 
 
 The admin should have option to set the criteria for each position title: 

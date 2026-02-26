@@ -1,5 +1,5 @@
 (() => {
-  document.addEventListener('DOMContentLoaded', () => {
+  const initAdminPageScript = () => {
     const sidebar = document.getElementById('sidebar');
     const toggle = document.getElementById('sidebarToggle');
     const closeButton = document.getElementById('sidebarClose');
@@ -2429,6 +2429,7 @@
     const profileResidentialCity = document.getElementById('profileResidentialCity');
     const profileResidentialProvince = document.getElementById('profileResidentialProvince');
     const profileResidentialZipCode = document.getElementById('profileResidentialZipCode');
+    const profileSameAsPermanentAddress = document.getElementById('profileSameAsPermanentAddress');
     const profilePermanentHouseNo = document.getElementById('profilePermanentHouseNo');
     const profilePermanentStreet = document.getElementById('profilePermanentStreet');
     const profilePermanentSubdivision = document.getElementById('profilePermanentSubdivision');
@@ -2518,6 +2519,19 @@
     const decisionApplicationId = document.getElementById('decisionApplicationId');
     const applicantProfileName = document.getElementById('applicantProfileName');
     const applicantProfileMeta = document.getElementById('applicantProfileMeta');
+    const applicantProfileContact = document.getElementById('applicantProfileContact');
+    const applicantProfileReference = document.getElementById('applicantProfileReference');
+    const applicantDocumentsBody = document.getElementById('applicantDocumentsBody');
+    const applicantProfileDatasetNode = document.getElementById('applicantProfileDataset');
+    let applicantProfileDataset = {};
+
+    if (applicantProfileDatasetNode) {
+      try {
+        applicantProfileDataset = JSON.parse(applicantProfileDatasetNode.textContent || '{}') || {};
+      } catch (error) {
+        applicantProfileDataset = {};
+      }
+    }
     const learningEnrollmentId = document.getElementById('learningEnrollmentId');
     const learningAttendanceTraining = document.getElementById('learningAttendanceTraining');
     const learningAttendanceEmployee = document.getElementById('learningAttendanceEmployee');
@@ -2677,6 +2691,7 @@
         const applicantPosition = button.getAttribute('data-applicant-position') || '-';
         const applicantSubmitted = button.getAttribute('data-applicant-submitted') || '-';
         const applicantScreening = button.getAttribute('data-applicant-screening') || '-';
+        const applicantDocumentsRaw = button.getAttribute('data-applicant-documents') || '[]';
 
         if (decisionApplicationId) {
           decisionApplicationId.value = applicationId;
@@ -2689,6 +2704,62 @@
 
         if (applicantProfileMeta) {
           applicantProfileMeta.textContent = `${applicantPosition} • ${applicantEmail} • Submitted ${applicantSubmitted} • ${applicantScreening}`;
+        }
+
+        const preview = (applicationId && applicantProfileDataset && applicantProfileDataset[applicationId])
+          ? applicantProfileDataset[applicationId]
+          : {};
+
+        if (applicantProfileContact) {
+          const mobile = (preview && preview.applicant_mobile ? String(preview.applicant_mobile) : '').trim() || '-';
+          const address = (preview && preview.applicant_address ? String(preview.applicant_address) : '').trim() || '-';
+          applicantProfileContact.textContent = `Mobile: ${mobile} • Address: ${address}`;
+        }
+
+        if (applicantProfileReference) {
+          const refNo = (preview && preview.application_ref_no ? String(preview.application_ref_no) : '').trim() || '-';
+          applicantProfileReference.textContent = `Application Ref: ${refNo}`;
+        }
+
+        if (applicantDocumentsBody) {
+          let docsFromButton = [];
+          try {
+            const parsed = JSON.parse(applicantDocumentsRaw);
+            docsFromButton = Array.isArray(parsed) ? parsed : [];
+          } catch (_error) {
+            docsFromButton = [];
+          }
+
+          const docs = Array.isArray(preview.documents) && preview.documents.length > 0
+            ? preview.documents
+            : docsFromButton;
+          const escapeValue = (value) => String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+
+          if (docs.length === 0) {
+            applicantDocumentsBody.innerHTML = '<tr><td class="px-3 py-3 text-slate-500" colspan="5">No submitted documents found.</td></tr>';
+          } else {
+            applicantDocumentsBody.innerHTML = docs.slice(0, 20).map((doc) => {
+              const label = escapeValue(doc && doc.type ? String(doc.type).replace(/_/g, ' ') : 'Document');
+              const fileName = escapeValue(doc && doc.name ? String(doc.name) : '-');
+              const uploadedLabel = escapeValue(doc && doc.uploaded_label ? String(doc.uploaded_label) : '-');
+              const statusLabel = escapeValue(doc && doc.status_label ? String(doc.status_label) : 'Pending');
+              const statusClass = (doc && doc.status_class ? String(doc.status_class) : 'bg-amber-100 text-amber-800').trim();
+              const fileUrl = (doc && doc.url ? String(doc.url) : '').trim();
+              const downloadUrl = (doc && doc.download_url ? String(doc.download_url) : fileUrl).trim();
+              if (fileUrl !== '') {
+                const downloadButton = downloadUrl !== ''
+                  ? `<a href="${escapeValue(downloadUrl)}" download class="px-2 py-1 text-xs rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">Download</a>`
+                  : '';
+                return `<tr><td class="px-3 py-2 text-slate-700">${label}</td><td class="px-3 py-2 text-slate-700">${fileName}</td><td class="px-3 py-2 text-slate-700">${uploadedLabel}</td><td class="px-3 py-2"><span class="inline-flex px-2 py-1 text-xs rounded-full ${statusClass}">${statusLabel}</span></td><td class="px-3 py-2"><div class="inline-flex items-center gap-1"><a href="${escapeValue(fileUrl)}" target="_blank" rel="noopener noreferrer" class="px-2 py-1 text-xs rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">View</a>${downloadButton}</div></td></tr>`;
+              }
+              return `<tr><td class="px-3 py-2 text-slate-700">${label}</td><td class="px-3 py-2 text-slate-700">${fileName}</td><td class="px-3 py-2 text-slate-700">${uploadedLabel}</td><td class="px-3 py-2"><span class="inline-flex px-2 py-1 text-xs rounded-full ${statusClass}">${statusLabel}</span></td><td class="px-3 py-2"><span class="text-xs text-slate-500">File unavailable</span></td></tr>`;
+            }).join('');
+          }
         }
 
         openModal('applicantDecisionModal');
@@ -3554,6 +3625,58 @@
       syncReleasePayslipState();
     }
 
+    const residentialAddressFields = [
+      profileResidentialHouseNo,
+      profileResidentialStreet,
+      profileResidentialSubdivision,
+      profileResidentialBarangay,
+      profileResidentialCity,
+      profileResidentialProvince,
+      profileResidentialZipCode
+    ];
+
+    const copyResidentialToPermanentAddress = () => {
+      if (profileResidentialHouseNo && profilePermanentHouseNo) profilePermanentHouseNo.value = profileResidentialHouseNo.value;
+      if (profileResidentialStreet && profilePermanentStreet) profilePermanentStreet.value = profileResidentialStreet.value;
+      if (profileResidentialSubdivision && profilePermanentSubdivision) profilePermanentSubdivision.value = profileResidentialSubdivision.value;
+      if (profileResidentialBarangay && profilePermanentBarangay) profilePermanentBarangay.value = profileResidentialBarangay.value;
+      if (profileResidentialCity && profilePermanentCity) profilePermanentCity.value = profileResidentialCity.value;
+      if (profileResidentialProvince && profilePermanentProvince) profilePermanentProvince.value = profileResidentialProvince.value;
+      if (profileResidentialZipCode && profilePermanentZipCode) profilePermanentZipCode.value = profileResidentialZipCode.value;
+    };
+
+    const clearPermanentAddress = () => {
+      if (profilePermanentHouseNo) profilePermanentHouseNo.value = '';
+      if (profilePermanentStreet) profilePermanentStreet.value = '';
+      if (profilePermanentSubdivision) profilePermanentSubdivision.value = '';
+      if (profilePermanentBarangay) profilePermanentBarangay.value = '';
+      if (profilePermanentCity) profilePermanentCity.value = '';
+      if (profilePermanentProvince) profilePermanentProvince.value = '';
+      if (profilePermanentZipCode) profilePermanentZipCode.value = '';
+    };
+
+    if (profileSameAsPermanentAddress) {
+      profileSameAsPermanentAddress.addEventListener('change', () => {
+        if (profileSameAsPermanentAddress.checked) {
+          copyResidentialToPermanentAddress();
+        } else {
+          clearPermanentAddress();
+        }
+      });
+    }
+
+    residentialAddressFields.forEach((field) => {
+      if (!field) {
+        return;
+      }
+
+      field.addEventListener('input', () => {
+        if (profileSameAsPermanentAddress && profileSameAsPermanentAddress.checked) {
+          copyResidentialToPermanentAddress();
+        }
+      });
+    });
+
     document.querySelectorAll('[data-person-profile-add]').forEach((button) => {
       button.addEventListener('click', () => {
         if (profileAction) profileAction.value = 'add';
@@ -3594,6 +3717,7 @@
         if (profileEmail) profileEmail.value = '';
         if (profileMobile) profileMobile.value = '';
         if (profileAgencyEmployeeNo) profileAgencyEmployeeNo.value = '';
+        if (profileSameAsPermanentAddress) profileSameAsPermanentAddress.checked = false;
         if (personalInfoProfileEmployeeLabel) personalInfoProfileEmployeeLabel.textContent = 'Selected employee';
         if (personalInfoProfileModalTitle) personalInfoProfileModalTitle.textContent = 'PDS Section I - Add Personal Information';
         if (personalInfoProfileSubmit) personalInfoProfileSubmit.textContent = 'Save Section I';
@@ -3679,6 +3803,7 @@
         if (profileEmail) profileEmail.value = email;
         if (profileMobile) profileMobile.value = mobile;
         if (profileAgencyEmployeeNo) profileAgencyEmployeeNo.value = agencyEmployeeNo;
+        if (profileSameAsPermanentAddress) profileSameAsPermanentAddress.checked = false;
         if (personalInfoProfileEmployeeLabel) personalInfoProfileEmployeeLabel.textContent = employeeName;
         if (profilePersonId) profilePersonId.value = personId;
         if (profileAction) profileAction.value = 'edit';
@@ -4645,6 +4770,22 @@
     if (personalInfoProfileForm && profileAction && profilePersonId) {
       personalInfoProfileForm.addEventListener('submit', (event) => {
         const mode = (profileAction.value || '').trim().toLowerCase();
+        const hasEmail = Boolean((profileEmail?.value || '').trim());
+        const hasMobile = Boolean((profileMobile?.value || '').trim());
+
+        if (mode === 'add' && !hasEmail && !hasMobile) {
+          event.preventDefault();
+          if (window.Swal) {
+            Swal.fire({
+              icon: 'warning',
+              title: 'Contact details required',
+              text: 'Provide at least an email address or mobile number before adding an employee.',
+              confirmButtonColor: '#0f172a'
+            });
+            return;
+          }
+        }
+
         if (mode === 'edit' && !profilePersonId.value) {
           event.preventDefault();
           if (window.Swal) {
@@ -4786,25 +4927,96 @@
       });
     }
 
-    if (window.Swal) {
+    {
+      const statusActionConfig = {
+        review_leave_request_dashboard: {
+          title: 'Submit leave decision?',
+          text: 'This will update leave request status and notify relevant users.',
+          confirmButtonText: 'Submit decision'
+        },
+        review_document: {
+          title: 'Submit document review?',
+          text: 'This will update the document review result.',
+          confirmButtonText: 'Save review'
+        },
+        archive_document: {
+          title: 'Archive this document?',
+          text: 'Archived documents are removed from active review queues.',
+          confirmButtonText: 'Archive',
+          confirmButtonColor: '#be123c'
+        },
+        archive_job_posting: {
+          title: 'Archive this posting?',
+          text: 'This posting will be removed from active recruitment queues.',
+          confirmButtonText: 'Archive posting',
+          confirmButtonColor: '#be123c'
+        },
+        assign_department_position: {
+          title: 'Update division and position?',
+          text: 'This updates the current assignment of the selected employee.',
+          confirmButtonText: 'Update assignment'
+        }
+      };
+
+      const statusActionPattern = /(approve|reject|archive|restore|review|status|hire|forward|lock|release|decision)/i;
       const adminForms = document.querySelectorAll('main form');
+
+      const showConfirmDialog = (config, onConfirm) => {
+        if (window.Swal) {
+          window.Swal.fire({
+            icon: 'warning',
+            title: config.title || 'Proceed with this action?',
+            text: config.text || 'This action will update record status.',
+            showCancelButton: true,
+            confirmButtonText: config.confirmButtonText || 'Confirm',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: config.confirmButtonColor || '#0f172a'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              onConfirm();
+            }
+          });
+          return;
+        }
+
+        const accepted = window.confirm(config.text || config.title || 'Proceed with this action?');
+        if (accepted) {
+          onConfirm();
+        }
+      };
+
       adminForms.forEach((form) => {
-        if (form.dataset.swalBound === 'true') return;
+        if (form.dataset.statusConfirmBound === 'true') return;
 
         form.addEventListener('submit', (event) => {
-          const action = (form.getAttribute('action') || '').trim();
-          if (action !== '') return;
+          if (form.dataset.confirmedSubmit === 'true') {
+            return;
+          }
+
+          const actionInput = form.querySelector('input[name="form_action"]');
+          const actionName = (actionInput?.value || '').trim();
+          const mappedConfig = statusActionConfig[actionName];
+          const looksLikeStatusAction = statusActionPattern.test(actionName);
+
+          if (!mappedConfig && !looksLikeStatusAction) {
+            return;
+          }
 
           event.preventDefault();
-          Swal.fire({
-            icon: 'success',
-            title: 'Saved',
-            text: 'Demo update applied successfully.',
-            confirmButtonColor: '#0f172a'
+
+          const config = mappedConfig || {
+            title: 'Confirm status update?',
+            text: 'This action will update status and may affect module workflows.',
+            confirmButtonText: 'Confirm update'
+          };
+
+          showConfirmDialog(config, () => {
+            form.dataset.confirmedSubmit = 'true';
+            form.submit();
           });
         });
 
-        form.dataset.swalBound = 'true';
+        form.dataset.statusConfirmBound = 'true';
       });
     }
 
@@ -4859,5 +5071,11 @@
         closeAllModals();
       }
     });
-  });
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAdminPageScript, { once: true });
+  } else {
+    initAdminPageScript();
+  }
 })();

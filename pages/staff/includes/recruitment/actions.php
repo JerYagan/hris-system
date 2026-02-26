@@ -1,5 +1,7 @@
 <?php
 
+require_once dirname(__DIR__, 3) . '/admin/includes/notifications/email.php';
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     return;
 }
@@ -83,6 +85,255 @@ if (!function_exists('staffRecruitmentDecisionMap')) {
         }
 
         return null;
+    }
+}
+
+if (!function_exists('staffRecruitmentLoadEmailTemplates')) {
+    function staffRecruitmentLoadEmailTemplates(string $supabaseUrl, array $headers): array
+    {
+        $defaults = [
+            'submitted' => ['subject' => '', 'body' => ''],
+            'passed' => [
+                'subject' => 'Application Update: Passed Initial Screening',
+                'body' => 'Hello {applicant_name},<br><br>Good news. You passed initial screening for <strong>{job_title}</strong>.<br>Reference: <strong>{application_ref_no}</strong><br><br>Remarks: {remarks}<br><br>Please wait for next instructions.',
+            ],
+            'failed' => [
+                'subject' => 'Application Update: Not Qualified',
+                'body' => 'Hello {applicant_name},<br><br>Thank you for applying to <strong>{job_title}</strong>.<br>Reference: <strong>{application_ref_no}</strong><br><br>Result: Not Qualified.<br>Remarks: {remarks}<br><br>We appreciate your interest.',
+            ],
+            'next_stage' => [
+                'subject' => 'Application Update: Next Stage',
+                'body' => 'Hello {applicant_name},<br><br>Your application for <strong>{job_title}</strong> has moved to the next stage.<br>Reference: <strong>{application_ref_no}</strong><br><br>Remarks: {remarks}<br><br>Please monitor your account and email for final review schedule and office signing instructions.',
+            ],
+        ];
+
+        $response = apiRequest(
+            'GET',
+            rtrim($supabaseUrl, '/') . '/rest/v1/system_settings?select=setting_value&setting_key=eq.' . rawurlencode('recruitment.email_templates') . '&limit=1',
+            $headers
+        );
+
+        if (!isSuccessful($response)) {
+            return $defaults;
+        }
+
+        $raw = $response['data'][0]['setting_value'] ?? null;
+        $value = is_array($raw) && array_key_exists('value', $raw) ? $raw['value'] : $raw;
+        if (!is_array($value)) {
+            return $defaults;
+        }
+
+        foreach (['submitted', 'passed', 'failed', 'next_stage'] as $key) {
+            $row = is_array($value[$key] ?? null) ? (array)$value[$key] : [];
+            $subject = trim((string)($row['subject'] ?? ''));
+            $body = trim((string)($row['body'] ?? ''));
+            if ($subject !== '') {
+                $defaults[$key]['subject'] = $subject;
+            }
+            if ($body !== '') {
+                $defaults[$key]['body'] = $body;
+            }
+        }
+
+        return $defaults;
+    }
+}
+
+if (!function_exists('staffRecruitmentRenderTemplate')) {
+    function staffRecruitmentRenderTemplate(string $template, array $replacements): string
+    {
+        $rendered = $template;
+        foreach ($replacements as $key => $value) {
+            $rendered = str_replace('{' . $key . '}', (string)$value, $rendered);
+        }
+
+        return $rendered;
+    }
+}
+
+if (!function_exists('staffRecruitmentExtractStructuredInputs')) {
+    function staffRecruitmentExtractStructuredInputs(string $feedbackText): array
+    {
+        if ($feedbackText === '') {
+            return [];
+        }
+
+        $decoded = json_decode($feedbackText, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        return [
+            'eligibility' => cleanText($decoded['eligibility'] ?? $decoded['eligibility_type'] ?? null),
+            'education_years' => $decoded['education_years'] ?? $decoded['years_in_college'] ?? null,
+            'training_hours' => $decoded['training_hours'] ?? $decoded['hours_of_training'] ?? null,
+            'experience_years' => $decoded['experience_years'] ?? $decoded['years_of_experience'] ?? null,
+        ];
+    }
+}
+
+if (!function_exists('staffRecruitmentEstimateSignalInputs')) {
+    function staffRecruitmentEstimateSignalInputs(array $application, array $documents, array $interviews): array
+    {
+        $applicationStatus = strtolower((string)($application['application_status'] ?? 'submitted'));
+        $applicant = is_array($application['applicant'] ?? null) ? (array)$application['applicant'] : [];
+
+        $documentTypes = [];
+        foreach ($documents as $document) {
+            $key = strtolower((string)($document['document_type'] ?? ''));
+            if ($key !== '') {
+                $documentTypes[$key] = true;
+            }
+        }
+
+        $hasEligibilityDoc = isset($documentTypes['eligibility']) || isset($documentTypes['license']) || isset($documentTypes['id']) || isset($documentTypes['certificate']);
+        $eligibility = $hasEligibilityDoc ? 'career service sub professional' : 'n/a';
+
+        $educationYears = (isset($documentTypes['transcript']) || isset($documentTypes['pds'])) ? 2.0 : 0.0;
+        $trainingHours = isset($documentTypes['certificate']) ? 4.0 : 0.0;
+        if (trim((string)($applicant['portfolio_url'] ?? '')) !== '') {
+            $trainingHours += 2.0;
+        }
+
+        $experienceYears = 0.0;
+        if (trim((string)($applicant['resume_url'] ?? '')) !== '') {
+            $experienceYears += 1.0;
+        }
+        if (in_array($applicationStatus, ['screening', 'shortlisted', 'interview', 'offer', 'hired'], true)) {
+            $experienceYears += 0.5;
+        }
+        if (in_array($applicationStatus, ['offer', 'hired'], true)) {
+            $experienceYears += 0.5;
+        }
+
+        foreach ($interviews as $interview) {
+            $result = strtolower(trim((string)($interview['result'] ?? '')));
+            if (in_array($result, ['pass', 'passed', 'recommended', 'completed'], true)) {
+                $experienceYears += 0.25;
+                break;
+            }
+        }
+
+        return [
+            'eligibility' => $eligibility,
+            'education_years' => $educationYears,
+            'training_hours' => $trainingHours,
+            'experience_years' => $experienceYears,
+        ];
+    }
+}
+
+if (!function_exists('staffRecruitmentNormalizeEligibilityTokens')) {
+    function staffRecruitmentNormalizeEligibilityTokens(string $value): array
+    {
+        $normalized = str_replace(['/', '|'], ',', strtolower(trim($value)));
+        $parts = preg_split('/\s*,\s*/', $normalized) ?: [];
+        $tokens = [];
+        foreach ($parts as $part) {
+            $part = trim($part);
+            if ($part === '' || in_array($part, ['n/a', 'na', 'none', 'not applicable', 'not_applicable'], true)) {
+                continue;
+            }
+            $tokens[] = $part;
+        }
+
+        return array_values(array_unique($tokens));
+    }
+}
+
+if (!function_exists('staffRecruitmentEligibilityMatchesAny')) {
+    function staffRecruitmentEligibilityMatchesAny(string $requiredEligibility, string $actualEligibility): bool
+    {
+        $requiredTokens = staffRecruitmentNormalizeEligibilityTokens($requiredEligibility);
+        if (empty($requiredTokens)) {
+            return true;
+        }
+
+        $actualKey = strtolower(trim($actualEligibility));
+        if ($actualKey === '' || in_array($actualKey, ['n/a', 'na', 'none'], true)) {
+            return false;
+        }
+
+        foreach ($requiredTokens as $requiredToken) {
+            if ($actualKey === $requiredToken || str_contains($actualKey, $requiredToken) || str_contains($requiredToken, $actualKey)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+if (!function_exists('staffRecruitmentDetermineMissingCriteria')) {
+    function staffRecruitmentDetermineMissingCriteria(string $supabaseUrl, array $headers, array $applicationRow): array
+    {
+        $applicationId = cleanText($applicationRow['id'] ?? null) ?? '';
+        if (!isValidUuid($applicationId)) {
+            return [];
+        }
+
+        $job = is_array($applicationRow['job'] ?? null) ? (array)$applicationRow['job'] : [];
+        $positionTitle = cleanText($job['title'] ?? null) ?? '';
+        $criteria = function_exists('staffApplicantEvaluationResolveCriteria')
+            ? staffApplicantEvaluationResolveCriteria($supabaseUrl, $headers, $positionTitle)
+            : [
+                'eligibility' => 'career service sub professional',
+                'minimum_education_years' => 2,
+                'minimum_training_hours' => 4,
+                'minimum_experience_years' => 1,
+            ];
+
+        $feedbackResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/application_feedback?select=feedback_text&application_id=eq.' . rawurlencode($applicationId) . '&order=provided_at.desc&limit=1',
+            $headers
+        );
+        $feedbackText = isSuccessful($feedbackResponse)
+            ? trim((string)($feedbackResponse['data'][0]['feedback_text'] ?? ''))
+            : '';
+
+        $documentsResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/application_documents?select=document_type&application_id=eq.' . rawurlencode($applicationId) . '&limit=500',
+            $headers
+        );
+        $documents = isSuccessful($documentsResponse) ? (array)($documentsResponse['data'] ?? []) : [];
+
+        $interviewsResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/application_interviews?select=result&application_id=eq.' . rawurlencode($applicationId) . '&order=scheduled_at.asc&limit=200',
+            $headers
+        );
+        $interviews = isSuccessful($interviewsResponse) ? (array)($interviewsResponse['data'] ?? []) : [];
+
+        $structured = staffRecruitmentExtractStructuredInputs($feedbackText);
+        $signals = staffRecruitmentEstimateSignalInputs($applicationRow, $documents, $interviews);
+
+        $eligibilityInput = strtolower(trim((string)($structured['eligibility'] ?? $signals['eligibility'] ?? 'n/a')));
+        $educationYears = (float)($structured['education_years'] ?? $signals['education_years'] ?? 0);
+        $trainingHours = (float)($structured['training_hours'] ?? $signals['training_hours'] ?? 0);
+        $experienceYears = (float)($structured['experience_years'] ?? $signals['experience_years'] ?? 0);
+
+        $requiredEligibility = (string)($criteria['eligibility'] ?? 'career service sub professional');
+        $requiredEducationYears = (float)($criteria['minimum_education_years'] ?? 2);
+        $requiredTrainingHours = (float)($criteria['minimum_training_hours'] ?? 4);
+        $requiredExperienceYears = (float)($criteria['minimum_experience_years'] ?? 1);
+
+        $missing = [];
+        if (!staffRecruitmentEligibilityMatchesAny($requiredEligibility, $eligibilityInput)) {
+            $missing[] = 'eligibility';
+        }
+        if ($educationYears < $requiredEducationYears) {
+            $missing[] = 'education';
+        }
+        if ($trainingHours < $requiredTrainingHours) {
+            $missing[] = 'training';
+        }
+        if ($experienceYears < $requiredExperienceYears) {
+            $missing[] = 'experience';
+        }
+
+        return $missing;
     }
 }
 
@@ -244,6 +495,10 @@ if ($action === 'create_job_posting') {
 }
 
 if ($action === 'add_hired_applicant_as_employee') {
+    if (strtolower((string)($staffRoleKey ?? '')) !== 'admin') {
+        redirectWithState('error', 'Final hiring conversion is Admin-only.');
+    }
+
     $applicationId = cleanText($_POST['application_id'] ?? null) ?? '';
     if (!isValidUuid($applicationId)) {
         redirectWithState('error', 'Invalid hired applicant selection.');
@@ -431,6 +686,10 @@ if ($action === 'add_hired_applicant_as_employee') {
 }
 
 if ($action === 'unarchive_job_posting') {
+    if (strtolower((string)($staffRoleKey ?? '')) !== 'admin') {
+        redirectWithState('error', 'Job status controls are Admin-only.');
+    }
+
     $postingId = cleanText($_POST['posting_id'] ?? null) ?? '';
     if (!isValidUuid($postingId)) {
         redirectWithState('error', 'Invalid archived posting selected.');
@@ -509,7 +768,7 @@ if ($action === 'save_applicant_decision') {
     $applicationResponse = apiRequest(
         'GET',
         $supabaseUrl
-        . '/rest/v1/applications?select=id,application_status,job_posting_id,applicant:applicant_profiles(user_id,full_name)'
+        . '/rest/v1/applications?select=id,application_ref_no,application_status,job_posting_id,applicant:applicant_profiles(user_id,full_name,email,resume_url,portfolio_url),job:job_postings(title,position_id)'
         . '&id=eq.' . rawurlencode($applicationId)
         . '&limit=1',
         $headers
@@ -542,6 +801,23 @@ if ($action === 'save_applicant_decision') {
     }
 
     $oldStatus = strtolower((string)(cleanText($applicationRow['application_status'] ?? null) ?? 'submitted'));
+    $autoRejectedForMissingCriteria = false;
+    $missingCriteria = [];
+    $autoRejectReason = '';
+
+    if ($decision === 'approve_for_next_stage') {
+        $missingCriteria = staffRecruitmentDetermineMissingCriteria($supabaseUrl, $headers, $applicationRow);
+        if (!empty($missingCriteria)) {
+            $autoRejectedForMissingCriteria = true;
+            $decision = 'disqualify_application';
+            $decisionConfig = staffRecruitmentDecisionMap($decision) ?? $decisionConfig;
+            $autoRejectReason = 'Missing criteria: ' . implode(', ', $missingCriteria);
+            $remarks = $remarks !== ''
+                ? $autoRejectReason . ' | ' . $remarks
+                : $autoRejectReason;
+        }
+    }
+
     $nextStatusMap = [
         'submitted' => 'screening',
         'screening' => 'shortlisted',
@@ -557,6 +833,10 @@ if ($action === 'save_applicant_decision') {
         }
     } else {
         $newStatus = (string)($decisionConfig['application_status'] ?? 'submitted');
+    }
+
+    if ($newStatus === 'hired' && strtolower((string)($staffRoleKey ?? '')) !== 'admin') {
+        redirectWithState('error', 'Final hiring decision is Admin-only.');
     }
 
     if (!canTransitionStatus('applications', $oldStatus, $newStatus)) {
@@ -616,6 +896,77 @@ if ($action === 'save_applicant_decision') {
         );
     }
 
+    $applicantName = cleanText($applicationRow['applicant']['full_name'] ?? null) ?? 'Applicant';
+    $applicantEmail = strtolower((string)(cleanText($applicationRow['applicant']['email'] ?? null) ?? ''));
+    $applicationRefNo = cleanText($applicationRow['application_ref_no'] ?? null) ?? '';
+    $jobTitle = cleanText($applicationRow['job']['title'] ?? null) ?? 'Job Posting';
+
+    $emailTemplateKey = '';
+    if ($decision === 'disqualify_application') {
+        $emailTemplateKey = 'failed';
+    } elseif ($decision === 'approve_for_next_stage') {
+        $emailTemplateKey = $oldStatus === 'submitted' ? 'passed' : 'next_stage';
+    }
+
+    if ($emailTemplateKey !== '' && $applicantEmail !== '' && filter_var($applicantEmail, FILTER_VALIDATE_EMAIL)) {
+        $smtpConfig = [
+            'host' => '',
+            'port' => 587,
+            'username' => '',
+            'password' => '',
+            'encryption' => 'tls',
+            'auth' => '1',
+        ];
+        $mailFrom = '';
+        $mailFromName = 'DA HRIS';
+        $resolvedMail = resolveSmtpMailConfig($supabaseUrl, $headers, $smtpConfig, $mailFrom, $mailFromName);
+        $smtpResolved = (array)($resolvedMail['smtp'] ?? []);
+        $mailFromResolved = (string)($resolvedMail['from'] ?? '');
+        $mailFromNameResolved = (string)($resolvedMail['from_name'] ?? 'DA HRIS');
+
+        if (smtpConfigIsReady($smtpResolved, $mailFromResolved)) {
+            $templates = staffRecruitmentLoadEmailTemplates($supabaseUrl, $headers);
+            $subjectTemplate = (string)($templates[$emailTemplateKey]['subject'] ?? 'Application Update');
+            $bodyTemplate = (string)($templates[$emailTemplateKey]['body'] ?? '');
+            $replacements = [
+                'applicant_name' => $applicantName,
+                'job_title' => $jobTitle,
+                'application_ref_no' => $applicationRefNo,
+                'remarks' => $remarks !== '' ? $remarks : $basis,
+            ];
+
+            $emailResponse = smtpSendTransactionalEmail(
+                $smtpResolved,
+                $mailFromResolved,
+                $mailFromNameResolved,
+                $applicantEmail,
+                $applicantName,
+                staffRecruitmentRenderTemplate($subjectTemplate, $replacements),
+                staffRecruitmentRenderTemplate($bodyTemplate, $replacements)
+            );
+
+            apiRequest(
+                'POST',
+                $supabaseUrl . '/rest/v1/activity_logs',
+                array_merge($headers, ['Prefer: return=minimal']),
+                [[
+                    'actor_user_id' => isValidUuid((string)$staffUserId) ? $staffUserId : null,
+                    'module_name' => 'recruitment',
+                    'entity_name' => 'applications',
+                    'entity_id' => $applicationId,
+                    'action_name' => 'email_' . $emailTemplateKey . '_notification',
+                    'old_data' => null,
+                    'new_data' => [
+                        'recipient_email' => $applicantEmail,
+                        'status_code' => (int)($emailResponse['status'] ?? 0),
+                        'template_key' => $emailTemplateKey,
+                    ],
+                    'ip_address' => clientIp(),
+                ]]
+            );
+        }
+    }
+
     apiRequest(
         'POST',
         $supabaseUrl . '/rest/v1/activity_logs',
@@ -633,16 +984,26 @@ if ($action === 'save_applicant_decision') {
                 'decision_date' => $decisionDate,
                 'basis' => $basis,
                 'remarks' => $remarks,
+                'auto_rejected_for_missing_criteria' => $autoRejectedForMissingCriteria,
+                'missing_criteria' => $missingCriteria,
             ],
             'ip_address' => clientIp(),
         ]]
     );
+
+    if ($autoRejectedForMissingCriteria) {
+        redirectWithState('success', 'Application automatically marked as failed. ' . $autoRejectReason . '.');
+    }
 
     redirectWithState('success', 'Applicant screening decision saved successfully.');
 }
 
 if ($action !== 'update_posting_status') {
     redirectWithState('error', 'Unknown recruitment action.');
+}
+
+if (strtolower((string)($staffRoleKey ?? '')) !== 'admin') {
+    redirectWithState('error', 'Job status controls are Admin-only.');
 }
 
 $postingId = cleanText($_POST['posting_id'] ?? null) ?? '';

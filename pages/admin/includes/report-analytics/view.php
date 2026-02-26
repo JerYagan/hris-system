@@ -85,7 +85,7 @@ $employeeStatusPill = static function (string $status): string {
 
     <div class="px-6 pb-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
         <article class="rounded-xl border border-slate-200 p-4">
-            <p class="text-xs uppercase text-slate-500">Top Department Count</p>
+            <p class="text-xs uppercase text-slate-500">Top Division Count</p>
             <p class="font-semibold text-slate-800 mt-2"><?= htmlspecialchars($topDepartmentLabel, ENT_QUOTES, 'UTF-8') ?></p>
             <p class="text-xs text-slate-500 mt-1">Highest concentration by organizational unit.</p>
         </article>
@@ -99,12 +99,12 @@ $employeeStatusPill = static function (string $status): string {
     <div class="px-6 pb-3 flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
         <div class="w-full md:w-1/2">
             <label class="text-sm text-slate-600" for="reportEmployeesSearch">Search Employees</label>
-            <input id="reportEmployeesSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search by name, department, status, or employee ID">
+            <input id="reportEmployeesSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search by name, division, status, or employee ID">
         </div>
         <div class="w-full md:w-56">
-            <label class="text-sm text-slate-600" for="reportEmployeesDepartmentFilter">Department</label>
+            <label class="text-sm text-slate-600" for="reportEmployeesDepartmentFilter">Division</label>
             <select id="reportEmployeesDepartmentFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
-                <option value="">All Departments</option>
+                <option value="">All Divisions</option>
                 <?php foreach ($employeeDepartmentFilters as $departmentName): ?>
                     <option value="<?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?></option>
                 <?php endforeach; ?>
@@ -127,7 +127,7 @@ $employeeStatusPill = static function (string $status): string {
                 <tr>
                     <th class="text-left px-4 py-3">Employee</th>
                     <th class="text-left px-4 py-3">Employee ID</th>
-                    <th class="text-left px-4 py-3">Department</th>
+                    <th class="text-left px-4 py-3">Division</th>
                     <th class="text-left px-4 py-3">Status</th>
                     <th class="text-left px-4 py-3">Hire Date</th>
                 </tr>
@@ -249,9 +249,9 @@ $employeeStatusPill = static function (string $status): string {
             </select>
         </div>
         <div>
-            <label class="text-slate-600">Department Filter</label>
+            <label class="text-slate-600">Division Filter</label>
             <select name="department_filter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
-                <option value="all">All Departments</option>
+                <option value="all">All Divisions</option>
                 <?php foreach ($departmentsForFilter as $departmentName): ?>
                     <option value="<?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?></option>
                 <?php endforeach; ?>

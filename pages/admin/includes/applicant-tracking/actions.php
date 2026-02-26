@@ -6,6 +6,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $action = (string)($_POST['form_action'] ?? '');
 
+if ($action === 'convert_hired_to_employee') {
+    require __DIR__ . '/../applicants/actions.php';
+    return;
+}
+
 if ($action === 'schedule_interview') {
     $applicationId = cleanText($_POST['application_id'] ?? null) ?? '';
     $interviewStage = strtolower((string)(cleanText($_POST['interview_stage'] ?? null) ?? ''));
@@ -43,6 +48,28 @@ if ($action === 'schedule_interview') {
     $applicantUserId = (string)($applicationRow['applicant']['user_id'] ?? '');
     $applicantName = trim((string)($applicationRow['applicant']['full_name'] ?? 'Applicant'));
     $applicantEmail = strtolower(trim((string)($applicationRow['applicant']['email'] ?? '')));
+
+    if (preg_match('/^[a-f0-9-]{36}$/i', $applicantUserId)) {
+        $personLookupResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/people?select=id&user_id=eq.' . rawurlencode($applicantUserId) . '&limit=1',
+            $headers
+        );
+
+        $personId = (string)($personLookupResponse['data'][0]['id'] ?? '');
+        $employmentCheckResponse = ['status' => 200, 'data' => []];
+        if ($personId !== '') {
+            $employmentCheckResponse = apiRequest(
+                'GET',
+                $supabaseUrl . '/rest/v1/employment_records?select=id&person_id=eq.' . rawurlencode($personId) . '&is_current=eq.true&limit=1',
+                $headers
+            );
+        }
+
+        if (isSuccessful($employmentCheckResponse) && !empty((array)($employmentCheckResponse['data'] ?? []))) {
+            redirectWithState('error', 'Applicant is already added as an employee. Further actions are disabled.');
+        }
+    }
 
     $insertInterview = apiRequest(
         'POST',
@@ -141,32 +168,28 @@ if ($action === 'schedule_interview') {
         }
     }
 
-    apiRequest(
-        'POST',
-        $supabaseUrl . '/rest/v1/activity_logs',
-        array_merge($headers, ['Prefer: return=minimal']),
-        [[
-            'actor_user_id' => $adminUserId,
-            'module_name' => 'applicant_tracking',
-            'entity_name' => 'application_interviews',
-            'entity_id' => $applicationId,
-            'action_name' => 'schedule_interview',
-            'old_data' => ['application_status' => $oldStatus],
-            'new_data' => [
-                'application_status' => 'interview',
-                'interview_stage' => $interviewStage,
-                'interview_mode' => $interviewMode,
-                'scheduled_at' => $scheduledAt,
-                'notes' => $notes,
-                'email_delivery' => [
-                    'recipient' => $applicantEmail !== '' ? $applicantEmail : null,
-                    'status' => $emailDeliveryStatus,
-                    'message' => $emailStatusMessage,
-                    'error' => $emailDeliveryError,
-                ],
+    logStatusTransition(
+        $supabaseUrl,
+        $headers,
+        $adminUserId,
+        'applicant_tracking',
+        'applications',
+        $applicationId,
+        'schedule_interview',
+        $oldStatus,
+        'interview',
+        $notes,
+        [
+            'interview_stage' => $interviewStage,
+            'interview_mode' => $interviewMode,
+            'scheduled_at' => $scheduledAt,
+            'email_delivery' => [
+                'recipient' => $applicantEmail !== '' ? $applicantEmail : null,
+                'status' => $emailDeliveryStatus,
+                'message' => $emailStatusMessage,
+                'error' => $emailDeliveryError,
             ],
-            'ip_address' => clientIp(),
-        ]]
+        ]
     );
 
     redirectWithState('success', 'Interview scheduled successfully. ' . $emailStatusMessage);
@@ -201,6 +224,28 @@ if ($action === 'update_status') {
     $applicantUserId = (string)($applicationRow['applicant']['user_id'] ?? '');
     $applicantName = trim((string)($applicationRow['applicant']['full_name'] ?? 'Applicant'));
     $applicantEmail = strtolower(trim((string)($applicationRow['applicant']['email'] ?? '')));
+
+    if (preg_match('/^[a-f0-9-]{36}$/i', $applicantUserId)) {
+        $personLookupResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/people?select=id&user_id=eq.' . rawurlencode($applicantUserId) . '&limit=1',
+            $headers
+        );
+
+        $personId = (string)($personLookupResponse['data'][0]['id'] ?? '');
+        $employmentCheckResponse = ['status' => 200, 'data' => []];
+        if ($personId !== '') {
+            $employmentCheckResponse = apiRequest(
+                'GET',
+                $supabaseUrl . '/rest/v1/employment_records?select=id&person_id=eq.' . rawurlencode($personId) . '&is_current=eq.true&limit=1',
+                $headers
+            );
+        }
+
+        if (isSuccessful($employmentCheckResponse) && !empty((array)($employmentCheckResponse['data'] ?? []))) {
+            redirectWithState('error', 'Applicant is already added as an employee. Further actions are disabled.');
+        }
+    }
 
     $patchResponse = apiRequest(
         'PATCH',
@@ -281,29 +326,25 @@ if ($action === 'update_status') {
         }
     }
 
-    apiRequest(
-        'POST',
-        $supabaseUrl . '/rest/v1/activity_logs',
-        array_merge($headers, ['Prefer: return=minimal']),
-        [[
-            'actor_user_id' => $adminUserId,
-            'module_name' => 'applicant_tracking',
-            'entity_name' => 'applications',
-            'entity_id' => $applicationId,
-            'action_name' => 'update_status',
-            'old_data' => ['application_status' => $oldStatus],
-            'new_data' => [
-                'application_status' => $newStatus,
-                'notes' => $notes,
-                'email_delivery' => [
-                    'recipient' => $applicantEmail !== '' ? $applicantEmail : null,
-                    'status' => $emailDeliveryStatus,
-                    'message' => $emailStatusMessage,
-                    'error' => $emailDeliveryError,
-                ],
+    logStatusTransition(
+        $supabaseUrl,
+        $headers,
+        $adminUserId,
+        'applicant_tracking',
+        'applications',
+        $applicationId,
+        'update_status',
+        $oldStatus,
+        $newStatus,
+        $notes,
+        [
+            'email_delivery' => [
+                'recipient' => $applicantEmail !== '' ? $applicantEmail : null,
+                'status' => $emailDeliveryStatus,
+                'message' => $emailStatusMessage,
+                'error' => $emailDeliveryError,
             ],
-            'ip_address' => clientIp(),
-        ]]
+        ]
     );
 
     redirectWithState('success', 'Application status updated successfully. ' . $emailStatusMessage);

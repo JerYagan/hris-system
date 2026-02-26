@@ -102,6 +102,11 @@ if ($topnavInitialSource !== '') {
 
 <header id="topnav" class="h-16 admin-topbar sticky top-0 z-20 flex items-center justify-between px-5 transition-transform duration-300 ease-in-out bg-slate-900">
     <div class="flex items-center gap-3">
+        <div class="hidden md:flex items-center gap-2 rounded-lg bg-white/5 px-2 py-1">
+            <img src="/hris-system/assets/images/1x/Artboard%202.png" alt="Bagong Pilipinas" class="h-7 w-auto object-contain" loading="lazy">
+            <span class="text-[10px] uppercase tracking-wide text-slate-300">Bagong Pilipinas</span>
+        </div>
+
         <button id="sidebarToggle" class="admin-top-chip w-8 h-8 inline-flex items-center justify-center text-slate-300 hover:text-white focus:outline-none" aria-label="Toggle sidebar">
             <span class="material-symbols-outlined">menu</span>
         </button>

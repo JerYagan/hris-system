@@ -10,33 +10,46 @@ if ($action === '') {
 }
 
 if ($action === 'save_evaluation_criteria') {
-    $educationRequirement = strtolower((string)(cleanText($_POST['education_requirement'] ?? null) ?? 'related_bachelor'));
-    $minimumExperienceYears = (int)(cleanText($_POST['minimum_experience_years'] ?? null) ?? '2');
-    $minimumExamScore = (float)(cleanText($_POST['minimum_exam_score'] ?? null) ?? '75');
-    $minimumInterviewRating = (float)(cleanText($_POST['minimum_interview_rating'] ?? null) ?? '3.5');
+    $eligibilityOption = evaluationNormalizeEligibilityOption((string)(cleanText($_POST['required_eligibility'] ?? null) ?? 'csc_prc'));
+    $eligibility = evaluationEligibilityOptionToRequirement($eligibilityOption);
+    $minimumEducationYears = (float)(cleanText($_POST['minimum_education_years'] ?? null) ?? '2');
+    $minimumTrainingHours = (float)(cleanText($_POST['minimum_training_hours'] ?? null) ?? '4');
+    $minimumExperienceYears = (float)(cleanText($_POST['minimum_experience_years'] ?? null) ?? '1');
+    $threshold = (float)(cleanText($_POST['threshold'] ?? null) ?? '75');
     $ruleNotes = trim((string)(cleanText($_POST['rule_notes'] ?? null) ?? ''));
 
-    if (!in_array($educationRequirement, ['related_bachelor', 'any_bachelor', 'masters_preferred'], true)) {
-        redirectWithState('error', 'Invalid education requirement selected.');
+    if ($eligibility === '') {
+        redirectWithState('error', 'Required eligibility is required.');
     }
 
-    if ($minimumExperienceYears < 0 || $minimumExperienceYears > 30) {
-        redirectWithState('error', 'Minimum experience years must be between 0 and 30.');
+    if ($minimumEducationYears < 0 || $minimumEducationYears > 20) {
+        redirectWithState('error', 'Minimum education years must be between 0 and 20.');
     }
 
-    if ($minimumExamScore < 0 || $minimumExamScore > 100) {
-        redirectWithState('error', 'Minimum exam score must be between 0 and 100.');
+    if ($minimumTrainingHours < 0 || $minimumTrainingHours > 1000) {
+        redirectWithState('error', 'Minimum training hours must be between 0 and 1000.');
     }
 
-    if ($minimumInterviewRating < 1 || $minimumInterviewRating > 5) {
-        redirectWithState('error', 'Minimum interview rating must be between 1 and 5.');
+    if ($minimumExperienceYears < 0 || $minimumExperienceYears > 60) {
+        redirectWithState('error', 'Minimum experience years must be between 0 and 60.');
+    }
+
+    if ($threshold < 0 || $threshold > 100) {
+        redirectWithState('error', 'Scoring threshold must be between 0 and 100.');
     }
 
     $criteria = [
-        'education_requirement' => $educationRequirement,
+        'eligibility' => $eligibility,
+        'minimum_education_years' => $minimumEducationYears,
+        'minimum_training_hours' => $minimumTrainingHours,
         'minimum_experience_years' => $minimumExperienceYears,
-        'minimum_exam_score' => $minimumExamScore,
-        'minimum_interview_rating' => $minimumInterviewRating,
+        'threshold' => $threshold,
+        'weights' => [
+            'eligibility' => 25,
+            'education' => 25,
+            'training' => 25,
+            'experience' => 25,
+        ],
         'rule_notes' => $ruleNotes,
         'updated_at' => gmdate('c'),
     ];
@@ -65,15 +78,85 @@ if ($action === 'save_evaluation_criteria') {
     redirectWithState('success', 'Evaluation criteria saved successfully.');
 }
 
+if ($action === 'save_position_criteria') {
+    $positionId = trim((string)(cleanText($_POST['position_id'] ?? null) ?? ''));
+    $eligibilityOption = evaluationNormalizeEligibilityOption((string)(cleanText($_POST['position_required_eligibility'] ?? null) ?? 'csc_prc'));
+    $minimumEducationYears = (float)(cleanText($_POST['position_minimum_education_years'] ?? null) ?? '2');
+    $minimumTrainingHours = (float)(cleanText($_POST['position_minimum_training_hours'] ?? null) ?? '4');
+    $minimumExperienceYears = (float)(cleanText($_POST['position_minimum_experience_years'] ?? null) ?? '1');
+
+    if ($positionId === '' || !preg_match('/^[a-f0-9-]{36}$/i', $positionId)) {
+        redirectWithState('error', 'Select a valid position before saving criteria.');
+    }
+
+    if ($minimumEducationYears < 0 || $minimumEducationYears > 20) {
+        redirectWithState('error', 'Minimum education years must be between 0 and 20.');
+    }
+
+    if ($minimumTrainingHours < 0 || $minimumTrainingHours > 1000) {
+        redirectWithState('error', 'Minimum training hours must be between 0 and 1000.');
+    }
+
+    if ($minimumExperienceYears < 0 || $minimumExperienceYears > 60) {
+        redirectWithState('error', 'Minimum experience years must be between 0 and 60.');
+    }
+
+    $globalCriteria = evaluationLoadCriteria($supabaseUrl, $headers);
+    $positionCriteriaConfig = evaluationLoadPositionCriteriaConfig($supabaseUrl, $headers, $globalCriteria);
+    $positionOverrides = (array)($positionCriteriaConfig['position_overrides'] ?? []);
+    $normalizedPositionId = strtolower($positionId);
+
+    $positionOverrides[$normalizedPositionId] = [
+        'eligibility' => $eligibilityOption,
+        'minimum_education_years' => $minimumEducationYears,
+        'minimum_training_hours' => $minimumTrainingHours,
+        'minimum_experience_years' => $minimumExperienceYears,
+        'updated_at' => gmdate('c'),
+        'updated_by' => $adminUserId,
+    ];
+
+    $payload = [
+        'position_overrides' => $positionOverrides,
+        'updated_at' => gmdate('c'),
+    ];
+
+    $saved = evaluationUpsertSetting($supabaseUrl, $headers, 'recruitment.position_criteria', $payload, $adminUserId);
+    if (!$saved) {
+        redirectWithState('error', 'Failed to save position-specific criteria.');
+    }
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $adminUserId !== '' ? $adminUserId : null,
+            'module_name' => 'evaluation',
+            'entity_name' => 'system_settings',
+            'entity_id' => null,
+            'action_name' => 'save_position_criteria',
+            'old_data' => null,
+            'new_data' => [
+                'position_id' => $positionId,
+                'criteria' => $positionOverrides[$normalizedPositionId],
+            ],
+            'ip_address' => clientIp(),
+        ]]
+    );
+
+    redirectWithState('success', 'Position-specific criteria saved successfully.');
+}
+
 if ($action === 'run_rule_evaluation') {
     $criteria = evaluationLoadCriteria($supabaseUrl, $headers);
+    $positionCriteriaConfig = evaluationLoadPositionCriteriaConfig($supabaseUrl, $headers, $criteria);
     $dataset = evaluationBuildDataset($supabaseUrl, $headers);
 
     if (!empty($dataset['errors'])) {
         redirectWithState('error', implode(' ', (array)$dataset['errors']));
     }
 
-    $result = evaluationRunRuleEngine($dataset, $criteria);
+    $result = evaluationRunRuleEngine($dataset, $criteria, $positionCriteriaConfig);
     $summary = (array)($result['summary'] ?? []);
 
     $snapshot = [
@@ -109,13 +192,14 @@ if ($action === 'run_rule_evaluation') {
 
 if ($action === 'generate_system_recommendations') {
     $criteria = evaluationLoadCriteria($supabaseUrl, $headers);
+    $positionCriteriaConfig = evaluationLoadPositionCriteriaConfig($supabaseUrl, $headers, $criteria);
     $dataset = evaluationBuildDataset($supabaseUrl, $headers);
 
     if (!empty($dataset['errors'])) {
         redirectWithState('error', implode(' ', (array)$dataset['errors']));
     }
 
-    $result = evaluationRunRuleEngine($dataset, $criteria);
+    $result = evaluationRunRuleEngine($dataset, $criteria, $positionCriteriaConfig);
     $rows = (array)($result['rows'] ?? []);
     $summary = (array)($result['summary'] ?? []);
 
@@ -128,6 +212,8 @@ if ($action === 'generate_system_recommendations') {
             'job_title' => (string)($row['job_title'] ?? '-'),
             'rule_result' => (string)($row['rule_result'] ?? 'Fail'),
             'recommendation' => (string)($row['recommendation'] ?? 'Not Recommended'),
+            'total_score' => (int)($row['total_score'] ?? 0),
+            'threshold' => (int)($row['threshold'] ?? 75),
         ];
     }
 

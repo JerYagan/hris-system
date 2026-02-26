@@ -65,7 +65,7 @@ if ($action === 'create_staff_account') {
     );
 
     if (!isSuccessful($employmentResponse) || empty((array)($employmentResponse['data'] ?? []))) {
-        redirectWithState('error', 'Assign department and position first so a current employment record exists.');
+        redirectWithState('error', 'Assign division and position first so a current employment record exists.');
     }
 
     $employmentRow = (array)$employmentResponse['data'][0];
@@ -255,6 +255,10 @@ if ($action === 'save_profile') {
 
     if (($profileAction === 'add' || $profileAction === 'edit') && ($firstName === '' || $surname === '')) {
         redirectWithState('error', 'First name and last name are required.');
+    }
+
+    if ($profileAction === 'add' && $email === '' && $mobileNo === '') {
+        redirectWithState('error', 'Provide at least an email address or mobile number when adding an employee.');
     }
 
     if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -502,7 +506,18 @@ if ($action === 'save_profile') {
         );
 
         if (!isSuccessful($insertResponse)) {
-            redirectWithState('error', 'Failed to create employee profile.');
+            $insertRaw = strtolower(trim((string)($insertResponse['raw'] ?? '')));
+            if ($insertRaw !== '') {
+                if (str_contains($insertRaw, 'agency_employee_no') || str_contains($insertRaw, 'people_agency_employee_no_key')) {
+                    redirectWithState('error', 'Failed to create employee profile. Agency employee number already exists.');
+                }
+
+                if (str_contains($insertRaw, 'personal_email') || str_contains($insertRaw, 'duplicate key')) {
+                    redirectWithState('error', 'Failed to create employee profile. Email is already used by another employee profile.');
+                }
+            }
+
+            redirectWithState('error', 'Failed to create employee profile. Please check unique fields and required values.');
         }
 
         $newPersonId = (string)($insertResponse['data'][0]['id'] ?? '');
@@ -782,7 +797,7 @@ if ($action === 'assign_department_position') {
     $positionId = cleanText($_POST['position_id'] ?? null) ?? '';
 
     if (!isValidUuid($personId) || !isValidUuid($officeId) || !isValidUuid($positionId)) {
-        redirectWithState('error', 'Employee, department, and position are required.');
+        redirectWithState('error', 'Employee, division, and position are required.');
     }
 
     $currentEmployment = apiRequest(
@@ -853,7 +868,7 @@ if ($action === 'assign_department_position') {
         ]]
     );
 
-    redirectWithState('success', 'Department and position assignment updated.');
+    redirectWithState('success', 'Division and position assignment updated.');
 }
 
 if ($action === 'update_employee_status') {
@@ -902,23 +917,17 @@ if ($action === 'update_employee_status') {
         redirectWithState('error', 'Failed to update employee status.');
     }
 
-    apiRequest(
-        'POST',
-        $supabaseUrl . '/rest/v1/activity_logs',
-        array_merge($headers, ['Prefer: return=minimal']),
-        [[
-            'actor_user_id' => $adminUserId !== '' ? $adminUserId : null,
-            'module_name' => 'personal_information',
-            'entity_name' => 'employment_records',
-            'entity_id' => (string)($employmentRow['id'] ?? ''),
-            'action_name' => 'update_employee_status',
-            'old_data' => ['employment_status' => $employmentRow['employment_status'] ?? null],
-            'new_data' => [
-                'employment_status' => $mappedStatus,
-                'status_specification' => $statusSpecification,
-            ],
-            'ip_address' => clientIp(),
-        ]]
+    logStatusTransition(
+        $supabaseUrl,
+        $headers,
+        $adminUserId,
+        'personal_information',
+        'employment_records',
+        (string)($employmentRow['id'] ?? ''),
+        'update_employee_status',
+        (string)($employmentRow['employment_status'] ?? ''),
+        $mappedStatus,
+        $statusSpecification
     );
 
     redirectWithState('success', 'Employee status updated successfully.');

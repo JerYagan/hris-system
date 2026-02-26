@@ -2,7 +2,7 @@
 $currentPage = basename($_SERVER['PHP_SELF']);
 $recruitmentPages = ['recruitment.php', 'applicants.php', 'applicant-tracking.php', 'evaluation.php'];
 $isRecruitmentSection = in_array($activePage, $recruitmentPages, true);
-$documentPages = ['document-management.php', 'personal-information.php'];
+$documentPages = ['document-management.php'];
 $isDocumentSection = in_array($activePage, $documentPages, true);
 $praisePages = ['praise.php', 'praise-employee-evaluation.php', 'praise-awards-recognition.php', 'praise-reports-analytics.php'];
 $isPraiseSection = in_array($activePage, $praisePages, true);
@@ -59,7 +59,7 @@ $isPraiseSection = in_array($activePage, $praisePages, true);
                     </a>
                     <a href="applicants.php" class="admin-nav-link ml-7 <?= $activePage === 'applicants.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
                         <span class="admin-nav-icon material-symbols-outlined text-[18px]">badge</span>
-                        <span class="admin-link-label text-[13px]">Applicants</span>
+                        <span class="admin-link-label text-[13px]">Applicants Registration</span>
                     </a>
                     <a href="applicant-tracking.php" class="admin-nav-link ml-7 <?= $activePage === 'applicant-tracking.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
                         <span class="admin-nav-icon material-symbols-outlined text-[18px]">track_changes</span>

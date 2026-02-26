@@ -4,14 +4,16 @@ $state = cleanText($_GET['state'] ?? null);
 $message = cleanText($_GET['message'] ?? null);
 
 $criteria = evaluationLoadCriteria($supabaseUrl, $headers);
+$positionCriteriaConfig = evaluationLoadPositionCriteriaConfig($supabaseUrl, $headers, $criteria);
+$positionOptions = evaluationLoadPositionOptions($supabaseUrl, $headers);
+$positionCriteriaOverrides = (array)($positionCriteriaConfig['position_overrides'] ?? []);
 $dataset = evaluationBuildDataset($supabaseUrl, $headers);
-$result = evaluationRunRuleEngine($dataset, $criteria);
+$result = evaluationRunRuleEngine($dataset, $criteria, $positionCriteriaConfig);
 
 $evaluationRows = (array)($result['rows'] ?? []);
 $recommendationSummary = (array)($result['summary'] ?? [
-    'shortlist' => 0,
-    'manual_review' => 0,
-    'not_recommended' => 0,
+    'qualified' => 0,
+    'not_qualified' => 0,
     'total' => 0,
 ]);
 

@@ -38,7 +38,7 @@ $statusPill = static function (string $status): array {
         <article class="rounded-xl border border-slate-200 p-4 bg-slate-50">
             <p class="text-xs uppercase tracking-wide text-slate-500">Total Profiles</p>
             <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)$totalProfiles, ENT_QUOTES, 'UTF-8') ?></p>
-            <p class="text-xs text-slate-600 mt-1">Across all departments</p>
+            <p class="text-xs text-slate-600 mt-1">Across all divisions</p>
         </article>
         <article class="rounded-xl border border-slate-200 p-4 bg-emerald-50">
             <p class="text-xs uppercase tracking-wide text-emerald-700">Complete Records</p>
@@ -141,12 +141,12 @@ $statusPill = static function (string $status): array {
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
             <div class="md:col-span-2">
                 <label class="text-slate-600">Search Employee Records</label>
-                <input id="personalInfoRecordsSearchInput" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Search by employee ID, name, email, department, or position">
+                <input id="personalInfoRecordsSearchInput" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Search by employee ID, name, email, division, or position">
             </div>
             <div>
-                <label class="text-slate-600">Department Filter</label>
+                <label class="text-slate-600">Division Filter</label>
                 <select id="personalInfoRecordsDepartmentFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
-                    <option value="">All Departments</option>
+                    <option value="">All Divisions</option>
                     <?php foreach ($departmentFilterOptions as $departmentName): ?>
                         <option value="<?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?></option>
                     <?php endforeach; ?>
@@ -177,7 +177,7 @@ $statusPill = static function (string $status): array {
                     <th class="text-left px-4 py-3">Employee ID</th>
                     <th class="text-left px-4 py-3">Full Name</th>
                     <th class="text-left px-4 py-3">Email</th>
-                    <th class="text-left px-4 py-3">Department</th>
+                    <th class="text-left px-4 py-3">Division</th>
                     <th class="text-left px-4 py-3">Position</th>
                     <th class="text-left px-4 py-3">Status</th>
                     <th class="text-left px-4 py-3">Action</th>
@@ -218,7 +218,7 @@ $statusPill = static function (string $status): array {
                                         </button>
                                         <button type="button" data-action-menu-item data-action-target="assign" class="w-full text-left px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50 inline-flex items-center gap-2">
                                             <span class="material-symbols-outlined text-[18px] text-slate-500">person_add</span>
-                                            Assign Department and Position
+                                            Assign Division and Position
                                         </button>
                                         <button type="button" data-action-menu-item data-action-target="manage-status" class="w-full text-left px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50 inline-flex items-center gap-2">
                                             <span class="material-symbols-outlined text-[18px] text-slate-500">manage_accounts</span>
@@ -400,6 +400,10 @@ $statusPill = static function (string $status): array {
 
                     <section class="space-y-3 border-t border-slate-200 pt-4">
                         <h4 class="text-sm font-semibold text-slate-700">Permanent Address</h4>
+                        <label class="inline-flex items-center gap-2 text-sm text-slate-600">
+                            <input id="profileSameAsPermanentAddress" type="checkbox" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                            <span>Same as residential address</span>
+                        </label>
                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
                                 <label class="text-slate-600">House/Block/Lot No.</label>
@@ -922,7 +926,7 @@ $statusPill = static function (string $status): array {
     <div class="relative min-h-full flex items-center justify-center p-4">
         <div class="w-full max-w-3xl bg-white rounded-2xl border border-slate-200 shadow-xl">
             <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-slate-800">Assign Department and Position</h3>
+                <h3 class="text-lg font-semibold text-slate-800">Assign Division and Position</h3>
                 <button type="button" data-modal-close="personalInfoAssignmentModal" class="text-slate-500 hover:text-slate-700">✕</button>
             </div>
             <form action="personal-information.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -933,9 +937,9 @@ $statusPill = static function (string $status): array {
                     <input id="personalInfoAssignmentEmployeeDisplay" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
                 </div>
                 <div>
-                    <label class="text-slate-600">Department</label>
+                    <label class="text-slate-600">Division</label>
                     <select name="office_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
-                        <option value="">Select department</option>
+                        <option value="">Select division</option>
                         <?php foreach ($officeRows as $office): ?>
                             <option value="<?= htmlspecialchars((string)($office['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($office['office_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></option>
                         <?php endforeach; ?>

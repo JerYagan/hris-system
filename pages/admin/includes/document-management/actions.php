@@ -188,6 +188,7 @@ if ($action === 'review_document') {
     $mappedStatus = match ($reviewStatus) {
         'approved' => 'approved',
         'rejected' => 'rejected',
+        'needs_revision' => 'needs_revision',
         default => 'draft',
     };
 
@@ -200,6 +201,30 @@ if ($action === 'review_document') {
             'updated_at' => gmdate('c'),
         ]
     );
+
+    $persistedStatus = $mappedStatus;
+    $patchRaw = strtolower((string)($patchResponse['raw'] ?? ''));
+    $enumValueRejected = str_contains($patchRaw, 'invalid input value for enum')
+        || str_contains($patchRaw, 'doc_status_enum')
+        || str_contains($patchRaw, 'needs_revision');
+
+    if (!isSuccessful($patchResponse) && $reviewStatus === 'needs_revision' && $enumValueRejected) {
+        $fallbackStatus = 'submitted';
+        $fallbackPatchResponse = apiRequest(
+            'PATCH',
+            $supabaseUrl . '/rest/v1/documents?id=eq.' . $documentId,
+            array_merge($headers, ['Prefer: return=minimal']),
+            [
+                'document_status' => $fallbackStatus,
+                'updated_at' => gmdate('c'),
+            ]
+        );
+
+        if (isSuccessful($fallbackPatchResponse)) {
+            $patchResponse = $fallbackPatchResponse;
+            $persistedStatus = $fallbackStatus;
+        }
+    }
 
     if (!isSuccessful($patchResponse)) {
         redirectWithState('error', 'Failed to update document status.');
@@ -234,24 +259,20 @@ if ($action === 'review_document') {
         );
     }
 
-    apiRequest(
-        'POST',
-        $supabaseUrl . '/rest/v1/activity_logs',
-        array_merge($headers, ['Prefer: return=minimal']),
-        [[
-            'actor_user_id' => $adminUserId,
-            'module_name' => 'document_management',
-            'entity_name' => 'documents',
-            'entity_id' => $documentId,
-            'action_name' => 'review_document',
-            'old_data' => ['document_status' => $currentStatus],
-            'new_data' => [
-                'document_status' => $mappedStatus,
-                'review_status' => $reviewStatus,
-                'review_notes' => $reviewNotes,
-            ],
-            'ip_address' => clientIp(),
-        ]]
+    logStatusTransition(
+        $supabaseUrl,
+        $headers,
+        $adminUserId,
+        'document_management',
+        'documents',
+        $documentId,
+        'review_document',
+        $currentStatus,
+        $persistedStatus,
+        $reviewNotes,
+        [
+            'review_status' => $reviewStatus,
+        ]
     );
 
     redirectWithState('success', 'Document review saved successfully.');
@@ -311,23 +332,17 @@ if ($action === 'archive_document') {
         );
     }
 
-    apiRequest(
-        'POST',
-        $supabaseUrl . '/rest/v1/activity_logs',
-        array_merge($headers, ['Prefer: return=minimal']),
-        [[
-            'actor_user_id' => $adminUserId,
-            'module_name' => 'document_management',
-            'entity_name' => 'documents',
-            'entity_id' => $documentId,
-            'action_name' => 'archive_document',
-            'old_data' => ['document_status' => $currentStatus],
-            'new_data' => [
-                'document_status' => 'archived',
-                'reason' => $archiveReason,
-            ],
-            'ip_address' => clientIp(),
-        ]]
+    logStatusTransition(
+        $supabaseUrl,
+        $headers,
+        $adminUserId,
+        'document_management',
+        'documents',
+        $documentId,
+        'archive_document',
+        $currentStatus,
+        'archived',
+        $archiveReason
     );
 
     redirectWithState('success', 'Document archived successfully.');

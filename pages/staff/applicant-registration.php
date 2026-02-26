@@ -45,9 +45,13 @@ ob_start();
             <label for="registrationStatusFilter" class="text-sm text-gray-600">Screening Filter</label>
             <select id="registrationStatusFilter" class="w-full mt-1 border rounded-md px-3 py-2 text-sm">
                 <option value="">All</option>
-                <option value="for review">For Review</option>
-                <option value="verified">Verified</option>
-                <option value="disqualified">Disqualified</option>
+                <option value="submitted">Applied</option>
+                <option value="screening">Verified</option>
+                <option value="interview">Interview</option>
+                <option value="shortlisted">Evaluation</option>
+                <option value="offer">For Approval</option>
+                <option value="hired">Hired</option>
+                <option value="rejected">Rejected</option>
             </select>
         </div>
     </div>

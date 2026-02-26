@@ -4,6 +4,7 @@ include __DIR__ . '/auth-guard.php';
 $pageTitle = $pageTitle ?? 'Admin | DA HRIS';
 $activePage = $activePage ?? '';
 $breadcrumbs = $breadcrumbs ?? ['Dashboard'];
+$pageSlug = strtolower((string)pathinfo((string)$activePage, PATHINFO_FILENAME));
 ?>
 
 <!DOCTYPE html>
@@ -11,7 +12,7 @@ $breadcrumbs = $breadcrumbs ?? ['Dashboard'];
 <head>
     <?php include __DIR__ . '/head.php'; ?>
 </head>
-<body class="admin-shell text-gray-800">
+<body class="admin-shell text-gray-800" data-role="admin" data-page="<?= htmlspecialchars($pageSlug, ENT_QUOTES, 'UTF-8') ?>">
 
 <div class="flex min-h-screen">
     <?php include __DIR__ . '/sidebar.php'; ?>
@@ -26,6 +27,6 @@ $breadcrumbs = $breadcrumbs ?? ['Dashboard'];
     </div>
 </div>
 
-<script src="./js/script.js"></script>
+<script type="module" src="/hris-system/assets/js/bootstrap.js"></script>
 </body>
 </html>

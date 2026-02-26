@@ -124,7 +124,7 @@ foreach ($uniqueEmploymentRecords as $record) {
     }
 }
 
-$topDepartmentLabel = 'No department data available.';
+$topDepartmentLabel = 'No division data available.';
 if (!empty($departmentCounts)) {
     arsort($departmentCounts);
     $topOfficeId = (string)array_key_first($departmentCounts);

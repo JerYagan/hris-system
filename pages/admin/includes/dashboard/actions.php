@@ -72,20 +72,17 @@ if ($action === 'review_leave_request_dashboard') {
         );
     }
 
-    apiRequest(
-        'POST',
-        $supabaseUrl . '/rest/v1/activity_logs',
-        array_merge($headers, ['Prefer: return=minimal']),
-        [[
-            'actor_user_id' => $adminUserId !== '' ? $adminUserId : null,
-            'module_name' => 'dashboard',
-            'entity_name' => 'leave_requests',
-            'entity_id' => $leaveRequestId,
-            'action_name' => 'review_leave',
-            'old_data' => ['status' => $oldStatus],
-            'new_data' => ['status' => $decision, 'notes' => $notes],
-            'ip_address' => clientIp(),
-        ]]
+    logStatusTransition(
+        $supabaseUrl,
+        $headers,
+        $adminUserId,
+        'dashboard',
+        'leave_requests',
+        $leaveRequestId,
+        'review_leave',
+        $oldStatus,
+        $decision,
+        $notes
     );
 
     redirectWithState('success', 'Leave request updated successfully.');
@@ -150,6 +147,64 @@ if ($action === 'save_dashboard_announcement') {
         : 'Announcement draft saved successfully.';
 
     redirectWithState('success', $successMessage);
+}
+
+if ($action === 'save_dashboard_chart_schedule') {
+    $attendanceChartTime = trim((string)(cleanText($_POST['attendance_chart_time'] ?? null) ?? ''));
+    $recruitmentChartTime = trim((string)(cleanText($_POST['recruitment_chart_time'] ?? null) ?? ''));
+
+    $isValidTime = static fn(string $timeValue): bool => (bool)preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $timeValue);
+
+    if (!$isValidTime($attendanceChartTime) || !$isValidTime($recruitmentChartTime)) {
+        redirectWithState('error', 'Invalid chart schedule time format.');
+    }
+
+    $upsertRows = [
+        [
+            'setting_key' => 'dashboard_chart_attendance_time',
+            'setting_value' => ['value' => $attendanceChartTime],
+            'updated_by' => $adminUserId !== '' ? $adminUserId : null,
+            'updated_at' => gmdate('c'),
+        ],
+        [
+            'setting_key' => 'dashboard_chart_recruitment_time',
+            'setting_value' => ['value' => $recruitmentChartTime],
+            'updated_by' => $adminUserId !== '' ? $adminUserId : null,
+            'updated_at' => gmdate('c'),
+        ],
+    ];
+
+    $upsertResponse = apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/system_settings?on_conflict=setting_key',
+        array_merge($headers, ['Prefer: resolution=merge-duplicates,return=minimal']),
+        $upsertRows
+    );
+
+    if (!isSuccessful($upsertResponse)) {
+        redirectWithState('error', 'Failed to save chart schedule settings.');
+    }
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $adminUserId !== '' ? $adminUserId : null,
+            'module_name' => 'dashboard',
+            'entity_name' => 'system_settings',
+            'entity_id' => null,
+            'action_name' => 'update_chart_schedule',
+            'old_data' => null,
+            'new_data' => [
+                'dashboard_chart_attendance_time' => $attendanceChartTime,
+                'dashboard_chart_recruitment_time' => $recruitmentChartTime,
+            ],
+            'ip_address' => clientIp(),
+        ]]
+    );
+
+    redirectWithState('success', 'Dashboard chart schedule settings saved.');
 }
 
 if ($action === 'mark_dashboard_notification_read') {

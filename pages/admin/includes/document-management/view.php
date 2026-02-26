@@ -10,6 +10,9 @@ $docStatusPill = static function (string $status): array {
     if ($key === 'submitted') {
         return ['Submitted', 'bg-amber-100 text-amber-800'];
     }
+    if ($key === 'needs_revision') {
+        return ['Needs Revision', 'bg-orange-100 text-orange-800'];
+    }
     if ($key === 'archived') {
         return ['Archived', 'bg-slate-200 text-slate-700'];
     }
@@ -299,12 +302,11 @@ $buildStoragePublicUrl = static function (string $baseUrl, string $bucket, strin
                         }
 
                         $uploaderEmail = (string)($document['uploader']['email'] ?? '-');
-                        $statusRaw = (string)($document['document_status'] ?? 'draft');
-                        [$statusLabel, $statusClass] = $docStatusPill($statusRaw);
-
                         $review = $latestReviewByDocument[$documentId] ?? null;
                         $lastReview = '-';
+                        $reviewStatusRaw = '';
                         if (is_array($review)) {
+                            $reviewStatusRaw = strtolower(trim((string)($review['status'] ?? '')));
                             $reviewStatus = $reviewStatusLabel((string)($review['status'] ?? ''));
                             $reviewedAt = (string)($review['reviewed_at'] ?? '');
                             if ($reviewedAt !== '') {
@@ -313,6 +315,12 @@ $buildStoragePublicUrl = static function (string $baseUrl, string $bucket, strin
                                 $lastReview = $reviewStatus;
                             }
                         }
+
+                        $statusRaw = (string)($document['document_status'] ?? 'draft');
+                        if ($statusRaw === 'submitted' && $reviewStatusRaw === 'needs_revision') {
+                            $statusRaw = 'needs_revision';
+                        }
+                        [$statusLabel, $statusClass] = $docStatusPill($statusRaw);
 
                         $updatedAt = (string)($document['updated_at'] ?? $document['created_at'] ?? '');
                         $updatedLabel = $updatedAt !== '' ? date('M d, Y', strtotime($updatedAt)) : '-';

@@ -109,6 +109,25 @@ Apply these policy rules while implementing all revisions:
 
 ## 5) Module-by-Module Revision Backlog
 
+### 5.0 Module Revision Change Logs
+
+Use this index to jump to module-level revision logs. Each module section below includes its own `Revision Change Log` subsection.
+
+- [Dashboard Revision Log](#51-dashboard)
+- [Recruitment Revision Log](#52-recruitment-job-listing-applicants-evaluation-linkage)
+- [Rule-Based Qualification Revision Log](#53-rule-based-qualification-engine-recruitment--evaluation)
+- [Applicant Tracking Revision Log](#54-applicant-tracking--applicants--evaluation)
+- [Document Management Revision Log](#55-document-management)
+- [Personal Information Revision Log](#56-personal-information)
+- [Timekeeping Revision Log](#57-timekeeping)
+- [Payroll Management Revision Log](#58-payroll-management)
+- [Reports and Analytics Revision Log](#59-reports-and-analytics)
+- [Praise / Awards Revision Log](#510-praise--awards--employee-evaluation)
+- [Learning and Development Revision Log](#511-learning-and-development)
+- [User Management Revision Log](#512-user-management)
+- [My Profile Revision Log](#513-my-profile)
+- [Announcements and Notifications Revision Log](#514-announcements-and-notifications)
+
 ## 5.1 Dashboard
 Required changes:
 - Replace cards:
@@ -133,6 +152,9 @@ Required changes:
 Acceptance criteria:
 - Dashboard cards are data-driven and mapped to standardized statuses.
 - Each chart displays last updated timestamp and uses configured update schedule.
+
+Revision Change Log:
+- [2026-02-24] Dashboard scope retained; no structural backlog change in this revision.
 
 ## 5.2 Recruitment (Job Listing, Applicants, Evaluation linkage)
 Required changes:
@@ -167,14 +189,17 @@ Required changes:
 
 Acceptance criteria:
 - Recruitment can create valid jobs without office/position mismatch errors.
-- Position-based requirements drive evaluation inputs and recommendation output.
+- Global requirements and threshold drive evaluation inputs and recommendation output for MVP.
+
+Revision Change Log:
+- [2026-02-24] Confirmed MVP direction: global requirements + threshold (position-specific criteria deferred).
 
 ## 5.3 Rule-Based Qualification Engine (Recruitment + Evaluation)
 Functional requirements:
 - Remove UI label text `Rule-Based Algorithm` where requested, while retaining backend logic.
-- Per position title, Admin can configure dynamic minimum criteria:
+- Admin can configure one global minimum criteria set for MVP:
   - Required eligibility
-  - Required education threshold
+  - Required education years
   - Required training hours
   - Required experience years
 - Structured applicant fields (encoded by applicant/admin verification):
@@ -193,6 +218,7 @@ Functional requirements:
   - otherwise `Not Qualified`
 - Remove exam score from criteria set.
 - Support Admin remarks and reject reason that is visible to applicant.
+- Defer position-specific criteria to post-launch enhancement.
 
 Core logic reference:
 ```text
@@ -205,8 +231,11 @@ ELSE status = Not Qualified
 ```
 
 Acceptance criteria:
-- Criteria are configurable per position and immediately effective for new evaluations.
+- Global criteria are configurable by Admin and immediately effective for new evaluations.
 - Decision output, score breakdown, and reviewer remarks are auditable.
+
+Revision Change Log:
+- [2026-02-24] Criteria model finalized to one global set (eligibility, education years, training hours, experience years) + threshold.
 
 ## 5.4 Applicant Tracking + Applicants + Evaluation
 Required changes:
@@ -221,6 +250,9 @@ Required changes:
 Acceptance criteria:
 - Timeline and status history are consistent across all three pages.
 - Privilege boundaries are enforced server-side and reflected in UI actions.
+
+Revision Change Log:
+- [2026-02-24] Tracking scope unchanged; status/timeline synchronization requirement remains active.
 
 ## 5.5 Document Management
 Required changes:
@@ -251,6 +283,9 @@ Acceptance criteria:
 - Admin can review both workflow queue and 201-category inventory view.
 - Staff can clearly see when Admin has finalized approval/rejection for forwarded documents.
 
+Revision Change Log:
+- [2026-02-24] `Needs Revision` status retained as required canonical document workflow state.
+
 ## 5.6 Personal Information
 Required changes:
 - Fix tab highlight bug (Personal Information should not highlight Document Management).
@@ -271,6 +306,9 @@ Required changes:
 Acceptance criteria:
 - Employee creation enforces required contact fields.
 - Address and geographic selectors provide searchable UX with ZIP auto-fill.
+
+Revision Change Log:
+- [2026-02-24] Contact-field guardrail remains required for Add Employee (email or mobile).
 
 ## 5.7 Timekeeping
 Required changes:
@@ -302,6 +340,9 @@ Acceptance criteria:
 - OB and holiday/suspension handling is reflected in daily attendance results.
 - Staff can track Admin final decisions for requests they reviewed/forwarded.
 
+Revision Change Log:
+- [2026-02-24] Timekeeping scope unchanged; no-late policy and OB handling remain in planned implementation.
+
 ## 5.8 Payroll Management
 Required changes:
 - Confirm and implement timekeeping-payroll integration.
@@ -320,6 +361,9 @@ Acceptance criteria:
 - Admin can inspect and approve full breakdown prior to release.
 - Staff can see final Admin disposition of submitted payroll batches with decision timestamp.
 
+Revision Change Log:
+- [2026-02-24] Payroll approval chain retained with Admin final authority and staff feedback loop.
+
 ## 5.9 Reports and Analytics
 Required changes:
 - Rename module/page labels to `REPORTS and Analytics`.
@@ -328,6 +372,9 @@ Required changes:
 
 Acceptance criteria:
 - Reports naming and content align with updated policy and statuses.
+
+Revision Change Log:
+- [2026-02-24] Reports module naming and no-late output constraints retained without new change.
 
 ## 5.10 Praise / Awards / Employee Evaluation
 Required changes:
@@ -344,6 +391,9 @@ Required changes:
 Acceptance criteria:
 - Praise workflows are privilege-aligned and have clear publish destinations.
 
+Revision Change Log:
+- [2026-02-24] Praise backlog remains aligned to privilege finalization and publish destination clarity.
+
 ## 5.11 Learning and Development
 Required changes:
 - Add New Training creation with advance email notification.
@@ -354,6 +404,9 @@ Required changes:
 
 Acceptance criteria:
 - Admin can create training, notify participants, and track attendance/history in one flow.
+
+Revision Change Log:
+- [2026-02-24] L&D scope unchanged; notification + attendance-history requirements remain active.
 
 ## 5.12 User Management
 Required changes:
@@ -369,6 +422,9 @@ Required changes:
 Acceptance criteria:
 - User creation/edit forms enforce classification, division, and admin-limit controls.
 
+Revision Change Log:
+- [2026-02-24] User Management retains admin-limit and division-first terminology requirements.
+
 ## 5.13 My Profile
 Required changes:
 - Add admin password change feature.
@@ -378,6 +434,9 @@ Required changes:
 Acceptance criteria:
 - Admin can securely update password and understand active verification path.
 
+Revision Change Log:
+- [2026-02-24] Profile security scope unchanged; password update + verification clarity remain required.
+
 ## 5.14 Announcements and Notifications
 Required changes:
 - Allow announcement visibility targeting to specific employees/groups.
@@ -385,6 +444,9 @@ Required changes:
 
 Acceptance criteria:
 - Admin can choose audience scope and users only see intended announcements.
+
+Revision Change Log:
+- [2026-02-24] Announcement targeting requirement retained; no additional scope change in this revision.
 
 ---
 
@@ -435,6 +497,8 @@ Load only one bootstrap script:
 ## 6.3 Performance standards
 - Remove universal global admin mega-script includes.
 - Lazy-load expensive libraries (charts, table plugins, date pickers, alerts) only in pages that use them.
+- Standardize alert/confirmation UX with **SweetAlert2** for status-changing and destructive actions.
+- Standardize date/time picking UX with **Flatpickr** on applicable admin forms (recruitment schedules, filters, and date fields).
 - Server-side paginate/filter large tables (default 10/20 rows).
 - Load summary counts via dedicated aggregate endpoints.
 - Add debounce for search/filter input handlers.
@@ -454,6 +518,7 @@ Each localized module must support:
    - remove non-required global module scripts
    - set `data-role` and `data-page`
    - route behavior into page-localized `index.js`
+  - use SweetAlert2 for confirmation modals and Flatpickr for date inputs where needed
 3. Move page-specific logic from shared/global scripts into module-local files.
 4. Keep shared primitives in `assets/js/shared/*` only.
 5. Validate no page loads unrelated admin modules.
@@ -476,7 +541,7 @@ Acceptance criteria:
 - Tab highlight bug in personal information.
 
 ## Phase 2 – Recruitment and evaluation core
-- Position-based criteria, rule engine, scoring threshold, applicant previews, email next-stage notices.
+- Global criteria rule engine (eligibility, education, training, experience), scoring threshold, applicant previews, email next-stage notices.
 
 ## Phase 3 – Personal Info + Document Management integration
 - Add-as-Employee flow, PDS extraction, 201 linkage, searchable geo fields, ZIP auto-fill.
@@ -549,3 +614,4 @@ Admin revisions are considered complete when:
 - Localized JS architecture is active for all Admin pages.
 - Cross-module workflows (Recruitment→Personal Information→Documents; Timekeeping→Payroll) are verified.
 - Audit logs, confirmation flows, and status dictionary are consistent across modules.
+

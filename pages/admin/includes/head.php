@@ -1,3 +1,28 @@
+<?php
+$adminActivePage = $activePage ?? '';
+$adminChartPages = ['dashboard.php', 'report-analytics.php', 'praise-reports-analytics.php'];
+$adminDataTablePages = [
+  'recruitment.php',
+  'applicants.php',
+  'applicant-tracking.php',
+  'evaluation.php',
+  'document-management.php',
+  'personal-information.php',
+  'timekeeping.php',
+  'payroll-management.php',
+  'report-analytics.php',
+  'praise.php',
+  'praise-employee-evaluation.php',
+  'praise-awards-recognition.php',
+  'praise-reports-analytics.php',
+  'learning-and-development.php',
+  'user-management.php',
+  'notifications.php',
+];
+
+$loadAdminCharts = in_array($adminActivePage, $adminChartPages, true);
+$loadAdminDataTables = in_array($adminActivePage, $adminDataTablePages, true);
+?>
 <meta charset="UTF-8" />
 <title><?= $pageTitle ?? 'Admin | DA HRIS' ?></title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -5,13 +30,17 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <?php if ($loadAdminDataTables): ?>
   <link rel="stylesheet" href="https://cdn.datatables.net/2.1.8/css/dataTables.dataTables.min.css">
   <link rel="stylesheet" href="https://cdn.datatables.net/buttons/3.1.2/css/buttons.dataTables.min.css">
-  <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script defer src="https://cdn.datatables.net/2.1.8/js/dataTables.min.js"></script>
   <script defer src="https://cdn.datatables.net/buttons/3.1.2/js/dataTables.buttons.min.js"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script defer src="https://cdn.datatables.net/buttons/3.1.2/js/buttons.html5.min.js"></script>
+  <?php endif; ?>
+  <?php if ($loadAdminCharts): ?>
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <?php endif; ?>
   <script defer src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 

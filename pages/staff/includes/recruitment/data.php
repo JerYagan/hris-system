@@ -23,6 +23,58 @@ $appendDataError = static function (string $label, array $response) use (&$dataL
     $dataLoadError = $dataLoadError ? ($dataLoadError . ' ' . $message) : $message;
 };
 
+$resolveRecruitmentDocumentUrl = static function (?string $rawUrl) use ($supabaseUrl): string {
+    $value = trim((string)$rawUrl);
+    if ($value === '') {
+        return '';
+    }
+
+    $localDocumentRoot = __DIR__ . '/../../../../storage/document';
+
+    $resolveLocalPath = static function (string $rawPath) use ($localDocumentRoot): string {
+        $normalized = str_replace('\\', '/', trim($rawPath));
+        $normalized = preg_replace('#^https?://[^/]+/storage/v1/object/public/[^/]+/#i', '', $normalized);
+        $normalized = preg_replace('#^storage/v1/object/public/[^/]+/#i', '', $normalized);
+        $normalized = preg_replace('#^document/#i', '', ltrim((string)$normalized, '/'));
+
+        $segments = array_values(array_filter(explode('/', (string)$normalized), static fn(string $segment): bool => $segment !== ''));
+        if (empty($segments)) {
+            return '';
+        }
+
+        $candidate = $localDocumentRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, implode('/', $segments));
+        if (is_file($candidate)) {
+            return '/hris-system/storage/document/' . implode('/', array_map('rawurlencode', $segments));
+        }
+
+        $basename = end($segments);
+        if (is_string($basename) && $basename !== '') {
+            $basenameCandidate = $localDocumentRoot . DIRECTORY_SEPARATOR . $basename;
+            if (is_file($basenameCandidate)) {
+                return '/hris-system/storage/document/' . rawurlencode($basename);
+            }
+        }
+
+        return '';
+    };
+
+    $localResolved = $resolveLocalPath($value);
+    if ($localResolved !== '') {
+        return $localResolved;
+    }
+
+    if (preg_match('#^https?://#i', $value) === 1 || str_starts_with($value, '/')) {
+        return $value;
+    }
+
+    if (str_starts_with($value, 'document/')) {
+        $segments = array_values(array_filter(explode('/', preg_replace('#^document/#i', '', $value)), static fn(string $segment): bool => $segment !== ''));
+        return '/hris-system/storage/document/' . implode('/', array_map('rawurlencode', $segments));
+    }
+
+    return rtrim($supabaseUrl, '/') . '/' . ltrim($value, '/');
+};
+
 $isAdminScope = strtolower((string)($staffRoleKey ?? '')) === 'admin';
 $scopeFilter = (!$isAdminScope && isValidUuid((string)$staffOfficeId))
     ? '&office_id=eq.' . rawurlencode((string)$staffOfficeId)
@@ -184,14 +236,16 @@ if (!empty($postingIds)) {
                 $documentsByApplicationId[$documentApplicationId] = [];
             }
 
+            $resolvedFileUrl = $resolveRecruitmentDocumentUrl(cleanText($documentRow['file_url'] ?? null) ?? '');
+
             $documentsByApplicationId[$documentApplicationId][] = [
                 'document_type' => cleanText($documentRow['document_type'] ?? null) ?? 'other',
                 'document_label' => $documentTypeLabel((string)(cleanText($documentRow['document_type'] ?? null) ?? 'other')),
                 'file_name' => cleanText($documentRow['file_name'] ?? null) ?? 'document',
-                'file_url' => cleanText($documentRow['file_url'] ?? null) ?? '',
+                'file_url' => $resolvedFileUrl,
                 'mime_type' => cleanText($documentRow['mime_type'] ?? null) ?? '',
                 'uploaded_label' => formatDateTimeForPhilippines(cleanText($documentRow['uploaded_at'] ?? null), 'M d, Y'),
-                'is_available' => trim((string)(cleanText($documentRow['file_url'] ?? null) ?? '')) !== '',
+                'is_available' => trim((string)$resolvedFileUrl) !== '',
             ];
         }
     }
@@ -291,22 +345,29 @@ $employmentTypeLabel = static function (?string $classification): string {
 $applicationStatusPill = static function (string $status): array {
     $key = strtolower(trim($status));
     return match ($key) {
-        'submitted', 'screening' => ['Pending', 'bg-amber-100 text-amber-800'],
-        'interview' => ['For Interview', 'bg-blue-100 text-blue-800'],
-        'shortlisted', 'offer', 'hired' => ['Approved', 'bg-emerald-100 text-emerald-800'],
+        'submitted' => ['Applied', 'bg-blue-100 text-blue-800'],
+        'screening' => ['Verified', 'bg-indigo-100 text-indigo-800'],
+        'interview' => ['Interview', 'bg-amber-100 text-amber-800'],
+        'shortlisted' => ['Evaluation', 'bg-violet-100 text-violet-800'],
+        'offer' => ['For Approval', 'bg-cyan-100 text-cyan-800'],
+        'hired' => ['Hired', 'bg-emerald-100 text-emerald-800'],
         'rejected' => ['Rejected', 'bg-rose-100 text-rose-800'],
-        'withdrawn' => ['Withdrawn', 'bg-slate-200 text-slate-700'],
-        default => ['Pending', 'bg-amber-100 text-amber-800'],
+        'withdrawn' => ['Rejected', 'bg-rose-100 text-rose-800'],
+        default => ['Applied', 'bg-slate-100 text-slate-700'],
     };
 };
 
 $applicationScreeningPill = static function (string $status): array {
     $key = strtolower(trim($status));
-    return match (true) {
-        in_array($key, ['shortlisted', 'offer', 'hired'], true) => ['Verified', 'bg-emerald-100 text-emerald-800'],
-        in_array($key, ['submitted', 'screening', 'interview'], true) => ['For Review', 'bg-blue-100 text-blue-800'],
-        in_array($key, ['rejected', 'withdrawn'], true) => ['Disqualified', 'bg-rose-100 text-rose-800'],
-        default => ['For Review', 'bg-slate-100 text-slate-700'],
+    return match ($key) {
+        'submitted' => ['Applied', 'bg-blue-100 text-blue-800'],
+        'screening' => ['Verified', 'bg-indigo-100 text-indigo-800'],
+        'interview' => ['Interview', 'bg-amber-100 text-amber-800'],
+        'shortlisted' => ['Evaluation', 'bg-violet-100 text-violet-800'],
+        'offer' => ['For Approval', 'bg-cyan-100 text-cyan-800'],
+        'hired' => ['Hired', 'bg-emerald-100 text-emerald-800'],
+        'rejected', 'withdrawn' => ['Rejected', 'bg-rose-100 text-rose-800'],
+        default => ['Applied', 'bg-slate-100 text-slate-700'],
     };
 };
 

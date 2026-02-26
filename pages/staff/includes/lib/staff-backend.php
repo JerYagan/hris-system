@@ -749,11 +749,24 @@ if (!function_exists('staffApplicantEvaluationMatchEligibility')) {
             return false;
         }
 
-        if ($actualKey === $requiredKey) {
-            return true;
+        $requiredNormalized = str_replace(['/', '|'], ',', $requiredKey);
+        $tokens = preg_split('/\s*,\s*/', $requiredNormalized) ?: [];
+        $tokens = array_values(array_filter(array_map('trim', $tokens), static fn(string $token): bool => $token !== ''));
+        if (empty($tokens)) {
+            $tokens = [$requiredKey];
         }
 
-        return str_contains($actualKey, $requiredKey) || str_contains($requiredKey, $actualKey);
+        foreach ($tokens as $token) {
+            if ($token === '' || in_array($token, ['n/a', 'na', 'none', 'not applicable', 'not_applicable'], true)) {
+                continue;
+            }
+
+            if ($actualKey === $token || str_contains($actualKey, $token) || str_contains($token, $actualKey)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 
@@ -786,7 +799,7 @@ if (!function_exists('staffApplicantEvaluationCompute')) {
         $threshold = (float)($normalizedCriteria['threshold'] ?? 75);
 
         $allCriteriaMet = $eligibilityMeets && $educationMeets && $trainingMeets && $experienceMeets;
-        $isQualified = $allCriteriaMet && $totalScore >= $threshold;
+        $isQualified = $totalScore >= $threshold;
 
         $status = $isQualified ? 'Qualified for Evaluation' : 'Not Qualified';
         $statusClass = $isQualified ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800';

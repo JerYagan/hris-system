@@ -17,21 +17,9 @@ $statusPill = static function (string $status): array {
     </div>
 <?php endif; ?>
 
-<section class="bg-white border border-slate-200 rounded-2xl p-4 mb-6 flex items-center justify-between gap-3">
-    <div>
-        <p class="text-sm font-medium text-slate-800">Need to manage interview movement and status progression?</p>
-        <p class="text-xs text-slate-500 mt-1">Use Applicant Tracking for progress updates and Evaluation for rule-based recommendations.</p>
-    </div>
-    <div class="flex items-center gap-2">
-        <a href="applicant-tracking.php" class="px-4 py-2 rounded-md bg-slate-900 text-white text-sm hover:bg-slate-800">Open Applicant Tracking</a>
-        <a href="evaluation.php" class="px-4 py-2 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50">Open Evaluation</a>
-    </div>
-</section>
-
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800">Applicant Overview</h2>
-        <p class="text-sm text-slate-500 mt-1">Admin review flow for applicant screening decisions and recommendation validation.</p>
+        <h2 class="text-lg font-semibold text-slate-800">Applicants Registration Overview</h2>
     </header>
 
     <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -41,9 +29,9 @@ $statusPill = static function (string $status): array {
             <p class="text-xs text-slate-600 mt-1">Across active recruitment postings</p>
         </article>
         <article class="rounded-xl border border-slate-200 p-4 bg-emerald-50">
-            <p class="text-xs uppercase text-emerald-700 tracking-wide">Approved</p>
-            <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$approvedCount ?></p>
-            <p class="text-xs text-slate-600 mt-1">Qualified for next recruitment stage</p>
+            <p class="text-xs uppercase text-emerald-700 tracking-wide">Hired</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$hiredCount ?></p>
+            <p class="text-xs text-slate-600 mt-1">Ready for employee conversion in Applicant Tracking</p>
         </article>
         <article class="rounded-xl border border-slate-200 p-4 bg-amber-50">
             <p class="text-xs uppercase text-amber-700 tracking-wide">Pending Decision</p>
@@ -55,8 +43,7 @@ $statusPill = static function (string $status): array {
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800">View Registered Applicants</h2>
-        <p class="text-sm text-slate-500 mt-1">Review applicants by posting, submission date, and screening status.</p>
+        <h2 class="text-lg font-semibold text-slate-800">Applicants Registration</h2>
     </header>
 
     <div class="px-6 pt-4 flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
@@ -68,9 +55,13 @@ $statusPill = static function (string $status): array {
             <label class="text-sm text-slate-600">Screening Filter</label>
             <select id="adminApplicantsStatusFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
                 <option value="">All</option>
-                <option value="for review">For Review</option>
+                <option value="applied">Applied</option>
                 <option value="verified">Verified</option>
-                <option value="disqualified">Disqualified</option>
+                <option value="interview">Interview</option>
+                <option value="evaluation">Evaluation</option>
+                <option value="for approval">For Approval</option>
+                <option value="hired">Hired</option>
+                <option value="rejected">Rejected</option>
             </select>
         </div>
     </div>
@@ -104,11 +95,13 @@ $statusPill = static function (string $status): array {
                         $statusValue = (string)($application['application_status'] ?? 'submitted');
                         [$screeningLabel, $screeningClass] = $statusPill($statusValue);
                         $basisLabel = (string)($basisMap[$applicationId] ?? '-');
+                        $profileDocuments = (array)($applicantProfileDataset[$applicationId]['documents'] ?? []);
+                        $profileDocumentsJson = json_encode($profileDocuments, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
                         $searchText = strtolower(trim($fullName . ' ' . $email . ' ' . $position . ' ' . $submittedLabel . ' ' . $screeningLabel . ' ' . $basisLabel));
                         ?>
                         <tr class="hover:bg-slate-100 transition-colors" data-applicants-search="<?= htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8') ?>" data-applicants-status="<?= htmlspecialchars(strtolower($screeningLabel), ENT_QUOTES, 'UTF-8') ?>">
                             <td class="px-4 py-3">
-                                <div class="font-medium text-slate-800"><?= htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8') ?></div>
+                                <a href="applicant-profile.php?application_id=<?= htmlspecialchars($applicationId, ENT_QUOTES, 'UTF-8') ?>&source=admin-applicants" target="_blank" rel="noopener noreferrer" class="font-medium text-slate-800 hover:underline"><?= htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8') ?></a>
                                 <div class="text-xs text-slate-500"><?= htmlspecialchars($email, ENT_QUOTES, 'UTF-8') ?></div>
                             </td>
                             <td class="px-4 py-3"><?= htmlspecialchars($position, ENT_QUOTES, 'UTF-8') ?></td>
@@ -116,17 +109,26 @@ $statusPill = static function (string $status): array {
                             <td class="px-4 py-3"><span class="inline-flex px-2 py-1 text-xs rounded-full <?= htmlspecialchars($screeningClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($screeningLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($basisLabel, ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3">
-                                <button
-                                    type="button"
-                                    data-applicant-open
-                                    data-application-id="<?= htmlspecialchars($applicationId, ENT_QUOTES, 'UTF-8') ?>"
-                                    data-applicant-name="<?= htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8') ?>"
-                                    data-applicant-email="<?= htmlspecialchars($email, ENT_QUOTES, 'UTF-8') ?>"
-                                    data-applicant-position="<?= htmlspecialchars($position, ENT_QUOTES, 'UTF-8') ?>"
-                                    data-applicant-submitted="<?= htmlspecialchars($submittedLabel, ENT_QUOTES, 'UTF-8') ?>"
-                                    data-applicant-screening="<?= htmlspecialchars($screeningLabel, ENT_QUOTES, 'UTF-8') ?>"
-                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm"
-                                ><span class="material-symbols-outlined text-[16px]">person_search</span>View Profile</button>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <a
+                                        href="applicant-profile.php?application_id=<?= htmlspecialchars($applicationId, ENT_QUOTES, 'UTF-8') ?>&source=admin-applicants"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm"
+                                    ><span class="material-symbols-outlined text-[16px]">person_search</span>View Profile</a>
+                                    <button
+                                        type="button"
+                                        data-applicant-open
+                                        data-application-id="<?= htmlspecialchars($applicationId, ENT_QUOTES, 'UTF-8') ?>"
+                                        data-applicant-name="<?= htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8') ?>"
+                                        data-applicant-email="<?= htmlspecialchars($email, ENT_QUOTES, 'UTF-8') ?>"
+                                        data-applicant-position="<?= htmlspecialchars($position, ENT_QUOTES, 'UTF-8') ?>"
+                                        data-applicant-submitted="<?= htmlspecialchars($submittedLabel, ENT_QUOTES, 'UTF-8') ?>"
+                                        data-applicant-screening="<?= htmlspecialchars($screeningLabel, ENT_QUOTES, 'UTF-8') ?>"
+                                        data-applicant-documents="<?= htmlspecialchars((string)($profileDocumentsJson ?: '[]'), ENT_QUOTES, 'UTF-8') ?>"
+                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 shadow-sm"
+                                    ><span class="material-symbols-outlined text-[16px]">fact_check</span>Review Decision</button>
+                                </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -153,6 +155,8 @@ $statusPill = static function (string $status): array {
                         <p class="text-xs uppercase text-slate-500 tracking-wide">Selected Applicant</p>
                         <p id="applicantProfileName" class="text-base font-semibold text-slate-800 mt-1">-</p>
                         <p id="applicantProfileMeta" class="text-sm text-slate-600 mt-1">-</p>
+                        <p id="applicantProfileContact" class="text-xs text-slate-500 mt-2">-</p>
+                        <p id="applicantProfileReference" class="text-xs text-slate-500 mt-1">-</p>
                     </div>
                     <div>
                         <label class="text-slate-600">Decision</label>
@@ -175,6 +179,25 @@ $statusPill = static function (string $status): array {
                         </select>
                     </div>
                     <div class="md:col-span-2">
+                        <p class="text-slate-600">Submitted Documents</p>
+                        <div class="mt-2 overflow-x-auto border border-slate-200 rounded-lg">
+                            <table class="w-full text-sm">
+                                <thead class="bg-slate-50 text-slate-600">
+                                    <tr>
+                                        <th class="text-left px-3 py-2">Document Type</th>
+                                        <th class="text-left px-3 py-2">File Name</th>
+                                        <th class="text-left px-3 py-2">Uploaded</th>
+                                        <th class="text-left px-3 py-2">Status</th>
+                                        <th class="text-left px-3 py-2">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="applicantDocumentsBody" class="divide-y divide-slate-100">
+                                    <tr><td class="px-3 py-3 text-slate-500" colspan="5">No document selected.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="md:col-span-2">
                         <label class="text-slate-600">Admin Remarks</label>
                         <textarea name="remarks" rows="3" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="State summary of findings and justification for screening decision"></textarea>
                     </div>
@@ -189,59 +212,4 @@ $statusPill = static function (string $status): array {
     </div>
 </div>
 
-<section class="bg-white border border-slate-200 rounded-2xl">
-    <header class="px-6 py-4 border-b border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800">View System Recommendation</h2>
-        <p class="text-sm text-slate-500 mt-1">Review automated recommendation outputs and compare with admin decision.</p>
-    </header>
-
-    <div class="px-6 pt-4 flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
-        <div class="w-full md:w-1/2">
-            <label class="text-sm text-slate-600">Search Recommendations</label>
-            <input id="adminRecommendationSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search by applicant, recommendation, decision, or basis">
-        </div>
-        <div class="w-full md:w-64">
-            <label class="text-sm text-slate-600">Alignment Filter</label>
-            <select id="adminRecommendationAlignmentFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
-                <option value="">All</option>
-                <option value="Match">Match</option>
-                <option value="Override">Override</option>
-                <option value="Pending">Pending</option>
-            </select>
-        </div>
-    </div>
-
-    <div class="p-6 overflow-x-auto">
-        <table id="adminRecommendationTable" class="w-full text-sm">
-            <thead class="bg-slate-50 text-slate-600">
-                <tr>
-                    <th class="text-left px-4 py-3">Applicant</th>
-                    <th class="text-left px-4 py-3">System Recommendation</th>
-                    <th class="text-left px-4 py-3">Confidence</th>
-                    <th class="text-left px-4 py-3">Admin Decision</th>
-                    <th class="text-left px-4 py-3">Basis</th>
-                    <th class="text-left px-4 py-3">Alignment</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-                <?php if (empty($recommendationRows)): ?>
-                    <tr>
-                        <td class="px-4 py-3 text-slate-500" colspan="6">No recommendation rows available.</td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($recommendationRows as $row): ?>
-                        <?php $recommendationSearch = strtolower(trim((string)$row['applicant_name'] . ' ' . (string)$row['system_recommendation'] . ' ' . (string)$row['confidence'] . ' ' . (string)$row['admin_decision'] . ' ' . (string)($row['basis'] ?? '-') . ' ' . (string)$row['alignment'])); ?>
-                        <tr class="hover:bg-slate-100 transition-colors" data-recommendation-search="<?= htmlspecialchars($recommendationSearch, ENT_QUOTES, 'UTF-8') ?>" data-recommendation-alignment="<?= htmlspecialchars(strtolower((string)$row['alignment']), ENT_QUOTES, 'UTF-8') ?>">
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['applicant_name'], ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)$row['recommendation_class'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$row['system_recommendation'], ENT_QUOTES, 'UTF-8') ?></span></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['confidence'], ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['admin_decision'], ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['basis'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)$row['alignment_class'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$row['alignment'], ENT_QUOTES, 'UTF-8') ?></span></td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
-</section>
+<script id="applicantProfileDataset" type="application/json"><?= htmlspecialchars(json_encode($applicantProfileDataset ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?></script>

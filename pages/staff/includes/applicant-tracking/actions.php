@@ -290,7 +290,7 @@ if ($action === 'update_status' || $action === 'update_application_status') {
         redirectWithState('error', 'Invalid application selected.');
     }
 
-    $allowedStatuses = ['submitted', 'screening', 'shortlisted', 'interview', 'offer', 'hired', 'rejected', 'withdrawn'];
+    $allowedStatuses = ['submitted', 'screening', 'shortlisted', 'interview', 'offer', 'rejected', 'withdrawn'];
     if (!in_array($newStatus, $allowedStatuses, true)) {
         redirectWithState('error', 'Invalid application status selected.');
     }
@@ -443,6 +443,10 @@ if ($action === 'update_status' || $action === 'update_application_status') {
 }
 
 if ($action === 'add_hired_applicant_as_employee') {
+    if (strtolower((string)($staffRoleKey ?? '')) !== 'admin') {
+        redirectWithState('error', 'Final hiring conversion is Admin-only.');
+    }
+
     $applicationId = cleanText($_POST['application_id'] ?? null) ?? '';
     if (!isValidUuid($applicationId)) {
         redirectWithState('error', 'Invalid hired applicant selection.');

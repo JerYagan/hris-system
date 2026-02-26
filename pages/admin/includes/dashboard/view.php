@@ -7,26 +7,36 @@
     <div class="mb-6 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 px-4 py-3 text-sm"><?= htmlspecialchars((string)$dataLoadError, ENT_QUOTES, 'UTF-8') ?></div>
 <?php endif; ?>
 
-<section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-    <article class="bg-white border border-slate-200 rounded-xl p-4">
-        <p class="text-xs uppercase text-slate-500 tracking-wide">Attendance Alerts</p>
-        <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$dashboardSummary['attendance_alerts'] ?></p>
-        <p class="text-xs text-amber-700 mt-1">Flagged in attendance overview</p>
+<section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
+    <article class="bg-white border border-slate-200 rounded-xl p-4 min-h-[130px] flex flex-col justify-between">
+        <p class="text-xs uppercase text-slate-500 tracking-wide">Pending Time Adjustments</p>
+        <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$dashboardSummary['pending_time_adjustments'] ?></p>
+        <p class="text-xs text-amber-700 mt-1">Awaiting review in timekeeping</p>
     </article>
-    <article class="bg-white border border-slate-200 rounded-xl p-4">
+    <article class="bg-white border border-slate-200 rounded-xl p-4 min-h-[130px] flex flex-col justify-between">
+        <p class="text-xs uppercase text-slate-500 tracking-wide">Pending Recruitment Decision</p>
+        <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$dashboardSummary['pending_recruitment_decisions'] ?></p>
+        <p class="text-xs text-blue-700 mt-1">Applicants needing decision updates</p>
+    </article>
+    <article class="bg-white border border-slate-200 rounded-xl p-4 min-h-[130px] flex flex-col justify-between">
+        <p class="text-xs uppercase text-slate-500 tracking-wide">Pending Documents</p>
+        <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$dashboardSummary['pending_documents'] ?></p>
+        <p class="text-xs text-purple-700 mt-1">Submitted documents awaiting review</p>
+    </article>
+    <article class="bg-white border border-slate-200 rounded-xl p-4 min-h-[130px] flex flex-col justify-between">
+        <p class="text-xs uppercase text-slate-500 tracking-wide">Total Employees</p>
+        <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$dashboardSummary['total_employees'] ?></p>
+        <p class="text-xs text-emerald-700 mt-1">Current active employment records</p>
+    </article>
+    <article class="bg-white border border-slate-200 rounded-xl p-4 min-h-[130px] flex flex-col justify-between">
+        <p class="text-xs uppercase text-slate-500 tracking-wide">On Leave</p>
+        <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$dashboardSummary['on_leave_today'] ?></p>
+        <p class="text-xs text-amber-700 mt-1">Employees tagged on leave today</p>
+    </article>
+    <article class="bg-white border border-slate-200 rounded-xl p-4 min-h-[130px] flex flex-col justify-between">
         <p class="text-xs uppercase text-slate-500 tracking-wide">Pending Leave Requests</p>
         <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$dashboardSummary['pending_leave_requests'] ?></p>
         <p class="text-xs text-amber-700 mt-1">Awaiting admin action</p>
-    </article>
-    <article class="bg-white border border-slate-200 rounded-xl p-4">
-        <p class="text-xs uppercase text-slate-500 tracking-wide">Draft Announcements</p>
-        <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$dashboardSummary['draft_announcements'] ?></p>
-        <p class="text-xs text-blue-700 mt-1">Saved in announcement drafts</p>
-    </article>
-    <article class="bg-white border border-slate-200 rounded-xl p-4">
-        <p class="text-xs uppercase text-slate-500 tracking-wide">Unread Notifications</p>
-        <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$dashboardSummary['unread_notifications'] ?></p>
-        <p class="text-xs text-purple-700 mt-1">Includes <?= (int)$dashboardSummary['high_priority_notifications'] ?> high-priority items</p>
     </article>
 </section>
 
@@ -41,10 +51,32 @@
             <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$dashboardSummary['present_today'] ?></p>
         </article>
         <article class="rounded-xl border border-slate-200 p-4 bg-rose-50">
-            <p class="text-xs uppercase text-rose-700">Absent</p>
-            <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$dashboardSummary['absent_today'] ?></p>
+            <p class="text-xs uppercase text-rose-700">Absence Rate This Week (%)</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= number_format((float)$dashboardSummary['absence_rate_week'], 2) ?>%</p>
+            <p class="text-xs text-rose-700 mt-1">Auto-updated Saturday 5:30AM</p>
         </article>
     </div>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-2xl p-6 mb-6">
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="font-semibold text-slate-800">Chart Update Schedule Settings</h2>
+        <span class="text-xs text-slate-500">Used in chart labels and timestamps</span>
+    </div>
+    <form action="dashboard.php" method="POST" class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        <input type="hidden" name="form_action" value="save_dashboard_chart_schedule">
+        <div>
+            <label class="text-slate-600" for="dashboardAttendanceChartTime">Attendance Chart Time</label>
+            <input id="dashboardAttendanceChartTime" name="attendance_chart_time" type="time" value="<?= htmlspecialchars((string)$dashboardChartSchedule['attendance_time_input'], ENT_QUOTES, 'UTF-8') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+        </div>
+        <div>
+            <label class="text-slate-600" for="dashboardRecruitmentChartTime">Recruitment Chart Time</label>
+            <input id="dashboardRecruitmentChartTime" name="recruitment_chart_time" type="time" value="<?= htmlspecialchars((string)$dashboardChartSchedule['recruitment_time_input'], ENT_QUOTES, 'UTF-8') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+        </div>
+        <div class="flex items-end">
+            <button type="submit" class="w-full px-4 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Save Schedule</button>
+        </div>
+    </form>
 </section>
 
 <section class="bg-white border border-slate-200 rounded-2xl p-6 mb-6">
@@ -179,7 +211,7 @@
                                         data-notification-title="<?= htmlspecialchars((string)$row['title'], ENT_QUOTES, 'UTF-8') ?>"
                                     >
                                         <span class="material-symbols-outlined text-[15px]">mark_email_read</span>
-                                        Mark as Read
+                                        Mark Read
                                     </button>
                                 <?php endif; ?>
                             </td>
@@ -206,26 +238,26 @@
 
     <div class="bg-white border border-slate-200 rounded-2xl p-6">
         <div class="flex items-center justify-between mb-4">
-            <h2 class="font-semibold text-slate-800">Employees per Department</h2>
+            <h2 class="font-semibold text-slate-800">Employees per Division</h2>
             <a href="report-analytics.php" class="text-sm text-emerald-700 hover:underline">View full report</a>
         </div>
 
         <div class="mb-3">
-            <label class="text-sm text-slate-600" for="dashboardDepartmentSearch">Search Department</label>
-            <input id="dashboardDepartmentSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search department name">
+            <label class="text-sm text-slate-600" for="dashboardDepartmentSearch">Search Division</label>
+            <input id="dashboardDepartmentSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search division name">
         </div>
 
         <div class="overflow-x-auto">
             <table id="dashboardDepartmentTable" class="w-full text-sm">
                 <thead class="bg-slate-50 text-slate-600">
                     <tr>
-                        <th class="text-left px-4 py-3">Department</th>
+                        <th class="text-left px-4 py-3">Division</th>
                         <th class="text-left px-4 py-3">Headcount</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                     <?php if (empty($departmentRows)): ?>
-                        <tr><td class="px-4 py-3 text-slate-500" colspan="2">No department headcount records available.</td></tr>
+                        <tr><td class="px-4 py-3 text-slate-500" colspan="2">No division headcount records available.</td></tr>
                     <?php else: ?>
                         <?php foreach ($departmentRows as $row): ?>
                             <tr data-dashboard-department-search="<?= htmlspecialchars((string)$row['search_text'], ENT_QUOTES, 'UTF-8') ?>">
@@ -242,8 +274,11 @@
 
 <section class="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6">
     <div class="bg-white border border-slate-200 rounded-2xl p-6">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="font-semibold text-slate-800">Attendance Status Distribution</h2>
+        <div class="flex items-start justify-between mb-4 gap-4">
+            <div>
+                <h2 class="font-semibold text-slate-800"><?= htmlspecialchars((string)$attendanceStatusChart['title'], ENT_QUOTES, 'UTF-8') ?></h2>
+                <p class="text-xs text-slate-500 mt-1"><?= htmlspecialchars((string)$attendanceStatusChart['subtitle'], ENT_QUOTES, 'UTF-8') ?></p>
+            </div>
             <span class="text-xs text-slate-500">Updated <?= htmlspecialchars((string)$attendanceStatusChart['updated_at'], ENT_QUOTES, 'UTF-8') ?></span>
         </div>
         <div class="h-72">
@@ -256,21 +291,23 @@
             ></canvas>
         </div>
     </div>
-</section>
-
-<section class="bg-white border border-slate-200 rounded-2xl p-6 mt-6">
-    <div class="flex items-center justify-between mb-4">
-        <h2 class="font-semibold text-slate-800">Recruitment Pipeline Chart</h2>
-        <span class="text-xs text-slate-500">Updated <?= htmlspecialchars((string)$pipelineChart['updated_at'], ENT_QUOTES, 'UTF-8') ?></span>
-    </div>
-    <div class="h-72">
-        <canvas
-            data-chart-type="bar"
-            data-chart-label="Applicants"
-            data-chart-labels='<?= htmlspecialchars((string)json_encode($pipelineChart['labels'], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?>'
-            data-chart-values='<?= htmlspecialchars((string)json_encode($pipelineChart['values'], JSON_NUMERIC_CHECK), ENT_QUOTES, 'UTF-8') ?>'
-            data-chart-colors='["#0f172a", "#10b981", "#3b82f6", "#f59e0b"]'
-        ></canvas>
+    <div class="bg-white border border-slate-200 rounded-2xl p-6">
+        <div class="flex items-start justify-between mb-4 gap-4">
+            <div>
+                <h2 class="font-semibold text-slate-800\"><?= htmlspecialchars((string)$pipelineChart['title'], ENT_QUOTES, 'UTF-8') ?></h2>
+                <p class="text-xs text-slate-500 mt-1\"><?= htmlspecialchars((string)$pipelineChart['subtitle'], ENT_QUOTES, 'UTF-8') ?></p>
+            </div>
+            <span class="text-xs text-slate-500">Updated <?= htmlspecialchars((string)$pipelineChart['updated_at'], ENT_QUOTES, 'UTF-8') ?></span>
+        </div>
+        <div class="h-72">
+            <canvas
+                data-chart-type="bar"
+                data-chart-label="Applicants"
+                data-chart-labels='<?= htmlspecialchars((string)json_encode($pipelineChart['labels'], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?>'
+                data-chart-values='<?= htmlspecialchars((string)json_encode($pipelineChart['values'], JSON_NUMERIC_CHECK), ENT_QUOTES, 'UTF-8') ?>'
+                data-chart-colors='["#0f172a", "#10b981", "#3b82f6", "#f59e0b"]'
+            ></canvas>
+        </div>
     </div>
 </section>
 

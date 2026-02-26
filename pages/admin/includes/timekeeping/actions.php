@@ -86,20 +86,20 @@ if ($action === 'review_time_adjustment') {
         );
     }
 
-    apiRequest(
-        'POST',
-        $supabaseUrl . '/rest/v1/activity_logs',
-        array_merge($headers, ['Prefer: return=minimal']),
-        [[
-            'actor_user_id' => $adminUserId !== '' ? $adminUserId : null,
-            'module_name' => 'timekeeping',
-            'entity_name' => 'time_adjustment_requests',
-            'entity_id' => $requestId,
-            'action_name' => 'review_adjustment',
-            'old_data' => ['status' => $oldStatus],
-            'new_data' => ['status' => $decision, 'notes' => $notes],
-            'ip_address' => clientIp(),
-        ]]
+    logStatusTransition(
+        $supabaseUrl,
+        $headers,
+        $adminUserId,
+        'timekeeping',
+        'time_adjustment_requests',
+        $requestId,
+        'review_adjustment',
+        $oldStatus,
+        $decision,
+        $notes,
+        [
+            'attendance_log_id' => $attendanceLogId !== '' ? $attendanceLogId : null,
+        ]
     );
 
     redirectWithState('success', 'Time adjustment request updated successfully.');
@@ -164,20 +164,17 @@ if ($action === 'review_leave_request') {
         );
     }
 
-    apiRequest(
-        'POST',
-        $supabaseUrl . '/rest/v1/activity_logs',
-        array_merge($headers, ['Prefer: return=minimal']),
-        [[
-            'actor_user_id' => $adminUserId !== '' ? $adminUserId : null,
-            'module_name' => 'timekeeping',
-            'entity_name' => 'leave_requests',
-            'entity_id' => $leaveRequestId,
-            'action_name' => 'review_leave',
-            'old_data' => ['status' => $oldStatus],
-            'new_data' => ['status' => $decision, 'notes' => $notes],
-            'ip_address' => clientIp(),
-        ]]
+    logStatusTransition(
+        $supabaseUrl,
+        $headers,
+        $adminUserId,
+        'timekeeping',
+        'leave_requests',
+        $leaveRequestId,
+        'review_leave',
+        $oldStatus,
+        $decision,
+        $notes
     );
 
     redirectWithState('success', 'Leave request updated successfully.');

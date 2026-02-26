@@ -155,7 +155,7 @@ if (!function_exists('encodeFilter')) {
 if (!function_exists('toStatusPill')) {
     function toStatusPill(string $status): array
     {
-        $key = strtolower(trim($status));
+        $key = normalizeWorkflowStatus($status);
 
         if ($key === 'active') {
             return ['Active', 'bg-emerald-100 text-emerald-800'];
@@ -171,5 +171,74 @@ if (!function_exists('toStatusPill')) {
         }
 
         return [ucfirst($key !== '' ? $key : 'pending'), 'bg-blue-100 text-blue-800'];
+    }
+}
+
+if (!function_exists('normalizeWorkflowStatus')) {
+    function normalizeWorkflowStatus(?string $status): string
+    {
+        $value = strtolower(trim((string)$status));
+        $value = str_replace([' ', '-'], '_', $value);
+
+        return match ($value) {
+            'inreview' => 'in_review',
+            'needsrevision' => 'needs_revision',
+            'cancel', 'canceled' => 'cancelled',
+            default => $value !== '' ? $value : 'pending',
+        };
+    }
+}
+
+if (!function_exists('logStatusTransition')) {
+    function logStatusTransition(
+        string $supabaseUrl,
+        array $headers,
+        ?string $actorUserId,
+        string $moduleName,
+        string $entityName,
+        ?string $entityId,
+        string $actionName,
+        ?string $fromStatus,
+        ?string $toStatus,
+        ?string $reason = null,
+        array $context = []
+    ): void {
+        $normalizedFrom = normalizeWorkflowStatus($fromStatus);
+        $normalizedTo = normalizeWorkflowStatus($toStatus);
+        $payloadContext = [];
+
+        foreach ($context as $key => $value) {
+            if (!is_string($key) || trim($key) === '') {
+                continue;
+            }
+            $payloadContext[$key] = $value;
+        }
+
+        $newData = [
+            'status' => $normalizedTo,
+            'status_from' => $normalizedFrom,
+            'status_to' => $normalizedTo,
+            'status_reason' => cleanText($reason),
+        ];
+
+        if (!empty($payloadContext)) {
+            $newData['status_context'] = $payloadContext;
+        }
+
+        apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/activity_logs',
+            array_merge($headers, ['Prefer: return=minimal']),
+            [[
+                'actor_user_id' => cleanText($actorUserId),
+                'module_name' => $moduleName,
+                'entity_name' => $entityName,
+                'entity_id' => cleanText($entityId),
+                'action_name' => $actionName,
+                'old_data' => ['status' => $normalizedFrom],
+                'new_data' => $newData,
+                'ip_address' => clientIp(),
+            ]]
+        );
     }
 }

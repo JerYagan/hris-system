@@ -1,7 +1,66 @@
 <?php
 
+require_once dirname(__DIR__, 3) . '/admin/includes/notifications/email.php';
+
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     return;
+}
+
+if (!function_exists('applicantLoadRecruitmentEmailTemplates')) {
+    function applicantLoadRecruitmentEmailTemplates(string $supabaseUrl, array $headers): array
+    {
+        $defaults = [
+            'submitted' => [
+                'subject' => 'Application Submitted: {application_ref_no}',
+                'body' => 'Hello {applicant_name},<br><br>Your application for <strong>{job_title}</strong> has been submitted successfully.<br>Reference: <strong>{application_ref_no}</strong><br><br>Remarks: {remarks}<br><br>Thank you.',
+            ],
+            'passed' => ['subject' => '', 'body' => ''],
+            'failed' => ['subject' => '', 'body' => ''],
+            'next_stage' => ['subject' => '', 'body' => ''],
+        ];
+
+        $response = apiRequest(
+            'GET',
+            rtrim($supabaseUrl, '/') . '/rest/v1/system_settings?select=setting_value&setting_key=eq.' . rawurlencode('recruitment.email_templates') . '&limit=1',
+            $headers
+        );
+
+        if (!isSuccessful($response)) {
+            return $defaults;
+        }
+
+        $raw = $response['data'][0]['setting_value'] ?? null;
+        $value = is_array($raw) && array_key_exists('value', $raw) ? $raw['value'] : $raw;
+        if (!is_array($value)) {
+            return $defaults;
+        }
+
+        foreach (['submitted', 'passed', 'failed', 'next_stage'] as $key) {
+            $row = is_array($value[$key] ?? null) ? (array)$value[$key] : [];
+            $subject = trim((string)($row['subject'] ?? ''));
+            $body = trim((string)($row['body'] ?? ''));
+            if ($subject !== '') {
+                $defaults[$key]['subject'] = $subject;
+            }
+            if ($body !== '') {
+                $defaults[$key]['body'] = $body;
+            }
+        }
+
+        return $defaults;
+    }
+}
+
+if (!function_exists('applicantTemplateRender')) {
+    function applicantTemplateRender(string $template, array $replacements): string
+    {
+        $rendered = $template;
+        foreach ($replacements as $key => $value) {
+            $rendered = str_replace('{' . $key . '}', (string)$value, $rendered);
+        }
+
+        return $rendered;
+    }
 }
 
 if (!isValidCsrfToken(cleanText($_POST['csrf_token'] ?? null))) {
@@ -309,5 +368,66 @@ apiRequest(
         'is_read' => false,
     ]]
 );
+
+$smtpConfig = [
+    'host' => '',
+    'port' => 587,
+    'username' => '',
+    'password' => '',
+    'encryption' => 'tls',
+    'auth' => '1',
+];
+$mailFrom = '';
+$mailFromName = 'DA HRIS';
+$resolvedMail = resolveSmtpMailConfig($supabaseUrl, $headers, $smtpConfig, $mailFrom, $mailFromName);
+$smtpResolved = (array)($resolvedMail['smtp'] ?? []);
+$mailFromResolved = (string)($resolvedMail['from'] ?? '');
+$mailFromNameResolved = (string)($resolvedMail['from_name'] ?? 'DA HRIS');
+
+$applicantEmail = trim((string)($applicantProfileResponse['data'][0]['email'] ?? ''));
+$applicantName = trim((string)($applicantProfileResponse['data'][0]['full_name'] ?? 'Applicant'));
+$jobTitle = trim((string)($jobRow['title'] ?? 'Job Posting'));
+
+if ($applicantEmail !== '' && filter_var($applicantEmail, FILTER_VALIDATE_EMAIL) && smtpConfigIsReady($smtpResolved, $mailFromResolved)) {
+    $templates = applicantLoadRecruitmentEmailTemplates($supabaseUrl, $headers);
+    $subjectTemplate = (string)($templates['submitted']['subject'] ?? 'Application Submitted: {application_ref_no}');
+    $bodyTemplate = (string)($templates['submitted']['body'] ?? '');
+    $replacements = [
+        'applicant_name' => $applicantName,
+        'job_title' => $jobTitle,
+        'application_ref_no' => $applicationRefNo,
+        'remarks' => 'Your application was received and is pending screening.',
+    ];
+
+    $emailResponse = smtpSendTransactionalEmail(
+        $smtpResolved,
+        $mailFromResolved,
+        $mailFromNameResolved,
+        $applicantEmail,
+        $applicantName,
+        applicantTemplateRender($subjectTemplate, $replacements),
+        applicantTemplateRender($bodyTemplate, $replacements)
+    );
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $applicantUserId,
+            'module_name' => 'recruitment',
+            'entity_name' => 'applications',
+            'entity_id' => $applicationId,
+            'action_name' => 'email_submitted_notification',
+            'old_data' => null,
+            'new_data' => [
+                'recipient_email' => $applicantEmail,
+                'status_code' => (int)($emailResponse['status'] ?? 0),
+                'application_ref_no' => $applicationRefNo,
+            ],
+            'ip_address' => cleanText($_SERVER['REMOTE_ADDR'] ?? null),
+        ]]
+    );
+}
 
 redirectWithState('success', 'Application submitted successfully. Reference: ' . $applicationRefNo, 'applications.php');

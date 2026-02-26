@@ -86,7 +86,7 @@ if (!function_exists('reportDepartmentContext')) {
         );
 
         if (!isSuccessful($officesResponse) || !isSuccessful($employmentResponse)) {
-            throw new RuntimeException('Failed to resolve department mapping for report export.');
+            throw new RuntimeException('Failed to resolve division mapping for report export.');
         }
 
         $officeNameById = [];

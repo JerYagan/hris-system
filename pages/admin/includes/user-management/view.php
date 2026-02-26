@@ -87,24 +87,24 @@
         <header class="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-2">
             <div class="inline-flex items-center gap-2">
                 <span class="material-symbols-outlined text-slate-600">apartment</span>
-                <h3 class="text-sm font-semibold text-slate-800">Departments</h3>
+                <h3 class="text-sm font-semibold text-slate-800">Divisions</h3>
             </div>
             <button type="button" data-modal-open="departmentModal" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-300 text-xs text-slate-700 hover:bg-slate-50">
                 <span class="material-symbols-outlined text-[14px]">add</span>
-                Add Department
+                Add Division
             </button>
         </header>
         <div class="max-h-72 overflow-auto">
             <table class="w-full text-sm">
                 <thead class="bg-slate-50 text-slate-600 sticky top-0">
                     <tr>
-                        <th class="text-left px-4 py-2">Department</th>
+                        <th class="text-left px-4 py-2">Division</th>
                         <th class="text-left px-4 py-2">Code</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                     <?php if (empty($officesDirectory)): ?>
-                        <tr><td class="px-4 py-2.5 text-slate-500" colspan="2">No departments found.</td></tr>
+                        <tr><td class="px-4 py-2.5 text-slate-500" colspan="2">No divisions found.</td></tr>
                     <?php else: ?>
                         <?php foreach ($officesDirectory as $office): ?>
                             <tr>
@@ -137,7 +137,7 @@
                 </button>
                 <button type="button" data-action-menu-item data-action-target="top-add-department" class="w-full text-left px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50 inline-flex items-center gap-2">
                     <span class="material-symbols-outlined text-[16px]">apartment</span>
-                    Add Department
+                    Add Division
                 </button>
                 <button type="button" data-action-menu-item data-action-target="top-account" class="w-full text-left px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50 inline-flex items-center gap-2">
                     <span class="material-symbols-outlined text-[16px]">person_add</span>
@@ -147,7 +147,7 @@
 
             <button type="button" data-action-trigger="top-roles" data-modal-open="roleModal" class="hidden">Roles</button>
             <button type="button" data-action-trigger="top-add-position" data-modal-open="positionModal" class="hidden">Add Position</button>
-            <button type="button" data-action-trigger="top-add-department" data-modal-open="departmentModal" class="hidden">Add Department</button>
+            <button type="button" data-action-trigger="top-add-department" data-modal-open="departmentModal" class="hidden">Add Division</button>
             <button type="button" data-action-trigger="top-account" data-modal-open="accountModal" class="hidden">Add Account</button>
         </div>
     </header>
@@ -269,7 +269,7 @@
                     <input id="accountEmailInput" type="email" name="email" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Enter official email" required>
                 </div>
                 <div>
-                    <label class="text-slate-600">Department</label>
+                    <label class="text-slate-600">Division</label>
                     <select name="office_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
                         <option value="">Select office</option>
                         <?php foreach ($offices as $office): ?>
@@ -342,7 +342,7 @@
     <div class="relative min-h-full flex items-center justify-center p-4">
         <div class="w-full max-w-xl bg-white rounded-2xl border border-slate-200 shadow-xl">
             <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-slate-800">Add Department</h3>
+                <h3 class="text-lg font-semibold text-slate-800">Add Division</h3>
                 <button type="button" data-modal-close="departmentModal" class="text-slate-500 hover:text-slate-700">✕</button>
             </div>
             <form action="user-management.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -358,16 +358,16 @@
                     </select>
                 </div>
                 <div class="md:col-span-2">
-                    <label class="text-slate-600">Department Name</label>
-                    <input type="text" name="office_name" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Enter department name" required>
+                    <label class="text-slate-600">Division Name</label>
+                    <input type="text" name="office_name" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Enter division name" required>
                 </div>
                 <div>
-                    <label class="text-slate-600">Department Code</label>
+                    <label class="text-slate-600">Division Code</label>
                     <input type="text" name="office_code" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 uppercase" placeholder="e.g. HRD_MAIN" maxlength="20" pattern="[A-Za-z0-9][A-Za-z0-9\-_]{1,19}" required>
                 </div>
                 <div class="md:col-span-2 flex justify-end gap-3 mt-2">
                     <button type="button" data-modal-close="departmentModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button>
-                    <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Save Department</button>
+                    <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Save Division</button>
                 </div>
             </form>
         </div>

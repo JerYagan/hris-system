@@ -1122,20 +1122,17 @@ if ($action === 'review_payroll_batch') {
         redirectWithState('error', 'Failed to update payroll batch.');
     }
 
-    apiRequest(
-        'POST',
-        $supabaseUrl . '/rest/v1/activity_logs',
-        array_merge($headers, ['Prefer: return=minimal']),
-        [[
-            'actor_user_id' => $adminUserId !== '' ? $adminUserId : null,
-            'module_name' => 'payroll_management',
-            'entity_name' => 'payroll_runs',
-            'entity_id' => $runId,
-            'action_name' => 'review_batch',
-            'old_data' => ['run_status' => $oldStatus],
-            'new_data' => ['run_status' => $decision, 'notes' => $notes],
-            'ip_address' => clientIp(),
-        ]]
+    logStatusTransition(
+        $supabaseUrl,
+        $headers,
+        $adminUserId,
+        'payroll_management',
+        'payroll_runs',
+        $runId,
+        'review_batch',
+        $oldStatus,
+        $decision,
+        $notes
     );
 
     redirectWithState('success', 'Payroll batch updated successfully.');
@@ -1193,20 +1190,17 @@ if ($action === 'review_salary_adjustment') {
         redirectWithState('error', 'This salary adjustment has already been reviewed.');
     }
 
-    apiRequest(
-        'POST',
-        $supabaseUrl . '/rest/v1/activity_logs',
-        array_merge($headers, ['Prefer: return=minimal']),
-        [[
-            'actor_user_id' => $adminUserId !== '' ? $adminUserId : null,
-            'module_name' => 'payroll_management',
-            'entity_name' => 'payroll_adjustments',
-            'entity_id' => $adjustmentId,
-            'action_name' => 'review_payroll_adjustment',
-            'old_data' => ['review_status' => $previousStatus],
-            'new_data' => ['review_status' => $decision, 'notes' => $notes],
-            'ip_address' => clientIp(),
-        ]]
+    logStatusTransition(
+        $supabaseUrl,
+        $headers,
+        $adminUserId,
+        'payroll_management',
+        'payroll_adjustments',
+        $adjustmentId,
+        'review_payroll_adjustment',
+        $previousStatus,
+        $decision,
+        $notes
     );
 
     $personRow = is_array($adjustmentRow['item']['person'] ?? null) ? (array)$adjustmentRow['item']['person'] : [];
