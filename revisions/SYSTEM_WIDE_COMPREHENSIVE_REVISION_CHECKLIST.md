@@ -94,6 +94,7 @@ Rules applied while consolidating:
 - [ ] Add “today” context in absence-related display.
 - [ ] Remove redundant helper text (`You have X pending...`) when already covered by cards/notifications.
 - [ ] Fix profile photo persistence issue (uploads disappear).
+- [ ] Limit table entries to 10 and add pagination.
 
 ### Staff
 - [ ] Keep dashboard scoped to operational summary + announcements only.
@@ -120,17 +121,14 @@ Rules applied while consolidating:
   2. Education shows 0 years (I think we should change this to display the education level instead, e.g. Bachelor's Degree, High School Graduate, etc.). Do note that the applicant may type multiple education entries but the system should still select the highest educational attainment entered by the user.
   3. Training hours shows 4 hours even though the I typed 8 hours. (Yes, 4 hours is the requirement but it should still display the amount of hours the applicant entered)
   4. Experience shows 0 years even though I entered 3 years of work experience in my profile.
-
 - [x] Applicant Profile: Remove Resume/Portfolio in 
 - [x] Applicant Profile: Submitted documents shows "Other" instead of the required document type (e.g., Resume, Application Letter, TOR, etc.) that the applicant uploaded.
 - [x] Experience column shows 0 years even though I entered 3 years of work experience in my profile. The system should display the actual years of experience that the applicant entered in their profile, regardless of whether it meets the requirement or not. This will provide a clearer picture of the applicant's qualifications and allow for a more accurate evaluation against the job requirements.
 - [x] Why does the Education column shows 2 educational levels instead of 1? It should select only the highest attainment entered by the applicant and display that in the Education column. (See screenshot)
 - [x] Also change the Eligibility Column to match the CSC/PRC flow instead of the old one (See screenshot)
-
 - [x] Change the global and per position criteria to select education levels instead of years. For example, instead of having a criteria that requires "4 years of education", it should be "Bachelor's Degree" or "High School Graduate" etc. Update the schema if needed to accommodate this change and make sure that the evaluation logic correctly evaluates the applicant's education level against the required education level for the job posting. Do note that the applicant may type multiple education entries but the system should still select the highest educational attainment entered by the user.
 - [x] Change the Education part in the tables too.
 - [x] Audit the entire recruitment modules (Recruitment, Applicant Registration, Applicant Tracking, Evaluation) and make sure the new education changes aligns with the new education criteria and displays the education level instead of years in all relevant sections (job listing, applicant profile, evaluation tables, etc.) for consistency and accuracy in representing the applicant's qualifications.
-
 - [x] Include 4 requirement criteria in job listing details: eligibility, education, training, experience.
 - [x] Add applicant profile preview (PDS, career, work experience) in review. Make it an actual profile preview UI, kind of like a resume/CV view with sections, instead of just showing the PDS form fields. Include the employee profile picture if available.
 - [x] Remove `(Rule-Based Algorithm)` label text from evaluation UI while retaining logic.
@@ -144,33 +142,19 @@ Rules applied while consolidating:
 - [x] In setting eligibility requirement, eligibility should be separated by a comma (,) instead of a space. For example, if the eligibility requirement is "CSC/PRC", it should be entered as "CSC, PRC" to ensure that the system correctly recognizes both requirements.
 - [x] Evaluation module: Keep the recommendation score calculation logic based on the defined criteria and weights. If the applicant meets the criteria, the recommendation score should reflect that accordingly even if one of the criteria is not met (e.g., 0 years of experience but meets education, training, and eligibility requirements should not result in a not qualified status).
 - [x] Admin: Just create a different page for viewing applicant profile, make it more comprehensive and well-designed, and link it to the applicant's name in the applicant list and review queues. This way, staff can easily access the full profile of the applicant without having to rely on the document view, which is currently showing bucket not found errors. The profile page should include all relevant information about the applicant, such as their personal details, education, work experience, training, and uploaded documents, presented in a clear and organized manner for easy review. And make sure to fix the document view issue as well, so that admin can also access the individual documents of the applicants when needed. Wire it to each "View Profile" action in the Recruitment modules and submodules for easy access.
-
 - [x] Remove `Review Decisions` in View Position modal
-
 - [x] It should open to a new tab when viewing applicant profile.
-
 - [x] In creating new jobs, there should be a field for job Plantilla Number which is a unique identifier for each job posting. This field should be required and validated to prevent duplicates. The job listing and applicant tracking should also display the Plantilla Number for reference.
-
 - [x] In creating job postings, the admin should be able to set specific qualification criteria for each job position, including eligibility requirements (e.g., CSC/PRC and it must be a dropdown with options), education level, training hours, and years of experience. The system should automatically evaluate applicants against these criteria and provide a recommendation score based on how well they meet the requirements. This will help streamline the screening process and ensure that only qualified candidates are considered for each position. Also add a none option for eligibility requirement in case there are positions that do not require any eligibility documents. If none is selected, the system should not consider eligibility as a factor in the evaluation and recommendation score for that position.
-
 - [x] Make the modal for creating jobs much wider and properly organize each fields into sections (e.g., Job Details, Qualifications, Description) to improve readability and usability. Also, add helper text or tooltips for each field to guide the admin in filling out the form correctly.
-
 - [x] Evaluation module: The admin can configure the evaluation criteria per job posting, and the system should automatically calculate the recommendation score for each applicant based on how well they meet the defined criteria.
-
 - [x] Evaluation module: The "Run Rule-Based Evaluation" table should have a limit of 10 entries with pagination to improve performance and usability when there are many applicants. Also a filters and search functionality should be added to easily find specific applicants in the evaluation table.
-
 - [x] Evaluation module: Move the generate system recommendation section at the top, and add another section below that for 2 actions (Configure global criteria vs Configure per-position criteria) to clarify the distinction and allow admin to easily navigate to the appropriate configuration based on their needs. Remove the "Configure Global Criteria" section as those 2 are modals now and can be accessed via the buttons in the new section.
-
 - [x] Remove header for each recruitment module page and just keep the title of the module (e.g., Job Listings, Applicant Tracking) to save vertical space and reduce redundancy.
-
 - [x] Evaluation module: Don't display hired applicants in the evaluation table to avoid confusion, and add a filter option to show/hide hired applicants if needed for reference.
-
 - [x] In creating job modal, change the checklist of required documents to (Application Letter, Updated Resume/CV, Personal Data Sheet, Valid Government ID, Transcript of Records). 
-
 - [x] Change the Eligibility requirement field from a dropdown to a checkbox that has a label of "CSC/PRC Eligibility Required". If checked, it means that the applicant must have either a CSC or PRC eligibility to be considered qualified for the position. If unchecked, it means that there are no eligibility requirements for the position.
-
 - [x] When creating job posting, the admin can have the option to select from a predefined job position or type a new one. If the admin selects a predefined job position, the system should automatically populate the qualification criteria based on the selected position. If the admin types a new job position, the position will automatically be added to the system. This will help standardize job postings and ensure that similar positions have consistent qualification criteria, while still allowing flexibility for unique job titles.
-
 - [x] In create job posting modal, improve Qualification Criteria section by adding a clear label and helper text to explain what each criterion means and how it affects the applicant's evaluation. Also improve Required Documents section.
 
 ### Staff
@@ -210,8 +194,6 @@ Rules applied while consolidating:
 - [x] Add clear list of accepted valid government IDs.
 - [x] Add stricter upload validation (actual document/file type policy).
 - [x] Mark required-document indicator color correctly.
-
-
  
 ---
 
@@ -250,23 +232,148 @@ Rules applied while consolidating:
 ## 6) Document Management Module
 
 ### Admin
-- [ ] Add queue search/filter controls and unified filter UX.
-- [ ] Restrict final review actions to allowed final states.
-- [ ] Return rejected docs with notes and resubmission path.
-- [ ] Add separate tab for all employee submissions organized by approved 201 categories.
-- [ ] Fix duplicate category entries and include `Other` category.
-- [ ] Update archive confirmation UX using SweetAlert2 review-style flow.
-- [ ] Improve full-width table fit; avoid unnecessary horizontal scroll.
+- [x] The Upload Document modal is too big vertically and not scrollable
+- [x] Move the file type column at the beginning, before the file name.
+- [x] Make the "Upload Document to Local Storage" a modal instead, where the admin can click a button to upload a file and fill out the necessary information (file type, owner, date) in the modal form. This will provide a cleaner and more organized interface for uploading documents, and it will also allow for better validation and error handling during the upload process. Place it above along with the Document Management Header for better visibility and accessibility. Also, make sure that the file input in the modal is user-friendly and visually clear, such as a drag-and-drop area or a styled button that opens the file selector, to improve the overall user experience when uploading documents in the admin section.
+
+- [x] In the section where the admin can upload their own file, instead of using the default UI for the search results of the owner, it should display a more modern search result UI that includes the owner's profile picture, name, and email address. This will make it easier for the admin to identify the owner of the document and provide a more visually appealing interface for managing uploaded files. Additionally, the search functionality should be improved to allow for more accurate and efficient searching of owners, such as by name or email address, to further enhance the user experience when uploading and managing documents in the system. Also change the file input default UI to a more user-friendly and visually clear design, such as a drag-and-drop area or a styled button that opens the file selector, to improve the overall user experience when uploading documents in the admin section.
+- [x] In the section where the admin can upload their own file, change the categories to match the 201 file type from the other tables, make the Owner searchable instead of a dropdown, and add a date filter. This will help the admin to better organize and manage their uploaded documents by categorizing them according to the standard 201 file types, allowing for easier searching by owner, and filtering by date to quickly find relevant documents when needed.
+
+- [x] Document Registry section: Make the action a dropdown, viewing documents should open up a new tab, fix the "Need Revision" tag, remove the document path below the file name
+- [x] Tables only show few categories, it should show all the categories of documents uploaded by the users (Employee, Applicant) throughout the system:
+    - Violation 
+    - Memorandum Receipt
+    - GSIS instead SSS
+    - Copy of SALN
+    - Service record 
+    - COE
+    - PDS
+    - SSS
+    - Pagibig
+    - Philhealth
+    - NBI
+    - Medical
+    - Drug Test
+    - Others (For files that doesn't belong in 201 files)
+- [x] In Document Uploaders section, the table header should not be sticky
+
+- [x] There should be 4 sections in Admin Document Management:
+  - Document Registry: It lists all the document the users (Employee, Applicant) uploaded throughout the system. The admin should be able to Review (modal) it and change the status.
+  - Document Uploaders: It lists all the users (Employee, Applicant) and their compiled documents (modal), the admin should be able to view or download the document.
+  - Pending staff approval: It lists all the documents the staff forwarded to admin for approval. The admin should be able to approve/reject said document with remarks.
+  - Archived Documents: It lists all the documents archived by the admin and staff with an option to restore it.
+
+  Notes: Make sure that all the tables has a limit of 10 entries, pagination, search and filters. Use sweetalert and flatpickr (in case date input is needed). I also think it is easier to make a tab between the employee and applicant in the sections just to make the navigations easier between the tables of the two. Make sure that the category options are the 201 files:
+    - Violation 
+    - Memorandum Receipt
+    - GSIS instead SSS
+    - Copy of SALN
+    - Service record 
+    - COE
+    - PDS
+    - SSS
+    - Pagibig
+    - Philhealth
+    - NBI
+    - Medical
+    - Drug Test
+    - Others (For files that doesn't belong in 201 files)
+
+- [x] Add queue search/filter controls and unified filter UX.
+- [x] Restrict final review actions to allowed final states.
+- [x] Return rejected docs with notes and resubmission path.
+- [x] Add separate tab for all employee submissions organized by approved 201 categories.
+- [x] Fix duplicate category entries and include `Other` category.
+- [x] Update archive confirmation UX using SweetAlert2 review-style flow.
+- [x] Improve full-width table fit; avoid unnecessary horizontal scroll.
 - [ ] Ensure archive behavior mirrors correctly on admin and employee sides.
+- [x] Add a Pending Staff Review tab for documents that are still in the staff recommendation stage before reaching admin review, to help both staff and admin easily track the status of documents and ensure that they are processed in a timely manner.
 
 ### Staff
-- [ ] Lock recommendation edits after submit-to-admin (unless returned).
-- [ ] Ensure PDS document visibility is correct in review queues.
+- [x] In Pending staff review, the recommendation field in the modal should retain the previous recommendation if the staff wants to edit and resubmit the document for admin review. This way, staff can easily make adjustments to their recommendation without having to re-enter it from scratch, and it also helps maintain a clear history of the recommendations made for each document.
+- [x] In the Document Uploaders modal, the table header should not be sticky and the modal vertical sizing should be adjust to fit the screen properly without causing overflow or requiring excessive scrolling. This will improve the user experience by allowing staff to view the full list of uploaded documents and their details without losing sight of the column headers, and it will also ensure that the modal is usable on different screen sizes without layout issues.
+- [x] Lock recommendation edits after submit-to-admin (unless returned).
+- [x] Ensure PDS document visibility is correct in review queues.
+- [x] Fix the 404 bucket not found error in "Employee Document Registry" section when staff tries to view applicant-submitted documents in the recruitment module.
+- [x] All actions must have a confirmation step with SweetAlert2 and require reason capture for status changes.
+- Notes: Make sure that all the tables has a limit of 10 entries, pagination, search and filters. Use sweetalert and flatpickr (in case date input is needed). I also think it is easier to make a tab between the employee and applicant in the sections just to make the navigations easier between the tables of the two. Make sure that the category options are the 201 files:
+    - Violation 
+    - Memorandum Receipt
+    - GSIS instead SSS
+    - Copy of SALN
+    - Service record 
+    - COE
+    - PDS
+    - SSS
+    - Pagibig
+    - Philhealth
+    - NBI
+    - Medical
+    - Drug Test
+    - Others (For files that doesn't belong in 201 files)
+- [x] Add a Pending Staff Review table for documents that are still in the staff recommendation stage before reaching admin review, to help both staff and admin easily track the status of documents and ensure that they are processed in a timely manner.
 
 ### Employee
-- [ ] Upload documents and track status.
-- [ ] Resubmit revised documents when requested.
-- [ ] Add personal view tabs for Submitted/Approved/Rejected + download where allowed.
+- [x] In Uploading Documents modal, the categories for the document types are only 2. It should match the 201 file types:
+    - Violation 
+    - Memorandum Receipt
+    - GSIS instead SSS
+    - Copy of SALN
+    - Service record 
+    - COE
+    - PDS
+    - SSS
+    - Pagibig
+    - Philhealth
+    - NBI
+    - Medical
+    - Drug Test
+    - Others (For files that doesn't belong in 201 files)
+- [x] Align the action column to the very right of the table for better visibility and consistency with common UI patterns. This will help employees easily locate the actions they can take on their documents, such as viewing, downloading, or resubmitting, without having to scan through the entire row. Additionally, ensure that the action buttons are clearly labeled and visually distinct to further enhance usability and encourage employees to actively manage their documents and track their status effectively.
+- [x] Revert back the desision to make the filters less saturated and smaller. Instead, do it in the status tags.
+- [x] Push the action column to the end of the table.
+- [x] Move the search and filters to the top right of the table for better visibility and accessibility.
+
+- [x] Use sweetalert for all actions with confirmation and reason capture for status changes.
+- [x] Update the UI elements to match the staff for consistency, while keeping the employee's view focused on their own document management and status tracking. Make the filters less saturated and smaller. (Refer to the image for reference)
+- [x] Make the actions a dropdown (see reference image). Remove the "Apply action" button. The employee should be able to select an action from the dropdown (e.g., View Document, Download Document, Resubmit Document) and the system should immediately perform the selected action without requiring an additional click on an "Apply" button. This will streamline the user experience and make it more intuitive for employees to manage their documents and track their status effectively.
+- [x] In Uploading documents (modal), the categories are still not the 201 file types, it should be changed to match the 201 file type categories:
+    - Violation 
+    - Memorandum Receipt
+    - GSIS instead SSS
+    - Copy of SALN
+    - Service record 
+    - COE
+    - PDS
+    - SSS
+    - Pagibig
+    - Philhealth
+    - NBI
+    - Medical
+    - Drug Test
+    - Others (For files that doesn't belong in 201 files)
+- [x] Remove the locahost archive reason. Instead, when an employee clicks the archive action, a SweetAlert2 modal should appear asking for confirmation.
+
+- [x] Limit table entries to 10 with pagination, search, and filters.
+- [x] Upload documents and track status.
+- [x] Resubmit revised documents when requested.
+- [x] Add personal view tabs for Submitted/Approved/Rejected + download where allowed.
+- [x] Fix Document management table display issues, it must not be horizontally scrollable and should fit the width of the page properly. Also, make sure that the category options are the 201 files:
+    - Violation 
+    - Memorandum Receipt
+    - GSIS instead SSS
+    - Copy of SALN
+    - Service record 
+    - COE
+    - PDS
+    - SSS
+    - Pagibig
+    - Philhealth
+    - NBI
+    - Medical
+    - Drug Test
+    - Others (For files that doesn't belong in 201 files)
+- [x] Add an archive option for documents that are no longer active but need to be retained for record-keeping purposes, with a confirmation step using SweetAlert2 and reason capture. Archived documents should be moved to a separate "Archived Documents" tab in the employee's document management view, where they can see the archived documents along with their status and have the option to restore them if needed. This will help employees manage their documents more effectively while ensuring that important records are preserved in accordance with organizational policies.
 
 ### *Conflict / Decision*
 - [ ] *Finalize archived strategy: keep archived status vs move to separate archive module and limit active statuses to Submitted/Approved/Rejected.*
@@ -276,48 +383,132 @@ Rules applied while consolidating:
 ## 7) Personal Information Module
 
 ### Admin
-- [ ] Fix inability to add new employee record.
-- [ ] Add duplicate employee merge/delete flow with audit logs.
-- [ ] Keep assignment controls (Division/Position) with approval-safe workflow.
+- [x] The employee profile page should be an actual profile page where the admin can view the employee's profile information in a more comprehensive and well-designed layout, similar to the applicant profile page in the recruitment module. This will allow the admin to easily review the employee's information and make informed decisions when approving staff recommendations for employee record changes. The profile page should include all relevant information about the employee, such as their personal details, employment history, educational background, and any other relevant information that can help the admin in their review process. (Please refer to the PDS or the existing add and edit employee profile form for the information that should be included in the profile page, but present it in a more organized and visually appealing way for easier review by the admin.)
+
+- [x] Opening the employee profile page should not directly go into edit mode. there should be a button so the admin can modify the fields.
+- [x] Move the staff and employee profiles section at the bottom
+- [x] In the employee profile page, the admin should be able to edit the employee's profile information and save the changes. Just copy the edit profile form and functionality from the staff side and apply it to the admin side.
+- [x] Add more fields based on the pds (See pictures)
+- [x] Saving decision for the pending staff reviews is not working
+- [x] Add section to view staff and employee profile in a card layout with basic information and profile picture for easy identification. This will allow the admin to quickly view and access the profiles of staff and employees without having to navigate through multiple pages or tables. The card layout should include key information such as name, position, division, and a profile picture if available, presented in a visually appealing way for easy recognition and access to their full profile details when needed. Clicking on the card should take the admin to the employee profile page where they can view more comprehensive information about the employee and manage their account and profile details as needed. This will improve the user experience for the admin and make it easier for them to manage employee records effectively.
+
+- [x] create an employee profile page for admin to view the employee's profile information in a more comprehensive and well-designed layout, similar to the applicant profile page in the recruitment module. This will allow the admin to easily review the employee's information and make informed decisions when approving staff recommendations for employee record changes. The profile page should include all relevant information about the employee, such as their personal details, employment history, educational background, and any other relevant information that can help the admin in their review process. (Please refer to the PDS or the existing add and edit employee profile form for the information that should be included in the profile page, but present it in a more organized and visually appealing way for easier review by the admin.)
+
+- [x] fix the page layout
+- [x] also when creating staff/employee account, remove the HR Officer and Supervisor role
+- [x] remove the create account functionality in this module
+- [x] Also the numbers of entries in the tables is still more than 10. Make sure to limit it to 10 entries and add pagination, search, and filters to make it easier for admin and staff to navigate through the employee records, especially when there are many records in the system. Also, use flatpickr and sweetalert for the search and filters to make it more user-friendly and visually appealing.
+- [x] Change the quick actions into two separate buttons (Create Account, Edit Profile) and place them beside the Personal Information header for better visibility and accessibility. Each button should open a modal with a clean and organized layout for creating accounts and editing profiles, allowing the admin to manage employee information more efficiently without navigating away from the main Personal Information page.
+- [x] The autofill ZIP functionality in edit and add profile is still not working
+- [x] Pending Staff Review section: Remove the Details column in the table
+- [x] Audit the entire module and make sure to use flatpickr for all date input fields.
+
+- [x] Implement the functionality where if the Admin typed the barangay and municipality, it should autofill the ZIP Code field. Refer to staff side for the logic of this functionality.
+- [x] Improve the table layout of Pending Staff Review.
+- [x] The admin should be able to make accounts of both the staff and employee, not just staff.
+- [x] Turn the account creation and profile actions into a modal. These should be accessible by a button (quick actions) besides the Personal Information header for better visibility and accessibility. The modal should have a clean and organized layout with clear labels and input fields for the necessary information to create an account or edit a profile. This will improve the user experience by providing a more streamlined and efficient way for the admin to manage accounts and profiles without having to navigate away from the main Personal Information page.
+- [x] When clicking the search result inside the Add or Edit profile modal, it closes the modal.
+- [x] Add a Pending staff review table for employee records that are still in the staff recommendation stage before reaching admin review, to help both staff and admin easily track the status of employee record changes and ensure that they are processed in a timely manner. The admin should be able to review the staff recommendation and the proposed changes to the employee record, and then approve or reject the changes with remarks. This will help ensure that employee record changes are properly reviewed and approved by the admin, while also providing transparency and accountability in the change management process.
+- [x] When approving staff recommendation for employee record changes, the admin should receive a notification with the details of the recommended changes and the changes in employee's profile information. This will help the admin make informed decisions and ensure that they are aware of the context of the changes they are approving. Additionally, the notification should include a link to the employee's profile for easy access and review before making a final decision on the recommended changes.
+- [x] Add duplicate employee merge/delete flow with audit logs.
+- [x] Keep assignment controls (Division/Position) with approval-safe workflow.
+- [x] In the add and edit employee profile, the zip-code field is automatically filled based on the barangay and city/municipality selected by the user. Staff side already has this feature, so implement it in admin side.
+- [x] In the add and edit employee profile the search function for Place of Birth, Civil Status, Blood Type, Barangay, City/Municipality, Province, ZIP Code should not use the default UI for the search results. Instead, it should display a more modern search result UI.
 
 ### Staff
-- [ ] Restrict direct Division/Position changes to recommendation-only flow.
-- [ ] Add strict required-field validation before profile update submission.
-- [ ] Replace module-specific native alert styling/placement with standardized SweetAlert2 alert behavior.
-- [ ] Adjust A-Z list/table text sizing for readability consistency with admin/staff layout baseline.
+- [x] fix the staff overview layout now that we've removed 1 stat card
+- [x] move the search and filter from the profile actions to the employee management table section above the table
+- [x] In reviewing changes, you should not use sweetalert for displaying the changes the staff made to the employee record. Instead, it should be displayed in a modal with a clean and organized layout that clearly shows the proposed changes side by side with the current information in the employee's profile. This will allow the staff to easily review the changes they made and ensure that they are accurate before submitting them for admin approval. The modal should also include options for the staff to edit their recommendation or add remarks before submitting it to the admin for final review. Also it always says 19 profile field(s) when in fact there are only fewer fields that are being changed.
+- [x] Move the action column to the very right in the pending section
+- [x] User should be able to click the down button when searching for Place of Birth, Civil Status, Blood Type, Barangay, City/Municipality, Province, ZIP Code in the add and edit employee profile without the modal closing. This will allow the staff to easily select the correct option from the search results without having to reopen the modal or losing their progress in filling out the employee profile information.
+
+
+- [x] Use sweetalert for all actions with confirmation and reason capture for status changes.
+- [x] Modals in this module should retain the information defined in the database. For example, when changing the division and position it should display the current division and position of the employee as the default value in the dropdown.
+- [x] Remove the details column in the Pending section, also remove the NEEDS UPDATE stat card at the top
+- [x] Pending section should have an action for reviewing the changes they (the staff) made to the employee record before submitting it to admin for approval.
+- [x] Restrict direct Division/Position changes to recommendation-only flow.
+- [x] Add strict required-field validation before profile update submission.
+- [x] Replace module-specific native alert styling/placement with standardized SweetAlert2 alert behavior.
+- [x] Adjust A-Z list/table text sizing for readability consistency with admin/staff layout baseline.
+- [x] Add a pending admin approval table for employee records that are still in the staff recommendation stage before reaching admin review, to help both staff and admin easily track the status of employee record changes and ensure that they are processed in a timely manner.
+- [x] In the add and edit employee profile the search function for Place of Birth, Civil Status, Blood Type, Barangay, City/Municipality, Province, ZIP Code should not use the default UI for the search results. Instead, it should display a more modern search result UI.
+- [x] Change the actions icon in the table
+- [x] Limit table entries to 10 with pagination, search, and filters.
 
 ### Employee
-- [ ] Lock non-editable fields in edit profile (middle name, birth date, place of birth) per policy.
-- [ ] Add blood-type dropdown.
-- [ ] Add controlled request flow for additional spouse entries with supporting docs and Admin approval.
-- [ ] Show personal 201 file list with status and permitted downloads.
+- [x] Remove "Personal 201 File List" section
+- [x] Fix the employee profile photo not persisting after some time. also the employee profile photo doesn't show in the profile page in the admin side
+- [x] The entirety of Personal Information module has broken icons. I think it's because this one uses google material symbols outlined.
+- [x] Just exactly copy the edit profile form and functionality from the staff side and apply it to the employee side, but keep some of the fields view-only as per policy (middle name, birth date, place of birth). Include the search functionality for Place of Birth, Civil Status, Blood Type, Barangay, City/Municipality, Province, ZIP Code with modern UI instead of default HTML select. (See staff for reference on the logic). And make sure that the ZIP Code autofill works based on the barangay and municipality selected by the user. Copy it one to one.
+- [x] Improve the buttons on uploading profile picture to be more user friendly, just use 1 button that opens the file selector instead of having two separate buttons for uploading and saving the profile picture. After the user selects a file, it should show a preview of the uploaded profile picture before saving it. This will improve the user experience by providing a more visually appealing interface for uploading profile pictures and allowing users to see how their profile picture will look before they save it.
+- [x] Improve the Personal Profile section layout.
+- [x] In Editing Profile modal, just copy the one from the staff side and apply it to the employee side, but keep some of the fields view-only as per policy (middle name, birth date, place of birth). Include the search functionality for Place of Birth, Civil Status, Blood Type, Barangay, City/Municipality, Province, ZIP Code with modern UI instead of default HTML select. (See staff for reference on the logic). And make sure that the ZIP Code autofill works based on the barangay and municipality selected by the user.
+- [x] Lock non-editable fields in edit profile (middle name, birth date, place of birth) per policy.
+- [x] Add search functionality for Place of Birth, Civil Status, Blood Type, Barangay, City/Municipality, Province, ZIP Code with modern UI instead of default HTML select. (See staff for reference on the logic)
+- [x] Add controlled request flow for additional spouse entries with supporting docs and Admin approval.
+- [x] Show personal 201 file list with status and permitted downloads.
+- [x] Remove Personal Documents section and Approved Performance Evaluations section
+- [x] Change the default file input when uploading a profile picture, I want a styled button that opens the file selector instead of the default file input UI, and after the user selects a file, it should show a preview of the uploaded profile picture before saving it. This will improve the user experience by providing a more visually appealing interface for uploading profile pictures and allowing users to see how their profile picture will look before they save it.
 
 ---
 
 ## 8) Timekeeping Module
 
 ### Admin
-- [ ] Show daily attendance summary and downloadable/printable outputs.
-- [ ] Review and finalize leave/time-adjustment decisions routed from staff.
-- [ ] Support holiday/suspension configuration with payroll-aware paid handling.
-- [ ] Manage official business (OB) approvals and pending requests.
+- [x] Remove cross table search and filters.
+- [x] Add a table for reviewing staff recommendations for leave/CTO/time-adjustment requests with approval controls and audit logs.
+- [x] Show daily attendance summary (present/absent/late) and downloadable/printable outputs.
+- [x] Enforce approved flexi schedule windows (7AM-4PM, 8AM-5PM, 9AM-6PM) with late tagging starting at 9:01 AM.
+- [x] Review and finalize leave/CTO/time-adjustment decisions routed from staff.
+- [x] Lock time-adjustment decisions after final submission; rejected time-adjustment requests require new submission.
+- [x] Keep leave requests defaulted to `Pending` and prevent modifying rejected leave requests.
+- [x] Add complete employee timekeeping history view.
+- [x] Support holiday/suspension configuration with payroll-aware paid handling.
+- [x] Manage official business (OB) approvals and pending requests.
+- [x] Add leave request preview details (leave type + description) in admin review.
+- [x] Attendance snapshot section should show the attendance for the current day only.
 
 ### Staff
-- [ ] Fix visibility gap where overtime-related requests do not appear in Admin queue when still enabled.
-- [ ] Support RFID employee registration with auto-fill by employee ID.
-- [ ] Keep RFID attendance assist marked temporary/supportive only.
+- [x] Fix visibility gap where staff-routed leave/CTO/time-adjustment requests do not appear in Admin queue.
+- [x] Support RFID employee registration with auto-fill by employee ID.
+- [x] Keep RFID attendance assist marked temporary/supportive only.
 
 ### Employee
-- [ ] Add leave request date validation (no past dates; policy-based limits by leave type).
-- [ ] Add cancel option for pending leave only.
-- [ ] Show leave credits and deduction behavior transparently.
-- [ ] Remove redundant date input in time-adjustment request when date already selected from attendance record.
-- [ ] Add official business request flow (time out/in behavior with approval path).
-- [ ] Add overtime date validation if overtime remains enabled.
+- [x] Use sweetalert for all actions with submission and confirmation and reason capture for status changes. Avoid using localhost alerts for better UX consistency across the module.
+- [x] Add labels above the calendar input on all the modals in Timekeeping module to indicate what the date input is for (e.g., "Select Leave Date", "Select Time Adjustment Date", etc.) to improve clarity and user experience when employees are filling out the forms for leave requests, time adjustments, and official business requests. This will help employees understand the purpose of the date input and ensure that they are selecting the correct dates for their requests, reducing confusion and potential errors in the submission process.
+- [ ] Seems like flatpickr is bugged. Also prevent scrolling on the page when the modal is open
+- [x] There are some modals that are not using flatpickr for the date input, make sure to use flatpickr for all date inputs in the employee side of the timekeeping module for consistency and better user experience.
+- [x] Make the status less statured and smaller (See staff side)
+- [x] Add icons to the actions for better visibility.
+- [x] Use sweetalert and flatpickr for the search and filters to make it more user-friendly and visually appealing.
+- [x] Above all the tables in this module, add a search bar and filters to make it easier for employees to navigate through their attendance records, leave requests, and time adjustments.
+- [x] Add leave request date validation (no past dates; policy-based limits by leave type).
+- [x] Add cancel option for pending leave only.
+- [x] Show leave credits and deduction behavior transparently.
+- [x] Display attendance late status using approved policy (flexi schedules enabled, late starts at 9:01 AM).
+- [x] Remove redundant date input in time-adjustment request when date already selected from attendance record.
+- [x] Add official business request flow (time out/in behavior with approval path).
+- [x] Add CTO request validation and filing rules (date range and payroll cut-off constraints) under CTO-only policy.
+
+## Across all users in Timekeeping Module
+- [x] Some parts of the employee are still not using sweetalert and flatpickr, make sure to use it across the entire module for consistency and better user experience.
+- [x] Normalize the naming scheme of the sections. e.g. Attendance Records, Leave Requests, Time Adjustments, Official Business Requests, etc. to ensure consistency and clarity across the module.
+- [x] Ensure that the search and filter functionality is implemented across all tables in the module, and that it uses SweetAlert2 for a consistent and user-friendly experience when filtering records or searching for specific entries and Flatpickr for date inputs to enhance usability and visual appeal.
+- [x] Audit if the flow matches the approved decision for leave/CTO/time-adjustment requests, and ensure that the status changes and visibility align with the approved workflow and policies.
+- [x] Standardize the status tag design across all sections in the module, making them less saturated and smaller for a more modern and visually appealing look, while still maintaining clear visibility of the status information for employees when viewing their attendance records, leave requests, time adjustments, and official business requests.
+- [x] Standardize the action buttons across all sections in the module by adding icons for better visibility and consistency, making it easier for employees to identify and interact with the available actions for their attendance records, leave requests, time adjustments, and official business requests.
+- [x] Ensure that the attendance snapshot section is designed to show only the attendance for the current day, providing employees with a clear and focused view of their daily attendance status without overwhelming them with historical data in that section.
+- [x] Ensure that the flow of the Employee submitting a leave/CTO/time-adjustment request, the Staff reviewing and making a recommendation, and the Admin receiving the recommendation and making a final decision is consistent with the approved workflow and policies, including the status changes, visibility of requests in the respective queues, and the ability to edit or resubmit requests as needed based on the decision outcomes.
+- [x] Revise the Payroll Module to reflect the approved decision to remove overtime filing and convert it to a CTO-only process with a leave-style approval flow, ensuring that the timekeeping module's handling of leave requests and time adjustments is aligned with this change and that any references to overtime filing are updated accordingly in the UI and workflow. Also, make sure it accomodates to the holiday/suspension configuration with payroll-aware paid handling as per the approved decision.
+
+### Cross users Timekeeping module revision
+- [x] Audit if all the user has the same flow for CTO filing and approval, and make sure that the status changes and visibility align with the approved workflow and policies for CTO-only process.
+- [x] Remove the legacy CTO Requests section in the Staff side
 
 ### *Conflict / Decision*
-- [ ] *Finalize late policy mode (strict late threshold vs no-late/flexi policy).* 
-- [ ] *Finalize overtime policy (retain overtime flow vs convert to CTO-only process).* 
+- [x] *Late policy finalized: Flexi schedules are enabled, and 9:01 AM onward is considered late.*
+- [x] *Overtime policy finalized: Overtime filing is removed and converted to CTO-only process with leave-style approval flow.*
 
 ---
 
@@ -325,18 +516,26 @@ Rules applied while consolidating:
 
 ### Admin
 - [ ] Ensure payroll is fully connected to timekeeping deductions and approved policies.
+- [ ] Ensure payroll runs include traceable source inputs (attendance, salary setup, deductions) for validation and auditability.
 - [ ] Show complete payroll computation breakdown in UI and export/PDF.
 - [ ] Enforce final payroll batch approval with audit logs.
+- [ ] Enforce payroll handoff flow: staff submit batch for admin approval; admin final decision reflects back to staff queue/history with timestamp and notification.
 - [ ] Keep secure payslip email sending with logging.
+- [ ] Remove/replace overtime filing references in payroll UI/export and align all policy wording to CTO-only process.
 
 ### Staff
 - [ ] Change salary adjustment action to recommendation flow for Admin final approval.
 - [ ] Fix generate payslip flow.
 - [ ] Resolve payroll category open-button error.
+- [ ] Show Admin final disposition of submitted payroll batches in staff queue/history with decision timestamp.
 
 ### Employee
 - [ ] Keep module naming clarity (`Payroll` vs `My Payslip`) based on approved UX.
 - [ ] Ensure payslip view/history access is stable.
+- [ ] Ensure deduction breakdown visibility (e.g., SSS/Pag-IBIG and other deductions) is clear in payslip UI and PDF.
+
+
+- [x] Double check if all the revisions for payroll module are included in the checklist and that they align with the approved decisions and policies. This includes ensuring that the payroll computations are accurate and reflect the approved timekeeping deductions, that the payroll batch approval process is properly implemented with audit logs, and that the payslip email sending functionality is secure and includes logging for accountability. Additionally, make sure that any references to overtime filing are updated to reflect the change to a CTO-only process with leave-style approval flow, and that the UI elements for payroll computation breakdown and payslip viewing are clear and user-friendly for both admin and employees. (See revisions folder)
 
 ---
 
@@ -360,6 +559,7 @@ Rules applied while consolidating:
 ### Admin
 - [ ] Keep announcements and notifications clearly distinct (announcements are org-wide broadcast type).
 - [ ] Rename `Recent Announcements` to `Recent Notifications` where requested and contextually correct.
+- [ ] Add audit trail/logging especially those triggered by Admin actions, to ensure accountability and traceability of communication within the system.
 
 ### Staff
 - [ ] Ensure staff receives final Admin decision notifications on forwarded records with PST timestamp.
@@ -512,3 +712,7 @@ Rules applied while consolidating:
 - [ ] Phase 5: Reports/notifications/announcements cleanup.
 - [ ] Phase 6: Module removal/deprecation decisions and navigation cleanup.
 - [ ] Phase 7: Full localized JS performance pass and QA sign-off.
+
+Applicant side:
+Change application timeline
+Audit UI

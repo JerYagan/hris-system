@@ -45,11 +45,12 @@ $formatBytes = static function (int $bytes): string {
 $statusMeta = static function (string $status): array {
     $key = strtolower(trim($status));
     return match ($key) {
-        'approved' => ['Approved', 'bg-approved text-green-800'],
-        'submitted' => ['Submitted', 'bg-pending text-yellow-800'],
-        'rejected' => ['Rejected', 'bg-rejected text-red-800'],
-        'archived' => ['Archived', 'bg-gray-200 text-gray-700'],
-        default => ['Draft', 'bg-blue-100 text-blue-700'],
+        'approved' => ['Approved', 'bg-green-50 text-green-700'],
+        'submitted' => ['Submitted', 'bg-amber-50 text-amber-700'],
+        'rejected' => ['Rejected', 'bg-red-50 text-red-700'],
+      'needs_revision' => ['Needs Revision', 'bg-orange-50 text-orange-700'],
+        'archived' => ['Archived', 'bg-slate-100 text-slate-600'],
+        default => ['Draft', 'bg-blue-50 text-blue-700'],
     };
 };
 
@@ -75,46 +76,38 @@ $fileTypeMeta = static function (string $extension): array {
     return ['insert_drive_file', 'text-gray-500', strtoupper($ext !== '' ? $ext : 'FILE')];
 };
 
-$detect201Type = static function (array $document): ?string {
-    $dictionary = [
-      'PDS' => ['pds', 'personal data sheet'],
-      'SSS' => ['sss'],
-      'Pagibig' => ['pagibig', 'pag-ibig'],
-      'Philhealth' => ['philhealth'],
-      'NBI' => ['nbi'],
-      'Mayors Permits' => ['mayor', 'permit'],
-      'Medical' => ['medical'],
-      'Drug Test' => ['drug test', 'drugtest'],
-      'Health Card' => ['health card', 'healthcard'],
-      'Cedula' => ['cedula', 'community tax certificate'],
-      'Resume/ CV' => ['resume', 'cv', 'curriculum vitae'],
-    ];
-
-    $haystack = strtolower(trim(
-      (string)($document['title'] ?? '')
-      . ' '
-      . (string)($document['category_name'] ?? '')
-      . ' '
-      . (string)($document['description'] ?? '')
-    ));
-
-    foreach ($dictionary as $label => $keywords) {
-      foreach ($keywords as $keyword) {
-        if (str_contains($haystack, strtolower($keyword))) {
-          return $label;
-        }
-      }
-    }
-
-    return null;
-};
-
-$document201Types = ['PDS', 'SSS', 'Pagibig', 'Philhealth', 'NBI', 'Mayors Permits', 'Medical', 'Drug Test', 'Health Card', 'Cedula', 'Resume/ CV'];
+$document201Types = [
+  'Violation',
+  'Memorandum Receipt',
+  'GSIS instead SSS',
+  'Copy of SALN',
+  'Service record',
+  'COE',
+  'PDS',
+  'SSS',
+  'Pagibig',
+  'Philhealth',
+  'NBI',
+  'Medical',
+  'Drug Test',
+  'Others',
+];
+$document201Lookup = array_fill_keys(array_map('strtolower', $document201Types), true);
+$activeDocumentCount = 0;
+$archivedDocumentCount = 0;
+foreach ($employeeDocuments as $documentCountRow) {
+  $statusKey = strtolower((string)($documentCountRow['document_status'] ?? 'draft'));
+  if ($statusKey === 'archived') {
+    $archivedDocumentCount++;
+    continue;
+  }
+  $activeDocumentCount++;
+}
 ?>
 
 <div class="mb-6">
   <h1 class="text-2xl font-bold">Document Management</h1>
-  <p class="text-sm text-gray-500">Upload, version, and track your employee documents.</p>
+  <p class="text-sm text-gray-500">Track your own 201 documents, manage version history, and monitor review/archive status.</p>
 </div>
 
 <?php if (!empty($message)): ?>
@@ -130,61 +123,56 @@ $document201Types = ['PDS', 'SSS', 'Pagibig', 'Philhealth', 'NBI', 'Mayors Permi
   </div>
 <?php endif; ?>
 
-<div class="bg-white rounded-xl shadow p-6 mb-6 flex flex-col md:flex-row gap-4 md:items-end">
-  <div class="w-full md:flex-1 md:min-w-[460px]">
-    <label class="text-sm text-gray-600">Search</label>
-    <input id="documentSearchInput" type="search" placeholder="Search title, category, status" class="w-full mt-1 px-3 py-2 bg-gray-100 rounded-lg text-sm">
+<section class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-3">
+  <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+    <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">Active Documents</p>
+    <p class="text-2xl font-bold text-emerald-800 mt-1"><?= $escape((string)$activeDocumentCount) ?></p>
   </div>
+  <div class="rounded-xl border border-slate-300 bg-slate-100 px-4 py-3">
+    <p class="text-xs font-semibold uppercase tracking-wide text-slate-600">Archived Documents</p>
+    <p class="text-2xl font-bold text-slate-700 mt-1"><?= $escape((string)$archivedDocumentCount) ?></p>
+  </div>
+</section>
 
-  <div class="w-full md:w-auto md:ml-auto flex flex-col sm:flex-row gap-3 sm:items-end">
-    <div class="w-full sm:w-56">
-      <label class="text-sm text-gray-600">Category</label>
-      <select id="documentCategoryFilter" class="w-full mt-1 px-3 py-2 bg-gray-100 rounded-lg text-sm">
-        <option value="">All Categories</option>
-        <?php foreach ($documentCategories as $category): ?>
-          <option value="<?= $escape(strtolower((string)($category['category_name'] ?? ''))) ?>"><?= $escape($category['category_name'] ?? '') ?></option>
-        <?php endforeach; ?>
-      </select>
+<div class="bg-white rounded-xl shadow p-4 mb-6">
+  <div class="flex flex-wrap gap-2 items-center justify-between">
+    <div class="inline-flex rounded-lg border overflow-hidden" role="tablist" aria-label="Document View Tabs">
+      <button type="button" data-document-view-tab="active" class="px-3 py-1.5 text-xs bg-slate-700 text-white">Submitted/Approved/Rejected</button>
+      <button type="button" data-document-view-tab="archived" class="px-3 py-1.5 text-xs bg-white text-gray-700 border-l">Archived Documents</button>
     </div>
 
-    <div class="w-full sm:w-44">
-      <label class="text-sm text-gray-600">Status</label>
-      <select id="documentStatusFilter" class="w-full mt-1 px-3 py-2 bg-gray-100 rounded-lg text-sm">
-        <option value="">All Status</option>
-        <option value="draft">Draft</option>
-        <option value="submitted">Submitted</option>
-        <option value="approved">Approved</option>
-        <option value="rejected">Rejected</option>
-        <option value="archived">Archived</option>
-      </select>
+    <div id="documentStatusTabs" class="inline-flex rounded-lg border overflow-hidden" role="tablist" aria-label="Document Status Tabs">
+      <button type="button" data-document-status-tab="all" class="px-3 py-1.5 text-xs bg-slate-700 text-white">All</button>
+      <button type="button" data-document-status-tab="submitted" class="px-3 py-1.5 text-xs bg-white text-gray-700 border-l">Submitted</button>
+      <button type="button" data-document-status-tab="approved" class="px-3 py-1.5 text-xs bg-white text-gray-700 border-l">Approved</button>
+      <button type="button" data-document-status-tab="rejected" class="px-3 py-1.5 text-xs bg-white text-gray-700 border-l">Rejected</button>
     </div>
-
-    <div class="w-full sm:w-52">
-      <label class="text-sm text-gray-600">Document Group</label>
-      <select id="documentGroupFilter" class="w-full mt-1 px-3 py-2 bg-gray-100 rounded-lg text-sm">
-        <option value="all">All Documents</option>
-        <option value="201">201 Files Only</option>
-      </select>
-    </div>
-
-    <div class="w-full sm:w-52">
-      <label class="text-sm text-gray-600">201 File Type</label>
-      <select id="document201TypeFilter" class="w-full mt-1 px-3 py-2 bg-gray-100 rounded-lg text-sm">
-        <option value="">All 201 Types</option>
-        <?php foreach ($document201Types as $type): ?>
-          <option value="<?= $escape(strtolower($type)) ?>"><?= $escape($type) ?></option>
-        <?php endforeach; ?>
-      </select>
-    </div>
-
-    <button data-open-upload class="bg-daGreen text-white px-5 py-2 rounded-lg text-sm font-medium hover:opacity-90 h-[42px] inline-flex items-center gap-1.5"><span class="material-icons text-sm">upload_file</span>Upload Document</button>
   </div>
 </div>
 
-<p class="text-xs text-gray-500 mb-6">Tip: Use the <strong>Document Group</strong> filter to show only 201 File documents (official personnel records such as PDS, SSS, Pagibig, Philhealth, NBI, permits, and other employment essentials).</p>
+<div class="bg-white border rounded-xl p-6">
+  <div class="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+    <h2 class="text-lg font-semibold text-gray-800">My Document Registry</h2>
 
-<div class="bg-white rounded-xl shadow p-6">
-  <h2 class="text-lg font-bold mb-6">Uploaded <span class="text-daGreen">Documents</span></h2>
+    <div class="w-full xl:w-auto xl:ml-auto flex flex-col lg:flex-row gap-3 lg:items-end">
+      <div class="w-full lg:w-80">
+        <label class="text-sm text-gray-700">Search</label>
+        <input id="documentSearchInput" type="search" placeholder="Search title, category, status" class="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm bg-white">
+      </div>
+
+      <div class="w-full lg:w-64">
+        <label class="text-sm text-gray-700">Category</label>
+        <select id="documentCategoryFilter" class="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm bg-white">
+          <option value="">All Categories</option>
+          <?php foreach ($document201Types as $categoryName): ?>
+            <option value="<?= $escape(strtolower($categoryName)) ?>"><?= $escape($categoryName) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+
+      <button data-open-upload class="bg-daGreen text-white px-4 py-2 rounded-md text-sm font-medium hover:opacity-90 h-[42px] inline-flex items-center justify-center gap-1.5 whitespace-nowrap"><span class="material-icons text-base">upload_file</span>Upload Document</button>
+    </div>
+  </div>
 
   <?php if (empty($employeeDocuments)): ?>
     <div id="documentTrueEmpty" class="rounded-lg border border-dashed border-gray-300 px-4 py-8 text-center">
@@ -193,15 +181,15 @@ $document201Types = ['PDS', 'SSS', 'Pagibig', 'Philhealth', 'NBI', 'Mayors Permi
       <button data-open-upload class="mt-4 bg-daGreen text-white px-4 py-2 rounded-lg text-sm">Upload Now</button>
     </div>
   <?php else: ?>
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
+    <div class="w-full">
+      <table id="employeeDocumentTable" class="w-full text-sm table-fixed">
         <thead>
           <tr class="border-b text-gray-500">
-            <th class="text-left py-3">Document</th>
-            <th class="text-left py-3">Category</th>
-            <th class="text-left py-3">Uploaded</th>
-            <th class="text-left py-3">Status</th>
-            <th class="text-left py-3">Actions</th>
+            <th class="text-left py-3 pr-2 w-[35%]">Document</th>
+            <th class="text-left py-3 pr-2 w-[18%]">Category</th>
+            <th class="text-left py-3 pr-2 w-[15%]">Uploaded</th>
+            <th class="text-left py-3 pr-2 w-[12%]">Status</th>
+            <th class="text-right py-3 w-[20%]">Actions</th>
           </tr>
         </thead>
         <tbody id="documentTableBody">
@@ -209,9 +197,10 @@ $document201Types = ['PDS', 'SSS', 'Pagibig', 'Philhealth', 'NBI', 'Mayors Permi
             <?php
               $documentId = (string)($document['id'] ?? '');
               $categoryName = (string)($document['category_name'] ?? 'Uncategorized');
-              $document201Type = $detect201Type($document);
-              $is201File = $document201Type !== null;
               $status = (string)($document['document_status'] ?? 'draft');
+              $isArchived = strtolower($status) === 'archived';
+              $isResubmittable = in_array(strtolower($status), ['rejected', 'needs_revision'], true);
+              $is201File = isset($document201Lookup[strtolower($categoryName)]);
               [$statusLabel, $statusClass] = $statusMeta($status);
               $versions = (array)($documentVersionsById[$documentId] ?? []);
               $reviews = (array)($documentReviewsById[$documentId] ?? []);
@@ -221,27 +210,84 @@ $document201Types = ['PDS', 'SSS', 'Pagibig', 'Philhealth', 'NBI', 'Mayors Permi
               [$fileIcon, $fileIconClass, $fileTypeLabel] = $fileTypeMeta($latestExt);
               $detailsModalId = 'document-details-' . $documentId;
             ?>
-            <tr class="border-b" data-document-row data-search="<?= $escape(strtolower((string)($document['title'] ?? '') . ' ' . strtolower($categoryName) . ' ' . strtolower($statusLabel) . ' ' . strtolower($fileTypeLabel) . ' ' . strtolower((string)($document201Type ?? ''))) ) ?>" data-category="<?= $escape(strtolower($categoryName)) ?>" data-status="<?= $escape(strtolower($status)) ?>" data-group="<?= $is201File ? '201' : 'other' ?>" data-201-type="<?= $escape(strtolower((string)($document201Type ?? ''))) ?>">
-              <td class="py-3">
+            <tr class="border-b" data-document-row data-search="<?= $escape(strtolower((string)($document['title'] ?? '') . ' ' . strtolower($categoryName) . ' ' . strtolower($statusLabel) . ' ' . strtolower($fileTypeLabel))) ?>" data-category="<?= $escape(strtolower($categoryName)) ?>" data-status="<?= $escape(strtolower($status)) ?>" data-view="<?= $isArchived ? 'archived' : 'active' ?>">
+              <td class="py-3 pr-2 align-top">
                 <div class="flex items-start gap-2">
                   <span class="material-icons text-lg mt-0.5 <?= $escape($fileIconClass) ?>" title="<?= $escape($fileTypeLabel) ?>"><?= $escape($fileIcon) ?></span>
-                  <div>
-                    <p class="font-medium"><?= $escape($document['title'] ?? 'Document') ?></p>
-                    <p class="text-xs text-gray-500"><?= $escape($document['description'] ?? '') ?></p>
+                  <div class="min-w-0">
+                    <p class="font-medium break-words"><?= $escape($document['title'] ?? 'Document') ?></p>
+                    <p class="text-xs text-gray-500 break-words"><?= $escape($document['description'] ?? '') ?></p>
                     <?php if ($is201File): ?>
-                      <p class="text-xs text-daGreen mt-1">201 File · <?= $escape((string)$document201Type) ?></p>
+                      <p class="text-xs text-daGreen mt-1">201 File</p>
                     <?php endif; ?>
                   </div>
                 </div>
               </td>
-              <td class="py-3"><?= $escape($categoryName) ?></td>
-              <td class="py-3"><?= $escape($formatDate($document['updated_at'] ?? '')) ?></td>
-              <td class="py-3"><span class="px-3 py-1 rounded-full <?= $escape($statusClass) ?>"><?= $escape($statusLabel) ?></span></td>
-              <td class="py-3">
-                <div class="flex flex-wrap gap-2">
-                  <a href="view-document.php?document_id=<?= $escape($documentId) ?>" target="_blank" rel="noopener" class="border px-3 py-1 rounded-lg text-xs inline-flex items-center gap-1.5"><span class="material-icons text-sm">visibility</span>View</a>
-                  <a href="download-document.php?document_id=<?= $escape($documentId) ?>" class="border px-3 py-1 rounded-lg text-xs inline-flex items-center gap-1.5"><span class="material-icons text-sm">download</span>Download</a>
-                  <button type="button" data-open-details="<?= $escape($detailsModalId) ?>" class="border px-3 py-1 rounded-lg text-xs inline-flex items-center gap-1.5"><span class="material-icons text-sm">info</span>View Details</button>
+              <td class="py-3 pr-2 align-top break-words"><?= $escape($categoryName) ?></td>
+              <td class="py-3 pr-2 align-top break-words"><?= $escape($formatDate($document['updated_at'] ?? '')) ?></td>
+              <td class="py-3 pr-2 align-top"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium <?= $escape($statusClass) ?>"><?= $escape($statusLabel) ?></span></td>
+              <td class="py-3 align-top text-right">
+                <div class="relative inline-block text-left" data-action-dropdown>
+                  <button type="button" data-action-trigger class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">
+                    <span class="material-icons text-sm">more_horiz</span>
+                    Actions
+                  </button>
+
+                  <div data-action-menu class="hidden absolute right-0 mt-1 w-52 rounded-md border border-slate-200 bg-white shadow-lg z-30 py-1">
+                    <a href="view-document.php?document_id=<?= $escape($documentId) ?>" target="_blank" rel="noopener" data-action-item="view" class="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                      <span class="material-icons text-sm">open_in_new</span>
+                      View
+                    </a>
+                    <a href="download-document.php?document_id=<?= $escape($documentId) ?>" data-action-item="download" class="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                      <span class="material-icons text-sm">download</span>
+                      Download
+                    </a>
+                    <button type="button" data-action-item="details" class="w-full text-left flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                      <span class="material-icons text-sm">info</span>
+                      View Details
+                    </button>
+                    <?php if (!$isArchived): ?>
+                      <button type="button" data-action-item="upload_version" class="w-full text-left flex items-center gap-2 px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50">
+                        <span class="material-icons text-sm">upload</span>
+                        <?= $escape($isResubmittable ? 'Resubmit Document' : 'Upload New Version') ?>
+                      </button>
+                      <button type="button" data-action-item="archive" class="w-full text-left flex items-center gap-2 px-3 py-2 text-sm text-red-700 hover:bg-red-50">
+                        <span class="material-icons text-sm">archive</span>
+                        Archive
+                      </button>
+                    <?php else: ?>
+                      <button type="button" data-action-item="restore" class="w-full text-left flex items-center gap-2 px-3 py-2 text-sm text-indigo-700 hover:bg-indigo-50">
+                        <span class="material-icons text-sm">restore</span>
+                        Restore
+                      </button>
+                    <?php endif; ?>
+                  </div>
+                </div>
+
+                <div class="hidden">
+                  <a href="view-document.php?document_id=<?= $escape($documentId) ?>" target="_blank" rel="noopener" data-action-view>View</a>
+                  <a href="download-document.php?document_id=<?= $escape($documentId) ?>" data-action-download>Download</a>
+                  <button type="button" data-action-details data-open-details="<?= $escape($detailsModalId) ?>">Details</button>
+                  <?php if (!$isArchived): ?>
+                    <button type="button" data-action-upload data-open-version data-document-id="<?= $escape($documentId) ?>" data-document-title="<?= $escape($document['title'] ?? 'Document') ?>">Upload</button>
+                    <form method="post" action="document-management.php" data-archive-form>
+                      <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken ?? '') ?>">
+                      <input type="hidden" name="action" value="archive_document">
+                      <input type="hidden" name="document_id" value="<?= $escape($documentId) ?>">
+                      <input type="hidden" name="archive_reason" value="" data-archive-reason>
+                      <input type="hidden" value="<?= $escape($document['title'] ?? 'Document') ?>" data-archive-title>
+                      <button type="submit" data-action-archive>Archive</button>
+                    </form>
+                  <?php else: ?>
+                    <form method="post" action="document-management.php" data-restore-form>
+                      <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken ?? '') ?>">
+                      <input type="hidden" name="action" value="restore_document">
+                      <input type="hidden" name="document_id" value="<?= $escape($documentId) ?>">
+                      <input type="hidden" name="restore_reason" value="" data-restore-reason>
+                      <input type="hidden" value="<?= $escape($document['title'] ?? 'Document') ?>" data-restore-title>
+                      <button type="submit" data-action-restore>Restore</button>
+                    </form>
+                  <?php endif; ?>
                 </div>
               </td>
             </tr>
@@ -312,13 +358,9 @@ $document201Types = ['PDS', 'SSS', 'Pagibig', 'Philhealth', 'NBI', 'Mayors Permi
                   <div class="flex gap-2">
                     <a href="view-document.php?document_id=<?= $escape($documentId) ?>" target="_blank" rel="noopener" class="border px-3 py-2 rounded-lg text-xs inline-flex items-center gap-1.5"><span class="material-icons text-sm">visibility</span>View</a>
                     <a href="download-document.php?document_id=<?= $escape($documentId) ?>" class="border px-3 py-2 rounded-lg text-xs inline-flex items-center gap-1.5"><span class="material-icons text-sm">download</span>Download</a>
-                    <button type="button" data-open-version data-document-id="<?= $escape($documentId) ?>" data-document-title="<?= $escape($document['title'] ?? 'Document') ?>" class="border px-3 py-2 rounded-lg text-xs inline-flex items-center gap-1.5"><span class="material-icons text-sm">edit</span>Upload New Version</button>
-                    <form method="post" action="document-management.php" onsubmit="return confirm('Archive this document?');">
-                      <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken ?? '') ?>">
-                      <input type="hidden" name="action" value="archive_document">
-                      <input type="hidden" name="document_id" value="<?= $escape($documentId) ?>">
-                      <button type="submit" class="border border-red-300 text-red-700 px-3 py-2 rounded-lg text-xs inline-flex items-center gap-1.5"><span class="material-icons text-sm">delete</span>Archive</button>
-                    </form>
+                    <?php if (!$isArchived): ?>
+                      <button type="button" data-open-version data-document-id="<?= $escape($documentId) ?>" data-document-title="<?= $escape($document['title'] ?? 'Document') ?>" class="border px-3 py-2 rounded-lg text-xs inline-flex items-center gap-1.5"><span class="material-icons text-sm">edit</span><?= $isResubmittable ? 'Resubmit Revised' : 'Upload New Version' ?></button>
+                    <?php endif; ?>
                   </div>
                   <button type="button" data-close-details class="border px-3 py-2 rounded-lg text-xs">Close</button>
                 </div>
@@ -333,6 +375,15 @@ $document201Types = ['PDS', 'SSS', 'Pagibig', 'Philhealth', 'NBI', 'Mayors Permi
       <p class="font-medium text-gray-700">No matching documents</p>
       <p class="text-sm text-gray-500 mt-1">Try changing your search text or filters.</p>
       <button type="button" data-clear-filters class="mt-4 border px-4 py-2 rounded-lg text-sm">Clear Filters</button>
+    </div>
+
+    <div class="mt-4 flex items-center justify-between gap-3 border-t pt-4" data-pagination-controls="employeeDocumentTable">
+      <p class="text-xs text-gray-500" data-pagination-label>Showing 0 of 0</p>
+      <div class="flex items-center gap-2">
+        <button type="button" class="px-3 py-1.5 text-xs border rounded-md text-gray-700 hover:bg-gray-50" data-pagination-prev>Previous</button>
+        <span class="text-xs text-gray-600" data-pagination-page>Page 1</span>
+        <button type="button" class="px-3 py-1.5 text-xs border rounded-md text-gray-700 hover:bg-gray-50" data-pagination-next>Next</button>
+      </div>
     </div>
   <?php endif; ?>
 </div>

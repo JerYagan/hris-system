@@ -2,20 +2,24 @@
 
 $documentRows = [];
 $archivedDocumentRows = [];
+$pendingStaffReviewRows = [];
 $uploaderSummaryRows = [];
 
 $document201Types = [
+    'Violation',
+    'Memorandum Receipt',
+    'GSIS',
+    'Copy of SALN',
+    'Service record',
+    'COE',
     'PDS',
     'SSS',
     'Pagibig',
     'Philhealth',
     'NBI',
-    'Mayors Permits',
     'Medical',
     'Drug Test',
-    'Health Card',
-    'Cedula',
-    'Resume/CV',
+    'Others',
 ];
 
 $selectedDocumentStatus = strtolower((string)(cleanText($_GET['status'] ?? null) ?? ''));
@@ -61,6 +65,34 @@ $reviewsResponse = apiRequest(
 $appendDataError('Document reviews', $reviewsResponse);
 $reviews = isSuccessful($reviewsResponse) ? (array)($reviewsResponse['data'] ?? []) : [];
 
+$staffRecommendationByDocument = [];
+if (isValidUuid($staffUserId)) {
+    $staffReviewsResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/document_reviews?select=document_id,review_status,review_notes,created_at,reviewed_at'
+        . '&reviewer_user_id=eq.' . rawurlencode($staffUserId)
+        . '&review_status=in.(approved,rejected)'
+        . '&order=created_at.desc&limit=3000',
+        $headers
+    );
+    $appendDataError('Staff recommendations', $staffReviewsResponse);
+    $staffReviews = isSuccessful($staffReviewsResponse) ? (array)($staffReviewsResponse['data'] ?? []) : [];
+
+    foreach ($staffReviews as $staffReview) {
+        $documentId = cleanText($staffReview['document_id'] ?? null) ?? '';
+        if ($documentId === '' || isset($staffRecommendationByDocument[$documentId])) {
+            continue;
+        }
+
+        $staffRecommendationByDocument[$documentId] = [
+            'status' => strtolower((string)(cleanText($staffReview['review_status'] ?? null) ?? '')),
+            'notes' => cleanText($staffReview['review_notes'] ?? null) ?? '',
+            'reviewed_at' => cleanText($staffReview['reviewed_at'] ?? null) ?? (cleanText($staffReview['created_at'] ?? null) ?? ''),
+        ];
+    }
+}
+
 $latestReviewByDocument = [];
 foreach ($reviews as $review) {
     $documentId = cleanText($review['document_id'] ?? null) ?? '';
@@ -77,17 +109,20 @@ foreach ($reviews as $review) {
 
 $detect201Type = static function (array $payload) use ($document201Types): ?string {
     $dictionary = [
+        'Violation' => ['violation'],
+        'Memorandum Receipt' => ['memorandum receipt', 'memorandum', 'memo receipt'],
+        'GSIS' => ['gsis'],
+        'Copy of SALN' => ['saln', 'statement of assets'],
+        'Service record' => ['service record'],
+        'COE' => ['coe', 'certificate of employment'],
         'PDS' => ['pds', 'personal data sheet'],
         'SSS' => ['sss'],
         'Pagibig' => ['pagibig', 'pag-ibig'],
         'Philhealth' => ['philhealth'],
         'NBI' => ['nbi'],
-        'Mayors Permits' => ['mayor', 'permit'],
         'Medical' => ['medical'],
         'Drug Test' => ['drug test', 'drugtest'],
-        'Health Card' => ['health card', 'healthcard'],
-        'Cedula' => ['cedula', 'community tax certificate'],
-        'Resume/CV' => ['resume', 'cv', 'curriculum vitae'],
+        'Others' => ['other', 'others'],
     ];
 
     $haystack = strtolower(trim(
@@ -359,9 +394,24 @@ foreach ($documents as $document) {
         'submitted_label' => formatDateTimeForPhilippines($createdAt, 'M d, Y'),
         'updated_label' => formatDateTimeForPhilippines($updatedAt, 'M d, Y'),
         'last_review' => $reviewLabel($latestReviewByDocument[$documentId] ?? null),
+        'latest_review_status' => strtolower((string)(cleanText($latestReviewByDocument[$documentId]['status'] ?? null) ?? '')),
+        'previous_recommendation' => strtolower((string)(cleanText($staffRecommendationByDocument[$documentId]['status'] ?? null) ?? '')),
+        'previous_recommendation_notes' => cleanText($staffRecommendationByDocument[$documentId]['notes'] ?? null) ?? '',
         'view_url' => $viewUrl,
         'search_text' => strtolower(trim($title . ' ' . $ownerName . ' ' . $documentType201 . ' ' . $statusLabel . ' ' . $description)),
+        'can_recommend' => false,
     ];
+
+    $latestReviewStatusRaw = strtolower((string)($documentRow['latest_review_status'] ?? ''));
+    $documentRow['can_recommend'] = in_array($statusRaw, ['submitted', 'draft', 'needs_revision'], true)
+        && !in_array($latestReviewStatusRaw, ['approved', 'rejected'], true);
+
+    if (
+        in_array($statusRaw, ['submitted', 'draft', 'needs_revision'], true)
+        && ($latestReviewStatusRaw === '' || $latestReviewStatusRaw === 'pending' || $latestReviewStatusRaw === 'needs_revision')
+    ) {
+        $pendingStaffReviewRows[] = $documentRow;
+    }
 
     if ($statusRaw === 'archived') {
         $archivedDocumentRows[] = $documentRow;
@@ -428,6 +478,7 @@ $applicationDocumentsResponse = apiRequest(
 $appendDataError('Applicant documents', $applicationDocumentsResponse);
 
 foreach ((array)($applicationDocumentsResponse['data'] ?? []) as $applicationDocument) {
+    $applicationDocumentId = cleanText($applicationDocument['id'] ?? null) ?? '';
     $applicantUserId = strtolower((string)(cleanText($applicationDocument['application']['applicant_profile']['user_id'] ?? null) ?? ''));
     if (!isValidUuid($applicantUserId) || !isset($applicantRoleUserIdMap[$applicantUserId])) {
         continue;
@@ -448,7 +499,13 @@ foreach ((array)($applicationDocumentsResponse['data'] ?? []) as $applicationDoc
     $uploadedAt = cleanText($applicationDocument['uploaded_at'] ?? null) ?? (cleanText($applicationDocument['application']['submitted_at'] ?? null) ?? '');
     $uploadedLabel = formatDateTimeForPhilippines($uploadedAt, 'M d, Y');
     $status = ucwords(str_replace('_', ' ', strtolower((string)(cleanText($applicationDocument['application']['application_status'] ?? null) ?? 'submitted'))));
-    $fileUrl = $resolveFileUrl(cleanText($applicationDocument['file_url'] ?? null));
+    $fileUrl = '';
+    if (isValidUuid($applicationDocumentId)) {
+        $fileUrl = '/hris-system/pages/admin/applicant-document.php?document_id=' . rawurlencode($applicationDocumentId);
+    }
+    if ($fileUrl === '') {
+        $fileUrl = $resolveFileUrl(cleanText($applicationDocument['file_url'] ?? null));
+    }
     [$fileTypeLabel, $fileTypeIcon, $fileTypeClass] = $buildFileTypeMeta($fileName);
 
     if (!isset($uploaderSummaryMap[$applicantUserId])) {
@@ -488,6 +545,13 @@ foreach ((array)($applicationDocumentsResponse['data'] ?? []) as $applicationDoc
 
 $uploaderSummaryRows = array_values($uploaderSummaryMap);
 foreach ($uploaderSummaryRows as &$uploaderRow) {
+    $uploaderRow['search_text'] = strtolower(trim(
+        (string)($uploaderRow['display_name'] ?? '')
+        . ' '
+        . (string)($uploaderRow['email'] ?? '')
+        . ' '
+        . (string)($uploaderRow['account_type'] ?? '')
+    ));
     usort($uploaderRow['documents'], static function (array $left, array $right): int {
         $leftTs = strtotime((string)($left['updated_at_raw'] ?? '')) ?: 0;
         $rightTs = strtotime((string)($right['updated_at_raw'] ?? '')) ?: 0;

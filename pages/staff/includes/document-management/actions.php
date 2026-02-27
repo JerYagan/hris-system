@@ -17,6 +17,8 @@ if (!isValidCsrfToken($_POST['csrf_token'] ?? null)) {
 $documentId = cleanText($_POST['document_id'] ?? null) ?? '';
 $reviewStatus = strtolower((string)(cleanText($_POST['review_status'] ?? null) ?? ''));
 $reviewNotes = cleanText($_POST['review_notes'] ?? null);
+$archiveReason = cleanText($_POST['archive_reason'] ?? null);
+$restoreReason = cleanText($_POST['restore_reason'] ?? null);
 
 if (!isValidUuid($documentId)) {
     redirectWithState('error', 'Invalid document identifier.');
@@ -24,6 +26,18 @@ if (!isValidUuid($documentId)) {
 
 if ($action === 'review_document' && !in_array($reviewStatus, ['approved', 'rejected'], true)) {
     redirectWithState('error', 'Invalid review status selected.');
+}
+
+if ($action === 'review_document' && trim((string)$reviewNotes) === '') {
+    redirectWithState('error', 'Recommendation notes are required for status-changing actions.');
+}
+
+if ($action === 'archive_document' && trim((string)$archiveReason) === '') {
+    redirectWithState('error', 'Archive reason is required for status-changing actions.');
+}
+
+if ($action === 'restore_document' && trim((string)$restoreReason) === '') {
+    redirectWithState('error', 'Restore reason is required for status-changing actions.');
 }
 
 $documentResponse = apiRequest(
@@ -63,12 +77,58 @@ if ($action === 'review_document' && in_array($currentStatus, ['approved', 'reje
     redirectWithState('error', 'Finalized documents can no longer receive staff recommendations.');
 }
 
+if ($action === 'review_document') {
+    $latestStaffRecommendationResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/document_reviews?select=id,review_status,created_at'
+        . '&document_id=eq.' . rawurlencode($documentId)
+        . '&reviewer_user_id=eq.' . rawurlencode($staffUserId)
+        . '&review_status=in.(approved,rejected)'
+        . '&order=created_at.desc'
+        . '&limit=1',
+        $headers
+    );
+
+    $latestStaffRecommendation = isSuccessful($latestStaffRecommendationResponse)
+        ? ($latestStaffRecommendationResponse['data'][0] ?? null)
+        : null;
+
+    if (is_array($latestStaffRecommendation)) {
+        $latestStaffRecommendationAt = (string)(cleanText($latestStaffRecommendation['created_at'] ?? null) ?? '');
+
+        $returnedByAdminResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/document_reviews?select=id,created_at'
+            . '&document_id=eq.' . rawurlencode($documentId)
+            . '&review_status=eq.needs_revision'
+            . '&order=created_at.desc'
+            . '&limit=1',
+            $headers
+        );
+
+        $returnedByAdmin = isSuccessful($returnedByAdminResponse)
+            ? ($returnedByAdminResponse['data'][0] ?? null)
+            : null;
+
+        $returnedAt = is_array($returnedByAdmin)
+            ? (string)(cleanText($returnedByAdmin['created_at'] ?? null) ?? '')
+            : '';
+
+        $latestStaffTs = strtotime($latestStaffRecommendationAt) ?: 0;
+        $returnedTs = strtotime($returnedAt) ?: 0;
+
+        if ($returnedTs <= $latestStaffTs) {
+            redirectWithState('error', 'Recommendation is locked after submit-to-admin and can only be updated when returned by admin.');
+        }
+    }
+}
+
 if ($action === 'archive_document') {
     if ($currentStatus === 'archived') {
         redirectWithState('success', 'Document is already archived.');
     }
-
-    $archiveReason = cleanText($_POST['archive_reason'] ?? null);
 
     $archiveResponse = apiRequest(
         'PATCH',

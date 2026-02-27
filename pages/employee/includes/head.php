@@ -8,9 +8,11 @@
 
   <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <!-- Material Icons -->
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
 
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -24,6 +26,12 @@
 
 
   <link rel="stylesheet" href="/hris-system/global.css">
+
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: 'wght' 400;
+    }
+  </style>
 
   <script>
     tailwind.config = {

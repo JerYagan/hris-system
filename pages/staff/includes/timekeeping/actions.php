@@ -152,66 +152,76 @@ if ($action === 'review_leave_request') {
 }
 
 if ($action === 'review_overtime_request') {
+    redirectWithState('error', 'Legacy CTO overtime recommendation is disabled. Review CTO through Leave/CTO Requests only.');
+}
+
+if ($action === 'review_ob_request') {
     $requestId = cleanText($_POST['request_id'] ?? null) ?? '';
     $decision = strtolower((string)(cleanText($_POST['decision'] ?? null) ?? ''));
     $notes = cleanText($_POST['notes'] ?? null);
 
     if (!isValidUuid($requestId)) {
-        redirectWithState('error', 'Invalid overtime request selected.');
+        redirectWithState('error', 'Invalid official business request selected.');
     }
 
     if (!in_array($decision, ['approved', 'rejected', 'cancelled'], true)) {
-        redirectWithState('error', 'Invalid overtime decision selected.');
+        redirectWithState('error', 'Invalid official business decision selected.');
     }
 
     $requestResponse = apiRequest(
         'GET',
-        $supabaseUrl . '/rest/v1/overtime_requests?select=id,person_id,status,person:people(user_id)&id=eq.' . rawurlencode($requestId) . '&limit=1',
+        $supabaseUrl . '/rest/v1/overtime_requests?select=id,person_id,status,reason,person:people(user_id)&id=eq.' . rawurlencode($requestId) . '&limit=1',
         $headers
     );
 
     $requestRow = isSuccessful($requestResponse) ? ($requestResponse['data'][0] ?? null) : null;
     if (!is_array($requestRow)) {
-        redirectWithState('error', 'Overtime request not found.');
+        redirectWithState('error', 'Official business request not found.');
+    }
+
+    $reasonRaw = trim((string)($requestRow['reason'] ?? ''));
+    if (preg_match('/^\[OB\]\s*/i', $reasonRaw) !== 1) {
+        redirectWithState('error', 'Only official business requests can use OB review.');
     }
 
     $personId = cleanText($requestRow['person_id'] ?? null) ?? '';
     $recipientUserId = cleanText($requestRow['person']['user_id'] ?? null) ?? '';
 
     if (!$isPersonInScope($personId)) {
-        redirectWithState('error', 'Overtime request target is invalid or no longer active.');
+        redirectWithState('error', 'Official business request target is invalid or no longer active.');
     }
 
     $oldStatus = strtolower((string)(cleanText($requestRow['status'] ?? null) ?? 'pending'));
     if (!canTransitionStatus('overtime_requests', $oldStatus, $decision)) {
-        redirectWithState('error', 'Invalid overtime request transition from ' . $oldStatus . ' to ' . $decision . '.');
+        redirectWithState('error', 'Invalid official business transition from ' . $oldStatus . ' to ' . $decision . '.');
     }
 
     $notifyRequester(
         $recipientUserId,
-        'Overtime Recommendation Submitted',
-        'A staff recommendation (' . str_replace('_', ' ', $decision) . ') was submitted for your overtime request. Final approval will be done by admin.'
+        'Official Business Recommendation Submitted',
+        'A staff recommendation (' . str_replace('_', ' ', $decision) . ') was submitted for your official business request. Final approval will be done by admin.'
     );
 
     $notifyAdmins(
-        'Overtime Recommendation Pending Approval',
-        'A staff recommendation was submitted for an overtime request: ' . str_replace('_', ' ', $decision) . '. Please review for final decision.'
+        'Official Business Recommendation Pending Approval',
+        'A staff recommendation was submitted for an official business request: ' . str_replace('_', ' ', $decision) . '. Please review for final decision.'
     );
 
     $writeActivityLog(
         'overtime_requests',
         $requestId,
-        'recommend_overtime_request',
+        'recommend_ob_request',
         ['status' => $oldStatus],
         [
             'status' => $oldStatus,
             'recommended_status' => $decision,
             'notes' => $notes,
             'submitted_for_admin_approval' => true,
+            'request_type' => 'official_business',
         ]
     );
 
-    redirectWithState('success', 'Overtime recommendation submitted to admin for final approval.');
+    redirectWithState('success', 'Official business recommendation submitted to admin for final approval.');
 }
 
 if ($action === 'review_time_adjustment') {

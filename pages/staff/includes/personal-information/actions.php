@@ -534,6 +534,7 @@ if ($action === 'save_profile') {
     $profileAction = strtolower((string)(cleanText($_POST['profile_action'] ?? null) ?? 'edit'));
     $personId = cleanText($_POST['person_id'] ?? null) ?? '';
     $employmentId = cleanText($_POST['employment_id'] ?? null) ?? '';
+    $recommendationNotes = trim((string)(cleanText($_POST['profile_recommendation_notes'] ?? null) ?? ''));
 
     if ($profileAction !== 'edit') {
         redirectWithState('error', 'Unsupported profile action.');
@@ -561,6 +562,43 @@ if ($action === 'save_profile') {
         redirectWithState('error', 'Please enter a valid mobile number.');
     }
 
+    $requiredFieldMap = [
+        'date_of_birth' => 'Date of birth',
+        'place_of_birth' => 'Place of birth',
+        'civil_status' => 'Civil status',
+        'blood_type' => 'Blood type',
+        'residential_barangay' => 'Residential barangay',
+        'residential_city_municipality' => 'Residential city/municipality',
+        'residential_province' => 'Residential province',
+        'residential_zip_code' => 'Residential ZIP code',
+        'permanent_barangay' => 'Permanent barangay',
+        'permanent_city_municipality' => 'Permanent city/municipality',
+        'permanent_province' => 'Permanent province',
+        'permanent_zip_code' => 'Permanent ZIP code',
+    ];
+
+    foreach ($requiredFieldMap as $fieldName => $label) {
+        $fieldValue = trim((string)(cleanText($_POST[$fieldName] ?? null) ?? ''));
+        if ($fieldValue === '') {
+            redirectWithState('error', $label . ' is required before submitting recommendation.');
+        }
+    }
+
+    $dateOfBirthInput = trim((string)(cleanText($_POST['date_of_birth'] ?? null) ?? ''));
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateOfBirthInput)) {
+        redirectWithState('error', 'Date of birth must be a valid date.');
+    }
+
+    $zipFields = [
+        'residential_zip_code' => trim((string)(cleanText($_POST['residential_zip_code'] ?? null) ?? '')),
+        'permanent_zip_code' => trim((string)(cleanText($_POST['permanent_zip_code'] ?? null) ?? '')),
+    ];
+    foreach ($zipFields as $zipLabel => $zipValue) {
+        if (!preg_match('/^\d{4}$/', $zipValue)) {
+            redirectWithState('error', str_replace('_', ' ', ucfirst($zipLabel)) . ' must be a valid 4-digit ZIP code.');
+        }
+    }
+
     $employmentRow = $resolveScopedEmployment($employmentId, $personId);
     if (!is_array($employmentRow)) {
         redirectWithState('error', 'Employee scope validation failed.');
@@ -569,7 +607,7 @@ if ($action === 'save_profile') {
     $personResponse = apiRequest(
         'GET',
         $supabaseUrl
-        . '/rest/v1/people?select=id,user_id,first_name,middle_name,surname,name_extension,personal_email,mobile_no'
+        . '/rest/v1/people?select=id,user_id,first_name,middle_name,surname,name_extension,date_of_birth,place_of_birth,sex_at_birth,civil_status,height_m,weight_kg,blood_type,citizenship,dual_citizenship,dual_citizenship_country,telephone_no,mobile_no,personal_email,agency_employee_no'
         . '&id=eq.' . rawurlencode($personId)
         . '&limit=1',
         $headers
@@ -623,6 +661,59 @@ if ($action === 'save_profile') {
         'agency_employee_no' => ($agencyEmployeeNo = trim((string)(cleanText($_POST['agency_employee_no'] ?? null) ?? ''))) !== '' ? $agencyEmployeeNo : null,
         'updated_at' => gmdate('c'),
     ];
+
+    $normalizeComparableValue = static function ($value): string {
+        if ($value === null) {
+            return '';
+        }
+        if (is_bool($value)) {
+            return $value ? '1' : '0';
+        }
+        if (is_numeric($value)) {
+            return rtrim(rtrim(sprintf('%.8F', (float)$value), '0'), '.');
+        }
+
+        return trim((string)$value);
+    };
+
+    $comparableProfileFields = [
+        'first_name',
+        'middle_name',
+        'surname',
+        'name_extension',
+        'date_of_birth',
+        'place_of_birth',
+        'sex_at_birth',
+        'civil_status',
+        'height_m',
+        'weight_kg',
+        'blood_type',
+        'citizenship',
+        'dual_citizenship',
+        'dual_citizenship_country',
+        'telephone_no',
+        'mobile_no',
+        'personal_email',
+        'agency_employee_no',
+    ];
+
+    $recommendedProfileChanges = [];
+    foreach ($comparableProfileFields as $fieldName) {
+        if (!array_key_exists($fieldName, $patchPayload)) {
+            continue;
+        }
+
+        $oldValue = $personRow[$fieldName] ?? null;
+        $newValue = $patchPayload[$fieldName] ?? null;
+        if ($normalizeComparableValue($oldValue) === $normalizeComparableValue($newValue)) {
+            continue;
+        }
+
+        $recommendedProfileChanges[$fieldName] = [
+            'old' => $oldValue,
+            'new' => $newValue,
+        ];
+    }
 
     $residentialRecommendation = [
         'house_no' => trim((string)(cleanText($_POST['residential_house_no'] ?? null) ?? '')),
@@ -737,7 +828,8 @@ if ($action === 'save_profile') {
                 'recipient_user_id' => (string)$adminUserId,
                 'category' => 'employee_profile',
                 'title' => 'Employee Profile Recommendation',
-                'body' => 'A staff recommendation was submitted to update profile information for ' . $firstName . ' ' . $surname . '. Please review for final approval.',
+                'body' => 'A staff recommendation was submitted to update profile information for ' . $firstName . ' ' . $surname . '. Please review for final approval.'
+                    . ($recommendationNotes !== '' ? (' Notes: ' . $recommendationNotes) : ''),
                 'link_url' => '/hris-system/pages/admin/personal-information.php',
             ]]
         );
@@ -779,6 +871,7 @@ if ($action === 'save_profile') {
             ],
             'new_data' => [
                 'recommended_profile' => $patchPayload,
+                'recommended_profile_changes' => $recommendedProfileChanges,
                 'recommended_addresses' => [
                     'residential' => $residentialRecommendation,
                     'permanent' => $permanentRecommendation,
@@ -788,6 +881,7 @@ if ($action === 'save_profile') {
                     'children' => $childrenRecommendation,
                 ]),
                 'recommended_educational_backgrounds' => $educationRecommendation,
+                'recommendation_notes' => $recommendationNotes,
                 'submitted_for_admin_approval' => true,
             ],
             'ip_address' => clientIp(),
@@ -802,9 +896,14 @@ if ($action === 'assign_department_position') {
     $employmentId = cleanText($_POST['employment_id'] ?? null) ?? '';
     $officeId = cleanText($_POST['office_id'] ?? null) ?? '';
     $positionId = cleanText($_POST['position_id'] ?? null) ?? '';
+    $recommendationNotes = trim((string)(cleanText($_POST['recommendation_notes'] ?? null) ?? ''));
 
     if (!isValidUuid($officeId) || !isValidUuid($positionId)) {
         redirectWithState('error', 'Select a valid department and position.');
+    }
+
+    if ($recommendationNotes === '') {
+        redirectWithState('error', 'Recommendation notes are required for division/position recommendations.');
     }
 
     $employmentRow = $resolveScopedEmployment($employmentId, $personId);
@@ -817,19 +916,73 @@ if ($action === 'assign_department_position') {
         'position_id' => cleanText($employmentRow['position_id'] ?? null),
     ];
 
-    $patchResponse = apiRequest(
-        'PATCH',
-        $supabaseUrl . '/rest/v1/employment_records?id=eq.' . rawurlencode($employmentId),
-        array_merge($headers, ['Prefer: return=minimal']),
-        [
-            'office_id' => $officeId,
-            'position_id' => $positionId,
-            'updated_at' => gmdate('c'),
-        ]
+    $recommendedOfficeName = '';
+    $officeResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/offices?select=office_name&id=eq.' . rawurlencode($officeId) . '&limit=1',
+        $headers
     );
+    if (isSuccessful($officeResponse) && is_array($officeResponse['data'][0] ?? null)) {
+        $recommendedOfficeName = cleanText($officeResponse['data'][0]['office_name'] ?? null) ?? '';
+    }
 
-    if (!isSuccessful($patchResponse)) {
-        redirectWithState('error', 'Failed to assign department and position.');
+    $recommendedPositionTitle = '';
+    $positionResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/job_positions?select=position_title&id=eq.' . rawurlencode($positionId) . '&limit=1',
+        $headers
+    );
+    if (isSuccessful($positionResponse) && is_array($positionResponse['data'][0] ?? null)) {
+        $recommendedPositionTitle = cleanText($positionResponse['data'][0]['position_title'] ?? null) ?? '';
+    }
+
+    $personResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/people?select=id,user_id,first_name,surname&id=eq.' . rawurlencode($personId) . '&limit=1',
+        $headers
+    );
+    $personRow = isSuccessful($personResponse) ? ($personResponse['data'][0] ?? null) : null;
+    $employeeUserId = cleanText($personRow['user_id'] ?? null) ?? '';
+    $employeeName = is_array($personRow)
+        ? trim((string)($personRow['first_name'] ?? '') . ' ' . (string)($personRow['surname'] ?? ''))
+        : 'Employee';
+    if ($employeeName === '') {
+        $employeeName = 'Employee';
+    }
+
+    if (isValidUuid($employeeUserId) && strcasecmp($employeeUserId, (string)$staffUserId) !== 0) {
+        apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/notifications',
+            array_merge($headers, ['Prefer: return=minimal']),
+            [[
+                'recipient_user_id' => $employeeUserId,
+                'category' => 'employee_profile',
+                'title' => 'Division/Position Recommendation Submitted',
+                'body' => 'A recommendation was submitted to update your division/position assignment. Notes: ' . $recommendationNotes,
+                'link_url' => '/hris-system/pages/employee/personal-information.php',
+            ]]
+        );
+    }
+
+    $adminUserIdMap = fetchActiveRoleUserIdMap($supabaseUrl, $headers, 'admin');
+    foreach (array_keys($adminUserIdMap) as $adminUserId) {
+        if (!isValidUuid((string)$adminUserId)) {
+            continue;
+        }
+
+        apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/notifications',
+            array_merge($headers, ['Prefer: return=minimal']),
+            [[
+                'recipient_user_id' => (string)$adminUserId,
+                'category' => 'employee_profile',
+                'title' => 'Division/Position Recommendation',
+                'body' => 'Recommendation for ' . $employeeName . ': set division to ' . ($recommendedOfficeName !== '' ? $recommendedOfficeName : 'selected office') . ' and position to ' . ($recommendedPositionTitle !== '' ? $recommendedPositionTitle : 'selected position') . '. Notes: ' . $recommendationNotes,
+                'link_url' => '/hris-system/pages/admin/personal-information.php',
+            ]]
+        );
     }
 
     apiRequest(
@@ -841,17 +994,22 @@ if ($action === 'assign_department_position') {
             'module_name' => 'personal_information',
             'entity_name' => 'employment_records',
             'entity_id' => $employmentId,
-            'action_name' => 'assign_department_position',
+            'action_name' => 'recommend_department_position',
             'old_data' => $oldData,
             'new_data' => [
-                'office_id' => $officeId,
-                'position_id' => $positionId,
+                'employment_status' => strtolower((string)(cleanText($employmentRow['employment_status'] ?? null) ?? 'inactive')),
+                'recommended_office_id' => $officeId,
+                'recommended_position_id' => $positionId,
+                'recommended_office_name' => $recommendedOfficeName,
+                'recommended_position_title' => $recommendedPositionTitle,
+                'recommendation_notes' => $recommendationNotes,
+                'submitted_for_admin_approval' => true,
             ],
             'ip_address' => clientIp(),
         ]]
     );
 
-    redirectWithState('success', 'Department and position assignment updated.');
+    redirectWithState('success', 'Division/position recommendation submitted to admin for approval.');
 }
 
 if ($action === 'update_employee_status') {
@@ -862,6 +1020,10 @@ if ($action === 'update_employee_status') {
 
     if (!in_array($newStatus, ['active', 'inactive'], true)) {
         redirectWithState('error', 'Invalid status selected.');
+    }
+
+    if ($statusSpecification === '') {
+        redirectWithState('error', 'Recommendation notes are required for status recommendations.');
     }
 
     $employmentRow = $resolveScopedEmployment($employmentId, $personId);

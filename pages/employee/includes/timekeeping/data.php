@@ -29,6 +29,20 @@ $attendanceOffset = ($attendancePage - 1) * $attendancePageSize;
 $attendanceHasPrev = $attendancePage > 1;
 $attendanceHasNext = false;
 
+$isLateByApprovedPolicy = static function (?string $timeInValue): bool {
+    $raw = trim((string)$timeInValue);
+    if ($raw === '') {
+        return false;
+    }
+
+    $timestamp = strtotime($raw);
+    if ($timestamp === false) {
+        return false;
+    }
+
+    return date('H:i:s', $timestamp) >= '09:01:00';
+};
+
 $attendanceStatusFilter = strtolower((string)cleanText($_GET['attendance_status'] ?? null));
 if (!in_array($attendanceStatusFilter, ['', 'present', 'late', 'absent', 'leave', 'holiday', 'rest_day'], true)) {
     $attendanceStatusFilter = '';
@@ -108,6 +122,13 @@ if (!isSuccessful($attendanceResponse)) {
 
     foreach ($allAttendanceRows as $attendanceRaw) {
         $row = (array)$attendanceRaw;
+        $isLateByPolicy = $isLateByApprovedPolicy((string)($row['time_in'] ?? ''));
+        $rawStatus = strtolower((string)($row['attendance_status'] ?? 'present'));
+        $displayStatus = $rawStatus;
+        if ($isLateByPolicy && in_array($rawStatus, ['present', 'late'], true)) {
+            $displayStatus = 'late';
+        }
+
         $attendanceRows[] = [
             'id' => (string)($row['id'] ?? ''),
             'attendance_date' => (string)($row['attendance_date'] ?? ''),
@@ -116,7 +137,9 @@ if (!isSuccessful($attendanceResponse)) {
             'hours_worked' => (float)($row['hours_worked'] ?? 0),
             'undertime_hours' => (float)($row['undertime_hours'] ?? 0),
             'late_minutes' => (int)($row['late_minutes'] ?? 0),
-            'attendance_status' => strtolower((string)($row['attendance_status'] ?? 'present')),
+            'attendance_status' => $rawStatus,
+            'display_status' => $displayStatus,
+            'is_late_by_policy' => $isLateByPolicy,
             'source' => (string)($row['source'] ?? ''),
         ];
     }
@@ -127,7 +150,7 @@ $currentMonthEnd = date('Y-m-t');
 $attendanceSummaryResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/attendance_logs?select=attendance_status,attendance_date'
+    . '/rest/v1/attendance_logs?select=attendance_status,attendance_date,time_in'
     . '&person_id=eq.' . rawurlencode((string)$employeePersonId)
     . '&attendance_date=gte.' . rawurlencode($currentMonthStart)
     . '&attendance_date=lte.' . rawurlencode($currentMonthEnd)
@@ -140,7 +163,13 @@ if (isSuccessful($attendanceSummaryResponse)) {
     $attendanceSummary['working_days'] = count($summaryRows);
 
     foreach ($summaryRows as $summaryRaw) {
-        $status = strtolower((string)((array)$summaryRaw)['attendance_status'] ?? '');
+        $summaryRow = (array)$summaryRaw;
+        $status = strtolower((string)($summaryRow['attendance_status'] ?? ''));
+        $isLateByPolicy = $isLateByApprovedPolicy((string)($summaryRow['time_in'] ?? ''));
+        if ($isLateByPolicy && in_array($status, ['present', 'late'], true)) {
+            $status = 'late';
+        }
+
         if ($status === 'present') {
             $attendanceSummary['present_days']++;
         } elseif ($status === 'late') {
@@ -166,12 +195,16 @@ if (isSuccessful($leaveBalancesResponse)) {
     foreach ((array)($leaveBalancesResponse['data'] ?? []) as $balanceRaw) {
         $balance = (array)$balanceRaw;
         $leaveType = (array)($balance['leave_type'] ?? []);
+        $leaveTypeId = (string)($leaveType['id'] ?? '');
         $leaveBalanceRows[] = [
+            'leave_type_id' => $leaveTypeId,
             'leave_name' => (string)($leaveType['leave_name'] ?? 'Leave Type'),
             'leave_code' => (string)($leaveType['leave_code'] ?? ''),
             'earned_credits' => (float)($balance['earned_credits'] ?? 0),
             'used_credits' => (float)($balance['used_credits'] ?? 0),
             'remaining_credits' => (float)($balance['remaining_credits'] ?? 0),
+            'pending_deduction' => 0.0,
+            'projected_remaining' => (float)($balance['remaining_credits'] ?? 0),
         ];
     }
 }
@@ -200,27 +233,52 @@ if (isSuccessful($leaveTypesResponse)) {
 $leaveRequestsResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/leave_requests?select=id,date_from,date_to,days_count,reason,status,created_at,leave_type:leave_types(leave_name)'
+    . '/rest/v1/leave_requests?select=id,leave_type_id,date_from,date_to,days_count,reason,status,created_at,leave_type:leave_types(leave_name)'
     . '&person_id=eq.' . rawurlencode((string)$employeePersonId)
     . '&order=created_at.desc&limit=50',
     $headers
 );
 
 if (isSuccessful($leaveRequestsResponse)) {
+    $pendingDeductionByTypeId = [];
+
     foreach ((array)($leaveRequestsResponse['data'] ?? []) as $requestRaw) {
         $request = (array)$requestRaw;
         $leaveType = (array)($request['leave_type'] ?? []);
+        $leaveStatus = strtolower((string)($request['status'] ?? 'pending'));
+        $leaveTypeId = (string)($request['leave_type_id'] ?? '');
+        $daysCount = (float)($request['days_count'] ?? 0);
+
+        if ($leaveStatus === 'pending' && $leaveTypeId !== '' && $daysCount > 0) {
+            $pendingDeductionByTypeId[$leaveTypeId] = ($pendingDeductionByTypeId[$leaveTypeId] ?? 0.0) + $daysCount;
+        }
 
         $leaveRequestRows[] = [
             'id' => (string)($request['id'] ?? ''),
+            'leave_type_id' => $leaveTypeId,
             'leave_name' => (string)($leaveType['leave_name'] ?? 'Leave'),
             'date_from' => (string)($request['date_from'] ?? ''),
             'date_to' => (string)($request['date_to'] ?? ''),
-            'days_count' => (float)($request['days_count'] ?? 0),
+            'days_count' => $daysCount,
             'reason' => (string)($request['reason'] ?? ''),
-            'status' => strtolower((string)($request['status'] ?? 'pending')),
+            'status' => $leaveStatus,
             'created_at' => (string)($request['created_at'] ?? ''),
         ];
+    }
+
+    if (!empty($pendingDeductionByTypeId) && !empty($leaveBalanceRows)) {
+        foreach ($leaveBalanceRows as &$balanceRow) {
+            $balanceTypeId = (string)($balanceRow['leave_type_id'] ?? '');
+            if ($balanceTypeId === '') {
+                continue;
+            }
+
+            $pendingDeduction = (float)($pendingDeductionByTypeId[$balanceTypeId] ?? 0);
+            $remaining = (float)($balanceRow['remaining_credits'] ?? 0);
+            $balanceRow['pending_deduction'] = $pendingDeduction;
+            $balanceRow['projected_remaining'] = $remaining - $pendingDeduction;
+        }
+        unset($balanceRow);
     }
 }
 
@@ -263,6 +321,12 @@ $overtimeResponse = apiRequest(
 if (isSuccessful($overtimeResponse)) {
     foreach ((array)($overtimeResponse['data'] ?? []) as $overtimeRaw) {
         $overtime = (array)$overtimeRaw;
+        $rawReason = (string)($overtime['reason'] ?? '');
+        if (!preg_match('/^\[OB\]\s*/i', $rawReason)) {
+            continue;
+        }
+
+        $displayReason = preg_replace('/^\[OB\]\s*/i', '', $rawReason) ?? $rawReason;
 
         $overtimeRows[] = [
             'id' => (string)($overtime['id'] ?? ''),
@@ -270,7 +334,7 @@ if (isSuccessful($overtimeResponse)) {
             'start_time' => (string)($overtime['start_time'] ?? ''),
             'end_time' => (string)($overtime['end_time'] ?? ''),
             'hours_requested' => (float)($overtime['hours_requested'] ?? 0),
-            'reason' => (string)($overtime['reason'] ?? ''),
+            'reason' => $displayReason,
             'status' => strtolower((string)($overtime['status'] ?? 'pending')),
             'created_at' => (string)($overtime['created_at'] ?? ''),
         ];

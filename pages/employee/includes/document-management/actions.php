@@ -13,9 +13,36 @@ if (!isValidCsrfToken(cleanText($_POST['csrf_token'] ?? null))) {
 }
 
 $action = strtolower((string)cleanText($_POST['action'] ?? ''));
-if (!in_array($action, ['upload_document', 'upload_new_version', 'archive_document'], true)) {
+if (!in_array($action, ['upload_document', 'upload_new_version', 'archive_document', 'restore_document'], true)) {
     redirectWithState('error', 'Unsupported document management action.', 'document-management.php');
 }
+
+$requiredCategoryAliasMap = [
+    'violation' => 'Violation',
+    'memorandum receipt' => 'Memorandum Receipt',
+    'gsis instead sss' => 'GSIS instead SSS',
+    'gsis' => 'GSIS instead SSS',
+    'copy of saln' => 'Copy of SALN',
+    'service record' => 'Service Record',
+    'coe' => 'COE',
+    'certificate of employment' => 'COE',
+    'pds' => 'PDS',
+    'personal data sheet' => 'PDS',
+    'sss' => 'SSS',
+    'pagibig' => 'Pagibig',
+    'pag-ibig' => 'Pagibig',
+    'philhealth' => 'Philhealth',
+    'nbi' => 'NBI',
+    'medical' => 'Medical',
+    'drug test' => 'Drug Test',
+    'drugtest' => 'Drug Test',
+    'others' => 'Others',
+    'other' => 'Others',
+];
+
+$normalizeCategoryName = static function (string $value): string {
+    return strtolower(trim((string)preg_replace('/\s+/', ' ', $value)));
+};
 
 $validateAndStoreUpload = static function (array $upload, string $personId, string $suffix) {
     $allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv'];
@@ -112,12 +139,19 @@ if ($action === 'upload_document') {
 
     $categoryResponse = apiRequest(
         'GET',
-        $supabaseUrl . '/rest/v1/document_categories?select=id&id=eq.' . rawurlencode($categoryId) . '&limit=1',
+        $supabaseUrl . '/rest/v1/document_categories?select=id,category_name&id=eq.' . rawurlencode($categoryId) . '&limit=1',
         $headers
     );
 
     if (!isSuccessful($categoryResponse) || empty((array)($categoryResponse['data'] ?? []))) {
         redirectWithState('error', 'Selected document category is invalid.', 'document-management.php');
+    }
+
+    $categoryRow = (array)$categoryResponse['data'][0];
+    $categoryName = (string)($categoryRow['category_name'] ?? '');
+    $normalizedCategoryName = $normalizeCategoryName($categoryName);
+    if (!isset($requiredCategoryAliasMap[$normalizedCategoryName])) {
+        redirectWithState('error', 'Selected category is not part of the approved 201 file options.', 'document-management.php');
     }
 
     $saved = $validateAndStoreUpload($upload, (string)$employeePersonId, 'new');
@@ -289,9 +323,14 @@ if ($action === 'upload_new_version') {
 
 if ($action === 'archive_document') {
     $documentId = cleanText($_POST['document_id'] ?? null) ?? '';
+    $archiveReason = trim((string)(cleanText($_POST['archive_reason'] ?? null) ?? ''));
 
     if (!isValidUuid($documentId)) {
         redirectWithState('error', 'Invalid document selected for archive.', 'document-management.php');
+    }
+
+    if ($archiveReason === '') {
+        redirectWithState('error', 'Archive reason is required.', 'document-management.php');
     }
 
     $documentResponse = apiRequest(
@@ -339,9 +378,73 @@ if ($action === 'archive_document') {
             'entity_id' => $documentId,
             'action_name' => 'archive_document',
             'old_data' => ['document_status' => $oldStatus],
-            'new_data' => ['document_status' => 'archived'],
+            'new_data' => ['document_status' => 'archived', 'reason' => $archiveReason],
         ]]
     );
 
     redirectWithState('success', 'Document archived successfully.', 'document-management.php');
+}
+
+if ($action === 'restore_document') {
+    $documentId = cleanText($_POST['document_id'] ?? null) ?? '';
+    $restoreReason = trim((string)(cleanText($_POST['restore_reason'] ?? null) ?? ''));
+
+    if (!isValidUuid($documentId)) {
+        redirectWithState('error', 'Invalid document selected for restore.', 'document-management.php');
+    }
+
+    if ($restoreReason === '') {
+        redirectWithState('error', 'Restore reason is required.', 'document-management.php');
+    }
+
+    $documentResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/documents?select=id,title,document_status,owner_person_id'
+        . '&id=eq.' . rawurlencode($documentId)
+        . '&owner_person_id=eq.' . rawurlencode((string)$employeePersonId)
+        . '&limit=1',
+        $headers
+    );
+
+    if (!isSuccessful($documentResponse) || empty((array)($documentResponse['data'] ?? []))) {
+        redirectWithState('error', 'Document not found or access denied.', 'document-management.php');
+    }
+
+    $document = (array)$documentResponse['data'][0];
+    $oldStatus = strtolower((string)($document['document_status'] ?? 'draft'));
+    if ($oldStatus !== 'archived') {
+        redirectWithState('error', 'Only archived documents can be restored.', 'document-management.php');
+    }
+
+    $restoreResponse = apiRequest(
+        'PATCH',
+        $supabaseUrl . '/rest/v1/documents?id=eq.' . rawurlencode($documentId) . '&owner_person_id=eq.' . rawurlencode((string)$employeePersonId),
+        $headers,
+        [
+            'document_status' => 'submitted',
+            'updated_at' => gmdate('c'),
+        ]
+    );
+
+    if (!isSuccessful($restoreResponse)) {
+        redirectWithState('error', 'Failed to restore document.', 'document-management.php');
+    }
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        $headers,
+        [[
+            'actor_user_id' => $employeeUserId,
+            'module_name' => 'employee',
+            'entity_name' => 'documents',
+            'entity_id' => $documentId,
+            'action_name' => 'restore_document',
+            'old_data' => ['document_status' => $oldStatus],
+            'new_data' => ['document_status' => 'submitted', 'reason' => $restoreReason],
+        ]]
+    );
+
+    redirectWithState('success', 'Archived document restored to submitted status.', 'document-management.php');
 }

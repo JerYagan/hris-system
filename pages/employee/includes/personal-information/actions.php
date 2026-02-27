@@ -13,7 +13,7 @@ if (!isValidCsrfToken(cleanText($_POST['csrf_token'] ?? null))) {
 }
 
 $action = strtolower((string)cleanText($_POST['action'] ?? ''));
-if (!in_array($action, ['update_profile', 'upload_profile_photo'], true)) {
+if (!in_array($action, ['update_profile', 'upload_profile_photo', 'submit_spouse_request'], true)) {
     redirectWithState('error', 'Unsupported personal information action.', 'personal-information.php');
 }
 
@@ -66,6 +66,7 @@ if ($action === 'upload_profile_photo') {
 
     $fileName = 'photo_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
     $relativePath = 'profile-photos/' . $employeePersonId . '/' . $fileName;
+    $publicPath = '/hris-system/storage/document/' . ltrim($relativePath, '/');
     $absolutePath = $storageRoot . '/' . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
 
     if (!move_uploaded_file($tmpName, $absolutePath)) {
@@ -77,7 +78,7 @@ if ($action === 'upload_profile_photo') {
         $supabaseUrl . '/rest/v1/people?id=eq.' . rawurlencode((string)$employeePersonId),
         $headers,
         [
-            'profile_photo_url' => $relativePath,
+            'profile_photo_url' => $publicPath,
         ]
     );
 
@@ -86,8 +87,19 @@ if ($action === 'upload_profile_photo') {
         redirectWithState('error', 'Unable to update profile photo reference.', 'personal-information.php');
     }
 
-    if ($oldPath !== null && str_starts_with($oldPath, 'profile-photos/')) {
-        $oldAbsolute = $storageRoot . '/' . str_replace('/', DIRECTORY_SEPARATOR, $oldPath);
+    $oldRelativePath = null;
+    if ($oldPath !== null && $oldPath !== '') {
+        $normalizedOldPath = ltrim($oldPath, '/');
+        $storagePrefix = 'hris-system/storage/document/';
+        if (str_starts_with($normalizedOldPath, $storagePrefix)) {
+            $oldRelativePath = substr($normalizedOldPath, strlen($storagePrefix));
+        } elseif (str_starts_with($oldPath, 'profile-photos/')) {
+            $oldRelativePath = $oldPath;
+        }
+    }
+
+    if ($oldRelativePath !== null && $oldRelativePath !== '') {
+        $oldAbsolute = $storageRoot . '/' . str_replace('/', DIRECTORY_SEPARATOR, $oldRelativePath);
         if (is_file($oldAbsolute)) {
             @unlink($oldAbsolute);
         }
@@ -104,12 +116,162 @@ if ($action === 'upload_profile_photo') {
             'entity_id' => $employeePersonId,
             'action_name' => 'upload_profile_photo',
             'old_data' => ['profile_photo_url' => $oldPath],
-            'new_data' => ['profile_photo_url' => $relativePath],
+            'new_data' => ['profile_photo_url' => $publicPath],
         ]]
     );
 
     unset($_SESSION['employee_topnav_cache']);
     redirectWithState('success', 'Profile photo updated successfully.', 'personal-information.php');
+}
+
+if ($action === 'submit_spouse_request') {
+    $toNullable = static function (mixed $value, int $maxLength = 255): ?string {
+        $text = cleanText($value);
+        if ($text === null) {
+            return null;
+        }
+
+        if (mb_strlen($text) > $maxLength) {
+            return mb_substr($text, 0, $maxLength);
+        }
+
+        return $text;
+    };
+
+    $spouseSurname = $toNullable($_POST['spouse_surname'] ?? null, 120);
+    $spouseFirstName = $toNullable($_POST['spouse_first_name'] ?? null, 120);
+    $spouseMiddleName = $toNullable($_POST['spouse_middle_name'] ?? null, 120);
+    $spouseNameExtension = $toNullable($_POST['spouse_name_extension'] ?? null, 30);
+    $spouseOccupation = $toNullable($_POST['spouse_occupation'] ?? null, 160);
+    $spouseEmployerBusinessName = $toNullable($_POST['spouse_employer_business_name'] ?? null, 180);
+    $spouseBusinessAddress = $toNullable($_POST['spouse_business_address'] ?? null, 200);
+    $spouseTelephoneNo = $toNullable($_POST['spouse_telephone_no'] ?? null, 30);
+    $requestNotes = $toNullable($_POST['request_notes'] ?? null, 300);
+
+    if ($spouseSurname === null || $spouseFirstName === null) {
+        redirectWithState('error', 'Spouse surname and first name are required for request submission.', 'personal-information.php');
+    }
+
+    $supportingFile = $_FILES['spouse_supporting_document'] ?? null;
+    if (!is_array($supportingFile) || (int)($supportingFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        redirectWithState('error', 'Please upload a supporting document for the spouse request.', 'personal-information.php');
+    }
+
+    $tmpName = (string)($supportingFile['tmp_name'] ?? '');
+    $sizeBytes = (int)($supportingFile['size'] ?? 0);
+    if ($tmpName === '' || !is_uploaded_file($tmpName)) {
+        redirectWithState('error', 'Uploaded supporting document is invalid.', 'personal-information.php');
+    }
+
+    if ($sizeBytes <= 0 || $sizeBytes > (10 * 1024 * 1024)) {
+        redirectWithState('error', 'Supporting document must be less than or equal to 10 MB.', 'personal-information.php');
+    }
+
+    $originalName = (string)($supportingFile['name'] ?? 'supporting-document');
+    $extension = strtolower((string)pathinfo($originalName, PATHINFO_EXTENSION));
+    $allowedExt = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'];
+    if ($extension === '' || !in_array($extension, $allowedExt, true)) {
+        redirectWithState('error', 'Supporting document must be PDF, JPG, PNG, DOC, or DOCX.', 'personal-information.php');
+    }
+
+    $storageRoot = dirname(__DIR__, 4) . '/storage/document';
+    $requestDir = $storageRoot . '/spouse-requests/' . $employeePersonId;
+    if (!is_dir($requestDir) && !mkdir($requestDir, 0775, true) && !is_dir($requestDir)) {
+        redirectWithState('error', 'Unable to prepare storage for supporting documents.', 'personal-information.php');
+    }
+
+    $fileName = 'spouse_request_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
+    $relativePath = 'spouse-requests/' . $employeePersonId . '/' . $fileName;
+    $absolutePath = $storageRoot . '/' . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+
+    if (!move_uploaded_file($tmpName, $absolutePath)) {
+        redirectWithState('error', 'Failed to save supporting document.', 'personal-information.php');
+    }
+
+    $requestPayload = [
+        'status' => 'pending_admin_approval',
+        'spouse_surname' => $spouseSurname,
+        'spouse_first_name' => $spouseFirstName,
+        'spouse_middle_name' => $spouseMiddleName,
+        'spouse_name_extension' => $spouseNameExtension,
+        'spouse_occupation' => $spouseOccupation,
+        'spouse_employer_business_name' => $spouseEmployerBusinessName,
+        'spouse_business_address' => $spouseBusinessAddress,
+        'spouse_telephone_no' => $spouseTelephoneNo,
+        'request_notes' => $requestNotes,
+        'supporting_document_name' => $originalName,
+        'supporting_document_path' => $relativePath,
+        'supporting_document_size' => $sizeBytes,
+    ];
+
+    $requestLogResponse = apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        $headers,
+        [[
+            'actor_user_id' => $employeeUserId,
+            'module_name' => 'employee',
+            'entity_name' => 'person_family_spouses_request',
+            'entity_id' => $employeePersonId,
+            'action_name' => 'submit_spouse_addition_request',
+            'old_data' => null,
+            'new_data' => $requestPayload,
+        ]]
+    );
+
+    if (!isSuccessful($requestLogResponse)) {
+        @unlink($absolutePath);
+        redirectWithState('error', 'Unable to submit spouse request right now.', 'personal-information.php');
+    }
+
+    $adminRoleResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/roles?select=id&role_key=eq.admin&limit=1',
+        $headers
+    );
+
+    $adminRoleId = null;
+    if (isSuccessful($adminRoleResponse) && !empty((array)($adminRoleResponse['data'] ?? []))) {
+        $adminRoleId = cleanText($adminRoleResponse['data'][0]['id'] ?? null);
+    }
+
+    if ($adminRoleId !== null) {
+        $adminAssignmentsResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/user_role_assignments?select=user_id'
+            . '&role_id=eq.' . rawurlencode($adminRoleId)
+            . '&expires_at=is.null&limit=200',
+            $headers
+        );
+
+        if (isSuccessful($adminAssignmentsResponse)) {
+            $notificationPayload = [];
+            $recipientSet = [];
+            foreach ((array)($adminAssignmentsResponse['data'] ?? []) as $assignmentRaw) {
+                $assignment = (array)$assignmentRaw;
+                $recipientId = cleanText($assignment['user_id'] ?? null);
+                if ($recipientId === null || isset($recipientSet[$recipientId])) {
+                    continue;
+                }
+
+                $recipientSet[$recipientId] = true;
+                $notificationPayload[] = [
+                    'recipient_user_id' => $recipientId,
+                    'category' => 'personal_information',
+                    'title' => 'Pending spouse entry request',
+                    'body' => 'An employee submitted a spouse entry request requiring admin approval.',
+                    'link_url' => '/hris-system/pages/admin/personal-information.php',
+                ];
+            }
+
+            if (!empty($notificationPayload)) {
+                apiRequest('POST', $supabaseUrl . '/rest/v1/notifications', $headers, $notificationPayload);
+            }
+        }
+    }
+
+    redirectWithState('success', 'Spouse entry request submitted and sent for admin approval.', 'personal-information.php');
 }
 
 $toNullable = static function (mixed $value, int $maxLength = 255): ?string {
@@ -156,10 +318,9 @@ $upsertSingleById = static function (string $table, ?string $id, array $payload)
     return isSuccessful($response);
 };
 
-$middleName = $toNullable($_POST['middle_name'] ?? null, 120);
 $nameExtension = $toNullable($_POST['name_extension'] ?? null, 30);
-$dateOfBirth = $toNullable($_POST['date_of_birth'] ?? null, 10);
-$placeOfBirth = $toNullable($_POST['place_of_birth'] ?? null, 160);
+$firstName = $toNullable($_POST['first_name'] ?? null, 120);
+$surname = $toNullable($_POST['surname'] ?? null, 120);
 $sexAtBirth = $toNullable($_POST['sex_at_birth'] ?? null, 12);
 $civilStatus = $toNullable($_POST['civil_status'] ?? null, 40);
 $heightM = $toNullable($_POST['height_m'] ?? null, 10);
@@ -176,13 +337,13 @@ $dualCitizenship = (($toNullable($_POST['dual_citizenship'] ?? null, 1) ?? '0') 
 $dualCitizenshipCountry = $toNullable($_POST['dual_citizenship_country'] ?? null, 80);
 
 $residentialAddressId = $toNullable($_POST['address_id'] ?? null, 36);
-$houseNo = $toNullable($_POST['house_no'] ?? null, 60);
-$street = $toNullable($_POST['street'] ?? null, 160);
-$subdivision = $toNullable($_POST['subdivision'] ?? null, 160);
-$barangay = $toNullable($_POST['barangay'] ?? null, 120);
-$cityMunicipality = $toNullable($_POST['city_municipality'] ?? null, 120);
-$province = $toNullable($_POST['province'] ?? null, 120);
-$zipCode = $toNullable($_POST['zip_code'] ?? null, 20);
+$houseNo = $toNullable($_POST['residential_house_no'] ?? $_POST['house_no'] ?? null, 60);
+$street = $toNullable($_POST['residential_street'] ?? $_POST['street'] ?? null, 160);
+$subdivision = $toNullable($_POST['residential_subdivision'] ?? $_POST['subdivision'] ?? null, 160);
+$barangay = $toNullable($_POST['residential_barangay'] ?? $_POST['barangay'] ?? null, 120);
+$cityMunicipality = $toNullable($_POST['residential_city_municipality'] ?? $_POST['city_municipality'] ?? null, 120);
+$province = $toNullable($_POST['residential_province'] ?? $_POST['province'] ?? null, 120);
+$zipCode = $toNullable($_POST['residential_zip_code'] ?? $_POST['zip_code'] ?? null, 20);
 
 $permanentAddressId = $toNullable($_POST['permanent_address_id'] ?? null, 36);
 $permanentHouseNo = $toNullable($_POST['permanent_house_no'] ?? null, 60);
@@ -196,17 +357,7 @@ $permanentSameAsResidential = isset($_POST['permanent_same_as_residential']) && 
 
 $telephoneNo = $toNullable($_POST['telephone_no'] ?? null, 30);
 $mobileNo = $toNullable($_POST['mobile_no'] ?? null, 30);
-$personalEmail = $toNullable($_POST['personal_email'] ?? null, 200);
-
-$spouseId = $toNullable($_POST['spouse_id'] ?? null, 36);
-$spouseSurname = $toNullable($_POST['spouse_surname'] ?? null, 120);
-$spouseFirstName = $toNullable($_POST['spouse_first_name'] ?? null, 120);
-$spouseNameExtension = $toNullable($_POST['spouse_name_extension'] ?? null, 30);
-$spouseMiddleName = $toNullable($_POST['spouse_middle_name'] ?? null, 120);
-$spouseOccupation = $toNullable($_POST['spouse_occupation'] ?? null, 160);
-$spouseEmployerBusinessName = $toNullable($_POST['spouse_employer_business_name'] ?? null, 180);
-$spouseBusinessAddress = $toNullable($_POST['spouse_business_address'] ?? null, 200);
-$spouseTelephoneNo = $toNullable($_POST['spouse_telephone_no'] ?? null, 30);
+$personalEmail = $toNullable($_POST['email'] ?? $_POST['personal_email'] ?? null, 200);
 
 $fatherId = $toNullable($_POST['father_id'] ?? null, 36);
 $fatherSurname = $toNullable($_POST['father_surname'] ?? null, 120);
@@ -235,14 +386,6 @@ if ($personalEmail !== null && !filter_var($personalEmail, FILTER_VALIDATE_EMAIL
     redirectWithState('error', 'Please provide a valid personal email address.', 'personal-information.php');
 }
 
-if (!$isValidDate($dateOfBirth)) {
-    redirectWithState('error', 'Date of birth format is invalid.', 'personal-information.php');
-}
-
-if ($dateOfBirth !== null && strtotime($dateOfBirth) > time()) {
-    redirectWithState('error', 'Date of birth cannot be in the future.', 'personal-information.php');
-}
-
 if ($sexAtBirth !== null && !in_array($sexAtBirth, ['male', 'female'], true)) {
     redirectWithState('error', 'Sex at birth must be male or female.', 'personal-information.php');
 }
@@ -269,10 +412,13 @@ if (!isSuccessful($beforeResponse) || empty((array)($beforeResponse['data'] ?? [
 }
 
 $beforeData = (array)$beforeResponse['data'][0];
+$middleName = cleanText($beforeData['middle_name'] ?? null);
+$dateOfBirth = cleanText($beforeData['date_of_birth'] ?? null);
+$placeOfBirth = cleanText($beforeData['place_of_birth'] ?? null);
 
 $peoplePayload = [
-    'first_name' => (string)($beforeData['first_name'] ?? ''),
-    'surname' => (string)($beforeData['surname'] ?? ''),
+    'first_name' => $firstName ?? (string)($beforeData['first_name'] ?? ''),
+    'surname' => $surname ?? (string)($beforeData['surname'] ?? ''),
     'middle_name' => $middleName,
     'name_extension' => $nameExtension,
     'date_of_birth' => $dateOfBirth,
@@ -396,28 +542,6 @@ foreach ($govIdValues as $idType => $idValue) {
     if (!$upsertSingleById('person_government_ids', $existingId, $payload)) {
         redirectWithState('error', 'Failed to save government ID details.', 'personal-information.php');
     }
-}
-
-$spousePayload = [
-    'person_id' => $employeePersonId,
-    'surname' => $spouseSurname,
-    'first_name' => $spouseFirstName,
-    'middle_name' => $spouseMiddleName,
-    'extension_name' => $spouseNameExtension,
-    'occupation' => $spouseOccupation,
-    'employer_business_name' => $spouseEmployerBusinessName,
-    'business_address' => $spouseBusinessAddress,
-    'telephone_no' => $spouseTelephoneNo,
-    'sequence_no' => 1,
-];
-
-$hasSpouseData = ($spouseSurname !== null || $spouseFirstName !== null || $spouseMiddleName !== null || $spouseOccupation !== null || $spouseEmployerBusinessName !== null || $spouseBusinessAddress !== null || $spouseTelephoneNo !== null);
-if ($hasSpouseData) {
-    if (!$upsertSingleById('person_family_spouses', $spouseId, $spousePayload)) {
-        redirectWithState('error', 'Failed to save spouse information.', 'personal-information.php');
-    }
-} elseif ($spouseId !== null && isValidUuid($spouseId)) {
-    apiRequest('DELETE', $supabaseUrl . '/rest/v1/person_family_spouses?id=eq.' . rawurlencode($spouseId), $headers);
 }
 
 $parentsToSave = [

@@ -5,6 +5,56 @@ $message = $message ?? cleanText($_GET['message'] ?? null);
 $dataLoadError = null;
 $csrfToken = ensureCsrfToken();
 
+$requiredDocumentCategories = [
+    'Violation',
+    'Memorandum Receipt',
+    'GSIS instead SSS',
+    'Copy of SALN',
+    'Service record',
+    'COE',
+    'PDS',
+    'SSS',
+    'Pagibig',
+    'Philhealth',
+    'NBI',
+    'Medical',
+    'Drug Test',
+    'Others',
+];
+
+$normalizeCategoryName = static function (string $value): string {
+    return strtolower(trim(preg_replace('/\s+/', ' ', $value)));
+};
+
+$toCategoryKey = static function (string $label): string {
+    $key = strtolower((string)preg_replace('/[^a-z0-9]+/i', '_', $label));
+    $key = trim($key, '_');
+    return 'employee_201_' . $key;
+};
+
+$requiredCategoryAliasMap = [
+    'violation' => 'Violation',
+    'memorandum receipt' => 'Memorandum Receipt',
+    'gsis instead sss' => 'GSIS instead SSS',
+    'gsis' => 'GSIS instead SSS',
+    'copy of saln' => 'Copy of SALN',
+    'service record' => 'Service record',
+    'coe' => 'COE',
+    'certificate of employment' => 'COE',
+    'pds' => 'PDS',
+    'personal data sheet' => 'PDS',
+    'sss' => 'SSS',
+    'pagibig' => 'Pagibig',
+    'pag-ibig' => 'Pagibig',
+    'philhealth' => 'Philhealth',
+    'nbi' => 'NBI',
+    'medical' => 'Medical',
+    'drug test' => 'Drug Test',
+    'drugtest' => 'Drug Test',
+    'others' => 'Others',
+    'other' => 'Others',
+];
+
 $documentCategories = [];
 $employeeDocuments = [];
 $documentVersionsById = [];
@@ -22,18 +72,70 @@ $categoryResponse = apiRequest(
 );
 
 if (isSuccessful($categoryResponse)) {
-    foreach ((array)($categoryResponse['data'] ?? []) as $categoryRaw) {
-        $category = (array)$categoryRaw;
-        $categoryId = (string)($category['id'] ?? '');
-        $categoryName = (string)($category['category_name'] ?? '');
-        if ($categoryId === '' || $categoryName === '') {
+    $categoriesByRequiredLabel = [];
+
+    $mapCategories = static function (array $rows) use (&$categoriesByRequiredLabel, $normalizeCategoryName, $requiredCategoryAliasMap): void {
+        foreach ($rows as $categoryRaw) {
+            $category = (array)$categoryRaw;
+            $categoryId = (string)($category['id'] ?? '');
+            $categoryName = (string)($category['category_name'] ?? '');
+            if ($categoryId === '' || $categoryName === '') {
+                continue;
+            }
+
+            $normalized = $normalizeCategoryName($categoryName);
+            $mappedLabel = $requiredCategoryAliasMap[$normalized] ?? null;
+            if ($mappedLabel === null || isset($categoriesByRequiredLabel[$mappedLabel])) {
+                continue;
+            }
+
+            $categoriesByRequiredLabel[$mappedLabel] = [
+                'id' => $categoryId,
+                'category_name' => $mappedLabel,
+            ];
+        }
+    };
+
+    $mapCategories((array)($categoryResponse['data'] ?? []));
+
+    $missingRequiredLabels = [];
+    foreach ($requiredDocumentCategories as $requiredLabel) {
+        if (!isset($categoriesByRequiredLabel[$requiredLabel])) {
+            $missingRequiredLabels[] = $requiredLabel;
+        }
+    }
+
+    if (!empty($missingRequiredLabels)) {
+        foreach ($missingRequiredLabels as $missingLabel) {
+            apiRequest(
+                'POST',
+                $supabaseUrl . '/rest/v1/document_categories',
+                array_merge($headers, ['Prefer: return=representation']),
+                [[
+                    'category_key' => $toCategoryKey($missingLabel),
+                    'category_name' => $missingLabel,
+                    'requires_approval' => true,
+                ]]
+            );
+        }
+
+        $refreshCategoryResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/document_categories?select=id,category_name&order=category_name.asc&limit=300',
+            $headers
+        );
+
+        if (isSuccessful($refreshCategoryResponse)) {
+            $mapCategories((array)($refreshCategoryResponse['data'] ?? []));
+        }
+    }
+
+    foreach ($requiredDocumentCategories as $requiredLabel) {
+        if (!isset($categoriesByRequiredLabel[$requiredLabel])) {
             continue;
         }
 
-        $documentCategories[] = [
-            'id' => $categoryId,
-            'category_name' => $categoryName,
-        ];
+        $documentCategories[] = $categoriesByRequiredLabel[$requiredLabel];
     }
 } else {
     $dataLoadError = 'Unable to load document categories.';
@@ -64,6 +166,9 @@ foreach ((array)($documentsResponse['data'] ?? []) as $documentRaw) {
 
     $documentIds[] = $documentId;
     $categoryRow = (array)($document['category'] ?? []);
+    $rawCategoryName = (string)($categoryRow['category_name'] ?? '');
+    $normalizedCategory = $normalizeCategoryName($rawCategoryName);
+    $mappedCategory = $requiredCategoryAliasMap[$normalizedCategory] ?? null;
 
     $employeeDocuments[] = [
         'id' => $documentId,
@@ -75,7 +180,7 @@ foreach ((array)($documentsResponse['data'] ?? []) as $documentRaw) {
         'storage_path' => (string)($document['storage_path'] ?? ''),
         'created_at' => (string)($document['created_at'] ?? ''),
         'updated_at' => (string)($document['updated_at'] ?? ''),
-        'category_name' => (string)($categoryRow['category_name'] ?? 'Uncategorized'),
+        'category_name' => $mappedCategory ?? 'Others',
     ];
 }
 

@@ -407,7 +407,7 @@ if ($action === 'export_payroll_csv') {
         'Employee ID',
         'Employee Name',
         'Basic Pay',
-        'Overtime Pay',
+        'CTO Pay (Policy: 0.00)',
         'Allowances',
         'Deductions',
         'Gross Pay',

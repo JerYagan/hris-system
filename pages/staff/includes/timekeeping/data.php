@@ -2,12 +2,13 @@
 
 $attendanceRows = [];
 $leaveRequestRows = [];
-$overtimeRequestRows = [];
+$officialBusinessRequestRows = [];
 $adjustmentRequestRows = [];
 $timekeepingMetrics = [
     'attendance_logs' => 0,
     'pending_leave' => 0,
-    'pending_overtime' => 0,
+    'pending_cto' => 0,
+    'pending_official_business' => 0,
     'pending_adjustments' => 0,
 ];
 $dataLoadError = null;
@@ -30,7 +31,7 @@ $appendDataError = static function (string $label, array $response) use (&$dataL
 $scopeResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/employment_records?select=person_id,person:people!employment_records_person_id_fkey(first_name,surname,user_id),office:offices(office_name)'
+    . '/rest/v1/employment_records?select=person_id,person:people!employment_records_person_id_fkey(first_name,surname,user_id,agency_employee_no),office:offices(office_name),position:job_positions(position_title)'
     . '&is_current=eq.true'
     . '&limit=5000',
     $headers
@@ -39,6 +40,7 @@ $appendDataError('Employment scope', $scopeResponse);
 
 $employmentScopeRows = isSuccessful($scopeResponse) ? (array)($scopeResponse['data'] ?? []) : [];
 $scopedPersonMap = [];
+$rfidEmployeeLookup = [];
 
 foreach ($employmentScopeRows as $scopeRow) {
     $personId = cleanText($scopeRow['person_id'] ?? null) ?? '';
@@ -57,8 +59,19 @@ foreach ($employmentScopeRows as $scopeRow) {
     $scopedPersonMap[$personId] = [
         'employee_name' => $employeeName,
         'office_name' => cleanText($scopeRow['office']['office_name'] ?? null) ?? 'Unassigned Office',
+        'position_title' => cleanText($scopeRow['position']['position_title'] ?? null) ?? 'Unassigned Position',
         'user_id' => $userId,
     ];
+
+    $employeeCode = strtoupper(trim((string)(cleanText($scopeRow['person']['agency_employee_no'] ?? null) ?? '')));
+    if ($employeeCode !== '') {
+        $rfidEmployeeLookup[$employeeCode] = [
+            'employee_name' => $employeeName,
+            'office_name' => $scopedPersonMap[$personId]['office_name'],
+            'position_title' => $scopedPersonMap[$personId]['position_title'],
+            'person_id' => $personId,
+        ];
+    }
 }
 
 $personIds = array_keys($scopedPersonMap);
@@ -117,24 +130,24 @@ $adjustmentRows = isSuccessful($adjustmentResponse) ? (array)($adjustmentRespons
 $attendancePill = static function (string $status): array {
     $key = strtolower(trim($status));
     return match ($key) {
-        'present' => ['Present', 'bg-emerald-100 text-emerald-800'],
-        'late' => ['Late', 'bg-amber-100 text-amber-800'],
-        'absent' => ['Absent', 'bg-rose-100 text-rose-800'],
-        'leave' => ['Leave', 'bg-blue-100 text-blue-800'],
-        'holiday' => ['Holiday', 'bg-indigo-100 text-indigo-800'],
-        'rest_day' => ['Rest Day', 'bg-slate-200 text-slate-700'],
-        default => ['Unknown', 'bg-slate-100 text-slate-700'],
+        'present' => ['Present', 'bg-emerald-50 text-emerald-700'],
+        'late' => ['Late', 'bg-amber-50 text-amber-700'],
+        'absent' => ['Absent', 'bg-rose-50 text-rose-700'],
+        'leave' => ['Leave', 'bg-blue-50 text-blue-700'],
+        'holiday' => ['Holiday', 'bg-indigo-50 text-indigo-700'],
+        'rest_day' => ['Rest Day', 'bg-slate-100 text-slate-700'],
+        default => ['Unknown', 'bg-slate-50 text-slate-700'],
     };
 };
 
 $requestPill = static function (string $status): array {
     $key = strtolower(trim($status));
     return match ($key) {
-        'approved' => ['Approved', 'bg-emerald-100 text-emerald-800'],
-        'rejected' => ['Rejected', 'bg-rose-100 text-rose-800'],
-        'cancelled' => ['Cancelled', 'bg-slate-200 text-slate-700'],
-        'needs_revision' => ['Needs Revision', 'bg-blue-100 text-blue-800'],
-        default => ['Pending', 'bg-amber-100 text-amber-800'],
+        'approved' => ['Approved', 'bg-emerald-50 text-emerald-700'],
+        'rejected' => ['Rejected', 'bg-rose-50 text-rose-700'],
+        'cancelled' => ['Cancelled', 'bg-slate-100 text-slate-700'],
+        'needs_revision' => ['Needs Revision', 'bg-blue-50 text-blue-700'],
+        default => ['Pending', 'bg-amber-50 text-amber-700'],
     };
 };
 
@@ -171,11 +184,17 @@ foreach ($leaveRows as $row) {
     $statusRaw = strtolower((string)(cleanText($row['status'] ?? null) ?? 'pending'));
     [$statusLabel, $statusClass] = $requestPill($statusRaw);
 
+    $leaveType = cleanText($row['leave_type']['leave_name'] ?? null) ?? 'Unassigned';
+    $isCtoLeave = stripos($leaveType, 'cto') !== false;
+
     if ($statusRaw === 'pending') {
-        $timekeepingMetrics['pending_leave']++;
+        if ($isCtoLeave) {
+            $timekeepingMetrics['pending_cto']++;
+        } else {
+            $timekeepingMetrics['pending_leave']++;
+        }
     }
 
-    $leaveType = cleanText($row['leave_type']['leave_name'] ?? null) ?? 'Unassigned';
     $dateRange = formatDateTimeForPhilippines(cleanText($row['date_from'] ?? null), 'M d, Y')
         . ' - '
         . formatDateTimeForPhilippines(cleanText($row['date_to'] ?? null), 'M d, Y');
@@ -209,15 +228,25 @@ foreach ($overtimeRows as $row) {
     $statusRaw = strtolower((string)(cleanText($row['status'] ?? null) ?? 'pending'));
     [$statusLabel, $statusClass] = $requestPill($statusRaw);
 
-    if ($statusRaw === 'pending') {
-        $timekeepingMetrics['pending_overtime']++;
+    $reasonRaw = cleanText($row['reason'] ?? null) ?? '-';
+    $isOfficialBusiness = preg_match('/^\[OB\]\s*/i', $reasonRaw) === 1;
+    $reason = $isOfficialBusiness
+        ? trim((string)preg_replace('/^\[OB\]\s*/i', '', $reasonRaw))
+        : $reasonRaw;
+    if ($reason === '') {
+        $reason = '-';
     }
 
-    $reason = cleanText($row['reason'] ?? null) ?? '-';
+    if ($statusRaw === 'pending') {
+        if ($isOfficialBusiness) {
+            $timekeepingMetrics['pending_official_business']++;
+        }
+    }
+
     $startTime = formatDateTimeForPhilippines(cleanText($row['start_time'] ?? null), 'h:i A');
     $endTime = formatDateTimeForPhilippines(cleanText($row['end_time'] ?? null), 'h:i A');
 
-    $overtimeRequestRows[] = [
+    $requestRow = [
         'id' => $requestId,
         'employee_name' => $employee['employee_name'],
         'office_name' => $employee['office_name'],
@@ -231,6 +260,10 @@ foreach ($overtimeRows as $row) {
         'status_class' => $statusClass,
         'search_text' => strtolower(trim($employee['employee_name'] . ' ' . $employee['office_name'] . ' ' . $reason . ' ' . $statusLabel)),
     ];
+
+    if ($isOfficialBusiness) {
+        $officialBusinessRequestRows[] = $requestRow;
+    }
 }
 
 foreach ($adjustmentRows as $row) {

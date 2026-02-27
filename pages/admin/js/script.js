@@ -362,6 +362,16 @@
           dataTableOptions.order = [[0, 'asc']];
         }
 
+        if (table.id === 'personalInfoEmployeesTable') {
+          dataTableOptions.pageLength = 10;
+          dataTableOptions.lengthMenu = [10, 25, 50, 100];
+        }
+
+        if (table.id === 'personalInfoFamilyTable' || table.id === 'personalInfoEducationTable') {
+          dataTableOptions.pageLength = 10;
+          dataTableOptions.lengthMenu = [10, 25, 50, 100];
+        }
+
         const dataTable = new DataTable(table, dataTableOptions);
 
         if (table.id === 'usersTable') {
@@ -909,9 +919,67 @@
           const personalInfoSearchInput = document.getElementById('personalInfoRecordsSearchInput');
           const personalInfoDepartmentFilter = document.getElementById('personalInfoRecordsDepartmentFilter');
           const personalInfoStatusFilter = document.getElementById('personalInfoRecordsStatusFilter');
+          const personalInfoResetFilters = document.getElementById('personalInfoResetFilters');
+          const personalInfoPrevPage = document.getElementById('personalInfoPrevPage');
+          const personalInfoNextPage = document.getElementById('personalInfoNextPage');
+          const personalInfoPaginationInfo = document.getElementById('personalInfoPaginationInfo');
+          const personalInfoFilterEmpty = document.getElementById('personalInfoFilterEmpty');
+
+          const syncPersonalInfoPager = () => {
+            if (typeof dataTable.page !== 'function') {
+              return;
+            }
+
+            const info = dataTable.page.info();
+            if (personalInfoPaginationInfo) {
+              if (!info || Number(info.pages || 0) <= 0) {
+                personalInfoPaginationInfo.textContent = 'No records found';
+              } else {
+                personalInfoPaginationInfo.textContent = `Page ${Number(info.page || 0) + 1} of ${Number(info.pages || 1)}`;
+              }
+            }
+
+            if (personalInfoPrevPage) {
+              personalInfoPrevPage.disabled = !info || Number(info.page || 0) <= 0;
+              personalInfoPrevPage.classList.toggle('opacity-50', personalInfoPrevPage.disabled);
+              personalInfoPrevPage.classList.toggle('cursor-not-allowed', personalInfoPrevPage.disabled);
+            }
+
+            if (personalInfoNextPage) {
+              const atLastPage = !info || Number(info.pages || 0) <= 1 || Number(info.page || 0) >= (Number(info.pages || 1) - 1);
+              personalInfoNextPage.disabled = atLastPage;
+              personalInfoNextPage.classList.toggle('opacity-50', personalInfoNextPage.disabled);
+              personalInfoNextPage.classList.toggle('cursor-not-allowed', personalInfoNextPage.disabled);
+            }
+
+            if (personalInfoFilterEmpty) {
+              const hasSearch = (personalInfoSearchInput?.value || '').trim() !== ''
+                || (personalInfoDepartmentFilter?.value || '').trim() !== ''
+                || (personalInfoStatusFilter?.value || '').trim() !== '';
+              const hasVisibleRows = !!info && Number(info.recordsDisplay || 0) > 0;
+              personalInfoFilterEmpty.classList.toggle('hidden', hasVisibleRows || !hasSearch);
+            }
+          };
+
+          personalInfoPrevPage?.addEventListener('click', () => {
+            if (typeof dataTable.page === 'function') {
+              dataTable.page('previous').draw('page');
+            }
+          });
+
+          personalInfoNextPage?.addEventListener('click', () => {
+            if (typeof dataTable.page === 'function') {
+              dataTable.page('next').draw('page');
+            }
+          });
+
+          if (typeof dataTable.on === 'function') {
+            dataTable.on('draw', syncPersonalInfoPager);
+          }
 
           personalInfoSearchInput?.addEventListener('input', () => {
             dataTable.search((personalInfoSearchInput.value || '').trim()).draw();
+            syncPersonalInfoPager();
           });
 
           personalInfoDepartmentFilter?.addEventListener('change', () => {
@@ -928,6 +996,8 @@
             } catch (_error) {
               dataTable.column(3).search(exactSearch, true, false).draw();
             }
+
+            syncPersonalInfoPager();
           });
 
           personalInfoStatusFilter?.addEventListener('change', () => {
@@ -944,7 +1014,50 @@
             } catch (_error) {
               dataTable.column(5).search(exactSearch, true, false).draw();
             }
+
+            syncPersonalInfoPager();
           });
+
+          const resetPersonalInfoFilters = () => {
+            if (personalInfoSearchInput) {
+              personalInfoSearchInput.value = '';
+            }
+            if (personalInfoDepartmentFilter) {
+              personalInfoDepartmentFilter.value = '';
+            }
+            if (personalInfoStatusFilter) {
+              personalInfoStatusFilter.value = '';
+            }
+
+            dataTable.search('');
+            dataTable.column(3).search('');
+            dataTable.column(5).search('');
+            dataTable.draw();
+            syncPersonalInfoPager();
+          };
+
+          personalInfoResetFilters?.addEventListener('click', () => {
+            if (window.Swal) {
+              Swal.fire({
+                icon: 'question',
+                title: 'Reset employee filters?',
+                text: 'This clears search text and selected filters.',
+                showCancelButton: true,
+                confirmButtonText: 'Reset',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#0f172a'
+              }).then((result) => {
+                if (result.isConfirmed) {
+                  resetPersonalInfoFilters();
+                }
+              });
+              return;
+            }
+
+            resetPersonalInfoFilters();
+          });
+
+          syncPersonalInfoPager();
         }
 
         if (table.id === 'personalInfoFamilyTable') {
@@ -2233,6 +2346,11 @@
     const personalInfoSearch = document.getElementById('personalInfoRecordsSearchInput');
     const personalInfoDepartment = document.getElementById('personalInfoRecordsDepartmentFilter');
     const personalInfoStatus = document.getElementById('personalInfoRecordsStatusFilter');
+    const personalInfoResetFilters = document.getElementById('personalInfoResetFilters');
+    const personalInfoPrevPage = document.getElementById('personalInfoPrevPage');
+    const personalInfoNextPage = document.getElementById('personalInfoNextPage');
+    const personalInfoPaginationInfo = document.getElementById('personalInfoPaginationInfo');
+    const personalInfoFilterEmpty = document.getElementById('personalInfoFilterEmpty');
 
     if (
       personalInfoTable
@@ -2242,13 +2360,15 @@
       && personalInfoTable.dataset.datatableInitialized !== 'true'
     ) {
       const profileRows = Array.from(personalInfoTable.querySelectorAll('tbody tr')).filter((row) => !row.querySelector('td[colspan]'));
+      const pageSize = 10;
+      let currentPage = 1;
 
-      const applyPlainPersonalInfoFilter = () => {
+      const getMatchingRows = () => {
         const searchText = (personalInfoSearch.value || '').trim().toLowerCase();
         const selectedDepartment = (personalInfoDepartment.value || '').trim().toLowerCase();
         const selectedStatus = (personalInfoStatus.value || '').trim().toLowerCase();
 
-        profileRows.forEach((row) => {
+        return profileRows.filter((row) => {
           const rowSearch = (row.getAttribute('data-profile-search') || '').toLowerCase();
           const rowDepartment = (row.getAttribute('data-profile-department') || '').toLowerCase();
           const rowStatus = (row.getAttribute('data-profile-status') || '').toLowerCase();
@@ -2257,13 +2377,118 @@
           const matchesDepartment = !selectedDepartment || rowDepartment === selectedDepartment;
           const matchesStatus = !selectedStatus || rowStatus === selectedStatus;
 
-          row.classList.toggle('hidden', !(matchesSearch && matchesDepartment && matchesStatus));
+          return matchesSearch && matchesDepartment && matchesStatus;
         });
       };
 
-      personalInfoSearch.addEventListener('input', applyPlainPersonalInfoFilter);
-      personalInfoDepartment.addEventListener('change', applyPlainPersonalInfoFilter);
-      personalInfoStatus.addEventListener('change', applyPlainPersonalInfoFilter);
+      const syncPlainPersonalInfoPager = (matchingRows) => {
+        const hasRows = matchingRows.length > 0;
+        const totalPages = Math.max(1, Math.ceil(matchingRows.length / pageSize));
+        if (currentPage > totalPages) {
+          currentPage = totalPages;
+        }
+
+        const startIndex = (currentPage - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+
+        profileRows.forEach((row) => {
+          row.classList.add('hidden');
+        });
+
+        matchingRows.forEach((row, index) => {
+          const inPageRange = index >= startIndex && index < endIndex;
+          row.classList.toggle('hidden', !inPageRange);
+        });
+
+        if (personalInfoPaginationInfo) {
+          personalInfoPaginationInfo.textContent = hasRows
+            ? `Page ${currentPage} of ${totalPages}`
+            : 'No records found';
+        }
+
+        if (personalInfoPrevPage) {
+          personalInfoPrevPage.disabled = !hasRows || currentPage <= 1;
+          personalInfoPrevPage.classList.toggle('opacity-50', personalInfoPrevPage.disabled);
+          personalInfoPrevPage.classList.toggle('cursor-not-allowed', personalInfoPrevPage.disabled);
+        }
+
+        if (personalInfoNextPage) {
+          personalInfoNextPage.disabled = !hasRows || currentPage >= totalPages;
+          personalInfoNextPage.classList.toggle('opacity-50', personalInfoNextPage.disabled);
+          personalInfoNextPage.classList.toggle('cursor-not-allowed', personalInfoNextPage.disabled);
+        }
+
+        if (personalInfoFilterEmpty) {
+          const hasFilter = (personalInfoSearch.value || '').trim() !== ''
+            || (personalInfoDepartment.value || '').trim() !== ''
+            || (personalInfoStatus.value || '').trim() !== '';
+          personalInfoFilterEmpty.classList.toggle('hidden', hasRows || !hasFilter);
+        }
+      };
+
+      const applyPlainPersonalInfoFilter = () => {
+        const matchingRows = getMatchingRows();
+        syncPlainPersonalInfoPager(matchingRows);
+      };
+
+      const resetPlainPersonalInfoFilters = () => {
+        personalInfoSearch.value = '';
+        personalInfoDepartment.value = '';
+        personalInfoStatus.value = '';
+        currentPage = 1;
+        applyPlainPersonalInfoFilter();
+      };
+
+      personalInfoSearch.addEventListener('input', () => {
+        currentPage = 1;
+        applyPlainPersonalInfoFilter();
+      });
+      personalInfoDepartment.addEventListener('change', () => {
+        currentPage = 1;
+        applyPlainPersonalInfoFilter();
+      });
+      personalInfoStatus.addEventListener('change', () => {
+        currentPage = 1;
+        applyPlainPersonalInfoFilter();
+      });
+
+      personalInfoPrevPage?.addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage -= 1;
+          applyPlainPersonalInfoFilter();
+        }
+      });
+
+      personalInfoNextPage?.addEventListener('click', () => {
+        const totalPages = Math.max(1, Math.ceil(getMatchingRows().length / pageSize));
+        if (currentPage < totalPages) {
+          currentPage += 1;
+          applyPlainPersonalInfoFilter();
+        }
+      });
+
+      personalInfoResetFilters?.addEventListener('click', () => {
+        if (window.Swal) {
+          Swal.fire({
+            icon: 'question',
+            title: 'Reset employee filters?',
+            text: 'This clears search text and selected filters.',
+            showCancelButton: true,
+            confirmButtonText: 'Reset',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#0f172a'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              resetPlainPersonalInfoFilters();
+            }
+          });
+          return;
+        }
+
+        resetPlainPersonalInfoFilters();
+      });
+
+      applyPlainPersonalInfoFilter();
     }
 
     const personalInfoFamilyTable = document.getElementById('personalInfoFamilyTable');
@@ -2338,6 +2563,107 @@
       personalInfoEducationSearch.addEventListener('input', applyPlainEducationFilter);
       personalInfoEducationDepartment.addEventListener('change', applyPlainEducationFilter);
       personalInfoEducationStatus.addEventListener('change', applyPlainEducationFilter);
+    }
+
+    const pendingProfileTable = document.getElementById('personalInfoPendingReviewTable');
+    const pendingProfileSearchInput = document.getElementById('pendingProfileSearchInput');
+    const pendingProfileStatusFilter = document.getElementById('pendingProfileStatusFilter');
+    const pendingProfileDateFilter = document.getElementById('pendingProfileDateFilter');
+    const pendingProfilePrevPage = document.getElementById('pendingProfilePrevPage');
+    const pendingProfileNextPage = document.getElementById('pendingProfileNextPage');
+    const pendingProfilePaginationInfo = document.getElementById('pendingProfilePaginationInfo');
+    const pendingProfileFilterEmpty = document.getElementById('pendingProfileFilterEmpty');
+
+    if (
+      pendingProfileTable
+      && pendingProfileSearchInput
+      && pendingProfileStatusFilter
+      && pendingProfileDateFilter
+      && pendingProfilePrevPage
+      && pendingProfileNextPage
+      && pendingProfilePaginationInfo
+      && pendingProfileFilterEmpty
+    ) {
+      const allRows = Array.from(pendingProfileTable.querySelectorAll('tbody tr[data-pending-review-row]'));
+      let currentPage = 1;
+      const pageSize = 10;
+
+      const getFilteredRows = () => {
+        const searchValue = (pendingProfileSearchInput.value || '').trim().toLowerCase();
+        const statusValue = (pendingProfileStatusFilter.value || '').trim().toLowerCase();
+        const dateValue = (pendingProfileDateFilter.value || '').trim();
+
+        return allRows.filter((row) => {
+          const rowSearch = (row.getAttribute('data-review-search') || '').toLowerCase();
+          const rowStatus = (row.getAttribute('data-review-status') || '').toLowerCase();
+          const rowDate = (row.getAttribute('data-review-date') || '').trim();
+
+          const matchesSearch = !searchValue || rowSearch.includes(searchValue);
+          const matchesStatus = !statusValue || rowStatus === statusValue;
+          const matchesDate = !dateValue || rowDate === dateValue;
+          return matchesSearch && matchesStatus && matchesDate;
+        });
+      };
+
+      const renderPendingTablePage = () => {
+        const filteredRows = getFilteredRows();
+        const totalRows = filteredRows.length;
+        const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+        if (currentPage > totalPages) {
+          currentPage = totalPages;
+        }
+        if (currentPage < 1) {
+          currentPage = 1;
+        }
+
+        const startIndex = (currentPage - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+
+        allRows.forEach((row) => {
+          row.classList.add('hidden');
+        });
+
+        filteredRows.slice(startIndex, endIndex).forEach((row) => {
+          row.classList.remove('hidden');
+        });
+
+        pendingProfileFilterEmpty.classList.toggle('hidden', totalRows !== 0);
+        pendingProfilePaginationInfo.textContent = totalRows === 0
+          ? 'No records found'
+          : `Page ${currentPage} of ${totalPages}`;
+
+        pendingProfilePrevPage.disabled = currentPage <= 1 || totalRows === 0;
+        pendingProfileNextPage.disabled = currentPage >= totalPages || totalRows === 0;
+        pendingProfilePrevPage.classList.toggle('opacity-50', pendingProfilePrevPage.disabled);
+        pendingProfilePrevPage.classList.toggle('cursor-not-allowed', pendingProfilePrevPage.disabled);
+        pendingProfileNextPage.classList.toggle('opacity-50', pendingProfileNextPage.disabled);
+        pendingProfileNextPage.classList.toggle('cursor-not-allowed', pendingProfileNextPage.disabled);
+      };
+
+      pendingProfileSearchInput.addEventListener('input', () => {
+        currentPage = 1;
+        renderPendingTablePage();
+      });
+      pendingProfileStatusFilter.addEventListener('change', () => {
+        currentPage = 1;
+        renderPendingTablePage();
+      });
+      pendingProfileDateFilter.addEventListener('change', () => {
+        currentPage = 1;
+        renderPendingTablePage();
+      });
+      pendingProfilePrevPage.addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage -= 1;
+          renderPendingTablePage();
+        }
+      });
+      pendingProfileNextPage.addEventListener('click', () => {
+        currentPage += 1;
+        renderPendingTablePage();
+      });
+
+      renderPendingTablePage();
     }
 
     const scheduleApplicationId = document.getElementById('scheduleApplicationId');
@@ -2445,6 +2771,7 @@
     const profileEmail = document.getElementById('profileEmail');
     const profileMobile = document.getElementById('profileMobile');
     const profileAgencyEmployeeNo = document.getElementById('profileAgencyEmployeeNo');
+    const adminPersonalInfoLookupDataNode = document.getElementById('adminPersonalInfoLookupData');
     const personalInfoFamilyForm = document.getElementById('personalInfoFamilyForm');
     const familyPersonId = document.getElementById('familyPersonId');
     const personalInfoFamilyEmployeeLabel = document.getElementById('personalInfoFamilyEmployeeLabel');
@@ -3655,6 +3982,383 @@
       if (profilePermanentZipCode) profilePermanentZipCode.value = '';
     };
 
+    let adminPersonalInfoLookupData = {
+      placeOfBirthOptions: [],
+      civilStatusOptions: [],
+      bloodTypeOptions: [],
+      addressCityOptions: [],
+      addressProvinceOptions: [],
+      addressBarangayOptions: []
+    };
+
+    if (adminPersonalInfoLookupDataNode) {
+      try {
+        const parsed = JSON.parse(adminPersonalInfoLookupDataNode.textContent || '{}') || {};
+        adminPersonalInfoLookupData = {
+          placeOfBirthOptions: Array.isArray(parsed.placeOfBirthOptions) ? parsed.placeOfBirthOptions : [],
+          civilStatusOptions: Array.isArray(parsed.civilStatusOptions) ? parsed.civilStatusOptions : [],
+          bloodTypeOptions: Array.isArray(parsed.bloodTypeOptions) ? parsed.bloodTypeOptions : [],
+          addressCityOptions: Array.isArray(parsed.addressCityOptions) ? parsed.addressCityOptions : [],
+          addressProvinceOptions: Array.isArray(parsed.addressProvinceOptions) ? parsed.addressProvinceOptions : [],
+          addressBarangayOptions: Array.isArray(parsed.addressBarangayOptions) ? parsed.addressBarangayOptions : []
+        };
+      } catch (_error) {
+        adminPersonalInfoLookupData = {
+          placeOfBirthOptions: [],
+          civilStatusOptions: [],
+          bloodTypeOptions: [],
+          addressCityOptions: [],
+          addressProvinceOptions: [],
+          addressBarangayOptions: []
+        };
+      }
+    }
+
+    const normalizeLocationKey = (value) => String(value || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s-]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const normalizeLocationVariants = (value, isBarangay = false) => {
+      const seed = normalizeLocationKey(value);
+      if (!seed) {
+        return [];
+      }
+
+      const variants = new Set();
+      const queue = [seed];
+
+      while (queue.length > 0) {
+        const current = queue.shift() || '';
+        if (!current || variants.has(current)) {
+          continue;
+        }
+
+        variants.add(current);
+
+        const withoutParen = current.replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
+        if (withoutParen && !variants.has(withoutParen)) {
+          queue.push(withoutParen);
+        }
+
+        const withoutSuffix = current.replace(/\s*,\s*.*$/, '').trim();
+        if (withoutSuffix && !variants.has(withoutSuffix)) {
+          queue.push(withoutSuffix);
+        }
+
+        if (isBarangay) {
+          const noBrgyPrefix = current.replace(/^(barangay|brgy\.?|brg\.?|bgy\.?)\s+/, '').trim();
+          if (noBrgyPrefix && !variants.has(noBrgyPrefix)) {
+            queue.push(noBrgyPrefix);
+          }
+        } else {
+          const noCityPrefix = current.replace(/^(city|city of|municipality|municipality of|mun\.?|municipio de)\s+/, '').trim();
+          if (noCityPrefix && !variants.has(noCityPrefix)) {
+            queue.push(noCityPrefix);
+          }
+
+          const noCitySuffix = current.replace(/\s+city$/, '').trim();
+          if (noCitySuffix && !variants.has(noCitySuffix)) {
+            queue.push(noCitySuffix);
+          }
+        }
+      }
+
+      return Array.from(variants);
+    };
+
+    const initModernSearchInput = (input, optionSource) => {
+      if (!input) {
+        return;
+      }
+
+      const container = input.closest('.relative');
+      if (!container) {
+        return;
+      }
+
+      const dropdown = document.createElement('div');
+      dropdown.className = 'hidden absolute z-40 mt-1 w-full max-h-52 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg';
+      container.appendChild(dropdown);
+
+      const closeDropdown = () => {
+        dropdown.classList.add('hidden');
+      };
+
+      const openDropdown = () => {
+        dropdown.classList.remove('hidden');
+      };
+
+      const renderDropdown = () => {
+        const query = normalizeLocationKey(input.value || '');
+        const source = typeof optionSource === 'function' ? optionSource() : optionSource;
+        const options = Array.from(new Set((Array.isArray(source) ? source : [])
+          .map((item) => String(item || '').trim())
+          .filter((item) => item !== '')));
+
+        const filtered = options
+          .filter((item) => {
+            if (!query) {
+              return true;
+            }
+            return normalizeLocationKey(item).includes(query);
+          })
+          .slice(0, 12);
+
+        if (filtered.length === 0) {
+          closeDropdown();
+          return;
+        }
+
+        dropdown.innerHTML = filtered.map((item) => {
+          const escaped = String(item)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+          return `<button type="button" data-modern-option="${escaped}" class="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">${escaped}</button>`;
+        }).join('');
+        openDropdown();
+      };
+
+      input.addEventListener('focus', renderDropdown);
+      input.addEventListener('input', renderDropdown);
+
+      dropdown.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const optionButton = event.target.closest('[data-modern-option]');
+        if (!optionButton) {
+          return;
+        }
+
+        const selectedValue = optionButton.getAttribute('data-modern-option') || '';
+        input.value = selectedValue;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        closeDropdown();
+      });
+
+      dropdown.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      });
+
+      document.addEventListener('click', (event) => {
+        if (!container.contains(event.target)) {
+          closeDropdown();
+        }
+      });
+    };
+
+    initModernSearchInput(profilePlaceOfBirth, () => adminPersonalInfoLookupData.placeOfBirthOptions);
+    initModernSearchInput(profileCivilStatus, () => adminPersonalInfoLookupData.civilStatusOptions);
+    initModernSearchInput(profileBloodType, () => adminPersonalInfoLookupData.bloodTypeOptions);
+    initModernSearchInput(profileResidentialBarangay, () => adminPersonalInfoLookupData.addressBarangayOptions);
+    initModernSearchInput(profilePermanentBarangay, () => adminPersonalInfoLookupData.addressBarangayOptions);
+    initModernSearchInput(profileResidentialCity, () => adminPersonalInfoLookupData.addressCityOptions);
+    initModernSearchInput(profilePermanentCity, () => adminPersonalInfoLookupData.addressCityOptions);
+    initModernSearchInput(profileResidentialProvince, () => adminPersonalInfoLookupData.addressProvinceOptions);
+    initModernSearchInput(profilePermanentProvince, () => adminPersonalInfoLookupData.addressProvinceOptions);
+
+    let zipCodeIndexPromise = null;
+    const loadZipCodeIndex = () => {
+      if (zipCodeIndexPromise) {
+        return zipCodeIndexPromise;
+      }
+
+      const fetchAndParse = async (url) => {
+        const response = await fetch(url, { cache: 'force-cache' });
+        if (!response.ok) {
+          throw new Error(`Failed to load ${url}`);
+        }
+        return response.json();
+      };
+
+      zipCodeIndexPromise = fetchAndParse('../../assets/zip-codes.json').catch(() => fetchAndParse('/assets/zip-codes.json')).catch(() => ({}));
+      return zipCodeIndexPromise;
+    };
+
+    let zipLookupMapsPromise = null;
+    const loadZipLookupMaps = async () => {
+      if (zipLookupMapsPromise) {
+        return zipLookupMapsPromise;
+      }
+
+      zipLookupMapsPromise = loadZipCodeIndex().then((zipIndex) => {
+        const byCityBarangay = new Map();
+        const byCity = new Map();
+
+        Object.entries(zipIndex || {}).forEach(([cityName, barangays]) => {
+          if (!barangays || typeof barangays !== 'object') {
+            return;
+          }
+
+          const cityVariants = normalizeLocationVariants(cityName, false);
+          if (cityVariants.length === 0) {
+            return;
+          }
+
+          Object.entries(barangays).forEach(([barangayName, zipList]) => {
+            if (!Array.isArray(zipList)) {
+              return;
+            }
+
+            const zipSet = new Set(zipList.map((zipValue) => String(zipValue || '').trim()).filter((zipValue) => /^\d{4}$/.test(zipValue)));
+            if (zipSet.size === 0) {
+              return;
+            }
+
+            const barangayVariants = normalizeLocationVariants(barangayName, true);
+            if (barangayVariants.length === 0) {
+              return;
+            }
+
+            cityVariants.forEach((cityVariant) => {
+              const cityZipSet = byCity.get(cityVariant) || new Set();
+              zipSet.forEach((zipValue) => cityZipSet.add(zipValue));
+              byCity.set(cityVariant, cityZipSet);
+
+              barangayVariants.forEach((barangayVariant) => {
+                const lookupKey = `${cityVariant}|${barangayVariant}`;
+                const combinedSet = byCityBarangay.get(lookupKey) || new Set();
+                zipSet.forEach((zipValue) => combinedSet.add(zipValue));
+                byCityBarangay.set(lookupKey, combinedSet);
+              });
+            });
+          });
+        });
+
+        return {
+          byCityBarangay,
+          byCity
+        };
+      }).catch(() => ({ byCityBarangay: new Map(), byCity: new Map() }));
+
+      return zipLookupMapsPromise;
+    };
+
+    const resolveZipCode = async (cityValue, barangayValue) => {
+      const cityVariants = normalizeLocationVariants(cityValue, false);
+      const barangayVariants = normalizeLocationVariants(barangayValue, true);
+      if (cityVariants.length === 0 || barangayVariants.length === 0) {
+        return '';
+      }
+
+      const zipMaps = await loadZipLookupMaps();
+      for (const cityVariant of cityVariants) {
+        for (const barangayVariant of barangayVariants) {
+          const lookupKey = `${cityVariant}|${barangayVariant}`;
+          const zipSet = zipMaps.byCityBarangay.get(lookupKey);
+          if (zipSet && zipSet.size > 0) {
+            return Array.from(zipSet)[0] || '';
+          }
+        }
+      }
+
+      for (const cityVariant of cityVariants) {
+        const cityZipSet = zipMaps.byCity.get(cityVariant);
+        if (cityZipSet && cityZipSet.size === 1) {
+          return Array.from(cityZipSet)[0] || '';
+        }
+      }
+
+      return '';
+    };
+
+    const bindZipAutoFill = (cityInput, barangayInput, zipInput) => {
+      if (!cityInput || !barangayInput || !zipInput) {
+        return;
+      }
+
+      let inFlightRequest = 0;
+      let lastAutoFilledZip = '';
+      let inputDebounce = null;
+      const applyAutoZip = async () => {
+        const requestId = ++inFlightRequest;
+        const zip = await resolveZipCode(cityInput.value || '', barangayInput.value || '');
+        if (requestId !== inFlightRequest) {
+          return;
+        }
+
+        if (zip) {
+          zipInput.value = zip;
+          lastAutoFilledZip = zip;
+          zipInput.dispatchEvent(new Event('input', { bubbles: true }));
+          return;
+        }
+
+        if (lastAutoFilledZip && zipInput.value === lastAutoFilledZip) {
+          zipInput.value = '';
+          lastAutoFilledZip = '';
+          zipInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      };
+
+      cityInput.addEventListener('change', applyAutoZip);
+      barangayInput.addEventListener('change', applyAutoZip);
+      cityInput.addEventListener('blur', applyAutoZip);
+      barangayInput.addEventListener('blur', applyAutoZip);
+
+      const onTypedAddress = () => {
+        if (inputDebounce) {
+          clearTimeout(inputDebounce);
+        }
+        inputDebounce = setTimeout(() => {
+          applyAutoZip();
+        }, 300);
+      };
+
+      cityInput.addEventListener('input', onTypedAddress);
+      barangayInput.addEventListener('input', onTypedAddress);
+    };
+
+    bindZipAutoFill(profileResidentialCity, profileResidentialBarangay, profileResidentialZipCode);
+    bindZipAutoFill(profilePermanentCity, profilePermanentBarangay, profilePermanentZipCode);
+
+    const quickEditProfileSearchInput = document.getElementById('quickEditProfileSearchInput');
+    const quickEditProfileOptions = Array.from(document.querySelectorAll('[data-quick-edit-profile-option]'));
+    const quickEditProfileEmpty = document.getElementById('quickEditProfileEmpty');
+
+    const applyQuickEditProfileFilter = () => {
+      const query = normalizeLocationKey(quickEditProfileSearchInput?.value || '');
+      let visibleCount = 0;
+
+      quickEditProfileOptions.forEach((optionButton) => {
+        const searchText = normalizeLocationKey(optionButton.getAttribute('data-search-text') || optionButton.textContent || '');
+        const isVisible = !query || searchText.includes(query);
+        optionButton.classList.toggle('hidden', !isVisible);
+        if (isVisible) {
+          visibleCount += 1;
+        }
+      });
+
+      if (quickEditProfileEmpty) {
+        quickEditProfileEmpty.classList.toggle('hidden', visibleCount > 0);
+      }
+    };
+
+    quickEditProfileSearchInput?.addEventListener('input', applyQuickEditProfileFilter);
+    applyQuickEditProfileFilter();
+
+    quickEditProfileOptions.forEach((optionButton) => {
+      optionButton.addEventListener('click', () => {
+        const personId = optionButton.getAttribute('data-person-id') || '';
+        if (!personId) {
+          return;
+        }
+
+        const targetTrigger = document.querySelector(`[data-person-profile-open][data-person-id="${personId}"]`);
+        if (targetTrigger instanceof HTMLElement) {
+          closeAllModals();
+          targetTrigger.click();
+        }
+      });
+    });
+
     if (profileSameAsPermanentAddress) {
       profileSameAsPermanentAddress.addEventListener('change', () => {
         if (profileSameAsPermanentAddress.checked) {
@@ -3863,6 +4567,41 @@
       }
     });
 
+    const initializeFlatpickrControls = (scope = document) => {
+      if (!window.flatpickr || !scope) {
+        return;
+      }
+
+      const dateInputs = scope.querySelectorAll('input[type="date"]:not([data-flatpickr="off"])');
+      dateInputs.forEach((input) => {
+        if (input.dataset.flatpickrInitialized === 'true') {
+          return;
+        }
+
+        flatpickr(input, {
+          dateFormat: 'Y-m-d',
+          allowInput: true
+        });
+        input.dataset.flatpickrInitialized = 'true';
+      });
+
+      const timeInputs = scope.querySelectorAll('input[type="time"]:not([data-flatpickr="off"])');
+      timeInputs.forEach((input) => {
+        if (input.dataset.flatpickrInitialized === 'true') {
+          return;
+        }
+
+        flatpickr(input, {
+          enableTime: true,
+          noCalendar: true,
+          dateFormat: 'H:i',
+          time_24hr: true,
+          allowInput: true
+        });
+        input.dataset.flatpickrInitialized = 'true';
+      });
+    };
+
     if (personalInfoFamilyForm && familyPersonId) {
       const getChildrenRows = () => personalInfoFamilyChildrenTableBody
         ? Array.from(personalInfoFamilyChildrenTableBody.querySelectorAll('tr'))
@@ -3885,6 +4624,7 @@
         const row = createChildRow();
         if (!row) return;
         personalInfoFamilyChildrenTableBody.appendChild(row);
+        initializeFlatpickrControls(row);
       };
 
       const resetChildrenRows = () => {
@@ -4480,6 +5220,30 @@
     const personalInfoArchiveForm = document.getElementById('personalInfoArchiveForm');
     const personalInfoArchivePersonId = document.getElementById('personalInfoArchivePersonId');
     const personalInfoArchiveEmployeeName = document.getElementById('personalInfoArchiveEmployeeName');
+    const personalInfoMergeForm = document.getElementById('personalInfoMergeForm');
+    const personalInfoMergeSourcePersonId = document.getElementById('personalInfoMergeSourcePersonId');
+    const personalInfoMergeSourceEmployeeName = document.getElementById('personalInfoMergeSourceEmployeeName');
+    const personalInfoMergeTargetPersonId = document.getElementById('personalInfoMergeTargetPersonId');
+    const personalInfoMergeResolutionMode = document.getElementById('personalInfoMergeResolutionMode');
+    const personalInfoMergeResolutionNotes = document.getElementById('personalInfoMergeResolutionNotes');
+    const personalInfoMergeSourceLabel = document.getElementById('personalInfoMergeSourceLabel');
+    const personalInfoMergeTargetSelect = document.getElementById('personalInfoMergeTargetSelect');
+    const personalInfoMergeResolutionSelect = document.getElementById('personalInfoMergeResolutionSelect');
+    const personalInfoMergeNotesInput = document.getElementById('personalInfoMergeNotesInput');
+    const personalInfoMergeSubmit = document.getElementById('personalInfoMergeSubmit');
+    const recommendationReviewForm = document.getElementById('personalInfoRecommendationReviewForm');
+    const recommendationReviewLogId = document.getElementById('recommendationReviewLogId');
+    const recommendationReviewPersonId = document.getElementById('recommendationReviewPersonId');
+    const recommendationReviewDecision = document.getElementById('recommendationReviewDecision');
+    const recommendationReviewRemarks = document.getElementById('recommendationReviewRemarks');
+    const recommendationReviewEmployee = document.getElementById('recommendationReviewEmployee');
+    const recommendationReviewSubmittedBy = document.getElementById('recommendationReviewSubmittedBy');
+    const recommendationReviewSubmittedAt = document.getElementById('recommendationReviewSubmittedAt');
+    const recommendationReviewSummary = document.getElementById('recommendationReviewSummary');
+    const recommendationReviewDetails = document.getElementById('recommendationReviewDetails');
+    const recommendationReviewDecisionSelect = document.getElementById('recommendationReviewDecisionSelect');
+    const recommendationReviewRemarksInput = document.getElementById('recommendationReviewRemarksInput');
+    const recommendationReviewSubmit = document.getElementById('recommendationReviewSubmit');
 
     document.querySelectorAll('[data-person-profile-archive]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -4517,6 +5281,267 @@
           submitArchive();
         }
       });
+    });
+
+    document.querySelectorAll('[data-person-merge-open]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const personId = button.getAttribute('data-person-id') || '';
+        const employeeName = button.getAttribute('data-employee-name') || 'Selected employee';
+        if (!personId || !personalInfoMergeSourceLabel || !personalInfoMergeSourcePersonId || !personalInfoMergeSourceEmployeeName) {
+          return;
+        }
+
+        personalInfoMergeSourceLabel.value = employeeName;
+        personalInfoMergeSourcePersonId.value = personId;
+        personalInfoMergeSourceEmployeeName.value = employeeName;
+
+        if (personalInfoMergeTargetSelect) {
+          personalInfoMergeTargetSelect.value = '';
+          Array.from(personalInfoMergeTargetSelect.options || []).forEach((option) => {
+            if (!option || option.value === '') {
+              return;
+            }
+            option.hidden = option.value === personId;
+          });
+        }
+
+        if (personalInfoMergeResolutionSelect) {
+          personalInfoMergeResolutionSelect.value = 'merge';
+        }
+        if (personalInfoMergeNotesInput) {
+          personalInfoMergeNotesInput.value = '';
+        }
+
+        openModal('personalInfoMergeModal');
+      });
+    });
+
+    personalInfoMergeSubmit?.addEventListener('click', () => {
+      const sourceId = (personalInfoMergeSourcePersonId?.value || '').trim();
+      const targetId = (personalInfoMergeTargetSelect?.value || '').trim();
+      const mode = (personalInfoMergeResolutionSelect?.value || 'merge').trim();
+      const notes = (personalInfoMergeNotesInput?.value || '').trim();
+      const sourceName = (personalInfoMergeSourceEmployeeName?.value || 'this employee').trim();
+
+      if (!sourceId || !personalInfoMergeForm || !personalInfoMergeResolutionMode || !personalInfoMergeResolutionNotes || !personalInfoMergeTargetPersonId) {
+        return;
+      }
+
+      if (mode === 'merge' && !targetId) {
+        if (window.Swal) {
+          Swal.fire({
+            icon: 'info',
+            title: 'Target profile required',
+            text: 'Select the employee profile that should be kept before merging.',
+            confirmButtonColor: '#0f172a'
+          });
+        }
+        return;
+      }
+
+      if (mode === 'merge' && sourceId === targetId) {
+        if (window.Swal) {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Invalid merge selection',
+            text: 'Source and target profiles must be different.',
+            confirmButtonColor: '#0f172a'
+          });
+        }
+        return;
+      }
+
+      personalInfoMergeResolutionMode.value = mode === 'delete' ? 'delete' : 'merge';
+      personalInfoMergeResolutionNotes.value = notes;
+      personalInfoMergeTargetPersonId.value = mode === 'merge' ? targetId : '';
+
+      const submitResolution = () => {
+        closeModal('personalInfoMergeModal');
+        personalInfoMergeForm.requestSubmit();
+      };
+
+      if (window.Swal) {
+        Swal.fire({
+          icon: 'warning',
+          title: mode === 'merge' ? 'Merge duplicate profile?' : 'Archive duplicate profile?',
+          text: mode === 'merge'
+            ? `${sourceName} will be merged and archived as duplicate.`
+            : `${sourceName} will be archived as duplicate without merge.`,
+          showCancelButton: true,
+          confirmButtonColor: '#b45309',
+          confirmButtonText: mode === 'merge' ? 'Yes, merge' : 'Yes, archive duplicate',
+          cancelButtonText: 'Cancel'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            submitResolution();
+          }
+        });
+        return;
+      }
+
+      if (window.confirm(mode === 'merge' ? `Merge duplicate profile for ${sourceName}?` : `Archive duplicate profile for ${sourceName}?`)) {
+        submitResolution();
+      }
+    });
+
+    const escapeReviewHtml = (value) => String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+    const formatRecommendationDetails = (payload) => {
+      if (!payload || typeof payload !== 'object') {
+        return '<p class="text-slate-500">No detailed changes attached.</p>';
+      }
+
+      const sections = [];
+      const profile = payload.recommended_profile && typeof payload.recommended_profile === 'object'
+        ? payload.recommended_profile
+        : null;
+      const addresses = payload.recommended_addresses && typeof payload.recommended_addresses === 'object'
+        ? payload.recommended_addresses
+        : null;
+      const governmentIds = payload.recommended_government_ids && typeof payload.recommended_government_ids === 'object'
+        ? payload.recommended_government_ids
+        : null;
+
+      if (profile && Object.keys(profile).length > 0) {
+        const profileItems = Object.entries(profile)
+          .filter(([, value]) => String(value ?? '').trim() !== '')
+          .slice(0, 12)
+          .map(([key, value]) => `<li><span class="font-medium">${escapeReviewHtml(String(key).replace(/_/g, ' '))}:</span> ${escapeReviewHtml(String(value))}</li>`)
+          .join('');
+        if (profileItems) {
+          sections.push(`<div><p class="font-medium text-slate-700">Profile</p><ul class="list-disc list-inside mt-1 text-xs space-y-1">${profileItems}</ul></div>`);
+        }
+      }
+
+      if (addresses && Object.keys(addresses).length > 0) {
+        const addressItems = Object.entries(addresses)
+          .map(([addressType, row]) => {
+            if (!row || typeof row !== 'object') {
+              return '';
+            }
+            const pieces = Object.values(row)
+              .map((value) => String(value || '').trim())
+              .filter((value) => value !== '');
+            if (pieces.length === 0) {
+              return '';
+            }
+            return `<li><span class="font-medium">${escapeReviewHtml(String(addressType))}:</span> ${escapeReviewHtml(pieces.join(', '))}</li>`;
+          })
+          .filter((item) => item !== '')
+          .join('');
+        if (addressItems) {
+          sections.push(`<div><p class="font-medium text-slate-700">Addresses</p><ul class="list-disc list-inside mt-1 text-xs space-y-1">${addressItems}</ul></div>`);
+        }
+      }
+
+      if (governmentIds && Object.keys(governmentIds).length > 0) {
+        const idItems = Object.entries(governmentIds)
+          .filter(([, value]) => String(value ?? '').trim() !== '')
+          .map(([key, value]) => `<li><span class="font-medium">${escapeReviewHtml(String(key).toUpperCase())}:</span> ${escapeReviewHtml(String(value))}</li>`)
+          .join('');
+        if (idItems) {
+          sections.push(`<div><p class="font-medium text-slate-700">Government IDs</p><ul class="list-disc list-inside mt-1 text-xs space-y-1">${idItems}</ul></div>`);
+        }
+      }
+
+      if (sections.length === 0) {
+        return '<p class="text-slate-500">No detailed changes attached.</p>';
+      }
+
+      return sections.join('<div class="h-px bg-slate-200 my-2"></div>');
+    };
+
+    document.querySelectorAll('[data-pending-review-open]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const recommendationLogIdValue = (button.getAttribute('data-recommendation-log-id') || '').trim();
+        const personIdValue = (button.getAttribute('data-person-id') || '').trim();
+        const employeeNameValue = button.getAttribute('data-employee-name') || '-';
+        const submittedByValue = button.getAttribute('data-submitted-by') || '-';
+        const submittedAtValue = button.getAttribute('data-submitted-at') || '-';
+        const summaryValue = button.getAttribute('data-summary') || '-';
+        const detailsRaw = button.getAttribute('data-details') || '{}';
+
+        if (!recommendationLogIdValue || !personIdValue || !recommendationReviewLogId || !recommendationReviewPersonId) {
+          return;
+        }
+
+        let detailsPayload = {};
+        try {
+          detailsPayload = JSON.parse(detailsRaw) || {};
+        } catch (_error) {
+          detailsPayload = {};
+        }
+
+        recommendationReviewLogId.value = recommendationLogIdValue;
+        recommendationReviewPersonId.value = personIdValue;
+        if (recommendationReviewEmployee) recommendationReviewEmployee.value = employeeNameValue;
+        if (recommendationReviewSubmittedBy) recommendationReviewSubmittedBy.value = submittedByValue;
+        if (recommendationReviewSubmittedAt) recommendationReviewSubmittedAt.value = submittedAtValue;
+        if (recommendationReviewSummary) recommendationReviewSummary.value = summaryValue;
+        if (recommendationReviewDetails) recommendationReviewDetails.innerHTML = formatRecommendationDetails(detailsPayload);
+        if (recommendationReviewDecisionSelect) recommendationReviewDecisionSelect.value = 'approve';
+        if (recommendationReviewRemarksInput) recommendationReviewRemarksInput.value = '';
+
+        openModal('personalInfoRecommendationReviewModal');
+      });
+    });
+
+    recommendationReviewSubmit?.addEventListener('click', () => {
+      const decisionValue = (recommendationReviewDecisionSelect?.value || 'approve').trim().toLowerCase();
+      const remarksValue = (recommendationReviewRemarksInput?.value || '').trim();
+
+      if (!recommendationReviewForm || !recommendationReviewLogId || !recommendationReviewPersonId || !recommendationReviewDecision || !recommendationReviewRemarks) {
+        return;
+      }
+
+      if (decisionValue === 'reject' && remarksValue === '') {
+        if (window.Swal) {
+          Swal.fire({
+            icon: 'info',
+            title: 'Remarks required',
+            text: 'Please provide remarks when rejecting a recommendation.',
+            confirmButtonColor: '#0f172a'
+          });
+        }
+        return;
+      }
+
+      recommendationReviewDecision.value = decisionValue === 'reject' ? 'reject' : 'approve';
+      recommendationReviewRemarks.value = remarksValue;
+
+      const submitDecision = () => {
+        closeModal('personalInfoRecommendationReviewModal');
+        recommendationReviewForm.dataset.confirmedSubmit = 'true';
+        recommendationReviewForm.submit();
+      };
+
+      if (window.Swal) {
+        Swal.fire({
+          icon: 'warning',
+          title: decisionValue === 'reject' ? 'Reject recommendation?' : 'Approve recommendation?',
+          text: decisionValue === 'reject'
+            ? 'The submitted recommendation will be rejected.'
+            : 'The submitted recommendation will be approved and applied to the employee record.',
+          showCancelButton: true,
+          confirmButtonText: decisionValue === 'reject' ? 'Yes, reject' : 'Yes, approve',
+          cancelButtonText: 'Cancel',
+          confirmButtonColor: decisionValue === 'reject' ? '#be123c' : '#0f766e'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            submitDecision();
+          }
+        });
+        return;
+      }
+
+      if (window.confirm(decisionValue === 'reject' ? 'Reject this recommendation?' : 'Approve this recommendation?')) {
+        submitDecision();
+      }
     });
 
     if (payrollEmployeeSearch && payrollEmployeeOptions && payrollSelectedPersonId) {
@@ -4902,30 +5927,7 @@
       });
     });
 
-    if (window.flatpickr) {
-      const dateInputs = document.querySelectorAll('main input[type="date"]:not([data-flatpickr="off"])');
-      dateInputs.forEach((input) => {
-        if (input.dataset.flatpickrInitialized === 'true') return;
-        flatpickr(input, {
-          dateFormat: 'Y-m-d',
-          allowInput: true
-        });
-        input.dataset.flatpickrInitialized = 'true';
-      });
-
-      const timeInputs = document.querySelectorAll('main input[type="time"]:not([data-flatpickr="off"])');
-      timeInputs.forEach((input) => {
-        if (input.dataset.flatpickrInitialized === 'true') return;
-        flatpickr(input, {
-          enableTime: true,
-          noCalendar: true,
-          dateFormat: 'H:i',
-          time_24hr: true,
-          allowInput: true
-        });
-        input.dataset.flatpickrInitialized = 'true';
-      });
-    }
+    initializeFlatpickrControls(document.querySelector('main') || document);
 
     {
       const statusActionConfig = {

@@ -8,17 +8,56 @@ $action = (string)($_POST['form_action'] ?? '');
 
 if ($action === 'upload_document_file') {
     $ownerPersonId = cleanText($_POST['owner_person_id'] ?? null) ?? '';
-    $categoryId = cleanText($_POST['category_id'] ?? null) ?? '';
+    $categoryInput = cleanText($_POST['category_name'] ?? null) ?? '';
+    $uploadDateInput = cleanText($_POST['upload_date'] ?? null) ?? '';
     $title = cleanText($_POST['title'] ?? null) ?? '';
     $description = cleanText($_POST['description'] ?? null);
     $upload = $_FILES['document_file'] ?? null;
 
-    if ($ownerPersonId === '' || $categoryId === '' || $title === '') {
-        redirectWithState('error', 'Owner, category, and title are required.');
+    if ($ownerPersonId === '' || $categoryInput === '' || $uploadDateInput === '' || $title === '') {
+        redirectWithState('error', 'Owner, file type, upload date, and title are required.');
     }
 
-    if (!preg_match('/^[0-9a-fA-F-]{36}$/', $ownerPersonId) || !preg_match('/^[0-9a-fA-F-]{36}$/', $categoryId)) {
-        redirectWithState('error', 'Invalid owner or category identifier.');
+    $uploadDate = DateTimeImmutable::createFromFormat('Y-m-d', $uploadDateInput);
+    if (!$uploadDate || $uploadDate->format('Y-m-d') !== $uploadDateInput) {
+        redirectWithState('error', 'Invalid upload date format.');
+    }
+    $uploadTimestamp = $uploadDate->setTime(12, 0, 0)->format('Y-m-d\TH:i:sP');
+
+    if (!preg_match('/^[0-9a-fA-F-]{36}$/', $ownerPersonId)) {
+        redirectWithState('error', 'Invalid owner identifier.');
+    }
+
+    $canonicalCategoryMap = [
+        'violation' => 'Violation',
+        'memorandum receipt' => 'Memorandum Receipt',
+        'memorandum' => 'Memorandum Receipt',
+        'gsis' => 'GSIS',
+        'gsis instead sss' => 'GSIS',
+        'copy of saln' => 'Copy of SALN',
+        'saln' => 'Copy of SALN',
+        'service record' => 'Service Record',
+        'coe' => 'COE',
+        'pds' => 'PDS',
+        'sss' => 'SSS',
+        'pagibig' => 'Pagibig',
+        'pag-ibig' => 'Pagibig',
+        'philhealth' => 'Philhealth',
+        'nbi' => 'NBI',
+        'medical' => 'Medical',
+        'drug test' => 'Drug Test',
+        'others' => 'Others',
+        'other' => 'Others',
+    ];
+
+    $normalizeCategory = static function (string $value): string {
+        return strtolower(trim((string)preg_replace('/\s+/', ' ', $value)));
+    };
+
+    $categoryKeyInput = $normalizeCategory($categoryInput);
+    $categoryName = $canonicalCategoryMap[$categoryKeyInput] ?? '';
+    if ($categoryName === '') {
+        redirectWithState('error', 'Please select a valid 201 file category.');
     }
 
     if (!is_array($upload) || (int)($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
@@ -54,12 +93,58 @@ if ($action === 'upload_document_file') {
 
     $categoryResponse = apiRequest(
         'GET',
-        $supabaseUrl . '/rest/v1/document_categories?select=id&id=eq.' . $categoryId . '&limit=1',
+        $supabaseUrl . '/rest/v1/document_categories?select=id,category_name&limit=500',
         $headers
     );
-    $categoryRow = $categoryResponse['data'][0] ?? null;
-    if (!is_array($categoryRow)) {
-        redirectWithState('error', 'Selected category does not exist.');
+
+    $categoryId = '';
+    if (isSuccessful($categoryResponse)) {
+        foreach ((array)($categoryResponse['data'] ?? []) as $row) {
+            $rowId = trim((string)($row['id'] ?? ''));
+            $rowName = trim((string)($row['category_name'] ?? ''));
+            if ($rowId === '' || $rowName === '') {
+                continue;
+            }
+
+            $rowCanonical = $canonicalCategoryMap[$normalizeCategory($rowName)] ?? '';
+            if ($rowCanonical === $categoryName) {
+                $categoryId = $rowId;
+                break;
+            }
+        }
+    }
+
+    if ($categoryId === '') {
+        $categoryKey = strtolower(trim((string)preg_replace('/[^a-z0-9]+/', '_', $categoryName), '_'));
+        $insertCategoryResponse = apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/document_categories',
+            array_merge($headers, ['Prefer: return=representation']),
+            [[
+                'category_key' => $categoryKey,
+                'category_name' => $categoryName,
+                'requires_approval' => true,
+            ]]
+        );
+
+        if (isSuccessful($insertCategoryResponse)) {
+            $categoryId = trim((string)($insertCategoryResponse['data'][0]['id'] ?? ''));
+        }
+
+        if ($categoryId === '') {
+            $categoryByKeyResponse = apiRequest(
+                'GET',
+                $supabaseUrl . '/rest/v1/document_categories?select=id&category_key=eq.' . rawurlencode($categoryKey) . '&limit=1',
+                $headers
+            );
+            if (isSuccessful($categoryByKeyResponse)) {
+                $categoryId = trim((string)($categoryByKeyResponse['data'][0]['id'] ?? ''));
+            }
+        }
+    }
+
+    if ($categoryId === '') {
+        redirectWithState('error', 'Unable to resolve category for upload.');
     }
 
     $safeBaseName = preg_replace('/[^a-zA-Z0-9\-_]+/', '-', (string)pathinfo($originalName, PATHINFO_FILENAME));
@@ -96,6 +181,8 @@ if ($action === 'upload_document_file') {
             'current_version_no' => 1,
             'document_status' => 'submitted',
             'uploaded_by' => $adminUserId,
+            'created_at' => $uploadTimestamp,
+            'updated_at' => $uploadTimestamp,
         ]]
     );
 
@@ -124,6 +211,7 @@ if ($action === 'upload_document_file') {
             'checksum_sha256' => $checksum,
             'storage_path' => $storedFileName,
             'uploaded_by' => $adminUserId,
+            'uploaded_at' => $uploadTimestamp,
         ]]
     );
 
@@ -169,6 +257,10 @@ if ($action === 'review_document') {
         redirectWithState('error', 'Invalid review status selected.');
     }
 
+    if (in_array($reviewStatus, ['rejected', 'needs_revision'], true) && trim((string)$reviewNotes) === '') {
+        redirectWithState('error', 'Review notes are required for rejected or needs revision decisions.');
+    }
+
     $documentResponse = apiRequest(
         'GET',
         $supabaseUrl . '/rest/v1/documents?select=id,title,document_status,uploaded_by&id=eq.' . $documentId . '&limit=1',
@@ -183,6 +275,10 @@ if ($action === 'review_document') {
     $currentStatus = strtolower((string)($documentRow['document_status'] ?? 'draft'));
     if ($currentStatus === 'archived') {
         redirectWithState('error', 'Archived documents cannot be reviewed.');
+    }
+
+    if (in_array($currentStatus, ['approved', 'rejected'], true)) {
+        redirectWithState('error', 'Finalized documents cannot be reviewed again.');
     }
 
     $mappedStatus = match ($reviewStatus) {
@@ -245,6 +341,15 @@ if ($action === 'review_document') {
 
     $uploadedBy = (string)($documentRow['uploaded_by'] ?? '');
     if ($uploadedBy !== '') {
+        $notificationBody = 'Your document "' . ((string)($documentRow['title'] ?? 'Document')) . '" was marked as ' . str_replace('_', ' ', $reviewStatus) . '.';
+        if ($reviewStatus === 'rejected' || $reviewStatus === 'needs_revision') {
+            $reviewNotesText = trim((string)$reviewNotes);
+            if ($reviewNotesText !== '') {
+                $notificationBody .= ' Notes: ' . $reviewNotesText;
+            }
+            $notificationBody .= ' Please revise and resubmit in your document management page.';
+        }
+
         apiRequest(
             'POST',
             $supabaseUrl . '/rest/v1/notifications',
@@ -253,7 +358,7 @@ if ($action === 'review_document') {
                 'recipient_user_id' => $uploadedBy,
                 'category' => 'documents',
                 'title' => 'Document Review Updated',
-                'body' => 'Your document "' . ((string)($documentRow['title'] ?? 'Document')) . '" was marked as ' . str_replace('_', ' ', $reviewStatus) . '.',
+                'body' => $notificationBody,
                 'link_url' => '/hris-system/pages/employee/document-management.php',
             ]]
         );
@@ -346,6 +451,59 @@ if ($action === 'archive_document') {
     );
 
     redirectWithState('success', 'Document archived successfully.');
+}
+
+if ($action === 'restore_document') {
+    $documentId = cleanText($_POST['document_id'] ?? null) ?? '';
+
+    if ($documentId === '') {
+        redirectWithState('error', 'Document is required for restore.');
+    }
+
+    $documentResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/documents?select=id,title,document_status,uploaded_by&id=eq.' . $documentId . '&limit=1',
+        $headers
+    );
+
+    $documentRow = $documentResponse['data'][0] ?? null;
+    if (!is_array($documentRow)) {
+        redirectWithState('error', 'Document record not found.');
+    }
+
+    $currentStatus = strtolower((string)($documentRow['document_status'] ?? 'draft'));
+    if ($currentStatus !== 'archived') {
+        redirectWithState('error', 'Only archived documents can be restored.');
+    }
+
+    $patchResponse = apiRequest(
+        'PATCH',
+        $supabaseUrl . '/rest/v1/documents?id=eq.' . $documentId,
+        array_merge($headers, ['Prefer: return=minimal']),
+        [
+            'document_status' => 'submitted',
+            'updated_at' => gmdate('c'),
+        ]
+    );
+
+    if (!isSuccessful($patchResponse)) {
+        redirectWithState('error', 'Failed to restore document.');
+    }
+
+    logStatusTransition(
+        $supabaseUrl,
+        $headers,
+        $adminUserId,
+        'document_management',
+        'documents',
+        $documentId,
+        'restore_document',
+        'archived',
+        'submitted',
+        null
+    );
+
+    redirectWithState('success', 'Document restored to submitted status.');
 }
 
 redirectWithState('error', 'Unknown document management action.');

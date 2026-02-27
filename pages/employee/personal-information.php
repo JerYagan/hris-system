@@ -55,85 +55,76 @@ $formatDate = static function (?string $value): string {
   </div>
 <?php endif; ?>
 
-<section class="bg-white rounded-xl shadow p-6 mb-6">
-  <div class="flex items-center justify-between mb-6">
-    <h2 class="text-lg font-bold">Personal <span class="text-daGreen">Profile</span></h2>
+<section class="bg-white border border-slate-200 rounded-2xl mb-6 overflow-hidden">
+  <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
+    <div>
+      <h2 class="text-lg font-semibold text-slate-800">Personal <span class="text-daGreen">Profile</span></h2>
+      <p class="text-sm text-slate-500 mt-1">View your profile summary and update editable details.</p>
+    </div>
     <button data-open-profile class="bg-daGreen text-white px-5 py-2 rounded-lg text-sm font-medium hover:opacity-90">Edit Profile</button>
-  </div>
+  </header>
 
-  <div class="mb-6 flex flex-col sm:flex-row gap-4 sm:items-end sm:justify-between border rounded-lg p-4 bg-gray-50">
-    <div class="flex items-center gap-4">
-      <?php if (!empty($employeeProfile['profile_photo_public_url'])): ?>
-        <img src="<?= $escape((string)$employeeProfile['profile_photo_public_url']) ?>" alt="Profile Photo" class="w-16 h-16 rounded-full object-cover border">
-      <?php else: ?>
-        <div class="w-16 h-16 rounded-full bg-daGreen text-white flex items-center justify-center text-lg font-semibold">
-          <?= $escape($profileInitials !== '' ? $profileInitials : 'EM') ?>
+  <div class="p-6 space-y-5">
+    <div class="flex flex-col lg:flex-row gap-4 lg:items-end lg:justify-between rounded-xl border border-slate-200 p-4 bg-slate-50">
+      <div class="flex items-center gap-4">
+        <?php if (!empty($employeeProfile['profile_photo_public_url'])): ?>
+          <img src="<?= $escape((string)($employeeProfile['profile_photo_public_url'])) ?>" alt="Profile Photo" class="w-16 h-16 rounded-full object-cover border border-slate-200">
+        <?php else: ?>
+          <div class="w-16 h-16 rounded-full bg-daGreen text-white flex items-center justify-center text-lg font-semibold">
+            <?= $escape($profileInitials !== '' ? $profileInitials : 'EM') ?>
+          </div>
+        <?php endif; ?>
+        <div>
+          <p class="text-sm font-semibold text-slate-800"><?= $escape(trim((string)($employeeProfile['first_name'] ?? '') . ' ' . (string)($employeeProfile['last_name'] ?? ''))) ?></p>
+          <p class="text-xs text-slate-500">Profile photo appears in the top navigation.</p>
         </div>
-      <?php endif; ?>
-      <div>
-        <p class="text-sm font-semibold"><?= $escape(trim((string)($employeeProfile['first_name'] ?? '') . ' ' . (string)($employeeProfile['last_name'] ?? ''))) ?></p>
-        <p class="text-xs text-gray-500">Profile picture shown in top navigation.</p>
       </div>
+
+      <form id="profilePhotoForm" method="post" action="personal-information.php" enctype="multipart/form-data" class="flex flex-col lg:items-end gap-2">
+        <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken ?? '') ?>">
+        <input type="hidden" name="action" value="upload_profile_photo">
+        <div class="flex items-center gap-2">
+          <input id="profilePhotoInput" type="file" name="profile_photo" accept="image/png,image/jpeg,image/webp" class="hidden" required>
+          <button id="profilePhotoActionBtn" type="button" class="border border-slate-300 bg-white text-slate-700 px-3 py-2 rounded-lg text-sm inline-flex items-center gap-1.5"><span id="profilePhotoActionIcon" class="material-symbols-outlined text-sm">upload</span><span id="profilePhotoActionText">Choose Photo</span></button>
+          <span id="profilePhotoFileName" class="text-xs text-slate-500 max-w-[220px] truncate">No file selected</span>
+        </div>
+        <div id="profilePhotoPreviewWrap" class="hidden w-full lg:w-auto flex items-center gap-3 rounded-lg border border-slate-200 p-2 bg-white">
+          <img id="profilePhotoPreview" src="" alt="Profile preview" class="w-14 h-14 rounded-full object-cover border">
+          <p class="text-xs text-slate-600">Preview before saving</p>
+        </div>
+      </form>
     </div>
 
-    <form method="post" action="personal-information.php" enctype="multipart/form-data" class="flex flex-col sm:flex-row gap-2 sm:items-center">
-      <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken ?? '') ?>">
-      <input type="hidden" name="action" value="upload_profile_photo">
-      <input type="file" name="profile_photo" accept="image/png,image/jpeg,image/webp" class="text-sm" required>
-      <button type="submit" class="bg-daGreen text-white px-4 py-2 rounded-lg text-sm inline-flex items-center gap-1.5"><span class="material-icons text-sm">photo_camera</span>Upload Photo</button>
-    </form>
-  </div>
-
-  <div class="grid md:grid-cols-4 gap-4 text-sm">
-    <div><label class="text-gray-500">First Name</label><input disabled value="<?= $escape($employeeProfile['first_name'] ?? '') ?>" class="w-full mt-1 p-2 bg-gray-100 rounded-lg"></div>
-    <div><label class="text-gray-500">Last Name</label><input disabled value="<?= $escape($employeeProfile['last_name'] ?? '') ?>" class="w-full mt-1 p-2 bg-gray-100 rounded-lg"></div>
-    <div><label class="text-gray-500">Email Address</label><input disabled value="<?= $escape($employeeProfile['personal_email'] ?? '') ?>" class="w-full mt-1 p-2 bg-gray-100 rounded-lg"></div>
-    <div><label class="text-gray-500">Mobile Number</label><input disabled value="<?= $escape($employeeProfile['mobile_no'] ?? '') ?>" class="w-full mt-1 p-2 bg-gray-100 rounded-lg"></div>
-    <div class="md:col-span-2"><label class="text-gray-500">Address</label><input disabled value="<?= $escape($employeeProfile['address_line'] ?? '-') ?>" class="w-full mt-1 p-2 bg-gray-100 rounded-lg"></div>
-    <div><label class="text-gray-500">Date of Birth</label><input disabled value="<?= $escape($employeeProfile['date_of_birth'] ?? '') ?>" class="w-full mt-1 p-2 bg-gray-100 rounded-lg"></div>
-    <div><label class="text-gray-500">Civil Status</label><input disabled value="<?= $escape($employeeProfile['civil_status'] ?? '') ?>" class="w-full mt-1 p-2 bg-gray-100 rounded-lg"></div>
-  </div>
-</section>
-
-<section class="bg-white rounded-xl shadow p-6 mb-6">
-  <div class="flex items-center justify-between mb-6">
-    <h2 class="text-lg font-bold">Personal <span class="text-daGreen">Documents</span></h2>
-    <a href="document-management.php" class="bg-daGreen text-white px-5 py-2 rounded-lg text-sm font-medium hover:opacity-90 inline-block">Upload / Manage Documents</a>
-  </div>
-  <p class="text-sm text-gray-500 mb-4">This section is view-only. Use Document Management for uploads, edits, removals, and version updates.</p>
-
-  <div class="space-y-4 text-sm">
-    <?php if (!empty($employeeDocuments)): ?>
-      <?php foreach ($employeeDocuments as $document): ?>
-        <?php
-          $status = strtolower((string)($document['document_status'] ?? 'draft'));
-          $statusLabel = match ($status) {
-            'approved' => 'Approved',
-            'submitted' => 'Submitted',
-            'rejected' => 'Rejected',
-            default => ucfirst($status),
-          };
-          $statusClass = match ($status) {
-            'approved' => 'bg-approved text-green-800',
-            'submitted' => 'bg-pending text-yellow-800',
-            'rejected' => 'bg-rejected text-red-800',
-            default => 'bg-gray-200 text-gray-700',
-          };
-        ?>
-        <div class="flex items-center justify-between border rounded-lg px-4 py-3">
-          <div class="flex items-center gap-3">
-            <span class="material-icons text-gray-400">description</span>
-            <div>
-              <p class="font-medium"><?= $escape($document['title'] ?? 'Document') ?></p>
-              <p class="text-xs text-gray-500"><?= $escape($document['category_name'] ?? 'Uncategorized') ?> · Updated <?= $escape($formatDate($document['updated_at'] ?? null)) ?></p>
-            </div>
-          </div>
-          <span class="px-3 py-1 rounded-full <?= $escape($statusClass) ?>"><?= $escape($statusLabel) ?></span>
-        </div>
-      <?php endforeach; ?>
-    <?php else: ?>
-      <div class="rounded-lg border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-500">No uploaded documents yet.</div>
-    <?php endif; ?>
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 text-sm">
+      <article class="rounded-xl border border-slate-200 p-4">
+        <p class="text-xs uppercase tracking-wide text-slate-500">First Name</p>
+        <p class="mt-2 font-medium text-slate-800"><?= $escape($employeeProfile['first_name'] ?? '-') ?></p>
+      </article>
+      <article class="rounded-xl border border-slate-200 p-4">
+        <p class="text-xs uppercase tracking-wide text-slate-500">Last Name</p>
+        <p class="mt-2 font-medium text-slate-800"><?= $escape($employeeProfile['last_name'] ?? '-') ?></p>
+      </article>
+      <article class="rounded-xl border border-slate-200 p-4">
+        <p class="text-xs uppercase tracking-wide text-slate-500">Email Address</p>
+        <p class="mt-2 font-medium text-slate-800 break-all"><?= $escape($employeeProfile['personal_email'] ?? '-') ?></p>
+      </article>
+      <article class="rounded-xl border border-slate-200 p-4">
+        <p class="text-xs uppercase tracking-wide text-slate-500">Mobile Number</p>
+        <p class="mt-2 font-medium text-slate-800"><?= $escape($employeeProfile['mobile_no'] ?? '-') ?></p>
+      </article>
+      <article class="rounded-xl border border-slate-200 p-4 md:col-span-2 xl:col-span-2">
+        <p class="text-xs uppercase tracking-wide text-slate-500">Address</p>
+        <p class="mt-2 font-medium text-slate-800"><?= $escape($employeeProfile['address_line'] ?? '-') ?></p>
+      </article>
+      <article class="rounded-xl border border-slate-200 p-4">
+        <p class="text-xs uppercase tracking-wide text-slate-500">Date of Birth</p>
+        <p class="mt-2 font-medium text-slate-800"><?= $escape($employeeProfile['date_of_birth'] ?? '-') ?></p>
+      </article>
+      <article class="rounded-xl border border-slate-200 p-4">
+        <p class="text-xs uppercase tracking-wide text-slate-500">Civil Status</p>
+        <p class="mt-2 font-medium text-slate-800"><?= $escape($employeeProfile['civil_status'] ?? '-') ?></p>
+      </article>
+    </div>
   </div>
 </section>
 
@@ -147,30 +138,46 @@ $formatDate = static function (?string $value): string {
 </section>
 
 <section class="bg-white rounded-xl shadow p-6 mt-6">
-  <h2 class="text-lg font-bold mb-6">Approved <span class="text-daGreen">Performance Evaluations</span></h2>
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-bold">Spouse <span class="text-daGreen">Entry Requests</span></h2>
+    <button type="button" data-open-spouse-request class="bg-daGreen text-white px-4 py-2 rounded-lg text-sm font-medium">Request Additional Spouse Entry</button>
+  </div>
 
-  <?php if (!empty($employeeApprovedEvaluations)): ?>
-    <div class="space-y-4 text-sm">
-      <?php foreach ($employeeApprovedEvaluations as $evaluation): ?>
+  <?php if (!empty($spouseRequestHistory)): ?>
+    <div class="space-y-3 text-sm">
+      <?php foreach ($spouseRequestHistory as $request): ?>
+        <?php
+          $requestStatus = strtolower((string)($request['status'] ?? 'pending_admin_approval'));
+          $requestStatusLabel = match ($requestStatus) {
+              'approved' => 'Approved',
+              'rejected' => 'Rejected',
+              default => 'Pending Admin Approval',
+          };
+          $requestStatusClass = match ($requestStatus) {
+              'approved' => 'bg-green-100 text-green-800',
+              'rejected' => 'bg-red-100 text-red-800',
+              default => 'bg-amber-100 text-amber-800',
+          };
+        ?>
         <article class="border rounded-lg p-4">
-          <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
+          <div class="flex flex-wrap justify-between items-start gap-2">
             <div>
-              <p class="font-semibold text-gray-800"><?= $escape($evaluation['cycle_name'] ?? 'Evaluation Cycle') ?></p>
-              <p class="text-xs text-gray-500">
-                <?= $escape($formatDate($evaluation['period_start'] ?? null)) ?> - <?= $escape($formatDate($evaluation['period_end'] ?? null)) ?>
-              </p>
+              <p class="font-semibold text-slate-800"><?= $escape((string)($request['spouse_name'] !== '' ? $request['spouse_name'] : 'Spouse request')) ?></p>
+              <p class="text-xs text-slate-500 mt-1">Submitted <?= $escape($formatDate($request['created_at'] ?? null)) ?></p>
             </div>
-            <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Approved</span>
+            <span class="px-2.5 py-1 rounded-full text-xs <?= $escape($requestStatusClass) ?>"><?= $escape($requestStatusLabel) ?></span>
           </div>
-
-          <p><span class="text-gray-500">Final Rating:</span> <span class="font-medium"><?= $escape($evaluation['final_rating'] ?? '-') ?></span></p>
-          <p class="mt-1"><span class="text-gray-500">Feedback:</span> <?= $escape($evaluation['remarks'] ?? '-') ?></p>
-          <p class="mt-1 text-xs text-gray-500">Reviewed by <?= $escape($evaluation['evaluator_email'] ?? '-') ?> on <?= $escape($formatDate($evaluation['approved_at'] ?? null)) ?></p>
+          <?php if (!empty($request['attachment_name'])): ?>
+            <p class="mt-2 text-xs text-slate-600">Attachment: <?= $escape((string)$request['attachment_name']) ?></p>
+          <?php endif; ?>
+          <?php if (!empty($request['notes'])): ?>
+            <p class="mt-2 text-xs text-slate-600">Notes: <?= $escape((string)$request['notes']) ?></p>
+          <?php endif; ?>
         </article>
       <?php endforeach; ?>
     </div>
   <?php else: ?>
-    <div class="rounded-lg border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-500">No approved performance evaluations yet.</div>
+    <div class="rounded-lg border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-500">No spouse entry requests yet.</div>
   <?php endif; ?>
 </section>
 
@@ -181,7 +188,7 @@ $formatDate = static function (?string $value): string {
       <div class="px-6 py-4 border-b">
         <div class="flex justify-between items-center mb-3">
           <h2 class="text-lg font-semibold">Edit Profile</h2>
-          <button type="button" data-close-profile><span class="material-icons">close</span></button>
+          <button type="button" data-close-profile><span class="material-symbols-outlined">close</span></button>
         </div>
         <div class="grid grid-cols-3 text-sm border rounded-lg overflow-hidden">
           <button type="button" data-profile-tab-target="personal" class="profile-tab px-3 py-2 bg-gray-50 border-b-2 border-daGreen text-daGreen font-medium">I. Personal Information</button>
@@ -195,95 +202,207 @@ $formatDate = static function (?string $value): string {
         <input type="hidden" name="action" value="update_profile">
         <input type="hidden" name="address_id" value="<?= $escape($employeeProfile['address_id'] ?? '') ?>">
         <input type="hidden" name="permanent_address_id" value="<?= $escape($employeeProfile['permanent_address_id'] ?? '') ?>">
-        <input type="hidden" name="spouse_id" value="<?= $escape($employeeSpouse['id'] ?? '') ?>">
         <input type="hidden" name="father_id" value="<?= $escape($employeeFather['id'] ?? '') ?>">
         <input type="hidden" name="mother_id" value="<?= $escape($employeeMother['id'] ?? '') ?>">
 
         <div class="flex-1 overflow-y-auto p-6 text-sm">
-          <section data-profile-section="personal" class="space-y-4">
-            <h3 class="font-semibold text-base">I. Personal Information</h3>
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div><label class="text-gray-500">Surname</label><input value="<?= $escape($employeeProfile['last_name'] ?? '') ?>" class="border rounded-lg p-2 w-full bg-gray-100" readonly></div>
-              <div><label class="text-gray-500">First Name</label><input value="<?= $escape($employeeProfile['first_name'] ?? '') ?>" class="border rounded-lg p-2 w-full bg-gray-100" readonly></div>
-              <div><label class="text-gray-500">Name Extension</label><input name="name_extension" value="<?= $escape($employeeProfile['name_extension'] ?? '') ?>" class="border rounded-lg p-2 w-full"></div>
-              <div><label class="text-gray-500">Middle Name</label><input name="middle_name" value="<?= $escape($employeeProfile['middle_name'] ?? '') ?>" class="border rounded-lg p-2 w-full"></div>
-              <div><label class="text-gray-500">Date of Birth</label><input name="date_of_birth" type="date" value="<?= $escape($employeeProfile['date_of_birth'] ?? '') ?>" class="border rounded-lg p-2 w-full"></div>
-              <div class="md:col-span-2"><label class="text-gray-500">Place of Birth</label><input name="place_of_birth" value="<?= $escape($employeeProfile['place_of_birth'] ?? '') ?>" class="border rounded-lg p-2 w-full"></div>
-              <div><label class="text-gray-500">Sex</label>
-                <select name="sex_at_birth" class="border rounded-lg p-2 w-full">
-                  <option value="">Select</option>
-                  <option value="male" <?= ($employeeProfile['sex_at_birth'] ?? '') === 'male' ? 'selected' : '' ?>>Male</option>
-                  <option value="female" <?= ($employeeProfile['sex_at_birth'] ?? '') === 'female' ? 'selected' : '' ?>>Female</option>
-                </select>
+          <section data-profile-section="personal" class="space-y-6">
+            <section class="space-y-3">
+              <h4 class="text-sm font-semibold text-slate-700">Basic Identity</h4>
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label class="text-slate-600">First Name</label>
+                  <input id="profileFirstName" name="first_name" type="text" value="<?= $escape($employeeProfile['first_name'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                </div>
+                <div>
+                  <label class="text-slate-600">Middle Name</label>
+                  <input id="profileMiddleName" name="middle_name" type="text" value="<?= $escape($employeeProfile['middle_name'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-100" readonly>
+                </div>
+                <div>
+                  <label class="text-slate-600">Last Name</label>
+                  <input id="profileSurname" name="surname" type="text" value="<?= $escape($employeeProfile['last_name'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                </div>
+                <div>
+                  <label class="text-slate-600">Name Extension</label>
+                  <input id="profileNameExtension" name="name_extension" type="text" value="<?= $escape($employeeProfile['name_extension'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Jr., Sr., III">
+                </div>
               </div>
-              <div><label class="text-gray-500">Civil Status</label><input name="civil_status" value="<?= $escape($employeeProfile['civil_status'] ?? '') ?>" class="border rounded-lg p-2 w-full"></div>
-              <div><label class="text-gray-500">Height (m)</label><input name="height_m" value="<?= $escape($employeeProfile['height_m'] ?? '') ?>" class="border rounded-lg p-2 w-full"></div>
-              <div><label class="text-gray-500">Weight (kg)</label><input name="weight_kg" value="<?= $escape($employeeProfile['weight_kg'] ?? '') ?>" class="border rounded-lg p-2 w-full"></div>
-              <div><label class="text-gray-500">Blood Type</label><input name="blood_type" value="<?= $escape($employeeProfile['blood_type'] ?? '') ?>" class="border rounded-lg p-2 w-full"></div>
-              <div><label class="text-gray-500">GSIS ID No.</label><input name="umid_no" value="<?= $escape($employeeProfile['umid_no'] ?? '') ?>" class="border rounded-lg p-2 w-full"></div>
-              <div><label class="text-gray-500">PAG-IBIG ID No.</label><input name="pagibig_no" value="<?= $escape($employeeProfile['pagibig_no'] ?? '') ?>" class="border rounded-lg p-2 w-full"></div>
-              <div><label class="text-gray-500">PhilHealth No.</label><input name="philhealth_no" value="<?= $escape($employeeProfile['philhealth_no'] ?? '') ?>" class="border rounded-lg p-2 w-full"></div>
-              <div><label class="text-gray-500">SSS/PSN No.</label><input name="psn_no" value="<?= $escape($employeeProfile['psn_no'] ?? '') ?>" class="border rounded-lg p-2 w-full"></div>
-              <div><label class="text-gray-500">TIN No.</label><input name="tin_no" value="<?= $escape($employeeProfile['tin_no'] ?? '') ?>" class="border rounded-lg p-2 w-full"></div>
-              <div><label class="text-gray-500">Agency Employee No.</label><input name="agency_employee_no" value="<?= $escape($employeeProfile['agency_employee_no'] ?? '') ?>" class="border rounded-lg p-2 w-full"></div>
-              <div><label class="text-gray-500">Citizenship</label><input name="citizenship" value="<?= $escape($employeeProfile['citizenship'] ?? '') ?>" class="border rounded-lg p-2 w-full"></div>
-              <div>
-                <label class="text-gray-500">Dual Citizenship</label>
-                <select name="dual_citizenship" class="border rounded-lg p-2 w-full">
-                  <option value="0" <?= ($employeeProfile['dual_citizenship'] ?? '0') === '0' ? 'selected' : '' ?>>No</option>
-                  <option value="1" <?= ($employeeProfile['dual_citizenship'] ?? '0') === '1' ? 'selected' : '' ?>>Yes</option>
-                </select>
+            </section>
+
+            <section class="space-y-3 border-t border-slate-200 pt-4">
+              <h4 class="text-sm font-semibold text-slate-700">Demographics</h4>
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label class="text-slate-600">Date of Birth</label>
+                  <input id="profileDateOfBirth" name="date_of_birth" type="date" value="<?= $escape($employeeProfile['date_of_birth'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-100" readonly>
+                </div>
+                <div class="md:col-span-2">
+                  <label class="text-slate-600">Place of Birth</label>
+                  <div class="relative mt-1">
+                    <input id="profilePlaceOfBirth" name="place_of_birth" type="text" list="profilePlaceOfBirthList" autocomplete="off" data-modern-search="place_of_birth" value="<?= $escape($employeeProfile['place_of_birth'] ?? '') ?>" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-slate-100" required readonly>
+                    <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400">
+                      <span class="material-symbols-outlined text-[18px]">expand_more</span>
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <label class="text-slate-600">Sex at Birth</label>
+                  <select id="profileSexAtBirth" name="sex_at_birth" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                    <option value="">Select sex</option>
+                    <option value="male" <?= ($employeeProfile['sex_at_birth'] ?? '') === 'male' ? 'selected' : '' ?>>Male</option>
+                    <option value="female" <?= ($employeeProfile['sex_at_birth'] ?? '') === 'female' ? 'selected' : '' ?>>Female</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-slate-600">Civil Status</label>
+                  <div class="relative mt-1">
+                    <input id="profileCivilStatus" name="civil_status" type="text" list="profileCivilStatusList" autocomplete="off" data-modern-search="civil_status" value="<?= $escape($employeeProfile['civil_status'] ?? '') ?>" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" required>
+                    <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400">
+                      <span class="material-symbols-outlined text-[18px]">expand_more</span>
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <label class="text-slate-600">Height (m)</label>
+                  <input id="profileHeightM" name="height_m" type="number" min="0" step="0.01" value="<?= $escape($employeeProfile['height_m'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                </div>
+                <div>
+                  <label class="text-slate-600">Weight (kg)</label>
+                  <input id="profileWeightKg" name="weight_kg" type="number" min="0" step="0.01" value="<?= $escape($employeeProfile['weight_kg'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                </div>
+                <div>
+                  <label class="text-slate-600">Blood Type</label>
+                  <div class="relative mt-1">
+                    <input id="profileBloodType" name="blood_type" type="text" list="profileBloodTypeList" autocomplete="off" data-modern-search="blood_type" value="<?= $escape($employeeProfile['blood_type'] ?? '') ?>" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" required>
+                    <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400">
+                      <span class="material-symbols-outlined text-[18px]">expand_more</span>
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div><label class="text-gray-500">Dual Citizenship Country</label><input name="dual_citizenship_country" value="<?= $escape($employeeProfile['dual_citizenship_country'] ?? '') ?>" class="border rounded-lg p-2 w-full"></div>
-            </div>
+            </section>
 
-            <h4 class="font-semibold pt-2">Residential Address</h4>
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div><input name="house_no" value="<?= $escape($employeeProfile['house_no'] ?? '') ?>" placeholder="House/Block/Lot No." class="border rounded-lg p-2 w-full"></div>
-              <div><input name="street" value="<?= $escape($employeeProfile['street'] ?? '') ?>" placeholder="Street" class="border rounded-lg p-2 w-full"></div>
-              <div><input name="subdivision" value="<?= $escape($employeeProfile['subdivision'] ?? '') ?>" placeholder="Subdivision/Village" class="border rounded-lg p-2 w-full"></div>
-              <div><input name="barangay" value="<?= $escape($employeeProfile['barangay'] ?? '') ?>" placeholder="Barangay" class="border rounded-lg p-2 w-full"></div>
-              <div><input name="city_municipality" value="<?= $escape($employeeProfile['city_municipality'] ?? '') ?>" placeholder="City/Municipality" class="border rounded-lg p-2 w-full"></div>
-              <div><input name="province" value="<?= $escape($employeeProfile['province'] ?? '') ?>" placeholder="Province" class="border rounded-lg p-2 w-full"></div>
-              <div><input name="zip_code" value="<?= $escape($employeeProfile['zip_code'] ?? '') ?>" placeholder="ZIP Code" class="border rounded-lg p-2 w-full"></div>
-            </div>
+            <section class="space-y-3 border-t border-slate-200 pt-4">
+              <h4 class="text-sm font-semibold text-slate-700">Citizenship</h4>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label class="text-slate-600">Citizenship</label>
+                  <input id="profileCitizenship" name="citizenship" type="text" value="<?= $escape($employeeProfile['citizenship'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                </div>
+                <div>
+                  <label class="text-slate-600">Dual Citizenship</label>
+                  <select name="dual_citizenship" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                    <option value="0" <?= ($employeeProfile['dual_citizenship'] ?? '0') === '0' ? 'selected' : '' ?>>No</option>
+                    <option value="1" <?= ($employeeProfile['dual_citizenship'] ?? '0') === '1' ? 'selected' : '' ?>>Yes</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-slate-600">Dual Citizenship Country</label>
+                  <input id="profileDualCitizenshipCountry" name="dual_citizenship_country" type="text" value="<?= $escape($employeeProfile['dual_citizenship_country'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                </div>
+              </div>
+            </section>
 
-            <div class="pt-2 flex items-center gap-2">
-              <input id="sameAddress" type="checkbox" name="permanent_same_as_residential" value="1" <?= !empty($employeeProfile['permanent_same_as_residential']) ? 'checked' : '' ?>>
-              <label for="sameAddress" class="text-gray-600">Permanent address same as residential</label>
-            </div>
+            <section class="space-y-3 border-t border-slate-200 pt-4">
+              <h4 class="text-sm font-semibold text-slate-700">Residential Address</h4>
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div><label class="text-slate-600">House No.</label><input id="profileResidentialHouseNo" name="residential_house_no" type="text" value="<?= $escape($employeeProfile['house_no'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
+                <div class="md:col-span-2"><label class="text-slate-600">Street</label><input id="profileResidentialStreet" name="residential_street" type="text" value="<?= $escape($employeeProfile['street'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
+                <div>
+                  <label class="text-slate-600">Barangay</label>
+                  <div class="relative mt-1">
+                    <input id="profileResidentialBarangay" name="residential_barangay" type="text" autocomplete="off" data-address-role="barangay" data-address-group="residential" data-modern-search="residential_barangay" value="<?= $escape($employeeProfile['barangay'] ?? '') ?>" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" required>
+                    <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400"><span class="material-symbols-outlined text-[18px]">expand_more</span></span>
+                  </div>
+                </div>
+                <div><label class="text-slate-600">Subdivision</label><input id="profileResidentialSubdivision" name="residential_subdivision" type="text" value="<?= $escape($employeeProfile['subdivision'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
+                <div>
+                  <label class="text-slate-600">City/Municipality</label>
+                  <div class="relative mt-1">
+                    <input id="profileResidentialCity" name="residential_city_municipality" type="text" list="profileCityList" autocomplete="off" data-address-role="city" data-address-group="residential" data-modern-search="residential_city" value="<?= $escape($employeeProfile['city_municipality'] ?? '') ?>" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" required>
+                    <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400"><span class="material-symbols-outlined text-[18px]">expand_more</span></span>
+                  </div>
+                </div>
+                <div>
+                  <label class="text-slate-600">Province</label>
+                  <div class="relative mt-1">
+                    <input id="profileResidentialProvince" name="residential_province" type="text" list="profileProvinceList" autocomplete="off" data-modern-search="residential_province" value="<?= $escape($employeeProfile['province'] ?? '') ?>" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" required>
+                    <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400"><span class="material-symbols-outlined text-[18px]">expand_more</span></span>
+                  </div>
+                </div>
+                <div><label class="text-slate-600">ZIP Code</label><input id="profileResidentialZipCode" name="residential_zip_code" type="text" autocomplete="off" inputmode="numeric" pattern="^\d{4}$" data-address-role="zip" data-address-group="residential" data-modern-search="residential_zip" value="<?= $escape($employeeProfile['zip_code'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required></div>
+              </div>
+            </section>
 
-            <h4 class="font-semibold">Permanent Address</h4>
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4" data-permanent-address-container>
-              <div><input name="permanent_house_no" value="<?= $escape($employeeProfile['permanent_house_no'] ?? '') ?>" placeholder="House/Block/Lot No." class="border rounded-lg p-2 w-full"></div>
-              <div><input name="permanent_street" value="<?= $escape($employeeProfile['permanent_street'] ?? '') ?>" placeholder="Street" class="border rounded-lg p-2 w-full"></div>
-              <div><input name="permanent_subdivision" value="<?= $escape($employeeProfile['permanent_subdivision'] ?? '') ?>" placeholder="Subdivision/Village" class="border rounded-lg p-2 w-full"></div>
-              <div><input name="permanent_barangay" value="<?= $escape($employeeProfile['permanent_barangay'] ?? '') ?>" placeholder="Barangay" class="border rounded-lg p-2 w-full"></div>
-              <div><input name="permanent_city_municipality" value="<?= $escape($employeeProfile['permanent_city_municipality'] ?? '') ?>" placeholder="City/Municipality" class="border rounded-lg p-2 w-full"></div>
-              <div><input name="permanent_province" value="<?= $escape($employeeProfile['permanent_province'] ?? '') ?>" placeholder="Province" class="border rounded-lg p-2 w-full"></div>
-              <div><input name="permanent_zip_code" value="<?= $escape($employeeProfile['permanent_zip_code'] ?? '') ?>" placeholder="ZIP Code" class="border rounded-lg p-2 w-full"></div>
-            </div>
+            <section class="space-y-3 border-t border-slate-200 pt-4">
+              <h4 class="text-sm font-semibold text-slate-700">Permanent Address</h4>
+              <label class="inline-flex items-center gap-2 text-sm text-slate-600">
+                <input id="profileSameAsPermanentAddress" type="checkbox" name="permanent_same_as_residential" value="1" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" <?= !empty($employeeProfile['permanent_same_as_residential']) ? 'checked' : '' ?>>
+                <span>Same as residential address</span>
+              </label>
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-4" data-permanent-address-container>
+                <div><label class="text-slate-600">House No.</label><input id="profilePermanentHouseNo" name="permanent_house_no" type="text" value="<?= $escape($employeeProfile['permanent_house_no'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
+                <div class="md:col-span-2"><label class="text-slate-600">Street</label><input id="profilePermanentStreet" name="permanent_street" type="text" value="<?= $escape($employeeProfile['permanent_street'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
+                <div>
+                  <label class="text-slate-600">Barangay</label>
+                  <div class="relative mt-1">
+                    <input id="profilePermanentBarangay" name="permanent_barangay" type="text" autocomplete="off" data-address-role="barangay" data-address-group="permanent" data-modern-search="permanent_barangay" value="<?= $escape($employeeProfile['permanent_barangay'] ?? '') ?>" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" required>
+                    <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400"><span class="material-symbols-outlined text-[18px]">expand_more</span></span>
+                  </div>
+                </div>
+                <div><label class="text-slate-600">Subdivision</label><input id="profilePermanentSubdivision" name="permanent_subdivision" type="text" value="<?= $escape($employeeProfile['permanent_subdivision'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
+                <div>
+                  <label class="text-slate-600">City/Municipality</label>
+                  <div class="relative mt-1">
+                    <input id="profilePermanentCity" name="permanent_city_municipality" type="text" list="profileCityList" autocomplete="off" data-address-role="city" data-address-group="permanent" data-modern-search="permanent_city" value="<?= $escape($employeeProfile['permanent_city_municipality'] ?? '') ?>" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" required>
+                    <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400"><span class="material-symbols-outlined text-[18px]">expand_more</span></span>
+                  </div>
+                </div>
+                <div>
+                  <label class="text-slate-600">Province</label>
+                  <div class="relative mt-1">
+                    <input id="profilePermanentProvince" name="permanent_province" type="text" list="profileProvinceList" autocomplete="off" data-modern-search="permanent_province" value="<?= $escape($employeeProfile['permanent_province'] ?? '') ?>" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" required>
+                    <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400"><span class="material-symbols-outlined text-[18px]">expand_more</span></span>
+                  </div>
+                </div>
+                <div><label class="text-slate-600">ZIP Code</label><input id="profilePermanentZipCode" name="permanent_zip_code" type="text" autocomplete="off" inputmode="numeric" pattern="^\d{4}$" data-address-role="zip" data-address-group="permanent" data-modern-search="permanent_zip" value="<?= $escape($employeeProfile['permanent_zip_code'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required></div>
+              </div>
+            </section>
 
-            <h4 class="font-semibold">Contact</h4>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div><input name="telephone_no" value="<?= $escape($employeeProfile['telephone_no'] ?? '') ?>" placeholder="Telephone No." class="border rounded-lg p-2 w-full"></div>
-              <div><input name="mobile_no" value="<?= $escape($employeeProfile['mobile_no'] ?? '') ?>" placeholder="Mobile No." class="border rounded-lg p-2 w-full"></div>
-              <div><input type="email" name="personal_email" value="<?= $escape($employeeProfile['personal_email'] ?? '') ?>" placeholder="Email Address" class="border rounded-lg p-2 w-full"></div>
-            </div>
+            <section class="space-y-3 border-t border-slate-200 pt-4">
+              <h4 class="text-sm font-semibold text-slate-700">Government IDs</h4>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div><label class="text-slate-600">UMID ID No.</label><input id="profileUmidNo" name="umid_no" type="text" value="<?= $escape($employeeProfile['umid_no'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
+                <div><label class="text-slate-600">PAG-IBIG ID No.</label><input id="profilePagibigNo" name="pagibig_no" type="text" value="<?= $escape($employeeProfile['pagibig_no'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
+                <div><label class="text-slate-600">PHILHEALTH No.</label><input id="profilePhilhealthNo" name="philhealth_no" type="text" value="<?= $escape($employeeProfile['philhealth_no'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
+                <div><label class="text-slate-600">PhilSys Number (PSN)</label><input id="profilePsnNo" name="psn_no" type="text" value="<?= $escape($employeeProfile['psn_no'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
+                <div><label class="text-slate-600">TIN No.</label><input id="profileTinNo" name="tin_no" type="text" value="<?= $escape($employeeProfile['tin_no'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
+                <div><label class="text-slate-600">Agency Employee No.</label><input id="profileAgencyEmployeeNo" name="agency_employee_no" type="text" value="<?= $escape($employeeProfile['agency_employee_no'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
+              </div>
+            </section>
+
+            <section class="space-y-3 border-t border-slate-200 pt-4">
+              <h4 class="text-sm font-semibold text-slate-700">Contact Details</h4>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div><label class="text-slate-600">Telephone Number</label><input id="profileTelephoneNo" name="telephone_no" type="text" value="<?= $escape($employeeProfile['telephone_no'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
+                <div><label class="text-slate-600">Mobile Number</label><input id="profileMobile" name="mobile_no" type="text" pattern="^\+?[0-9][0-9\s-]{6,19}$" value="<?= $escape($employeeProfile['mobile_no'] ?? '') ?>" required class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
+                <div><label class="text-slate-600">Email Address</label><input id="profileEmail" name="email" type="email" value="<?= $escape($employeeProfile['personal_email'] ?? '') ?>" required class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
+              </div>
+            </section>
           </section>
 
           <section data-profile-section="family" class="space-y-4 hidden">
             <h3 class="font-semibold text-base">II. Family Background</h3>
             <h4 class="font-semibold">Spouse</h4>
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div><input name="spouse_surname" value="<?= $escape($employeeSpouse['surname'] ?? '') ?>" placeholder="Surname" class="border rounded-lg p-2 w-full"></div>
-              <div><input name="spouse_first_name" value="<?= $escape($employeeSpouse['first_name'] ?? '') ?>" placeholder="First Name" class="border rounded-lg p-2 w-full"></div>
-              <div><input name="spouse_name_extension" value="<?= $escape($employeeSpouse['extension_name'] ?? '') ?>" placeholder="Name Extension" class="border rounded-lg p-2 w-full"></div>
-              <div><input name="spouse_middle_name" value="<?= $escape($employeeSpouse['middle_name'] ?? '') ?>" placeholder="Middle Name" class="border rounded-lg p-2 w-full"></div>
-              <div><input name="spouse_occupation" value="<?= $escape($employeeSpouse['occupation'] ?? '') ?>" placeholder="Occupation" class="border rounded-lg p-2 w-full"></div>
-              <div><input name="spouse_employer_business_name" value="<?= $escape($employeeSpouse['employer_business_name'] ?? '') ?>" placeholder="Employer/Business Name" class="border rounded-lg p-2 w-full"></div>
-              <div class="md:col-span-2"><input name="spouse_business_address" value="<?= $escape($employeeSpouse['business_address'] ?? '') ?>" placeholder="Business Address" class="border rounded-lg p-2 w-full"></div>
-              <div><input name="spouse_telephone_no" value="<?= $escape($employeeSpouse['telephone_no'] ?? '') ?>" placeholder="Telephone No." class="border rounded-lg p-2 w-full"></div>
+            <div class="rounded-lg border border-dashed border-slate-300 p-4">
+              <p class="text-sm text-slate-600">Spouse details are controlled by request. Submit a spouse entry request with supporting documents for admin approval.</p>
+              <div class="mt-3 text-sm">
+                <p class="font-medium text-slate-700"><?= $escape(trim((string)($employeeSpouse['first_name'] ?? '') . ' ' . (string)($employeeSpouse['surname'] ?? ''))) !== '' ? $escape(trim((string)($employeeSpouse['first_name'] ?? '') . ' ' . (string)($employeeSpouse['surname'] ?? ''))) : 'No approved spouse record yet.' ?></p>
+                <?php if (!empty($employeeSpouse['occupation']) || !empty($employeeSpouse['employer_business_name'])): ?>
+                  <p class="text-xs text-slate-500 mt-1"><?= $escape((string)($employeeSpouse['occupation'] ?? '')) ?> <?= !empty($employeeSpouse['employer_business_name']) ? '· ' . $escape((string)$employeeSpouse['employer_business_name']) : '' ?></p>
+                <?php endif; ?>
+              </div>
+              <button type="button" data-open-spouse-request class="mt-3 border border-slate-300 px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50">Submit Spouse Entry Request</button>
             </div>
 
             <div class="flex items-center justify-between pt-2">
@@ -399,6 +518,89 @@ $formatDate = static function (?string $value): string {
     </div>
   </div>
 </template>
+
+<datalist id="profilePlaceOfBirthList">
+  <?php foreach ($placeOfBirthOptions as $option): ?>
+    <option value="<?= $escape($option) ?>"></option>
+  <?php endforeach; ?>
+</datalist>
+<datalist id="profileCivilStatusList">
+  <?php foreach ($civilStatusOptions as $option): ?>
+    <option value="<?= $escape($option) ?>"></option>
+  <?php endforeach; ?>
+</datalist>
+<datalist id="profileBloodTypeList">
+  <?php foreach ($bloodTypeOptions as $option): ?>
+    <option value="<?= $escape($option) ?>"></option>
+  <?php endforeach; ?>
+</datalist>
+<datalist id="profileCityList">
+  <?php foreach ($cityMunicipalityOptions as $option): ?>
+    <option value="<?= $escape($option) ?>"></option>
+  <?php endforeach; ?>
+</datalist>
+<datalist id="profileProvinceList">
+  <?php foreach ($provinceOptions as $option): ?>
+    <option value="<?= $escape($option) ?>"></option>
+  <?php endforeach; ?>
+</datalist>
+<datalist id="profileResidentialBarangayList">
+  <?php foreach ($barangayOptions as $option): ?>
+    <option value="<?= $escape($option) ?>"></option>
+  <?php endforeach; ?>
+</datalist>
+<datalist id="profilePermanentBarangayList">
+  <?php foreach ($barangayOptions as $option): ?>
+    <option value="<?= $escape($option) ?>"></option>
+  <?php endforeach; ?>
+</datalist>
+
+<script id="employeeAddressLookupData" type="application/json"><?= (string)json_encode([
+  'barangayByCity' => $barangayByCityLookup,
+], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
+
+<div id="spouseRequestModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+  <div class="absolute inset-0 bg-black/40" data-close-spouse-request></div>
+  <div class="relative z-10 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div class="px-6 py-4 border-b flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Request Additional Spouse Entry</h2>
+        <button type="button" data-close-spouse-request><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <form method="post" action="personal-information.php" enctype="multipart/form-data" class="p-6 overflow-y-auto space-y-4 text-sm">
+        <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken ?? '') ?>">
+        <input type="hidden" name="action" value="submit_spouse_request">
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div><label class="text-gray-600">Surname</label><input name="spouse_surname" required class="border rounded-lg p-2 w-full"></div>
+          <div><label class="text-gray-600">First Name</label><input name="spouse_first_name" required class="border rounded-lg p-2 w-full"></div>
+          <div><label class="text-gray-600">Middle Name</label><input name="spouse_middle_name" class="border rounded-lg p-2 w-full"></div>
+          <div><label class="text-gray-600">Name Extension</label><input name="spouse_name_extension" class="border rounded-lg p-2 w-full"></div>
+          <div><label class="text-gray-600">Occupation</label><input name="spouse_occupation" class="border rounded-lg p-2 w-full"></div>
+          <div><label class="text-gray-600">Employer/Business Name</label><input name="spouse_employer_business_name" class="border rounded-lg p-2 w-full"></div>
+          <div class="md:col-span-2"><label class="text-gray-600">Business Address</label><input name="spouse_business_address" class="border rounded-lg p-2 w-full"></div>
+          <div><label class="text-gray-600">Telephone No.</label><input name="spouse_telephone_no" class="border rounded-lg p-2 w-full"></div>
+        </div>
+
+        <div>
+          <label class="text-gray-600">Supporting Document</label>
+          <input type="file" name="spouse_supporting_document" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" class="mt-1 w-full text-sm" required>
+          <p class="text-xs text-slate-500 mt-1">Accepted: PDF, JPG, PNG, DOC, DOCX (max 10 MB)</p>
+        </div>
+
+        <div>
+          <label class="text-gray-600">Request Notes</label>
+          <textarea name="request_notes" rows="3" class="border rounded-lg p-2 w-full" placeholder="Reason/notes for admin review"></textarea>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" data-close-spouse-request class="border px-4 py-2 rounded-lg">Cancel</button>
+          <button type="submit" class="bg-daGreen text-white px-4 py-2 rounded-lg">Submit for Approval</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 
 <?php
 $content = ob_get_clean();

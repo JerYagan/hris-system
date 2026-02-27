@@ -1,50 +1,456 @@
 <?php
 
-$attendanceResponse = apiRequest(
+$todayDate = date('Y-m-d');
+
+$isLateByPolicy = static function (?string $timeValue): bool {
+    $raw = trim((string)$timeValue);
+    if ($raw === '') {
+        return false;
+    }
+
+    $timestamp = strtotime($raw);
+    if ($timestamp === false) {
+        return false;
+    }
+
+    return date('H:i:s', $timestamp) >= '09:01:00';
+};
+
+$buildEmployeeName = static function (array $row): string {
+    $name = trim((string)($row['first_name'] ?? '') . ' ' . (string)($row['surname'] ?? ''));
+    return $name !== '' ? $name : 'Unknown Employee';
+};
+
+$appendError = static function (?string $currentError, string $label, array $response): ?string {
+    if (isSuccessful($response)) {
+        return $currentError;
+    }
+
+    $message = $label . ' query failed (HTTP ' . (int)($response['status'] ?? 0) . ').';
+    $raw = trim((string)($response['raw'] ?? ''));
+    if ($raw !== '') {
+        $message .= ' ' . $raw;
+    }
+
+    return $currentError ? ($currentError . ' ' . $message) : $message;
+};
+
+$attendanceTodayResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/attendance_logs?select=id,attendance_date,time_in,time_out,hours_worked,late_minutes,attendance_status,person:people(first_name,surname)&order=attendance_date.desc&limit=500',
+    $supabaseUrl
+    . '/rest/v1/attendance_logs?select=id,attendance_date,time_in,time_out,hours_worked,late_minutes,attendance_status,person:people(first_name,surname)'
+    . '&attendance_date=eq.' . rawurlencode($todayDate)
+    . '&order=attendance_date.desc,time_in.asc&limit=5000',
+    $headers
+);
+
+$attendanceHistoryResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/attendance_logs?select=id,attendance_date,time_in,time_out,hours_worked,late_minutes,attendance_status,person_id,person:people(first_name,surname)'
+    . '&order=attendance_date.desc,created_at.desc&limit=5000',
     $headers
 );
 
 $adjustmentsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/time_adjustment_requests?select=id,status,reason,requested_time_in,requested_time_out,created_at,attendance_log_id,person:people(first_name,surname,user_id),attendance:attendance_logs(attendance_date,time_in,time_out)&order=created_at.desc&limit=500',
+    $supabaseUrl
+    . '/rest/v1/time_adjustment_requests?select=id,status,reason,reviewed_at,requested_time_in,requested_time_out,created_at,attendance_log_id,person:people(first_name,surname,user_id),attendance:attendance_logs(attendance_date,time_in,time_out)'
+    . '&order=created_at.desc&limit=500',
     $headers
 );
 
 $leaveRequestsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/leave_requests?select=id,date_from,date_to,days_count,status,reason,created_at,person:people(first_name,surname,user_id),leave_type:leave_types(leave_name)&order=created_at.desc&limit=500',
+    $supabaseUrl
+    . '/rest/v1/leave_requests?select=id,date_from,date_to,days_count,status,reason,review_notes,reviewed_at,created_at,person:people(first_name,surname,user_id),leave_type:leave_types(leave_name)'
+    . '&order=created_at.desc&limit=500',
     $headers
 );
 
-$attendanceLogs = isSuccessful($attendanceResponse) ? $attendanceResponse['data'] : [];
-$adjustmentRequests = isSuccessful($adjustmentsResponse) ? $adjustmentsResponse['data'] : [];
-$leaveRequests = isSuccessful($leaveRequestsResponse) ? $leaveRequestsResponse['data'] : [];
+$ctoRequestsResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/overtime_requests?select=id,overtime_date,start_time,end_time,hours_requested,reason,status,created_at,person:people(first_name,surname,user_id)'
+    . '&order=created_at.desc&limit=500',
+    $headers
+);
+
+$holidaysResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/holidays?select=id,holiday_date,holiday_name,holiday_type,office_id,created_at'
+    . '&order=holiday_date.desc&limit=500',
+    $headers
+);
+
+$holidayPolicyResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/system_settings?select=setting_value&setting_key=eq.' . rawurlencode('timekeeping.holiday_payroll_policy')
+    . '&limit=1',
+    $headers
+);
+
+$staffRecommendationsResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/activity_logs?select=id,actor_user_id,action_name,entity_name,entity_id,new_data,created_at,actor:user_accounts(email)'
+    . '&module_name=eq.timekeeping'
+    . '&action_name=in.(recommend_leave_request,recommend_overtime_request,recommend_ob_request,recommend_time_adjustment)'
+    . '&order=created_at.desc&limit=300',
+    $headers
+);
 
 $dataLoadError = null;
-if (!isSuccessful($attendanceResponse)) {
-    $dataLoadError = 'Attendance query failed (HTTP ' . (int)($attendanceResponse['status'] ?? 0) . ').';
-    $raw = trim((string)($attendanceResponse['raw'] ?? ''));
-    if ($raw !== '') {
-        $dataLoadError .= ' ' . $raw;
+$dataLoadError = $appendError($dataLoadError, 'Attendance (today)', $attendanceTodayResponse);
+$dataLoadError = $appendError($dataLoadError, 'Attendance history', $attendanceHistoryResponse);
+$dataLoadError = $appendError($dataLoadError, 'Adjustment', $adjustmentsResponse);
+$dataLoadError = $appendError($dataLoadError, 'Leave', $leaveRequestsResponse);
+$dataLoadError = $appendError($dataLoadError, 'CTO', $ctoRequestsResponse);
+$dataLoadError = $appendError($dataLoadError, 'Holidays', $holidaysResponse);
+$dataLoadError = $appendError($dataLoadError, 'Holiday payroll policy', $holidayPolicyResponse);
+$dataLoadError = $appendError($dataLoadError, 'Staff recommendations', $staffRecommendationsResponse);
+
+$attendanceLogs = [];
+$attendanceHistoryRows = [];
+$adjustmentRequests = isSuccessful($adjustmentsResponse) ? (array)$adjustmentsResponse['data'] : [];
+$leaveRequests = isSuccessful($leaveRequestsResponse) ? (array)$leaveRequestsResponse['data'] : [];
+$ctoRequests = [];
+$obRequests = [];
+$holidayRows = isSuccessful($holidaysResponse) ? (array)$holidaysResponse['data'] : [];
+$historyEntries = [];
+$staffRecommendationRows = [];
+
+$attendanceSummaryToday = [
+    'present' => 0,
+    'late' => 0,
+    'absent' => 0,
+    'total' => 0,
+    'date_label' => date('M d, Y', strtotime($todayDate)),
+];
+
+if (isSuccessful($attendanceTodayResponse)) {
+    foreach ((array)$attendanceTodayResponse['data'] as $attendanceRowRaw) {
+        $attendanceRow = (array)$attendanceRowRaw;
+        $employeeName = $buildEmployeeName((array)($attendanceRow['person'] ?? []));
+        $rawStatus = strtolower((string)($attendanceRow['attendance_status'] ?? 'present'));
+        $displayStatus = $rawStatus;
+        if ($isLateByPolicy((string)($attendanceRow['time_in'] ?? '')) && in_array($rawStatus, ['present', 'late'], true)) {
+            $displayStatus = 'late';
+        }
+
+        if ($displayStatus === 'present') {
+            $attendanceSummaryToday['present']++;
+        } elseif ($displayStatus === 'late') {
+            $attendanceSummaryToday['late']++;
+        } elseif ($displayStatus === 'absent') {
+            $attendanceSummaryToday['absent']++;
+        }
+
+        $attendanceSummaryToday['total']++;
+
+        $attendanceLogs[] = [
+            'id' => (string)($attendanceRow['id'] ?? ''),
+            'employee_name' => $employeeName,
+            'attendance_date' => (string)($attendanceRow['attendance_date'] ?? ''),
+            'time_in' => (string)($attendanceRow['time_in'] ?? ''),
+            'time_out' => (string)($attendanceRow['time_out'] ?? ''),
+            'hours_worked' => (float)($attendanceRow['hours_worked'] ?? 0),
+            'late_minutes' => (int)($attendanceRow['late_minutes'] ?? 0),
+            'attendance_status' => $rawStatus,
+            'display_status' => $displayStatus,
+        ];
     }
 }
 
-if (!isSuccessful($adjustmentsResponse)) {
-    $adjustError = 'Adjustment query failed (HTTP ' . (int)($adjustmentsResponse['status'] ?? 0) . ').';
-    $raw = trim((string)($adjustmentsResponse['raw'] ?? ''));
-    if ($raw !== '') {
-        $adjustError .= ' ' . $raw;
+if (isSuccessful($attendanceHistoryResponse)) {
+    foreach ((array)$attendanceHistoryResponse['data'] as $attendanceRowRaw) {
+        $attendanceRow = (array)$attendanceRowRaw;
+        $employeeName = $buildEmployeeName((array)($attendanceRow['person'] ?? []));
+        $rawStatus = strtolower((string)($attendanceRow['attendance_status'] ?? 'present'));
+        $displayStatus = $rawStatus;
+        if ($isLateByPolicy((string)($attendanceRow['time_in'] ?? '')) && in_array($rawStatus, ['present', 'late'], true)) {
+            $displayStatus = 'late';
+        }
+
+        $attendanceHistoryRows[] = [
+            'id' => (string)($attendanceRow['id'] ?? ''),
+            'employee_name' => $employeeName,
+            'attendance_date' => (string)($attendanceRow['attendance_date'] ?? ''),
+            'time_in' => (string)($attendanceRow['time_in'] ?? ''),
+            'time_out' => (string)($attendanceRow['time_out'] ?? ''),
+            'display_status' => $displayStatus,
+        ];
+
+        $historyEntries[] = [
+            'sort_ts' => strtotime((string)($attendanceRow['attendance_date'] ?? '') . ' 00:00:00') ?: 0,
+            'employee_name' => $employeeName,
+            'entry_type' => 'Attendance',
+            'entry_date' => (string)($attendanceRow['attendance_date'] ?? ''),
+            'summary' => 'Status: ' . ucfirst(str_replace('_', ' ', $displayStatus)),
+            'status' => ucfirst(str_replace('_', ' ', $displayStatus)),
+        ];
     }
-    $dataLoadError = $dataLoadError ? ($dataLoadError . ' ' . $adjustError) : $adjustError;
 }
 
-if (!isSuccessful($leaveRequestsResponse)) {
-    $leaveError = 'Leave query failed (HTTP ' . (int)($leaveRequestsResponse['status'] ?? 0) . ').';
-    $raw = trim((string)($leaveRequestsResponse['raw'] ?? ''));
-    if ($raw !== '') {
-        $leaveError .= ' ' . $raw;
+if (isSuccessful($ctoRequestsResponse)) {
+    foreach ((array)$ctoRequestsResponse['data'] as $requestRaw) {
+        $request = (array)$requestRaw;
+        $employeeName = $buildEmployeeName((array)($request['person'] ?? []));
+        $reasonRaw = trim((string)($request['reason'] ?? ''));
+        $isObRequest = preg_match('/^\[OB\]\s*/i', $reasonRaw) === 1;
+        $cleanReason = $isObRequest ? trim((string)preg_replace('/^\[OB\]\s*/i', '', $reasonRaw)) : $reasonRaw;
+        if ($cleanReason === '') {
+            $cleanReason = '-';
+        }
+        $requestRow = [
+            'id' => (string)($request['id'] ?? ''),
+            'employee_name' => $employeeName,
+            'overtime_date' => (string)($request['overtime_date'] ?? ''),
+            'start_time' => (string)($request['start_time'] ?? ''),
+            'end_time' => (string)($request['end_time'] ?? ''),
+            'hours_requested' => (float)($request['hours_requested'] ?? 0),
+            'reason' => $cleanReason,
+            'status' => strtolower((string)($request['status'] ?? 'pending')),
+            'created_at' => (string)($request['created_at'] ?? ''),
+            'user_id' => (string)($request['person']['user_id'] ?? ''),
+        ];
+
+        if ($isObRequest) {
+            $obRequests[] = $requestRow;
+            $historyEntries[] = [
+                'sort_ts' => strtotime((string)($requestRow['created_at'] ?? '')) ?: 0,
+                'employee_name' => $employeeName,
+                'entry_type' => 'Official Business',
+                'entry_date' => (string)$requestRow['overtime_date'],
+                'summary' => $cleanReason,
+                'status' => ucfirst(str_replace('_', ' ', (string)$requestRow['status'])),
+            ];
+            continue;
+        }
+
+        $ctoRequests[] = $requestRow;
+        $historyEntries[] = [
+            'sort_ts' => strtotime((string)($requestRow['created_at'] ?? '')) ?: 0,
+            'employee_name' => $employeeName,
+            'entry_type' => 'CTO',
+            'entry_date' => (string)$requestRow['overtime_date'],
+            'summary' => $cleanReason,
+            'status' => ucfirst(str_replace('_', ' ', (string)$requestRow['status'])),
+        ];
     }
-    $dataLoadError = $dataLoadError ? ($dataLoadError . ' ' . $leaveError) : $leaveError;
+}
+
+foreach ($leaveRequests as $leaveRowRaw) {
+    $leaveRow = (array)$leaveRowRaw;
+    $employeeName = $buildEmployeeName((array)($leaveRow['person'] ?? []));
+    $historyEntries[] = [
+        'sort_ts' => strtotime((string)($leaveRow['created_at'] ?? '')) ?: 0,
+        'employee_name' => $employeeName,
+        'entry_type' => 'Leave',
+        'entry_date' => (string)($leaveRow['date_from'] ?? ''),
+        'summary' => (string)($leaveRow['reason'] ?? 'Leave request submitted'),
+        'status' => ucfirst(str_replace('_', ' ', strtolower((string)($leaveRow['status'] ?? 'pending')))),
+    ];
+}
+
+foreach ($adjustmentRequests as $adjustmentRowRaw) {
+    $adjustmentRow = (array)$adjustmentRowRaw;
+    $employeeName = $buildEmployeeName((array)($adjustmentRow['person'] ?? []));
+    $historyEntries[] = [
+        'sort_ts' => strtotime((string)($adjustmentRow['created_at'] ?? '')) ?: 0,
+        'employee_name' => $employeeName,
+        'entry_type' => 'Time Adjustment',
+        'entry_date' => (string)($adjustmentRow['attendance']['attendance_date'] ?? ''),
+        'summary' => (string)($adjustmentRow['reason'] ?? 'Time adjustment submitted'),
+        'status' => ucfirst(str_replace('_', ' ', strtolower((string)($adjustmentRow['status'] ?? 'pending')))),
+    ];
+}
+
+usort($historyEntries, static function (array $left, array $right): int {
+    return (int)($right['sort_ts'] ?? 0) <=> (int)($left['sort_ts'] ?? 0);
+});
+
+$leaveLookup = [];
+foreach ($leaveRequests as $leaveRowRaw) {
+    $leaveRow = (array)$leaveRowRaw;
+    $id = (string)($leaveRow['id'] ?? '');
+    if ($id === '') {
+        continue;
+    }
+
+    $employeeName = $buildEmployeeName((array)($leaveRow['person'] ?? []));
+    $leaveType = (string)($leaveRow['leave_type']['leave_name'] ?? 'Unassigned');
+    $dateRange = (string)($leaveRow['date_from'] ?? '') . ' - ' . (string)($leaveRow['date_to'] ?? '');
+    $leaveLookup[$id] = [
+        'id' => $id,
+        'employee_name' => $employeeName,
+        'status' => strtolower((string)($leaveRow['status'] ?? 'pending')),
+        'status_label' => ucfirst(str_replace('_', ' ', strtolower((string)($leaveRow['status'] ?? 'pending')))),
+        'leave_type' => $leaveType,
+        'date_range' => $dateRange,
+        'reason' => (string)($leaveRow['reason'] ?? '-'),
+    ];
+}
+
+$adjustmentLookup = [];
+foreach ($adjustmentRequests as $requestRaw) {
+    $request = (array)$requestRaw;
+    $id = (string)($request['id'] ?? '');
+    if ($id === '') {
+        continue;
+    }
+
+    $employeeName = $buildEmployeeName((array)($request['person'] ?? []));
+    $requestedWindow = trim((string)($request['requested_time_in'] ?? '')) . ' - ' . trim((string)($request['requested_time_out'] ?? ''));
+    $adjustmentLookup[$id] = [
+        'id' => $id,
+        'employee_name' => $employeeName,
+        'status' => strtolower((string)($request['status'] ?? 'pending')),
+        'status_label' => ucfirst(str_replace('_', ' ', strtolower((string)($request['status'] ?? 'pending')))),
+        'requested_window' => $requestedWindow,
+        'reason' => (string)($request['reason'] ?? '-'),
+    ];
+}
+
+$ctoLookup = [];
+foreach ($ctoRequests as $request) {
+    $id = (string)($request['id'] ?? '');
+    if ($id === '') {
+        continue;
+    }
+
+    $ctoLookup[$id] = [
+        'id' => $id,
+        'employee_name' => (string)($request['employee_name'] ?? 'Unknown Employee'),
+        'status' => strtolower((string)($request['status'] ?? 'pending')),
+        'status_label' => ucfirst(str_replace('_', ' ', strtolower((string)($request['status'] ?? 'pending')))),
+        'window' => trim((string)($request['start_time'] ?? '')) . ' - ' . trim((string)($request['end_time'] ?? '')),
+    ];
+}
+
+$obLookup = [];
+foreach ($obRequests as $request) {
+    $id = (string)($request['id'] ?? '');
+    if ($id === '') {
+        continue;
+    }
+
+    $obLookup[$id] = [
+        'id' => $id,
+        'employee_name' => (string)($request['employee_name'] ?? 'Unknown Employee'),
+        'status' => strtolower((string)($request['status'] ?? 'pending')),
+        'status_label' => ucfirst(str_replace('_', ' ', strtolower((string)($request['status'] ?? 'pending')))),
+        'window' => trim((string)($request['start_time'] ?? '')) . ' - ' . trim((string)($request['end_time'] ?? '')),
+    ];
+}
+
+if (isSuccessful($staffRecommendationsResponse)) {
+    foreach ((array)$staffRecommendationsResponse['data'] as $logRaw) {
+        $log = (array)$logRaw;
+        $entityName = strtolower((string)($log['entity_name'] ?? ''));
+        $entityId = (string)($log['entity_id'] ?? '');
+        if ($entityId === '') {
+            continue;
+        }
+
+        $newData = (array)($log['new_data'] ?? []);
+        $recommendedStatus = strtolower((string)($newData['recommended_status'] ?? 'pending'));
+        $notes = trim((string)($newData['notes'] ?? ''));
+
+        $requestType = '';
+        $employeeName = 'Unknown Employee';
+        $currentStatus = 'pending';
+        $currentStatusLabel = 'Pending';
+        $actionType = '';
+        $window = '';
+        $leaveType = '';
+        $dateRange = '';
+        $reason = '';
+
+        if ($entityName === 'leave_requests' && isset($leaveLookup[$entityId])) {
+            $item = $leaveLookup[$entityId];
+            $requestType = 'Leave';
+            $employeeName = (string)$item['employee_name'];
+            $currentStatus = (string)$item['status'];
+            $currentStatusLabel = (string)$item['status_label'];
+            $actionType = 'leave';
+            $leaveType = (string)$item['leave_type'];
+            $dateRange = (string)$item['date_range'];
+            $reason = (string)$item['reason'];
+        } elseif ($entityName === 'time_adjustment_requests' && isset($adjustmentLookup[$entityId])) {
+            $item = $adjustmentLookup[$entityId];
+            $requestType = 'Time Adjustment';
+            $employeeName = (string)$item['employee_name'];
+            $currentStatus = (string)$item['status'];
+            $currentStatusLabel = (string)$item['status_label'];
+            $actionType = 'adjustment';
+            $window = (string)$item['requested_window'];
+        } elseif ($entityName === 'overtime_requests') {
+            if (isset($obLookup[$entityId])) {
+                $item = $obLookup[$entityId];
+                $requestType = 'Official Business';
+                $employeeName = (string)$item['employee_name'];
+                $currentStatus = (string)$item['status'];
+                $currentStatusLabel = (string)$item['status_label'];
+                $actionType = 'ob';
+                $window = (string)$item['window'];
+            } elseif (isset($ctoLookup[$entityId])) {
+                $item = $ctoLookup[$entityId];
+                $requestType = 'CTO';
+                $employeeName = (string)$item['employee_name'];
+                $currentStatus = (string)$item['status'];
+                $currentStatusLabel = (string)$item['status_label'];
+                $actionType = 'cto';
+                $window = (string)$item['window'];
+            }
+        }
+
+        if ($actionType === '') {
+            continue;
+        }
+
+        $isFinal = in_array($currentStatus, ['approved', 'rejected', 'cancelled'], true);
+        $staffRecommendationRows[] = [
+            'log_id' => (string)($log['id'] ?? ''),
+            'submitted_at' => (string)($log['created_at'] ?? ''),
+            'staff_actor' => (string)($log['actor']['email'] ?? 'Staff User'),
+            'request_type' => $requestType,
+            'entity_id' => $entityId,
+            'employee_name' => $employeeName,
+            'recommended_status' => $recommendedStatus,
+            'recommended_status_label' => ucfirst(str_replace('_', ' ', $recommendedStatus !== '' ? $recommendedStatus : 'pending')),
+            'notes' => $notes,
+            'current_status' => $currentStatus,
+            'current_status_label' => $currentStatusLabel,
+            'action_type' => $actionType,
+            'window' => $window,
+            'leave_type' => $leaveType,
+            'date_range' => $dateRange,
+            'reason' => $reason,
+            'is_final' => $isFinal,
+        ];
+    }
+}
+
+$holidayPayrollPolicy = [
+    'paid_handling' => 'policy_based',
+    'apply_to_regular' => true,
+    'apply_to_special' => false,
+    'apply_to_local' => false,
+    'include_suspension' => true,
+];
+
+if (isSuccessful($holidayPolicyResponse)) {
+    $policyPayload = (array)($holidayPolicyResponse['data'][0]['setting_value'] ?? []);
+    if (!empty($policyPayload)) {
+        $holidayPayrollPolicy['paid_handling'] = in_array((string)($policyPayload['paid_handling'] ?? 'policy_based'), ['policy_based', 'always_paid', 'always_unpaid'], true)
+            ? (string)$policyPayload['paid_handling']
+            : 'policy_based';
+        $holidayPayrollPolicy['apply_to_regular'] = (bool)($policyPayload['apply_to_regular'] ?? true);
+        $holidayPayrollPolicy['apply_to_special'] = (bool)($policyPayload['apply_to_special'] ?? false);
+        $holidayPayrollPolicy['apply_to_local'] = (bool)($policyPayload['apply_to_local'] ?? false);
+        $holidayPayrollPolicy['include_suspension'] = (bool)($policyPayload['include_suspension'] ?? true);
+    }
 }

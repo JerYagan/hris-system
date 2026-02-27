@@ -2,7 +2,7 @@
 
 $peopleResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/people?select=id,user_id,first_name,middle_name,surname,name_extension,date_of_birth,place_of_birth,sex_at_birth,civil_status,height_m,weight_kg,blood_type,citizenship,dual_citizenship,dual_citizenship_country,telephone_no,mobile_no,personal_email,agency_employee_no,created_at&order=created_at.desc&limit=1500',
+    $supabaseUrl . '/rest/v1/people?select=id,user_id,first_name,middle_name,surname,name_extension,date_of_birth,place_of_birth,sex_at_birth,civil_status,height_m,weight_kg,blood_type,citizenship,dual_citizenship,dual_citizenship_country,telephone_no,mobile_no,personal_email,agency_employee_no,profile_photo_url,created_at&order=created_at.desc&limit=1500',
     $headers
 );
 
@@ -27,6 +27,18 @@ $positionsResponse = apiRequest(
 $accountsResponse = apiRequest(
     'GET',
     $supabaseUrl . '/rest/v1/user_accounts?select=id,email,account_status&limit=2000',
+    $headers
+);
+
+$roleAssignmentsResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/user_role_assignments?select=id,user_id,role_id,is_primary,assigned_at&limit=5000',
+    $headers
+);
+
+$rolesResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/roles?select=id,role_key,role_name&limit=200',
     $headers
 );
 
@@ -83,6 +95,8 @@ $employmentRows = isSuccessful($employmentResponse) ? (array)$employmentResponse
 $officeRows = isSuccessful($officesResponse) ? (array)$officesResponse['data'] : [];
 $positionRows = isSuccessful($positionsResponse) ? (array)$positionsResponse['data'] : [];
 $accountRows = isSuccessful($accountsResponse) ? (array)$accountsResponse['data'] : [];
+$roleAssignmentRows = isSuccessful($roleAssignmentsResponse) ? (array)$roleAssignmentsResponse['data'] : [];
+$roleRows = isSuccessful($rolesResponse) ? (array)$rolesResponse['data'] : [];
 $addressRows = isSuccessful($addressesResponse) ? (array)$addressesResponse['data'] : [];
 $governmentIdRows = isSuccessful($governmentIdsResponse) ? (array)$governmentIdsResponse['data'] : [];
 $spouseRows = isSuccessful($spousesResponse) ? (array)$spousesResponse['data'] : [];
@@ -106,6 +120,8 @@ $responseChecks = [
     ['offices', $officesResponse],
     ['job positions', $positionsResponse],
     ['user accounts', $accountsResponse],
+    ['user role assignments', $roleAssignmentsResponse],
+    ['roles', $rolesResponse],
     ['person addresses', $addressesResponse],
     ['government ids', $governmentIdsResponse],
     ['spouses', $spousesResponse],
@@ -170,6 +186,44 @@ foreach ($employmentRows as $employment) {
     if ($isCurrent || !isset($currentEmploymentByPerson[$personId])) {
         $currentEmploymentByPerson[$personId] = $employment;
     }
+}
+
+$roleById = [];
+foreach ($roleRows as $roleRow) {
+    $roleId = (string)($roleRow['id'] ?? '');
+    if ($roleId === '') {
+        continue;
+    }
+
+    $roleById[$roleId] = [
+        'role_key' => strtolower(trim((string)($roleRow['role_key'] ?? ''))),
+        'role_name' => trim((string)($roleRow['role_name'] ?? '')),
+    ];
+}
+
+$primaryRoleByUserId = [];
+foreach ($roleAssignmentRows as $assignmentRow) {
+    $userId = (string)($assignmentRow['user_id'] ?? '');
+    $roleId = (string)($assignmentRow['role_id'] ?? '');
+    if ($userId === '' || $roleId === '' || !isset($roleById[$roleId])) {
+        continue;
+    }
+
+    $currentPriority = isset($primaryRoleByUserId[$userId])
+        ? (int)($primaryRoleByUserId[$userId]['priority'] ?? 99)
+        : 99;
+    $isPrimary = (bool)($assignmentRow['is_primary'] ?? false);
+    $nextPriority = $isPrimary ? 1 : 2;
+
+    if ($nextPriority > $currentPriority) {
+        continue;
+    }
+
+    $primaryRoleByUserId[$userId] = [
+        'priority' => $nextPriority,
+        'role_key' => (string)$roleById[$roleId]['role_key'],
+        'role_name' => (string)$roleById[$roleId]['role_name'],
+    ];
 }
 
 $addressesByPerson = [];
@@ -351,6 +405,19 @@ foreach ($educationalBackgroundRows as $educationRow) {
     ];
 }
 
+$resolveProfilePhotoUrl = static function (?string $rawPath): string {
+    $path = trim((string)$rawPath);
+    if ($path === '') {
+        return '';
+    }
+
+    if (preg_match('#^https?://#i', $path) === 1 || str_starts_with($path, '/')) {
+        return $path;
+    }
+
+    return '/hris-system/storage/document/' . ltrim($path, '/');
+};
+
 $employeeTableRows = [];
 $employeesForSelect = [];
 $staffAccountCandidates = [];
@@ -414,8 +481,23 @@ foreach ($peopleRows as $person) {
     $mother = $parents['mother'] ?? [];
     $educationalBackground = $educationalBackgroundByPerson[$personId] ?? [];
     $employeeCode = (string)($person['agency_employee_no'] ?? '');
+    $profilePhotoUrl = $resolveProfilePhotoUrl((string)($person['profile_photo_url'] ?? ''));
     if ($employeeCode === '') {
         $employeeCode = 'EMP-' . strtoupper(substr(str_replace('-', '', $personId), 0, 6));
+    }
+
+    $personUserIdRaw = trim((string)($person['user_id'] ?? ''));
+    $roleMeta = $personUserIdRaw !== '' ? ($primaryRoleByUserId[$personUserIdRaw] ?? null) : null;
+    $roleKey = strtolower(trim((string)($roleMeta['role_key'] ?? '')));
+    $roleName = trim((string)($roleMeta['role_name'] ?? ''));
+    if ($roleName === '') {
+        if ($roleKey === 'staff') {
+            $roleName = 'Staff';
+        } elseif ($roleKey === 'employee') {
+            $roleName = 'Employee';
+        } else {
+            $roleName = 'Employee';
+        }
     }
 
     $isComplete = $email !== '' && $mobile !== '' && !empty($employment);
@@ -488,6 +570,9 @@ foreach ($peopleRows as $person) {
         'status_raw' => $employmentStatus,
         'email' => $email,
         'mobile' => $mobile,
+        'profile_photo_url' => $profilePhotoUrl,
+        'role_key' => $roleKey,
+        'role_name' => $roleName,
         'agency_employee_no' => $employeeCode,
         'search_text' => $searchText,
         'civil_service_eligibilities' => $civilServiceByPerson[$personId] ?? [],
@@ -551,3 +636,258 @@ if ($filterKeyword !== '' || $filterDepartment !== '' || $filterStatus !== '') {
 }
 
 $filteredProfileCount = count($employeeTableRows);
+
+$personNameById = [];
+foreach ($employeeTableRows as $row) {
+    $personId = (string)($row['person_id'] ?? '');
+    if ($personId === '') {
+        continue;
+    }
+
+    $personNameById[$personId] = (string)($row['full_name'] ?? 'Unknown Employee');
+}
+
+$recommendationHistoryRows = [];
+if (!empty($personNameById)) {
+    $personIdFilter = implode(',', array_map(static fn(string $id): string => rawurlencode($id), array_keys($personNameById)));
+    $recommendationResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/activity_logs?select=id,entity_id,actor_user_id,created_at,new_data,module_name,action_name,entity_name'
+        . '&module_name=eq.personal_information'
+        . '&entity_name=eq.people'
+        . '&action_name=eq.recommend_employee_profile_update'
+        . '&entity_id=in.(' . $personIdFilter . ')'
+        . '&order=created_at.desc&limit=200',
+        $headers
+    );
+
+    if (isSuccessful($recommendationResponse)) {
+        $recommendationRows = (array)($recommendationResponse['data'] ?? []);
+
+        $decisionResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/activity_logs?select=id,action_name,new_data,created_at'
+            . '&module_name=eq.personal_information'
+            . '&entity_name=eq.people'
+            . '&action_name=in.(approve_employee_profile_recommendation,reject_employee_profile_recommendation)'
+            . '&entity_id=in.(' . $personIdFilter . ')'
+            . '&order=created_at.desc&limit=500',
+            $headers
+        );
+
+        $reviewDecisionByRecommendationId = [];
+        if (isSuccessful($decisionResponse)) {
+            foreach ((array)($decisionResponse['data'] ?? []) as $decisionRow) {
+                $decisionData = is_array($decisionRow['new_data'] ?? null) ? (array)$decisionRow['new_data'] : [];
+                $sourceRecommendationId = (string)($decisionData['recommendation_log_id'] ?? '');
+                if ($sourceRecommendationId === '' || isset($reviewDecisionByRecommendationId[$sourceRecommendationId])) {
+                    continue;
+                }
+                $reviewDecisionByRecommendationId[$sourceRecommendationId] = [
+                    'decision' => (string)($decisionData['decision'] ?? ''),
+                    'reviewed_at' => (string)($decisionRow['created_at'] ?? ''),
+                ];
+            }
+        }
+
+        $actorIds = [];
+        foreach ($recommendationRows as $recommendationRow) {
+            $actorId = (string)($recommendationRow['actor_user_id'] ?? '');
+            if ($actorId !== '' && preg_match('/^[a-f0-9-]{36}$/i', $actorId)) {
+                $actorIds[$actorId] = true;
+            }
+        }
+
+        $actorEmailById = [];
+        if (!empty($actorIds)) {
+            $actorFilter = implode(',', array_map('rawurlencode', array_keys($actorIds)));
+            $actorResponse = apiRequest(
+                'GET',
+                $supabaseUrl . '/rest/v1/user_accounts?select=id,email&id=in.(' . $actorFilter . ')&limit=500',
+                $headers
+            );
+
+            if (isSuccessful($actorResponse)) {
+                foreach ((array)($actorResponse['data'] ?? []) as $actorRow) {
+                    $actorId = (string)($actorRow['id'] ?? '');
+                    if ($actorId === '') {
+                        continue;
+                    }
+                    $actorEmailById[$actorId] = (string)($actorRow['email'] ?? 'Staff');
+                }
+            }
+        }
+
+        foreach ($recommendationRows as $recommendationRow) {
+            $recommendationLogId = (string)($recommendationRow['id'] ?? '');
+            if ($recommendationLogId === '' || isset($reviewDecisionByRecommendationId[$recommendationLogId])) {
+                continue;
+            }
+
+            $entityId = (string)($recommendationRow['entity_id'] ?? '');
+            if ($entityId === '' || !isset($personNameById[$entityId])) {
+                continue;
+            }
+
+            $newData = is_array($recommendationRow['new_data'] ?? null) ? (array)$recommendationRow['new_data'] : [];
+            $recommendedProfile = is_array($newData['recommended_profile'] ?? null) ? (array)$newData['recommended_profile'] : [];
+            $recommendedAddresses = is_array($newData['recommended_addresses'] ?? null) ? (array)$newData['recommended_addresses'] : [];
+            $recommendedGovernmentIds = is_array($newData['recommended_government_ids'] ?? null) ? (array)$newData['recommended_government_ids'] : [];
+            $recommendedFamily = is_array($newData['recommended_family'] ?? null) ? (array)$newData['recommended_family'] : [];
+            $recommendedEducation = is_array($newData['recommended_educational_backgrounds'] ?? null) ? (array)$newData['recommended_educational_backgrounds'] : [];
+            $profileFieldCount = count($recommendedProfile);
+            $addressFieldCount = 0;
+            foreach ($recommendedAddresses as $addressRow) {
+                if (!is_array($addressRow)) {
+                    continue;
+                }
+                foreach ($addressRow as $value) {
+                    if (trim((string)$value) !== '') {
+                        $addressFieldCount++;
+                    }
+                }
+            }
+            $governmentFieldCount = 0;
+            foreach ($recommendedGovernmentIds as $value) {
+                if (trim((string)$value) !== '') {
+                    $governmentFieldCount++;
+                }
+            }
+            $familyFieldCount = 0;
+            foreach ($recommendedFamily as $value) {
+                if (is_array($value)) {
+                    $familyFieldCount += count($value);
+                    continue;
+                }
+                if (trim((string)$value) !== '') {
+                    $familyFieldCount++;
+                }
+            }
+            $educationCount = count($recommendedEducation);
+            $summaryFragments = [];
+            if ($profileFieldCount > 0) {
+                $summaryFragments[] = $profileFieldCount . ' profile field(s)';
+            }
+            if ($addressFieldCount > 0) {
+                $summaryFragments[] = $addressFieldCount . ' address detail(s)';
+            }
+            if ($governmentFieldCount > 0) {
+                $summaryFragments[] = $governmentFieldCount . ' government ID detail(s)';
+            }
+            if ($familyFieldCount > 0) {
+                $summaryFragments[] = $familyFieldCount . ' family detail(s)';
+            }
+            if ($educationCount > 0) {
+                $summaryFragments[] = $educationCount . ' educational entry(ies)';
+            }
+
+            $actorId = (string)($recommendationRow['actor_user_id'] ?? '');
+            $submittedBy = $actorEmailById[$actorId] ?? 'Staff';
+            $submittedAtRaw = (string)($recommendationRow['created_at'] ?? '');
+            $submittedAt = $submittedAtRaw !== '' ? strtotime($submittedAtRaw) : false;
+            $submittedAtDate = $submittedAt ? date('Y-m-d', $submittedAt) : '';
+            $summaryText = !empty($summaryFragments)
+                ? implode(', ', $summaryFragments) . ' recommended for review'
+                : 'Profile details recommended for update';
+            $searchText = strtolower(trim(implode(' ', [
+                $personNameById[$entityId],
+                $submittedBy,
+                $summaryText,
+            ])));
+
+            $recommendationHistoryRows[] = [
+                'recommendation_log_id' => $recommendationLogId,
+                'person_id' => $entityId,
+                'employee_name' => $personNameById[$entityId],
+                'submitted_by' => $submittedBy,
+                'submitted_at_label' => $submittedAt ? date('M d, Y h:i A', $submittedAt) : '-',
+                'submitted_at_date' => $submittedAtDate,
+                'status_label' => 'Pending Admin Action',
+                'status_class' => 'bg-amber-100 text-amber-800',
+                'summary' => $summaryText,
+                'proposed_changes' => [
+                    'recommended_profile' => $recommendedProfile,
+                    'recommended_addresses' => $recommendedAddresses,
+                    'recommended_government_ids' => $recommendedGovernmentIds,
+                    'recommended_family' => $recommendedFamily,
+                    'recommended_educational_backgrounds' => $recommendedEducation,
+                ],
+                'search_text' => $searchText,
+            ];
+        }
+    }
+}
+
+$civilStatusDefaultOptions = ['Single', 'Married', 'Widowed', 'Separated', 'Divorced', 'Annulled'];
+$bloodTypeDefaultOptions = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+
+$placeOfBirthOptionsMap = [];
+$civilStatusOptionsMap = array_fill_keys($civilStatusDefaultOptions, true);
+$bloodTypeOptionsMap = array_fill_keys($bloodTypeDefaultOptions, true);
+$addressCityOptionsMap = [];
+$addressProvinceOptionsMap = [];
+$addressBarangayOptionsMap = [];
+
+foreach ($employeeTableRows as $row) {
+    $placeOfBirthValue = trim((string)($row['place_of_birth'] ?? ''));
+    if ($placeOfBirthValue !== '') {
+        $placeOfBirthOptionsMap[$placeOfBirthValue] = true;
+    }
+
+    $civilStatusValue = trim((string)($row['civil_status'] ?? ''));
+    if ($civilStatusValue !== '') {
+        $civilStatusOptionsMap[$civilStatusValue] = true;
+    }
+
+    $bloodTypeValue = trim((string)($row['blood_type'] ?? ''));
+    if ($bloodTypeValue !== '') {
+        $bloodTypeOptionsMap[$bloodTypeValue] = true;
+    }
+
+    $residentialCityValue = trim((string)($row['residential_city_municipality'] ?? ''));
+    if ($residentialCityValue !== '') {
+        $addressCityOptionsMap[$residentialCityValue] = true;
+    }
+    $permanentCityValue = trim((string)($row['permanent_city_municipality'] ?? ''));
+    if ($permanentCityValue !== '') {
+        $addressCityOptionsMap[$permanentCityValue] = true;
+    }
+
+    $residentialProvinceValue = trim((string)($row['residential_province'] ?? ''));
+    if ($residentialProvinceValue !== '') {
+        $addressProvinceOptionsMap[$residentialProvinceValue] = true;
+    }
+    $permanentProvinceValue = trim((string)($row['permanent_province'] ?? ''));
+    if ($permanentProvinceValue !== '') {
+        $addressProvinceOptionsMap[$permanentProvinceValue] = true;
+    }
+
+    $residentialBarangayValue = trim((string)($row['residential_barangay'] ?? ''));
+    if ($residentialBarangayValue !== '') {
+        $addressBarangayOptionsMap[$residentialBarangayValue] = true;
+    }
+    $permanentBarangayValue = trim((string)($row['permanent_barangay'] ?? ''));
+    if ($permanentBarangayValue !== '') {
+        $addressBarangayOptionsMap[$permanentBarangayValue] = true;
+    }
+}
+
+$placeOfBirthOptions = array_keys($placeOfBirthOptionsMap);
+sort($placeOfBirthOptions, SORT_NATURAL | SORT_FLAG_CASE);
+
+$civilStatusOptions = array_keys($civilStatusOptionsMap);
+sort($civilStatusOptions, SORT_NATURAL | SORT_FLAG_CASE);
+
+$bloodTypeOptions = array_keys($bloodTypeOptionsMap);
+sort($bloodTypeOptions, SORT_NATURAL | SORT_FLAG_CASE);
+
+$addressCityOptions = array_keys($addressCityOptionsMap);
+sort($addressCityOptions, SORT_NATURAL | SORT_FLAG_CASE);
+
+$addressProvinceOptions = array_keys($addressProvinceOptionsMap);
+sort($addressProvinceOptions, SORT_NATURAL | SORT_FLAG_CASE);
+
+$addressBarangayOptions = array_keys($addressBarangayOptionsMap);
+sort($addressBarangayOptions, SORT_NATURAL | SORT_FLAG_CASE);

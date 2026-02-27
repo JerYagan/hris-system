@@ -13,9 +13,12 @@ if (!isValidCsrfToken(cleanText($_POST['csrf_token'] ?? null))) {
 }
 
 $action = strtolower((string)cleanText($_POST['action'] ?? ''));
-if (!in_array($action, ['create_leave_request', 'create_time_adjustment_request', 'create_overtime_request'], true)) {
+if (!in_array($action, ['create_leave_request', 'cancel_leave_request', 'create_time_adjustment_request', 'create_official_business_request', 'create_overtime_request'], true)) {
     redirectWithState('error', 'Unsupported timekeeping action.', 'timekeeping.php');
 }
+
+$manilaNow = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
+$todayManila = $manilaNow->format('Y-m-d');
 
 $toNullable = static function (mixed $value, int $maxLength = 255): ?string {
     $text = cleanText($value);
@@ -54,6 +57,10 @@ if ($action === 'create_leave_request') {
         redirectWithState('error', 'Leave end date cannot be earlier than start date.', 'timekeeping.php');
     }
 
+    if (strtotime($dateFrom) < strtotime($todayManila)) {
+        redirectWithState('error', 'Leave start date cannot be in the past.', 'timekeeping.php');
+    }
+
     $daysCount = (float)$daysCountRaw;
     if ($daysCount <= 0) {
         redirectWithState('error', 'Leave days count must be greater than zero.', 'timekeeping.php');
@@ -61,12 +68,27 @@ if ($action === 'create_leave_request') {
 
     $leaveTypeResponse = apiRequest(
         'GET',
-        $supabaseUrl . '/rest/v1/leave_types?select=id&is_active=eq.true&id=eq.' . rawurlencode((string)$leaveTypeId) . '&limit=1',
+        $supabaseUrl . '/rest/v1/leave_types?select=id,leave_code,leave_name&is_active=eq.true&id=eq.' . rawurlencode((string)$leaveTypeId) . '&limit=1',
         $headers
     );
 
     if (!isSuccessful($leaveTypeResponse) || empty((array)($leaveTypeResponse['data'] ?? []))) {
         redirectWithState('error', 'Selected leave type is invalid or inactive.', 'timekeeping.php');
+    }
+
+    $leaveTypeRow = (array)$leaveTypeResponse['data'][0];
+    $leaveTypeCode = strtolower(trim((string)($leaveTypeRow['leave_code'] ?? '')));
+
+    if ($leaveTypeCode === 'cto') {
+        if (substr($dateFrom, 0, 7) !== substr($dateTo, 0, 7)) {
+            redirectWithState('error', 'CTO request date range must stay within the same payroll month.', 'timekeeping.php');
+        }
+
+        $fromDay = (int)date('j', strtotime($dateFrom));
+        $toDay = (int)date('j', strtotime($dateTo));
+        if (($fromDay <= 15) !== ($toDay <= 15)) {
+            redirectWithState('error', 'CTO request cannot cross payroll cut-off windows (1-15 or 16-end).', 'timekeeping.php');
+        }
     }
 
     $existingLeaveResponse = apiRequest(
@@ -92,6 +114,25 @@ if ($action === 'create_leave_request') {
             if ($overlap) {
                 redirectWithState('error', 'You already have a pending/approved leave request overlapping this date range.', 'timekeeping.php');
             }
+        }
+    }
+
+    $leaveBalanceResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/leave_balances?select=id,remaining_credits'
+        . '&person_id=eq.' . rawurlencode((string)$employeePersonId)
+        . '&leave_type_id=eq.' . rawurlencode((string)$leaveTypeId)
+        . '&year=eq.' . date('Y', strtotime($dateFrom))
+        . '&limit=1',
+        $headers
+    );
+
+    if (isSuccessful($leaveBalanceResponse) && !empty((array)($leaveBalanceResponse['data'] ?? []))) {
+        $balanceRow = (array)$leaveBalanceResponse['data'][0];
+        $remainingCredits = (float)($balanceRow['remaining_credits'] ?? 0);
+        if ($daysCount > $remainingCredits) {
+            redirectWithState('error', 'Requested leave days exceed your available leave credits for this leave type.', 'timekeeping.php');
         }
     }
 
@@ -136,10 +177,75 @@ if ($action === 'create_leave_request') {
     redirectWithState('success', 'Leave request submitted successfully.', 'timekeeping.php');
 }
 
+if ($action === 'cancel_leave_request') {
+    $leaveRequestId = $toNullable($_POST['leave_request_id'] ?? null, 36);
+    $cancelReason = $toNullable($_POST['cancel_reason'] ?? null, 500);
+    if (!isValidUuid($leaveRequestId)) {
+        redirectWithState('error', 'Invalid leave request selected for cancellation.', 'timekeeping.php');
+    }
+
+    if ($cancelReason === null) {
+        redirectWithState('error', 'Cancellation reason is required.', 'timekeeping.php');
+    }
+
+    $leaveRequestResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/leave_requests?select=id,status'
+        . '&id=eq.' . rawurlencode((string)$leaveRequestId)
+        . '&person_id=eq.' . rawurlencode((string)$employeePersonId)
+        . '&limit=1',
+        $headers
+    );
+
+    if (!isSuccessful($leaveRequestResponse) || empty((array)($leaveRequestResponse['data'] ?? []))) {
+        redirectWithState('error', 'Leave request not found.', 'timekeeping.php');
+    }
+
+    $leaveRequestRow = (array)$leaveRequestResponse['data'][0];
+    $currentStatus = strtolower((string)($leaveRequestRow['status'] ?? ''));
+    if ($currentStatus !== 'pending') {
+        redirectWithState('error', 'Only pending leave requests can be cancelled.', 'timekeeping.php');
+    }
+
+    $cancelResponse = apiRequest(
+        'PATCH',
+        $supabaseUrl . '/rest/v1/leave_requests?id=eq.' . rawurlencode((string)$leaveRequestId),
+        $headers,
+        [
+            'status' => 'cancelled',
+        ]
+    );
+
+    if (!isSuccessful($cancelResponse)) {
+        redirectWithState('error', 'Unable to cancel leave request right now.', 'timekeeping.php');
+    }
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        $headers,
+        [[
+            'actor_user_id' => $employeeUserId,
+            'module_name' => 'employee',
+            'entity_name' => 'leave_requests',
+            'entity_id' => $leaveRequestId,
+            'action_name' => 'cancel_leave_request',
+            'old_data' => ['status' => $currentStatus],
+            'new_data' => [
+                'status' => 'cancelled',
+                'cancel_reason' => $cancelReason,
+            ],
+        ]]
+    );
+
+    redirectWithState('success', 'Leave request cancelled successfully.', 'timekeeping.php');
+}
+
 if ($action === 'create_time_adjustment_request') {
     $attendanceLogId = $toNullable($_POST['attendance_log_id'] ?? null, 36);
-    $requestedTimeInRaw = $toNullable($_POST['requested_time_in'] ?? null, 30);
-    $requestedTimeOutRaw = $toNullable($_POST['requested_time_out'] ?? null, 30);
+    $requestedTimeInRaw = $toNullable($_POST['requested_time_in'] ?? null, 5);
+    $requestedTimeOutRaw = $toNullable($_POST['requested_time_out'] ?? null, 5);
     $reason = $toNullable($_POST['reason'] ?? null, 500);
 
     if (!isValidUuid($attendanceLogId) || $reason === null) {
@@ -164,11 +270,36 @@ if ($action === 'create_time_adjustment_request') {
         redirectWithState('error', 'Attendance record not found or not owned by your account.', 'timekeeping.php');
     }
 
-    $requestedTimeIn = $requestedTimeInRaw !== null ? date('c', strtotime(str_replace('T', ' ', $requestedTimeInRaw))) : null;
-    $requestedTimeOut = $requestedTimeOutRaw !== null ? date('c', strtotime(str_replace('T', ' ', $requestedTimeOutRaw))) : null;
+    $attendanceRow = (array)$attendanceResponse['data'][0];
+    $attendanceDate = cleanText($attendanceRow['attendance_date'] ?? null);
+    if ($attendanceDate === null || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $attendanceDate)) {
+        redirectWithState('error', 'Attendance date is missing for this record.', 'timekeeping.php');
+    }
 
-    if (($requestedTimeInRaw !== null && $requestedTimeIn === false) || ($requestedTimeOutRaw !== null && $requestedTimeOut === false)) {
-        redirectWithState('error', 'Invalid requested time format.', 'timekeeping.php');
+    if ($requestedTimeInRaw !== null && !preg_match('/^\d{2}:\d{2}$/', $requestedTimeInRaw)) {
+        redirectWithState('error', 'Requested time-in must use HH:MM format.', 'timekeeping.php');
+    }
+
+    if ($requestedTimeOutRaw !== null && !preg_match('/^\d{2}:\d{2}$/', $requestedTimeOutRaw)) {
+        redirectWithState('error', 'Requested time-out must use HH:MM format.', 'timekeeping.php');
+    }
+
+    $requestedTimeIn = null;
+    if ($requestedTimeInRaw !== null) {
+        $timeInDate = DateTimeImmutable::createFromFormat('Y-m-d H:i', $attendanceDate . ' ' . $requestedTimeInRaw, new DateTimeZone('Asia/Manila'));
+        if (!($timeInDate instanceof DateTimeImmutable)) {
+            redirectWithState('error', 'Invalid requested time-in format.', 'timekeeping.php');
+        }
+        $requestedTimeIn = $timeInDate->format('c');
+    }
+
+    $requestedTimeOut = null;
+    if ($requestedTimeOutRaw !== null) {
+        $timeOutDate = DateTimeImmutable::createFromFormat('Y-m-d H:i', $attendanceDate . ' ' . $requestedTimeOutRaw, new DateTimeZone('Asia/Manila'));
+        if (!($timeOutDate instanceof DateTimeImmutable)) {
+            redirectWithState('error', 'Invalid requested time-out format.', 'timekeeping.php');
+        }
+        $requestedTimeOut = $timeOutDate->format('c');
     }
 
     if ($requestedTimeIn !== null && $requestedTimeOut !== null && strtotime($requestedTimeOut) <= strtotime($requestedTimeIn)) {
@@ -231,33 +362,41 @@ if ($action === 'create_time_adjustment_request') {
 }
 
 if ($action === 'create_overtime_request') {
-    $overtimeDate = $toNullable($_POST['overtime_date'] ?? null, 10);
-    $startTime = $toNullable($_POST['start_time'] ?? null, 8);
-    $endTime = $toNullable($_POST['end_time'] ?? null, 8);
+    redirectWithState('error', 'Overtime filing has been replaced by CTO and Official Business requests.', 'timekeeping.php');
+}
+
+if ($action === 'create_official_business_request') {
+    $overtimeDate = $toNullable($_POST['ob_date'] ?? null, 10);
+    $startTime = $toNullable($_POST['time_out'] ?? null, 8);
+    $endTime = $toNullable($_POST['time_in'] ?? null, 8);
     $hoursRequestedRaw = $toNullable($_POST['hours_requested'] ?? null, 10);
     $reason = $toNullable($_POST['reason'] ?? null, 500);
 
     if (!$isValidDate($overtimeDate) || $startTime === null || $endTime === null || $hoursRequestedRaw === null || $reason === null) {
-        redirectWithState('error', 'Overtime request requires date, start/end times, hours, and reason.', 'timekeeping.php');
+        redirectWithState('error', 'Official business request requires date, time-out/time-in, hours, and reason.', 'timekeeping.php');
+    }
+
+    if (strtotime($overtimeDate) < strtotime($todayManila)) {
+        redirectWithState('error', 'Official business date cannot be in the past.', 'timekeeping.php');
     }
 
     if (!preg_match('/^\d{2}:\d{2}$/', $startTime) || !preg_match('/^\d{2}:\d{2}$/', $endTime)) {
-        redirectWithState('error', 'Start and end times must use HH:MM format.', 'timekeeping.php');
+        redirectWithState('error', 'Time-out and time-in must use HH:MM format.', 'timekeeping.php');
     }
 
     if (strtotime($overtimeDate . ' ' . $endTime) <= strtotime($overtimeDate . ' ' . $startTime)) {
-        redirectWithState('error', 'Overtime end time must be later than start time.', 'timekeeping.php');
+        redirectWithState('error', 'Time-in must be later than time-out.', 'timekeeping.php');
     }
 
     $hoursRequested = (float)$hoursRequestedRaw;
     if ($hoursRequested <= 0 || $hoursRequested > 24) {
-        redirectWithState('error', 'Overtime hours must be greater than 0 and not more than 24.', 'timekeeping.php');
+        redirectWithState('error', 'Official business hours must be greater than 0 and not more than 24.', 'timekeeping.php');
     }
 
     $duplicateResponse = apiRequest(
         'GET',
         $supabaseUrl
-        . '/rest/v1/overtime_requests?select=id,status'
+        . '/rest/v1/overtime_requests?select=id,status,reason'
         . '&person_id=eq.' . rawurlencode((string)$employeePersonId)
         . '&overtime_date=eq.' . rawurlencode($overtimeDate)
         . '&status=in.(pending,approved)'
@@ -266,7 +405,13 @@ if ($action === 'create_overtime_request') {
     );
 
     if (isSuccessful($duplicateResponse) && !empty((array)($duplicateResponse['data'] ?? []))) {
-        redirectWithState('error', 'You already have a pending/approved overtime request on this date.', 'timekeeping.php');
+        foreach ((array)($duplicateResponse['data'] ?? []) as $duplicateRaw) {
+            $duplicateRow = (array)$duplicateRaw;
+            $duplicateReason = strtolower(trim((string)($duplicateRow['reason'] ?? '')));
+            if (str_starts_with($duplicateReason, '[ob]')) {
+                redirectWithState('error', 'You already have a pending/approved official business request on this date.', 'timekeeping.php');
+            }
+        }
     }
 
     $insertResponse = apiRequest(
@@ -279,13 +424,13 @@ if ($action === 'create_overtime_request') {
             'start_time' => $startTime,
             'end_time' => $endTime,
             'hours_requested' => $hoursRequested,
-            'reason' => $reason,
+            'reason' => '[OB] ' . $reason,
             'status' => 'pending',
         ]]
     );
 
     if (!isSuccessful($insertResponse)) {
-        redirectWithState('error', 'Failed to submit overtime request.', 'timekeeping.php');
+        redirectWithState('error', 'Failed to submit official business request.', 'timekeeping.php');
     }
 
     $newRow = (array)(((array)$insertResponse['data'])[0] ?? []);
@@ -296,15 +441,15 @@ if ($action === 'create_overtime_request') {
         [[
             'actor_user_id' => $employeeUserId,
             'module_name' => 'employee',
-            'entity_name' => 'overtime_requests',
+            'entity_name' => 'official_business_requests',
             'entity_id' => (string)($newRow['id'] ?? null),
-            'action_name' => 'create_overtime_request',
+            'action_name' => 'create_official_business_request',
             'new_data' => [
-                'overtime_date' => $overtimeDate,
+                'official_business_date' => $overtimeDate,
                 'hours_requested' => $hoursRequested,
             ],
         ]]
     );
 
-    redirectWithState('success', 'Overtime request submitted successfully.', 'timekeeping.php');
+    redirectWithState('success', 'Official business request submitted successfully.', 'timekeeping.php');
 }

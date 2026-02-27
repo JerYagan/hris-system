@@ -6,6 +6,14 @@ $statusPill = static function (string $status): array {
     }
     return ['Inactive', 'bg-amber-100 text-amber-800'];
 };
+
+$rolePill = static function (string $roleKey): array {
+    $normalized = strtolower(trim($roleKey));
+    if ($normalized === 'staff') {
+        return ['Staff', 'bg-amber-100 text-amber-800'];
+    }
+    return ['Employee', 'bg-emerald-100 text-emerald-800'];
+};
 ?>
 
 <?php if ($state && $message): ?>
@@ -27,6 +35,19 @@ $statusPill = static function (string $status): array {
         <span><?= htmlspecialchars((string)$dataLoadError, ENT_QUOTES, 'UTF-8') ?></span>
     </div>
 <?php endif; ?>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <div class="px-6 py-4 flex items-center justify-between gap-3">
+        <div>
+            <h2 class="text-lg font-semibold text-slate-800">Personal Information Workspace</h2>
+            <p class="text-sm text-slate-500 mt-1">Use quick actions to manage employee profiles without leaving this page.</p>
+        </div>
+        <button type="button" data-modal-open="personalInfoEditProfileModal" class="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 text-sm">
+            <span class="material-symbols-outlined text-[18px]">edit</span>
+            Edit Profile
+        </button>
+    </div>
+</section>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
@@ -64,111 +85,237 @@ $statusPill = static function (string $status): array {
 </section>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
-    <header class="px-6 py-4 border-b border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800">Create Staff Account</h2>
-        <p class="text-sm text-slate-500 mt-1">Create login credentials for an existing employee profile and assign a staff role.</p>
+    <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
+        <div>
+            <h2 class="text-lg font-semibold text-slate-800">Pending Staff Review</h2>
+            <p class="text-sm text-slate-500 mt-1">Staff-submitted employee profile recommendations awaiting admin final review.</p>
+        </div>
+        <span class="inline-flex items-center rounded-full bg-amber-100 text-amber-800 text-xs px-2.5 py-1 font-medium">Pending</span>
     </header>
 
-    <form action="personal-information.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-        <input type="hidden" name="form_action" value="create_staff_account">
-
-        <div class="md:col-span-3">
-            <label class="text-slate-600">Employee Profile</label>
-            <select name="person_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
-                <option value="">Select employee profile</option>
-                <?php foreach ($staffAccountCandidates as $candidate): ?>
-                    <option value="<?= htmlspecialchars((string)$candidate['person_id'], ENT_QUOTES, 'UTF-8') ?>">
-                        <?= htmlspecialchars((string)$candidate['name'], ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars((string)$candidate['employee_code'], ENT_QUOTES, 'UTF-8') ?>)
-                    </option>
-                <?php endforeach; ?>
-            </select>
-            <?php if (empty($staffAccountCandidates)): ?>
-                <p class="mt-2 text-xs text-amber-700">All current employee profiles already have linked user accounts.</p>
-            <?php endif; ?>
-        </div>
-
-        <div>
-            <label class="text-slate-600">Login Email</label>
-            <input name="email" type="email" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="staff@agency.gov.ph" required>
-        </div>
-        <div>
-            <label class="text-slate-600">Password</label>
-            <input name="password" type="password" minlength="8" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Minimum 8 characters" required>
-        </div>
-        <div>
-            <label class="text-slate-600">Staff Role</label>
-            <select name="role_key" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
-                <option value="staff" selected>Staff</option>
-                <option value="hr_officer">HR Officer</option>
-                <option value="supervisor">Supervisor</option>
-            </select>
-        </div>
-
-        <div>
-            <label class="text-slate-600">Office Scope</label>
-            <select name="office_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
-                <option value="">Select office</option>
-                <?php foreach ($officeRows as $office): ?>
-                    <option value="<?= htmlspecialchars((string)($office['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
-                        <?= htmlspecialchars((string)($office['office_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-        </div>
+    <div class="px-6 pt-5 grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
         <div class="md:col-span-2">
-            <label class="text-slate-600">Notes (Optional)</label>
-            <input name="account_notes" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Reason or remarks for account provisioning">
+            <label class="text-slate-600">Search Recommendations</label>
+            <input id="pendingProfileSearchInput" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Search by employee, staff email, or summary">
         </div>
-
-        <div class="md:col-span-3 flex justify-end">
-            <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Create Staff Account</button>
+        <div>
+            <label class="text-slate-600">Status Filter</label>
+            <select id="pendingProfileStatusFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                <option value="">All Statuses</option>
+                <option value="Pending Admin Action">Pending Admin Action</option>
+            </select>
         </div>
-    </form>
-</section>
-
-<section class="bg-white border border-slate-200 rounded-2xl mb-6">
-    <header class="px-6 py-4 border-b border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800">Profile Actions</h2>
-        <p class="text-sm text-slate-500 mt-1">Manage profile updates and quickly filter employee records before selecting an action.</p>
-    </header>
-
-    <div class="p-6 space-y-5">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
-            <button type="button" data-person-profile-add class="px-4 py-2.5 rounded-md bg-slate-900 text-white hover:bg-slate-800">Add Employee</button>
-            <a href="personal-information.php" class="px-4 py-2.5 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 text-center">Reset Filters</a>
+        <div>
+            <label class="text-slate-600">Submitted Date</label>
+            <input id="pendingProfileDateFilter" type="date" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="YYYY-MM-DD">
         </div>
+    </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
-            <div class="md:col-span-2">
-                <label class="text-slate-600">Search Employee Records</label>
-                <input id="personalInfoRecordsSearchInput" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Search by employee ID, name, email, division, or position">
-            </div>
-            <div>
-                <label class="text-slate-600">Division Filter</label>
-                <select id="personalInfoRecordsDepartmentFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
-                    <option value="">All Divisions</option>
-                    <?php foreach ($departmentFilterOptions as $departmentName): ?>
-                        <option value="<?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?></option>
+    <div class="p-6 overflow-x-auto">
+        <table id="personalInfoPendingReviewTable" data-simple-table="true" class="w-full text-sm table-fixed">
+            <thead class="bg-slate-50 text-slate-600">
+                <tr>
+                    <th class="text-left px-4 py-3 w-[24%]">Employee</th>
+                    <th class="text-left px-4 py-3 w-[20%]">Submitted By</th>
+                    <th class="text-left px-4 py-3 w-[20%]">Submitted On</th>
+                    <th class="text-left px-4 py-3 w-[18%]">Status</th>
+                    <th class="text-left px-4 py-3 w-[18%]">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                <?php if (empty($recommendationHistoryRows)): ?>
+                    <tr>
+                        <td class="px-4 py-3 text-slate-500" colspan="5">No pending staff profile recommendations found.</td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($recommendationHistoryRows as $recommendationRow): ?>
+                        <?php
+                            $recommendationDetailsJson = htmlspecialchars((string)json_encode($recommendationRow['proposed_changes'] ?? [], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
+                            $submittedDateValue = htmlspecialchars((string)($recommendationRow['submitted_at_date'] ?? ''), ENT_QUOTES, 'UTF-8');
+                            $statusLabelValue = (string)($recommendationRow['status_label'] ?? 'Pending Admin Action');
+                        ?>
+                        <tr
+                            data-pending-review-row
+                            data-review-search="<?= htmlspecialchars(strtolower((string)($recommendationRow['search_text'] ?? '')), ENT_QUOTES, 'UTF-8') ?>"
+                            data-review-status="<?= htmlspecialchars(strtolower($statusLabelValue), ENT_QUOTES, 'UTF-8') ?>"
+                            data-review-date="<?= $submittedDateValue ?>"
+                        >
+                            <td class="px-4 py-3 font-medium text-slate-700 align-top break-words"><?= htmlspecialchars((string)($recommendationRow['employee_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-600 align-top break-words"><?= htmlspecialchars((string)($recommendationRow['submitted_by'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-600 align-top"><?= htmlspecialchars((string)($recommendationRow['submitted_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3">
+                                <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs <?= htmlspecialchars((string)($recommendationRow['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>">
+                                    <?= htmlspecialchars((string)($recommendationRow['status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?>
+                                </span>
+                            </td>
+                            <td class="px-4 py-3">
+                                <button
+                                    type="button"
+                                    data-pending-review-open
+                                    data-recommendation-log-id="<?= htmlspecialchars((string)($recommendationRow['recommendation_log_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                    data-person-id="<?= htmlspecialchars((string)($recommendationRow['person_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                    data-employee-name="<?= htmlspecialchars((string)($recommendationRow['employee_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
+                                    data-submitted-by="<?= htmlspecialchars((string)($recommendationRow['submitted_by'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
+                                    data-submitted-at="<?= htmlspecialchars((string)($recommendationRow['submitted_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
+                                    data-summary="<?= htmlspecialchars((string)($recommendationRow['summary'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
+                                    data-details="<?= $recommendationDetailsJson ?>"
+                                    class="px-3 py-1.5 text-xs rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                                >
+                                    Review
+                                </button>
+                            </td>
+                        </tr>
                     <?php endforeach; ?>
-                </select>
-            </div>
-            <div>
-                <label class="text-slate-600">Status Filter</label>
-                <select id="personalInfoRecordsStatusFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
-                    <option value="">All Statuses</option>
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                </select>
-            </div>
+                <?php endif; ?>
+                <tr id="pendingProfileFilterEmpty" class="hidden">
+                    <td class="px-4 py-3 text-slate-500" colspan="5">No recommendation records match your current search/filter selection.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="px-6 pb-4 flex items-center justify-between gap-3">
+        <p id="pendingProfilePaginationInfo" class="text-xs text-slate-500">Page 1 of 1</p>
+        <div class="flex items-center gap-2">
+            <button type="button" id="pendingProfilePrevPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Previous</button>
+            <button type="button" id="pendingProfileNextPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Next</button>
         </div>
     </div>
 </section>
+
+<form id="personalInfoRecommendationReviewForm" action="personal-information.php" method="POST" class="hidden">
+    <input type="hidden" name="form_action" value="review_profile_recommendation">
+    <input type="hidden" id="recommendationReviewLogId" name="recommendation_log_id" value="">
+    <input type="hidden" id="recommendationReviewPersonId" name="person_id" value="">
+    <input type="hidden" id="recommendationReviewDecision" name="decision" value="">
+    <input type="hidden" id="recommendationReviewRemarks" name="remarks" value="">
+</form>
+
+<div id="personalInfoRecommendationReviewModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-slate-900/60" data-modal-close="personalInfoRecommendationReviewModal"></div>
+    <div class="relative min-h-full flex items-center justify-center p-4">
+        <div class="w-full max-w-3xl bg-white rounded-2xl border border-slate-200 shadow-xl max-h-[calc(100vh-2rem)] overflow-y-auto">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-slate-800">Review Staff Recommendation</h3>
+                <button type="button" data-modal-close="personalInfoRecommendationReviewModal" class="text-slate-500 hover:text-slate-700">✕</button>
+            </div>
+            <div class="px-6 py-5 space-y-4 text-sm">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-slate-600">Employee</label>
+                        <input id="recommendationReviewEmployee" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
+                    </div>
+                    <div>
+                        <label class="text-slate-600">Submitted By</label>
+                        <input id="recommendationReviewSubmittedBy" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-slate-600">Submitted On</label>
+                    <input id="recommendationReviewSubmittedAt" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
+                </div>
+                <div>
+                    <label class="text-slate-600">Summary</label>
+                    <textarea id="recommendationReviewSummary" rows="2" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly></textarea>
+                </div>
+                <div>
+                    <label class="text-slate-600">Proposed Changes</label>
+                    <div id="recommendationReviewDetails" class="mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50 text-slate-700 max-h-48 overflow-y-auto"></div>
+                </div>
+                <div>
+                    <label class="text-slate-600">Decision</label>
+                    <select id="recommendationReviewDecisionSelect" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-white">
+                        <option value="approve">Approve and apply recommended changes</option>
+                        <option value="reject">Reject recommendation</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-slate-600">Remarks</label>
+                    <textarea id="recommendationReviewRemarksInput" rows="3" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Remarks for approval/rejection"></textarea>
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-2">
+                <button type="button" data-modal-close="personalInfoRecommendationReviewModal" class="px-4 py-2 text-sm rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Cancel</button>
+                <button type="button" id="recommendationReviewSubmit" class="px-4 py-2 text-sm rounded-md bg-slate-900 text-white hover:bg-slate-800">Save Decision</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="personalInfoEditProfileModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-slate-900/60" data-modal-close="personalInfoEditProfileModal"></div>
+    <div class="relative min-h-full flex items-center justify-center p-4">
+        <div class="w-full max-w-3xl bg-white rounded-2xl border border-slate-200 shadow-xl max-h-[calc(100vh-2rem)] overflow-y-auto">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                <div>
+                    <h3 class="text-lg font-semibold text-slate-800">Edit Profile</h3>
+                    <p class="text-sm text-slate-500 mt-1">Select an employee below to open the full PDS profile editor.</p>
+                </div>
+                <button type="button" data-modal-close="personalInfoEditProfileModal" class="text-slate-500 hover:text-slate-700">✕</button>
+            </div>
+
+            <div class="p-6 space-y-4 text-sm">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div class="md:col-span-2">
+                        <label class="text-slate-600">Search Employee</label>
+                        <input id="quickEditProfileSearchInput" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Search by employee code or employee name">
+                    </div>
+                    <div class="flex items-end">
+                        <button type="button" data-person-profile-add class="w-full px-4 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Add Employee</button>
+                    </div>
+                </div>
+
+                <div id="quickEditProfileList" class="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-80 overflow-y-auto">
+                    <?php foreach ($employeeTableRows as $quickRow): ?>
+                        <button
+                            type="button"
+                            data-quick-edit-profile-option
+                            data-person-id="<?= htmlspecialchars((string)$quickRow['person_id'], ENT_QUOTES, 'UTF-8') ?>"
+                            data-search-text="<?= htmlspecialchars(strtolower((string)($quickRow['employee_code'] . ' ' . $quickRow['full_name'])), ENT_QUOTES, 'UTF-8') ?>"
+                            class="w-full text-left px-4 py-3 hover:bg-slate-50"
+                        >
+                            <p class="font-medium text-slate-800"><?= htmlspecialchars((string)$quickRow['full_name'], ENT_QUOTES, 'UTF-8') ?></p>
+                            <p class="text-xs text-slate-500 mt-1"><?= htmlspecialchars((string)$quickRow['employee_code'], ENT_QUOTES, 'UTF-8') ?> • <?= htmlspecialchars((string)$quickRow['department'], ENT_QUOTES, 'UTF-8') ?></p>
+                        </button>
+                    <?php endforeach; ?>
+                    <p id="quickEditProfileEmpty" class="hidden px-4 py-4 text-slate-500">No employee record matches your search.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Employee Management Table</h2>
         <p class="text-sm text-slate-500 mt-1">Search and filter employee records, then select an action from the dropdown.</p>
     </header>
+
+    <div class="px-6 pt-5 grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
+        <div class="md:col-span-2">
+            <label class="text-slate-600">Search Employee Records</label>
+            <input id="personalInfoRecordsSearchInput" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Search by employee ID, name, email, division, or position">
+        </div>
+        <div>
+            <label class="text-slate-600">Division Filter</label>
+            <select id="personalInfoRecordsDepartmentFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                <option value="">All Divisions</option>
+                <?php foreach ($departmentFilterOptions as $departmentName): ?>
+                    <option value="<?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div>
+            <label class="text-slate-600">Status Filter</label>
+            <select id="personalInfoRecordsStatusFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                <option value="">All Statuses</option>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+            </select>
+        </div>
+        <div class="md:col-span-4 flex justify-end">
+            <button type="button" id="personalInfoResetFilters" class="px-3 py-2 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Reset Filters</button>
+        </div>
+    </div>
 
     <div class="p-6 overflow-x-auto">
         <table id="personalInfoEmployeesTable" class="w-full text-sm">
@@ -205,7 +352,7 @@ $statusPill = static function (string $status): array {
                                 <div data-person-action-scope class="relative inline-block text-left w-full max-w-[240px]">
                                     <button type="button" data-person-action-menu-toggle class="w-full inline-flex items-center justify-between gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300">
                                         <span class="inline-flex items-center gap-2">
-                                            <span class="material-symbols-outlined text-[18px]">bolt</span>
+                                            <span class="material-symbols-outlined text-[18px]">more_horiz</span>
                                             Actions
                                         </span>
                                         <span class="material-symbols-outlined text-[18px]">expand_more</span>
@@ -224,6 +371,10 @@ $statusPill = static function (string $status): array {
                                             <span class="material-symbols-outlined text-[18px] text-slate-500">manage_accounts</span>
                                             Manage Employee Status
                                         </button>
+                                        <button type="button" data-action-menu-item data-action-target="merge-duplicate" class="w-full text-left px-3 py-2.5 rounded-lg text-sm text-amber-700 hover:bg-amber-50 inline-flex items-center gap-2">
+                                            <span class="material-symbols-outlined text-[18px] text-amber-600">merge_type</span>
+                                            Merge/Delete Duplicate Profile
+                                        </button>
                                         <div class="my-1 h-px bg-slate-200"></div>
                                         <button type="button" data-action-menu-item data-action-target="archive" class="w-full text-left px-3 py-2.5 rounded-lg text-sm text-rose-700 hover:bg-rose-50 inline-flex items-center gap-2">
                                             <span class="material-symbols-outlined text-[18px] text-rose-600">archive</span>
@@ -234,6 +385,7 @@ $statusPill = static function (string $status): array {
                                     <button type="button" hidden data-action-trigger="edit-profile" data-person-profile-open data-person-id="<?= htmlspecialchars((string)$row['person_id'], ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars((string)$row['full_name'], ENT_QUOTES, 'UTF-8') ?>" data-first-name="<?= htmlspecialchars((string)$row['first_name'], ENT_QUOTES, 'UTF-8') ?>" data-middle-name="<?= htmlspecialchars((string)$row['middle_name'], ENT_QUOTES, 'UTF-8') ?>" data-surname="<?= htmlspecialchars((string)$row['surname'], ENT_QUOTES, 'UTF-8') ?>" data-name-extension="<?= htmlspecialchars((string)$row['name_extension'], ENT_QUOTES, 'UTF-8') ?>" data-date-of-birth="<?= htmlspecialchars((string)$row['date_of_birth'], ENT_QUOTES, 'UTF-8') ?>" data-place-of-birth="<?= htmlspecialchars((string)$row['place_of_birth'], ENT_QUOTES, 'UTF-8') ?>" data-sex-at-birth="<?= htmlspecialchars((string)$row['sex_at_birth'], ENT_QUOTES, 'UTF-8') ?>" data-civil-status="<?= htmlspecialchars((string)$row['civil_status'], ENT_QUOTES, 'UTF-8') ?>" data-height-m="<?= htmlspecialchars((string)$row['height_m'], ENT_QUOTES, 'UTF-8') ?>" data-weight-kg="<?= htmlspecialchars((string)$row['weight_kg'], ENT_QUOTES, 'UTF-8') ?>" data-blood-type="<?= htmlspecialchars((string)$row['blood_type'], ENT_QUOTES, 'UTF-8') ?>" data-citizenship="<?= htmlspecialchars((string)$row['citizenship'], ENT_QUOTES, 'UTF-8') ?>" data-dual-citizenship-country="<?= htmlspecialchars((string)$row['dual_citizenship_country'], ENT_QUOTES, 'UTF-8') ?>" data-telephone-no="<?= htmlspecialchars((string)$row['telephone_no'], ENT_QUOTES, 'UTF-8') ?>" data-email="<?= htmlspecialchars((string)$row['email'], ENT_QUOTES, 'UTF-8') ?>" data-mobile="<?= htmlspecialchars((string)$row['mobile'], ENT_QUOTES, 'UTF-8') ?>" data-agency-employee-no="<?= htmlspecialchars((string)$row['agency_employee_no'], ENT_QUOTES, 'UTF-8') ?>" data-residential-house-no="<?= htmlspecialchars((string)$row['residential_house_no'], ENT_QUOTES, 'UTF-8') ?>" data-residential-street="<?= htmlspecialchars((string)$row['residential_street'], ENT_QUOTES, 'UTF-8') ?>" data-residential-subdivision="<?= htmlspecialchars((string)$row['residential_subdivision'], ENT_QUOTES, 'UTF-8') ?>" data-residential-barangay="<?= htmlspecialchars((string)$row['residential_barangay'], ENT_QUOTES, 'UTF-8') ?>" data-residential-city-municipality="<?= htmlspecialchars((string)$row['residential_city_municipality'], ENT_QUOTES, 'UTF-8') ?>" data-residential-province="<?= htmlspecialchars((string)$row['residential_province'], ENT_QUOTES, 'UTF-8') ?>" data-residential-zip-code="<?= htmlspecialchars((string)$row['residential_zip_code'], ENT_QUOTES, 'UTF-8') ?>" data-permanent-house-no="<?= htmlspecialchars((string)$row['permanent_house_no'], ENT_QUOTES, 'UTF-8') ?>" data-permanent-street="<?= htmlspecialchars((string)$row['permanent_street'], ENT_QUOTES, 'UTF-8') ?>" data-permanent-subdivision="<?= htmlspecialchars((string)$row['permanent_subdivision'], ENT_QUOTES, 'UTF-8') ?>" data-permanent-barangay="<?= htmlspecialchars((string)$row['permanent_barangay'], ENT_QUOTES, 'UTF-8') ?>" data-permanent-city-municipality="<?= htmlspecialchars((string)$row['permanent_city_municipality'], ENT_QUOTES, 'UTF-8') ?>" data-permanent-province="<?= htmlspecialchars((string)$row['permanent_province'], ENT_QUOTES, 'UTF-8') ?>" data-permanent-zip-code="<?= htmlspecialchars((string)$row['permanent_zip_code'], ENT_QUOTES, 'UTF-8') ?>" data-umid-no="<?= htmlspecialchars((string)$row['umid_no'], ENT_QUOTES, 'UTF-8') ?>" data-pagibig-no="<?= htmlspecialchars((string)$row['pagibig_no'], ENT_QUOTES, 'UTF-8') ?>" data-philhealth-no="<?= htmlspecialchars((string)$row['philhealth_no'], ENT_QUOTES, 'UTF-8') ?>" data-psn-no="<?= htmlspecialchars((string)$row['psn_no'], ENT_QUOTES, 'UTF-8') ?>" data-tin-no="<?= htmlspecialchars((string)$row['tin_no'], ENT_QUOTES, 'UTF-8') ?>"></button>
                                     <button type="button" hidden data-action-trigger="assign" data-person-assignment-open data-person-id="<?= htmlspecialchars((string)$row['person_id'], ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars((string)$row['full_name'], ENT_QUOTES, 'UTF-8') ?>"></button>
                                     <button type="button" hidden data-action-trigger="manage-status" data-person-status-open data-person-id="<?= htmlspecialchars((string)$row['person_id'], ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars((string)$row['full_name'], ENT_QUOTES, 'UTF-8') ?>"></button>
+                                    <button type="button" hidden data-action-trigger="merge-duplicate" data-person-merge-open data-person-id="<?= htmlspecialchars((string)$row['person_id'], ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars((string)$row['full_name'], ENT_QUOTES, 'UTF-8') ?>"></button>
                                     <button type="button" hidden data-action-trigger="archive" data-person-profile-archive data-person-id="<?= htmlspecialchars((string)$row['person_id'], ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars((string)$row['full_name'], ENT_QUOTES, 'UTF-8') ?>"></button>
 
                                     <button type="button" hidden data-person-family-open data-person-id="<?= htmlspecialchars((string)$row['person_id'], ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars((string)$row['full_name'], ENT_QUOTES, 'UTF-8') ?>" data-spouse-surname="<?= htmlspecialchars((string)$row['spouse_surname'], ENT_QUOTES, 'UTF-8') ?>" data-spouse-first-name="<?= htmlspecialchars((string)$row['spouse_first_name'], ENT_QUOTES, 'UTF-8') ?>" data-spouse-middle-name="<?= htmlspecialchars((string)$row['spouse_middle_name'], ENT_QUOTES, 'UTF-8') ?>" data-spouse-extension-name="<?= htmlspecialchars((string)$row['spouse_extension_name'], ENT_QUOTES, 'UTF-8') ?>" data-spouse-occupation="<?= htmlspecialchars((string)$row['spouse_occupation'], ENT_QUOTES, 'UTF-8') ?>" data-spouse-employer-business-name="<?= htmlspecialchars((string)$row['spouse_employer_business_name'], ENT_QUOTES, 'UTF-8') ?>" data-spouse-business-address="<?= htmlspecialchars((string)$row['spouse_business_address'], ENT_QUOTES, 'UTF-8') ?>" data-spouse-telephone-no="<?= htmlspecialchars((string)$row['spouse_telephone_no'], ENT_QUOTES, 'UTF-8') ?>" data-father-surname="<?= htmlspecialchars((string)$row['father_surname'], ENT_QUOTES, 'UTF-8') ?>" data-father-first-name="<?= htmlspecialchars((string)$row['father_first_name'], ENT_QUOTES, 'UTF-8') ?>" data-father-middle-name="<?= htmlspecialchars((string)$row['father_middle_name'], ENT_QUOTES, 'UTF-8') ?>" data-father-extension-name="<?= htmlspecialchars((string)$row['father_extension_name'], ENT_QUOTES, 'UTF-8') ?>" data-mother-surname="<?= htmlspecialchars((string)$row['mother_surname'], ENT_QUOTES, 'UTF-8') ?>" data-mother-first-name="<?= htmlspecialchars((string)$row['mother_first_name'], ENT_QUOTES, 'UTF-8') ?>" data-mother-middle-name="<?= htmlspecialchars((string)$row['mother_middle_name'], ENT_QUOTES, 'UTF-8') ?>" data-mother-extension-name="<?= htmlspecialchars((string)$row['mother_extension_name'], ENT_QUOTES, 'UTF-8') ?>" data-children="<?= $childrenJson ?>"></button>
@@ -243,8 +395,75 @@ $statusPill = static function (string $status): array {
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
+                <tr id="personalInfoFilterEmpty" class="hidden">
+                    <td class="px-4 py-3 text-slate-500" colspan="7">No records match your search/filter criteria.</td>
+                </tr>
             </tbody>
         </table>
+    </div>
+    <div class="px-6 pb-4 flex items-center justify-between gap-3">
+        <p id="personalInfoPaginationInfo" class="text-xs text-slate-500">Page 1 of 1</p>
+        <div class="flex items-center gap-2">
+            <button type="button" id="personalInfoPrevPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Previous</button>
+            <button type="button" id="personalInfoNextPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Next</button>
+        </div>
+    </div>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-800">Staff & Employee Profiles</h2>
+        <p class="text-sm text-slate-500 mt-1">Select a profile card to open a full employee profile page.</p>
+    </header>
+
+    <div class="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <?php if (empty($employeeTableRows)): ?>
+            <div class="col-span-full rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                No staff or employee profiles available.
+            </div>
+        <?php else: ?>
+            <?php foreach ($employeeTableRows as $cardRow): ?>
+                <?php
+                    $profileUrl = 'employee-profile.php?person_id=' . rawurlencode((string)($cardRow['person_id'] ?? '')) . '&source=personal-information';
+                    $fullName = trim((string)($cardRow['full_name'] ?? ''));
+                    $initialsSource = preg_replace('/\s+/', ' ', $fullName);
+                    $nameParts = array_values(array_filter(explode(' ', (string)$initialsSource), static fn(string $part): bool => $part !== ''));
+                    $initials = '';
+                    if (!empty($nameParts)) {
+                        $initials = strtoupper(substr((string)$nameParts[0], 0, 1));
+                        if (count($nameParts) > 1) {
+                            $initials .= strtoupper(substr((string)$nameParts[count($nameParts) - 1], 0, 1));
+                        }
+                    }
+                    if ($initials === '') {
+                        $initials = 'NA';
+                    }
+                    [$roleText, $roleClass] = $rolePill((string)($cardRow['role_key'] ?? ''));
+                    $photoUrl = trim((string)($cardRow['profile_photo_url'] ?? ''));
+                ?>
+                <a href="<?= htmlspecialchars($profileUrl, ENT_QUOTES, 'UTF-8') ?>" class="group rounded-xl border border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm transition p-4 flex items-start gap-3">
+                    <div class="shrink-0">
+                        <?php if ($photoUrl !== ''): ?>
+                            <img src="<?= htmlspecialchars($photoUrl, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8') ?>" class="w-12 h-12 rounded-full object-cover border border-slate-200">
+                        <?php else: ?>
+                            <div class="w-12 h-12 rounded-full bg-slate-200 text-slate-700 text-sm font-semibold flex items-center justify-center border border-slate-300">
+                                <?= htmlspecialchars($initials, ENT_QUOTES, 'UTF-8') ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                    <div class="min-w-0">
+                        <p class="text-sm font-semibold text-slate-800 truncate"><?= htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8') ?></p>
+                        <p class="text-xs text-slate-500 mt-0.5 truncate"><?= htmlspecialchars((string)($cardRow['employee_code'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
+                        <p class="text-xs text-slate-600 mt-2 truncate"><?= htmlspecialchars((string)($cardRow['position'] ?? 'Unassigned Position'), ENT_QUOTES, 'UTF-8') ?></p>
+                        <p class="text-xs text-slate-500 truncate"><?= htmlspecialchars((string)($cardRow['department'] ?? 'Unassigned Division'), ENT_QUOTES, 'UTF-8') ?></p>
+                        <div class="mt-2 flex items-center gap-2">
+                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] <?= htmlspecialchars($roleClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($roleText, ENT_QUOTES, 'UTF-8') ?></span>
+                            <span class="text-[11px] text-slate-500 group-hover:text-slate-700">View profile →</span>
+                        </div>
+                    </div>
+                </a>
+            <?php endforeach; ?>
+        <?php endif; ?>
     </div>
 </section>
 
@@ -254,6 +473,15 @@ $statusPill = static function (string $status): array {
     <input type="hidden" name="person_id" id="personalInfoArchivePersonId" value="">
     <input type="hidden" name="employee_name" id="personalInfoArchiveEmployeeName" value="">
     <input type="hidden" name="profile_notes" value="Archived by admin from employee records table.">
+</form>
+
+<form id="personalInfoMergeForm" action="personal-information.php" method="POST" class="hidden">
+    <input type="hidden" name="form_action" value="resolve_duplicate_profile">
+    <input type="hidden" name="source_person_id" id="personalInfoMergeSourcePersonId" value="">
+    <input type="hidden" name="source_employee_name" id="personalInfoMergeSourceEmployeeName" value="">
+    <input type="hidden" name="target_person_id" id="personalInfoMergeTargetPersonId" value="">
+    <input type="hidden" name="resolution_mode" id="personalInfoMergeResolutionMode" value="merge">
+    <input type="hidden" name="resolution_notes" id="personalInfoMergeResolutionNotes" value="">
 </form>
 
 <form id="personalInfoEligibilityDeleteForm" action="personal-information.php" method="POST" class="hidden">
@@ -321,7 +549,10 @@ $statusPill = static function (string $status): array {
                             </div>
                             <div class="md:col-span-2">
                                 <label class="text-slate-600">Place of Birth</label>
-                                <input id="profilePlaceOfBirth" name="place_of_birth" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="City/Municipality, Province">
+                                <div class="relative mt-1">
+                                    <input id="profilePlaceOfBirth" name="place_of_birth" type="text" autocomplete="off" data-modern-search="placeOfBirth" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" placeholder="City/Municipality, Province">
+                                    <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400"><span class="material-symbols-outlined text-[18px]">expand_more</span></span>
+                                </div>
                             </div>
                             <div>
                                 <label class="text-slate-600">Sex at Birth</label>
@@ -333,7 +564,10 @@ $statusPill = static function (string $status): array {
                             </div>
                             <div>
                                 <label class="text-slate-600">Civil Status</label>
-                                <input id="profileCivilStatus" name="civil_status" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Single, Married, etc.">
+                                <div class="relative mt-1">
+                                    <input id="profileCivilStatus" name="civil_status" type="text" autocomplete="off" data-modern-search="civilStatus" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" placeholder="Single, Married, etc.">
+                                    <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400"><span class="material-symbols-outlined text-[18px]">expand_more</span></span>
+                                </div>
                             </div>
                             <div>
                                 <label class="text-slate-600">Height (m)</label>
@@ -345,7 +579,10 @@ $statusPill = static function (string $status): array {
                             </div>
                             <div>
                                 <label class="text-slate-600">Blood Type</label>
-                                <input id="profileBloodType" name="blood_type" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="A+, O-, etc.">
+                                <div class="relative mt-1">
+                                    <input id="profileBloodType" name="blood_type" type="text" autocomplete="off" data-modern-search="bloodType" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" placeholder="A+, O-, etc.">
+                                    <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400"><span class="material-symbols-outlined text-[18px]">expand_more</span></span>
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -377,7 +614,10 @@ $statusPill = static function (string $status): array {
                             </div>
                             <div>
                                 <label class="text-slate-600">Barangay</label>
-                                <input id="profileResidentialBarangay" name="residential_barangay" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Barangay">
+                                <div class="relative mt-1">
+                                    <input id="profileResidentialBarangay" name="residential_barangay" type="text" autocomplete="off" data-modern-search="barangay" data-address-group="residential" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" placeholder="Barangay">
+                                    <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400"><span class="material-symbols-outlined text-[18px]">expand_more</span></span>
+                                </div>
                             </div>
                             <div>
                                 <label class="text-slate-600">Subdivision/Village</label>
@@ -385,15 +625,24 @@ $statusPill = static function (string $status): array {
                             </div>
                             <div>
                                 <label class="text-slate-600">City/Municipality</label>
-                                <input id="profileResidentialCity" name="residential_city_municipality" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="City/Municipality">
+                                <div class="relative mt-1">
+                                    <input id="profileResidentialCity" name="residential_city_municipality" type="text" autocomplete="off" data-modern-search="city" data-address-group="residential" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" placeholder="City/Municipality">
+                                    <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400"><span class="material-symbols-outlined text-[18px]">expand_more</span></span>
+                                </div>
                             </div>
                             <div>
                                 <label class="text-slate-600">Province</label>
-                                <input id="profileResidentialProvince" name="residential_province" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Province">
+                                <div class="relative mt-1">
+                                    <input id="profileResidentialProvince" name="residential_province" type="text" autocomplete="off" data-modern-search="province" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" placeholder="Province">
+                                    <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400"><span class="material-symbols-outlined text-[18px]">expand_more</span></span>
+                                </div>
                             </div>
                             <div>
                                 <label class="text-slate-600">ZIP Code</label>
-                                <input id="profileResidentialZipCode" name="residential_zip_code" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="ZIP code">
+                                <div class="relative mt-1">
+                                    <input id="profileResidentialZipCode" name="residential_zip_code" type="text" autocomplete="off" data-modern-search="zip" data-address-group="residential" inputmode="numeric" pattern="^\d{4}$" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" placeholder="ZIP code">
+                                    <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400"><span class="material-symbols-outlined text-[18px]">expand_more</span></span>
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -415,7 +664,10 @@ $statusPill = static function (string $status): array {
                             </div>
                             <div>
                                 <label class="text-slate-600">Barangay</label>
-                                <input id="profilePermanentBarangay" name="permanent_barangay" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Barangay">
+                                <div class="relative mt-1">
+                                    <input id="profilePermanentBarangay" name="permanent_barangay" type="text" autocomplete="off" data-modern-search="barangay" data-address-group="permanent" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" placeholder="Barangay">
+                                    <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400"><span class="material-symbols-outlined text-[18px]">expand_more</span></span>
+                                </div>
                             </div>
                             <div>
                                 <label class="text-slate-600">Subdivision/Village</label>
@@ -423,15 +675,24 @@ $statusPill = static function (string $status): array {
                             </div>
                             <div>
                                 <label class="text-slate-600">City/Municipality</label>
-                                <input id="profilePermanentCity" name="permanent_city_municipality" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="City/Municipality">
+                                <div class="relative mt-1">
+                                    <input id="profilePermanentCity" name="permanent_city_municipality" type="text" autocomplete="off" data-modern-search="city" data-address-group="permanent" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" placeholder="City/Municipality">
+                                    <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400"><span class="material-symbols-outlined text-[18px]">expand_more</span></span>
+                                </div>
                             </div>
                             <div>
                                 <label class="text-slate-600">Province</label>
-                                <input id="profilePermanentProvince" name="permanent_province" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Province">
+                                <div class="relative mt-1">
+                                    <input id="profilePermanentProvince" name="permanent_province" type="text" autocomplete="off" data-modern-search="province" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" placeholder="Province">
+                                    <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400"><span class="material-symbols-outlined text-[18px]">expand_more</span></span>
+                                </div>
                             </div>
                             <div>
                                 <label class="text-slate-600">ZIP Code</label>
-                                <input id="profilePermanentZipCode" name="permanent_zip_code" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="ZIP code">
+                                <div class="relative mt-1">
+                                    <input id="profilePermanentZipCode" name="permanent_zip_code" type="text" autocomplete="off" data-modern-search="zip" data-address-group="permanent" inputmode="numeric" pattern="^\d{4}$" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" placeholder="ZIP code">
+                                    <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400"><span class="material-symbols-outlined text-[18px]">expand_more</span></span>
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -493,6 +754,57 @@ $statusPill = static function (string $status): array {
         </div>
     </div>
 </div>
+
+<div id="personalInfoMergeModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-slate-900/60" data-modal-close="personalInfoMergeModal"></div>
+    <div class="relative min-h-full flex items-center justify-center p-4">
+        <div class="w-full max-w-2xl bg-white rounded-2xl border border-slate-200 shadow-xl">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-slate-800">Resolve Duplicate Employee Profile</h3>
+                <button type="button" data-modal-close="personalInfoMergeModal" class="text-slate-500 hover:text-slate-700">✕</button>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Duplicate Profile (source)</label>
+                    <input id="personalInfoMergeSourceLabel" type="text" class="w-full border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Keep Profile (target for merge)</label>
+                    <select id="personalInfoMergeTargetSelect" class="w-full border border-slate-300 rounded-md px-3 py-2 bg-white">
+                        <option value="">Select employee profile to keep...</option>
+                        <?php foreach ($employeeTableRows as $mergeTargetRow): ?>
+                            <option value="<?= htmlspecialchars((string)$mergeTargetRow['person_id'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$mergeTargetRow['full_name'] . ' • ' . (string)$mergeTargetRow['employee_code'], ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Resolution</label>
+                    <select id="personalInfoMergeResolutionSelect" class="w-full border border-slate-300 rounded-md px-3 py-2 bg-white">
+                        <option value="merge">Merge source data into target, then archive source</option>
+                        <option value="delete">Archive duplicate source only (no merge)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Notes</label>
+                    <textarea id="personalInfoMergeNotesInput" rows="3" class="w-full border border-slate-300 rounded-md px-3 py-2" placeholder="Reason for merge/delete duplicate"></textarea>
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-2">
+                <button type="button" data-modal-close="personalInfoMergeModal" class="px-4 py-2 text-sm rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Cancel</button>
+                <button type="button" id="personalInfoMergeSubmit" class="px-4 py-2 text-sm rounded-md bg-amber-600 text-white hover:bg-amber-700">Submit Resolution</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script id="adminPersonalInfoLookupData" type="application/json"><?= (string)json_encode([
+    'placeOfBirthOptions' => $placeOfBirthOptions,
+    'civilStatusOptions' => $civilStatusOptions,
+    'bloodTypeOptions' => $bloodTypeOptions,
+    'addressCityOptions' => $addressCityOptions,
+    'addressProvinceOptions' => $addressProvinceOptions,
+    'addressBarangayOptions' => $addressBarangayOptions,
+], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 
 <div id="personalInfoFamilyModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-slate-900/60" data-modal-close="personalInfoFamilyModal"></div>

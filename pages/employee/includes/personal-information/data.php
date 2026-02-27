@@ -6,6 +6,146 @@ $dataLoadError = null;
 $csrfToken = ensureCsrfToken();
 
 $pdsEducationLevels = ['elementary', 'secondary', 'vocational', 'college', 'graduate'];
+$civilStatusOptions = ['Single', 'Married', 'Widowed', 'Separated', 'Divorced'];
+$bloodTypeOptions = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+$placeOfBirthOptions = [];
+$cityMunicipalityOptions = [];
+$provinceOptions = [];
+$barangayOptions = [];
+$barangayByCityLookup = [];
+$zipLookupByCityBarangay = [];
+
+$normalizeLookup = static function (string $value): string {
+    return strtolower(trim((string)preg_replace('/\s+/', ' ', $value)));
+};
+
+$assetRoot = dirname(__DIR__, 4) . '/assets';
+$municipalitiesPath = $assetRoot . '/psgc/municipalities.json';
+if (is_file($municipalitiesPath)) {
+    $municipalitiesRaw = file_get_contents($municipalitiesPath);
+    $municipalitiesData = is_string($municipalitiesRaw) ? json_decode($municipalitiesRaw, true) : null;
+    if (is_array($municipalitiesData)) {
+        $citySet = [];
+        $provinceSet = [];
+        foreach ($municipalitiesData as $municipalityRaw) {
+            $municipality = (array)$municipalityRaw;
+            $name = cleanText($municipality['name'] ?? null);
+            $province = cleanText($municipality['province'] ?? null);
+
+            if ($name !== null && $name !== '') {
+                $placeOfBirthOptions[] = $name;
+                $citySet[$name] = true;
+            }
+
+            if ($province !== null && $province !== '') {
+                $provinceSet[$province] = true;
+            }
+        }
+
+        $cityMunicipalityOptions = array_keys($citySet);
+        $provinceOptions = array_keys($provinceSet);
+    }
+}
+
+$zipCodesPath = $assetRoot . '/zip-codes.json';
+if (is_file($zipCodesPath)) {
+    $zipCodesRaw = file_get_contents($zipCodesPath);
+    $zipCodesData = is_string($zipCodesRaw) ? json_decode($zipCodesRaw, true) : null;
+    if (is_array($zipCodesData)) {
+        $barangaySet = [];
+        foreach ($zipCodesData as $cityName => $barangayGroupRaw) {
+            $cityKey = $normalizeLookup((string)$cityName);
+            if ($cityKey === '') {
+                continue;
+            }
+
+            $zipLookupByCityBarangay[$cityKey] = [];
+            foreach ((array)$barangayGroupRaw as $barangayName => $zipListRaw) {
+                $barangayKey = $normalizeLookup((string)$barangayName);
+                if ($barangayKey === '') {
+                    continue;
+                }
+
+                $barangayLabel = trim((string)$barangayName);
+                if ($barangayLabel !== '') {
+                    $barangaySet[strtolower($barangayLabel)] = $barangayLabel;
+                }
+
+                $zips = [];
+                foreach ((array)$zipListRaw as $zipValue) {
+                    $zipText = trim((string)$zipValue);
+                    if ($zipText !== '' && !in_array($zipText, $zips, true)) {
+                        $zips[] = $zipText;
+                    }
+                }
+
+                if (!empty($zips)) {
+                    $zipLookupByCityBarangay[$cityKey][$barangayKey] = $zips;
+                }
+            }
+        }
+
+        $barangayOptions = array_values($barangaySet);
+        sort($barangayOptions, SORT_NATURAL | SORT_FLAG_CASE);
+    }
+}
+
+$barangaysPath = $assetRoot . '/psgc/barangays.json';
+if (is_file($barangaysPath)) {
+    $barangaysRaw = file_get_contents($barangaysPath);
+    $barangaysData = is_string($barangaysRaw) ? json_decode($barangaysRaw, true) : null;
+    if (is_array($barangaysData)) {
+        $barangaySet = [];
+        foreach ($barangaysData as $barangayRaw) {
+            $barangay = (array)$barangayRaw;
+            $barangayName = cleanText($barangay['name'] ?? null);
+            $cityName = cleanText($barangay['citymun'] ?? null);
+
+            if ($barangayName === null || $barangayName === '') {
+                continue;
+            }
+
+            $barangaySet[strtolower($barangayName)] = $barangayName;
+
+            $cityKey = $normalizeLookup((string)$cityName);
+            if ($cityKey === '') {
+                continue;
+            }
+
+            if (!isset($barangayByCityLookup[$cityKey])) {
+                $barangayByCityLookup[$cityKey] = [];
+            }
+
+            $barangayByCityLookup[$cityKey][strtolower($barangayName)] = $barangayName;
+        }
+
+        foreach ($barangayByCityLookup as $cityKey => $cityBarangays) {
+            $cityValues = array_values($cityBarangays);
+            sort($cityValues, SORT_NATURAL | SORT_FLAG_CASE);
+            $barangayByCityLookup[$cityKey] = $cityValues;
+        }
+
+        $barangayOptions = array_values($barangaySet);
+        sort($barangayOptions, SORT_NATURAL | SORT_FLAG_CASE);
+    }
+}
+
+$personal201Categories = [
+    'violation',
+    'memorandum receipt',
+    'gsis instead sss',
+    'copy of saln',
+    'service record',
+    'coe',
+    'pds',
+    'sss',
+    'pagibig',
+    'philhealth',
+    'nbi',
+    'medical',
+    'drug test',
+    'others',
+];
 
 $employeeProfile = [
     'person_id' => (string)($employeePersonId ?? ''),
@@ -91,7 +231,9 @@ $employeeMother = [
 $employeeChildren = [];
 $employeeEducationRows = [];
 $employeeDocuments = [];
+$employeePersonal201Files = [];
 $employeeApprovedEvaluations = [];
+$spouseRequestHistory = [];
 
 if (!(bool)($employeeContextResolved ?? false)) {
     $dataLoadError = (string)($employeeContextError ?? 'Employee context could not be resolved.');
@@ -411,17 +553,56 @@ if (isSuccessful($documentsResponse)) {
     foreach ((array)($documentsResponse['data'] ?? []) as $documentRaw) {
         $document = (array)$documentRaw;
         $category = (array)($document['category'] ?? []);
+        $categoryName = (string)($category['category_name'] ?? 'Uncategorized');
+        $status = strtolower((string)($document['document_status'] ?? 'draft'));
+        $documentId = (string)($document['id'] ?? '');
+        $is201Category = in_array($normalizeLookup($categoryName), $personal201Categories, true);
 
         $employeeDocuments[] = [
-            'id' => (string)($document['id'] ?? ''),
+            'id' => $documentId,
             'title' => (string)($document['title'] ?? 'Untitled Document'),
             'description' => (string)($document['description'] ?? ''),
-            'document_status' => strtolower((string)($document['document_status'] ?? 'draft')),
+            'document_status' => $status,
             'storage_path' => (string)($document['storage_path'] ?? ''),
             'current_version_no' => (int)($document['current_version_no'] ?? 1),
             'created_at' => cleanText($document['created_at'] ?? null),
             'updated_at' => cleanText($document['updated_at'] ?? null),
-            'category_name' => (string)($category['category_name'] ?? 'Uncategorized'),
+            'category_name' => $categoryName,
+            'is_201_category' => $is201Category,
+            'download_allowed' => $documentId !== '' && $status !== 'draft',
+            'download_url' => $documentId !== '' ? ('download-document.php?document_id=' . rawurlencode($documentId)) : '',
+        ];
+    }
+
+    $employeePersonal201Files = array_values(array_filter(
+        $employeeDocuments,
+        static fn(array $documentRow): bool => (bool)($documentRow['is_201_category'] ?? false)
+    ));
+}
+
+$spouseRequestResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/activity_logs?select=id,created_at,new_data'
+    . '&actor_user_id=eq.' . rawurlencode((string)$employeeUserId)
+    . '&entity_name=eq.person_family_spouses_request'
+    . '&action_name=eq.submit_spouse_addition_request'
+    . '&order=created_at.desc&limit=15',
+    $headers
+);
+
+if (isSuccessful($spouseRequestResponse)) {
+    foreach ((array)($spouseRequestResponse['data'] ?? []) as $requestRaw) {
+        $requestRow = (array)$requestRaw;
+        $newData = is_array($requestRow['new_data'] ?? null) ? (array)$requestRow['new_data'] : [];
+
+        $spouseRequestHistory[] = [
+            'id' => (string)($requestRow['id'] ?? ''),
+            'created_at' => cleanText($requestRow['created_at'] ?? null),
+            'status' => (string)($newData['status'] ?? 'pending_admin_approval'),
+            'spouse_name' => trim((string)($newData['spouse_first_name'] ?? '') . ' ' . (string)($newData['spouse_surname'] ?? '')),
+            'attachment_name' => (string)($newData['supporting_document_name'] ?? ''),
+            'notes' => (string)($newData['request_notes'] ?? ''),
         ];
     }
 }

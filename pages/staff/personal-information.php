@@ -39,7 +39,7 @@ ob_start();
         <p class="text-sm text-slate-500 mt-1">Quick summary of office-scoped employee records, completion, and active status.</p>
     </header>
 
-    <div class="p-6 grid grid-cols-1 md:grid-cols-5 gap-4 text-sm">
+    <div class="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 text-sm">
         <article class="rounded-xl border border-slate-200 p-4 bg-slate-50">
             <p class="text-xs uppercase tracking-wide text-slate-500">Total Profiles</p>
             <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)$totalProfiles, ENT_QUOTES, 'UTF-8') ?></p>
@@ -49,11 +49,6 @@ ob_start();
             <p class="text-xs uppercase tracking-wide text-emerald-700">Complete Records</p>
             <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)$completeRecords, ENT_QUOTES, 'UTF-8') ?></p>
             <p class="text-xs text-slate-600 mt-1">Profiles with assignment details</p>
-        </article>
-        <article class="rounded-xl border border-slate-200 p-4 bg-amber-50">
-            <p class="text-xs uppercase tracking-wide text-amber-700">Needs Update</p>
-            <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)$needsUpdateCount, ENT_QUOTES, 'UTF-8') ?></p>
-            <p class="text-xs text-slate-600 mt-1">Missing key profile fields</p>
         </article>
         <article class="rounded-xl border border-slate-200 p-4">
             <p class="text-xs uppercase text-slate-500">Active Employees</p>
@@ -71,90 +66,128 @@ ob_start();
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
         <div>
-            <h2 class="text-lg font-semibold text-slate-800">Recommendations History</h2>
-            <p class="text-sm text-slate-500 mt-1">Recent profile update recommendations that are still awaiting admin action.</p>
+            <h2 class="text-lg font-semibold text-slate-800">Pending Admin Approval</h2>
+            <p class="text-sm text-slate-500 mt-1">Staff recommendations awaiting admin final action for profile, status, and division/position updates.</p>
         </div>
         <span class="inline-flex items-center rounded-full bg-amber-100 text-amber-800 text-xs px-2.5 py-1 font-medium">
             Pending
         </span>
     </header>
 
+    <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
+        <div class="md:col-span-3">
+            <label for="personalInfoPendingSearchInput" class="text-slate-600">Search Requests</label>
+            <input id="personalInfoPendingSearchInput" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Search by request ID, employee, submitted by, or summary">
+        </div>
+        <div>
+            <label for="personalInfoPendingTypeFilter" class="text-slate-600">Recommendation Type</label>
+            <select id="personalInfoPendingTypeFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                <option value="">All Types</option>
+                <option value="profile update">Profile Update</option>
+                <option value="status change">Status Change</option>
+                <option value="division/position">Division/Position</option>
+            </select>
+        </div>
+    </div>
+
     <div class="p-6 overflow-x-auto">
-        <table class="w-full text-sm">
+        <table id="personalInfoPendingTable" class="w-full text-sm">
             <thead class="bg-slate-50 text-slate-600">
                 <tr>
+                    <th class="text-left px-4 py-3">Request ID</th>
                     <th class="text-left px-4 py-3">Employee</th>
+                    <th class="text-left px-4 py-3">Type</th>
                     <th class="text-left px-4 py-3">Submitted By</th>
                     <th class="text-left px-4 py-3">Submitted On</th>
-                    <th class="text-left px-4 py-3">Details</th>
                     <th class="text-left px-4 py-3">Status</th>
+                    <th class="text-left px-4 py-3">Action</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
-                <?php if (empty($recommendationHistoryRows)): ?>
+                <?php if (empty($pendingAdminApprovalRows)): ?>
                     <tr>
-                        <td class="px-4 py-3 text-slate-500" colspan="5">No pending profile recommendations found.</td>
+                        <td class="px-4 py-3 text-slate-500" colspan="7">No pending recommendations found.</td>
                     </tr>
                 <?php else: ?>
-                    <?php foreach (array_slice($recommendationHistoryRows, 0, 10) as $recommendationRow): ?>
-                        <tr>
+                    <?php foreach ($pendingAdminApprovalRows as $recommendationRow): ?>
+                        <tr
+                            data-pending-row
+                            data-pending-search="<?= htmlspecialchars((string)($recommendationRow['search_text'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                            data-pending-type="<?= htmlspecialchars(strtolower((string)($recommendationRow['recommendation_type'] ?? '')), ENT_QUOTES, 'UTF-8') ?>"
+                            data-review-title="<?= htmlspecialchars((string)($recommendationRow['review_title'] ?? 'Recommendation Details'), ENT_QUOTES, 'UTF-8') ?>"
+                            data-review-summary="<?= htmlspecialchars((string)($recommendationRow['summary'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                            data-review-content="<?= htmlspecialchars((string)($recommendationRow['review_content'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                            data-review-action="<?= htmlspecialchars((string)($recommendationRow['recommendation_action'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                            data-review-person-id="<?= htmlspecialchars((string)($recommendationRow['person_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                            data-review-pairs="<?= htmlspecialchars((string)json_encode($recommendationRow['review_pairs'] ?? [], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?>"
+                        >
+                            <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)($recommendationRow['request_id'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3 font-medium text-slate-700"><?= htmlspecialchars((string)($recommendationRow['employee_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)($recommendationRow['recommendation_type'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)($recommendationRow['submitted_by'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)($recommendationRow['submitted_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)($recommendationRow['summary'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3">
                                 <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs <?= htmlspecialchars((string)($recommendationRow['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>">
                                     <?= htmlspecialchars((string)($recommendationRow['status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?>
                                 </span>
                             </td>
+                            <td class="px-4 py-3 text-slate-600">
+                                <button type="button" data-pending-review-open class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">
+                                    <span class="material-symbols-outlined text-[16px]">preview</span>
+                                    Review Changes
+                                </button>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
+                <tr id="personalInfoPendingFilterEmpty" class="hidden">
+                    <td class="px-4 py-3 text-slate-500" colspan="7">No pending recommendations match your search/filter criteria.</td>
+                </tr>
             </tbody>
         </table>
     </div>
-</section>
 
-<section class="bg-white border border-slate-200 rounded-2xl mb-6">
-    <header class="px-6 py-4 border-b border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800">Profile Actions</h2>
-        <p class="text-sm text-slate-500 mt-1">Manage employee records with admin-style search and status controls.</p>
-    </header>
-
-    <div class="p-6 space-y-5">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
-            <div class="md:col-span-2">
-                <label class="text-slate-600">Search Employee Records</label>
-                <input id="personalInfoRecordsSearchInput" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Search by employee ID, name, email, department, or position">
-            </div>
-            <div>
-                <label class="text-slate-600">Department Filter</label>
-                <select id="personalInfoRecordsDepartmentFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
-                    <option value="">All Departments</option>
-                    <?php foreach ($departmentFilterOptions as $departmentName): ?>
-                        <option value="<?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div>
-                <label class="text-slate-600">Status Filter</label>
-                <select id="personalInfoRecordsStatusFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
-                    <option value="">All Statuses</option>
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                </select>
-            </div>
+    <div class="px-6 pb-4 flex items-center justify-between gap-3">
+        <p id="personalInfoPendingPaginationInfo" class="text-xs text-slate-500">Page 1 of 1</p>
+        <div class="flex items-center gap-2">
+            <button type="button" id="personalInfoPendingPrevPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Previous</button>
+            <button type="button" id="personalInfoPendingNextPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Next</button>
         </div>
     </div>
 </section>
+
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Employee Management Table</h2>
         <p class="text-sm text-slate-500 mt-1">Search and filter employee records, then select an action from the dropdown.</p>
     </header>
 
+    <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+        <div class="md:col-span-2">
+            <label class="text-slate-600">Search Employee Records</label>
+            <input id="personalInfoRecordsSearchInput" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Search by employee ID, name, email, department, or position">
+        </div>
+        <div>
+            <label class="text-slate-600">Department Filter</label>
+            <select id="personalInfoRecordsDepartmentFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                <option value="">All Departments</option>
+                <?php foreach ($departmentFilterOptions as $departmentName): ?>
+                    <option value="<?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div>
+            <label class="text-slate-600">Status Filter</label>
+            <select id="personalInfoRecordsStatusFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                <option value="">All Statuses</option>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+            </select>
+        </div>
+    </div>
+
     <div class="p-6 overflow-x-auto overflow-y-visible relative">
-        <table id="personalInfoEmployeesTable" class="w-full text-sm">
+        <table id="personalInfoEmployeesTable" class="w-full text-[13px] leading-5">
             <thead class="bg-slate-50 text-slate-600">
                 <tr>
                     <th class="text-left px-4 py-3">Employee ID</th>
@@ -194,7 +227,7 @@ ob_start();
                                 <div data-person-action-scope class="relative inline-block text-left w-full max-w-[240px]">
                                     <button type="button" data-person-action-menu-toggle class="w-full inline-flex items-center justify-between gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300">
                                         <span class="inline-flex items-center gap-2">
-                                            <span class="material-symbols-outlined text-[18px]">bolt</span>
+                                            <span class="material-symbols-outlined text-[18px]">more_horiz</span>
                                             Actions
                                         </span>
                                         <span class="material-symbols-outlined text-[18px]">expand_more</span>
@@ -286,6 +319,8 @@ ob_start();
                                         data-person-id="<?= htmlspecialchars((string)$row['person_id'], ENT_QUOTES, 'UTF-8') ?>"
                                         data-employment-id="<?= htmlspecialchars((string)$row['employment_id'], ENT_QUOTES, 'UTF-8') ?>"
                                         data-employee-name="<?= htmlspecialchars((string)$row['full_name'], ENT_QUOTES, 'UTF-8') ?>"
+                                        data-current-office-id="<?= htmlspecialchars((string)$row['office_id'], ENT_QUOTES, 'UTF-8') ?>"
+                                        data-current-position-id="<?= htmlspecialchars((string)$row['position_id'], ENT_QUOTES, 'UTF-8') ?>"
                                     ></button>
                                     <button
                                         type="button"
@@ -379,7 +414,7 @@ ob_start();
                             <div class="md:col-span-2">
                                 <label class="text-slate-600">Place of Birth</label>
                                 <div class="relative mt-1">
-                                    <input id="profilePlaceOfBirth" name="place_of_birth" type="text" list="profilePlaceOfBirthList" autocomplete="off" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white">
+                                    <input id="profilePlaceOfBirth" name="place_of_birth" type="text" list="profilePlaceOfBirthList" autocomplete="off" data-modern-search="place_of_birth" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" required>
                                     <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400">
                                         <span class="material-symbols-outlined text-[18px]">expand_more</span>
                                     </span>
@@ -396,7 +431,7 @@ ob_start();
                             <div>
                                 <label class="text-slate-600">Civil Status</label>
                                 <div class="relative mt-1">
-                                    <input id="profileCivilStatus" name="civil_status" type="text" list="profileCivilStatusList" autocomplete="off" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white">
+                                    <input id="profileCivilStatus" name="civil_status" type="text" list="profileCivilStatusList" autocomplete="off" data-modern-search="civil_status" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" required>
                                     <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400">
                                         <span class="material-symbols-outlined text-[18px]">expand_more</span>
                                     </span>
@@ -413,7 +448,7 @@ ob_start();
                             <div>
                                 <label class="text-slate-600">Blood Type</label>
                                 <div class="relative mt-1">
-                                    <input id="profileBloodType" name="blood_type" type="text" list="profileBloodTypeList" autocomplete="off" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white">
+                                    <input id="profileBloodType" name="blood_type" type="text" list="profileBloodTypeList" autocomplete="off" data-modern-search="blood_type" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" required>
                                     <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400">
                                         <span class="material-symbols-outlined text-[18px]">expand_more</span>
                                     </span>
@@ -444,7 +479,7 @@ ob_start();
                             <div>
                                 <label class="text-slate-600">Barangay</label>
                                 <div class="relative mt-1">
-                                    <input id="profileResidentialBarangay" name="residential_barangay" type="text" list="profileResidentialBarangayList" autocomplete="off" data-address-role="barangay" data-address-group="residential" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white">
+                                    <input id="profileResidentialBarangay" name="residential_barangay" type="text" list="profileResidentialBarangayList" autocomplete="off" data-address-role="barangay" data-address-group="residential" data-modern-search="residential_barangay" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" required>
                                     <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400">
                                         <span class="material-symbols-outlined text-[18px]">expand_more</span>
                                     </span>
@@ -454,7 +489,7 @@ ob_start();
                             <div>
                                 <label class="text-slate-600">City/Municipality</label>
                                 <div class="relative mt-1">
-                                    <input id="profileResidentialCity" name="residential_city_municipality" type="text" list="profileCityList" autocomplete="off" data-address-role="city" data-address-group="residential" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white">
+                                    <input id="profileResidentialCity" name="residential_city_municipality" type="text" list="profileCityList" autocomplete="off" data-address-role="city" data-address-group="residential" data-modern-search="residential_city" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" required>
                                     <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400">
                                         <span class="material-symbols-outlined text-[18px]">expand_more</span>
                                     </span>
@@ -463,13 +498,13 @@ ob_start();
                             <div>
                                 <label class="text-slate-600">Province</label>
                                 <div class="relative mt-1">
-                                    <input id="profileResidentialProvince" name="residential_province" type="text" list="profileProvinceList" autocomplete="off" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white">
+                                    <input id="profileResidentialProvince" name="residential_province" type="text" list="profileProvinceList" autocomplete="off" data-modern-search="residential_province" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" required>
                                     <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400">
                                         <span class="material-symbols-outlined text-[18px]">expand_more</span>
                                     </span>
                                 </div>
                             </div>
-                            <div><label class="text-slate-600">ZIP Code</label><input id="profileResidentialZipCode" name="residential_zip_code" type="text" autocomplete="off" inputmode="numeric" pattern="^\d{4}$" data-address-role="zip" data-address-group="residential" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
+                            <div><label class="text-slate-600">ZIP Code</label><input id="profileResidentialZipCode" name="residential_zip_code" type="text" autocomplete="off" inputmode="numeric" pattern="^\d{4}$" data-address-role="zip" data-address-group="residential" data-modern-search="residential_zip" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required></div>
                         </div>
                     </section>
 
@@ -485,7 +520,7 @@ ob_start();
                             <div>
                                 <label class="text-slate-600">Barangay</label>
                                 <div class="relative mt-1">
-                                    <input id="profilePermanentBarangay" name="permanent_barangay" type="text" list="profilePermanentBarangayList" autocomplete="off" data-address-role="barangay" data-address-group="permanent" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white">
+                                    <input id="profilePermanentBarangay" name="permanent_barangay" type="text" list="profilePermanentBarangayList" autocomplete="off" data-address-role="barangay" data-address-group="permanent" data-modern-search="permanent_barangay" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" required>
                                     <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400">
                                         <span class="material-symbols-outlined text-[18px]">expand_more</span>
                                     </span>
@@ -495,7 +530,7 @@ ob_start();
                             <div>
                                 <label class="text-slate-600">City/Municipality</label>
                                 <div class="relative mt-1">
-                                    <input id="profilePermanentCity" name="permanent_city_municipality" type="text" list="profileCityList" autocomplete="off" data-address-role="city" data-address-group="permanent" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white">
+                                    <input id="profilePermanentCity" name="permanent_city_municipality" type="text" list="profileCityList" autocomplete="off" data-address-role="city" data-address-group="permanent" data-modern-search="permanent_city" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" required>
                                     <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400">
                                         <span class="material-symbols-outlined text-[18px]">expand_more</span>
                                     </span>
@@ -504,13 +539,13 @@ ob_start();
                             <div>
                                 <label class="text-slate-600">Province</label>
                                 <div class="relative mt-1">
-                                    <input id="profilePermanentProvince" name="permanent_province" type="text" list="profileProvinceList" autocomplete="off" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white">
+                                    <input id="profilePermanentProvince" name="permanent_province" type="text" list="profileProvinceList" autocomplete="off" data-modern-search="permanent_province" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" required>
                                     <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400">
                                         <span class="material-symbols-outlined text-[18px]">expand_more</span>
                                     </span>
                                 </div>
                             </div>
-                            <div><label class="text-slate-600">ZIP Code</label><input id="profilePermanentZipCode" name="permanent_zip_code" type="text" autocomplete="off" inputmode="numeric" pattern="^\d{4}$" data-address-role="zip" data-address-group="permanent" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
+                            <div><label class="text-slate-600">ZIP Code</label><input id="profilePermanentZipCode" name="permanent_zip_code" type="text" autocomplete="off" inputmode="numeric" pattern="^\d{4}$" data-address-role="zip" data-address-group="permanent" data-modern-search="permanent_zip" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required></div>
                         </div>
                     </section>
 
@@ -533,6 +568,11 @@ ob_start();
                             <div><label class="text-slate-600">Mobile Number</label><input id="profileMobile" name="mobile_no" type="text" pattern="^\+?[0-9][0-9\s-]{6,19}$" required class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
                             <div><label class="text-slate-600">Email Address</label><input id="profileEmail" name="email" type="email" required class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
                         </div>
+                    </section>
+
+                    <section class="border-t border-slate-200 pt-4">
+                        <label class="text-slate-600">Recommendation Notes (optional)</label>
+                        <textarea id="profileRecommendationNotes" name="profile_recommendation_notes" rows="3" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Add context for admin review."></textarea>
                     </section>
                     </section>
 
@@ -711,12 +751,53 @@ ob_start();
     'zipByCityBarangay' => $addressZipByCityBarangay,
 ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 
+<div id="personalInfoPendingReviewModal" data-modal class="fixed inset-0 z-[60] hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-slate-900/60" data-modal-close="personalInfoPendingReviewModal"></div>
+    <div class="relative min-h-full flex items-center justify-center p-4">
+        <div class="w-full max-w-5xl max-h-[calc(100vh-2rem)] bg-white rounded-2xl border border-slate-200 shadow-xl flex flex-col overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                <div>
+                    <h3 id="personalInfoPendingReviewTitle" class="text-lg font-semibold text-slate-800">Review Recommendation</h3>
+                    <p id="personalInfoPendingReviewSummary" class="text-sm text-slate-500 mt-1">Review proposed changes before submitting to admin.</p>
+                </div>
+                <button type="button" data-modal-close="personalInfoPendingReviewModal" class="text-slate-500 hover:text-slate-700">✕</button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-4">
+                <div class="rounded-xl border border-slate-200 overflow-hidden">
+                    <table class="w-full text-sm">
+                        <thead class="bg-slate-50 text-slate-600">
+                            <tr>
+                                <th class="text-left px-4 py-3 w-[28%]">Field</th>
+                                <th class="text-left px-4 py-3 w-[36%]">Current Value</th>
+                                <th class="text-left px-4 py-3 w-[36%]">Proposed Value</th>
+                            </tr>
+                        </thead>
+                        <tbody id="personalInfoPendingReviewPairs" class="divide-y divide-slate-100">
+                            <tr>
+                                <td class="px-4 py-3 text-slate-500" colspan="3">No field-level changes available.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div>
+                    <label for="personalInfoPendingReviewRemarks" class="text-slate-600 text-sm">Remarks for resubmission/edit (optional)</label>
+                    <textarea id="personalInfoPendingReviewRemarks" rows="3" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Add remarks before editing and re-submitting recommendation."></textarea>
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-200 bg-white flex justify-end gap-3">
+                <button type="button" data-modal-close="personalInfoPendingReviewModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Close</button>
+                <button type="button" id="personalInfoPendingEditRecommendationBtn" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Edit Recommendation</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div id="personalInfoAssignmentModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-slate-900/60" data-modal-close="personalInfoAssignmentModal"></div>
     <div class="relative min-h-full flex items-center justify-center p-4">
         <div class="w-full max-w-3xl bg-white rounded-2xl border border-slate-200 shadow-xl">
             <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-slate-800">Assign Department and Position</h3>
+                <h3 class="text-lg font-semibold text-slate-800">Recommend Division and Position</h3>
                 <button type="button" data-modal-close="personalInfoAssignmentModal" class="text-slate-500 hover:text-slate-700">✕</button>
             </div>
             <form id="personalInfoAssignmentForm" action="personal-information.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -747,9 +828,13 @@ ob_start();
                         <?php endforeach; ?>
                     </select>
                 </div>
+                <div class="md:col-span-3">
+                    <label class="text-slate-600">Recommendation Notes</label>
+                    <textarea id="personalInfoAssignmentRecommendationNotes" name="recommendation_notes" rows="3" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="State why this division/position change is being recommended." required></textarea>
+                </div>
                 <div class="md:col-span-3 flex justify-end gap-3 mt-2">
                     <button type="button" data-modal-close="personalInfoAssignmentModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button>
-                    <button type="submit" id="personalInfoAssignmentSubmit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Assign</button>
+                    <button type="submit" id="personalInfoAssignmentSubmit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Submit Recommendation</button>
                 </div>
             </form>
         </div>

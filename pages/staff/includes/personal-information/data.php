@@ -42,6 +42,7 @@ foreach ($employmentRows as $employmentRow) {
 $personIdFilter = sanitizeUuidListForInFilter($personIds);
 
 $recommendationHistoryRows = [];
+$pendingAdminApprovalRows = [];
 $personNameById = [];
 foreach ($employmentRows as $employmentRow) {
     $personId = cleanText($employmentRow['person_id'] ?? null) ?? cleanText(($employmentRow['person']['id'] ?? null)) ?? '';
@@ -64,9 +65,11 @@ if ($personIdFilter !== '') {
         $supabaseUrl
         . '/rest/v1/activity_logs?select=id,entity_id,actor_user_id,created_at,new_data,module_name,action_name,entity_name'
         . '&module_name=eq.personal_information'
-        . '&entity_name=eq.people'
-        . '&action_name=eq.recommend_employee_profile_update'
-        . '&entity_id=in.(' . $personIdFilter . ')'
+        . '&action_name=in.(recommend_employee_profile_update,recommend_employee_status,recommend_department_position)'
+        . '&or=(entity_id.in.(' . $personIdFilter . '),and(entity_name.eq.employment_records,entity_id.in.(' . sanitizeUuidListForInFilter(array_values(array_filter(array_map(static function ($row): ?string {
+            $id = cleanText($row['id'] ?? null);
+            return isValidUuid((string)$id) ? (string)$id : null;
+        }, $employmentRows)))) . ')))'
         . '&order=created_at.desc&limit=120',
         $headers
     );
@@ -104,9 +107,28 @@ if ($personIdFilter !== '') {
         }
     }
 
+    $personIdByEmploymentId = [];
+    foreach ($employmentRows as $employmentRow) {
+        $employmentId = cleanText($employmentRow['id'] ?? null) ?? '';
+        $personId = cleanText($employmentRow['person_id'] ?? null) ?? cleanText(($employmentRow['person']['id'] ?? null)) ?? '';
+        if (isValidUuid($employmentId) && isValidUuid($personId)) {
+            $personIdByEmploymentId[$employmentId] = $personId;
+        }
+    }
+
     foreach ($recommendationLogs as $recommendationLog) {
         $entityId = cleanText($recommendationLog['entity_id'] ?? null) ?? '';
-        if (!isValidUuid($entityId)) {
+        $actionName = cleanText($recommendationLog['action_name'] ?? null) ?? '';
+        $entityName = cleanText($recommendationLog['entity_name'] ?? null) ?? '';
+
+        $resolvedPersonId = '';
+        if ($entityName === 'people' && isValidUuid($entityId)) {
+            $resolvedPersonId = $entityId;
+        } elseif ($entityName === 'employment_records' && isValidUuid($entityId)) {
+            $resolvedPersonId = $personIdByEmploymentId[$entityId] ?? '';
+        }
+
+        if (!isValidUuid($resolvedPersonId)) {
             continue;
         }
 
@@ -118,22 +140,164 @@ if ($personIdFilter !== '') {
         $newData = is_array($recommendationLog['new_data'] ?? null)
             ? (array)$recommendationLog['new_data']
             : [];
+        $oldData = is_array($recommendationLog['old_data'] ?? null)
+            ? (array)$recommendationLog['old_data']
+            : [];
         $recommendedProfile = is_array($newData['recommended_profile'] ?? null)
             ? (array)$newData['recommended_profile']
             : [];
-        $profileFieldCount = count($recommendedProfile);
+        $recommendedProfileChanges = is_array($newData['recommended_profile_changes'] ?? null)
+            ? (array)$newData['recommended_profile_changes']
+            : [];
+        $reviewPairs = [];
+        $profileFieldCount = 0;
+
+        $typeLabel = match ($actionName) {
+            'recommend_employee_profile_update' => 'Profile Update',
+            'recommend_employee_status' => 'Status Change',
+            'recommend_department_position' => 'Division/Position',
+            default => 'Recommendation',
+        };
+
+        $summary = 'Recommendation submitted for admin review';
+        $reviewTitle = 'Recommendation Details';
+        $reviewContent = $summary;
+        if ($actionName === 'recommend_employee_profile_update') {
+            if (!empty($recommendedProfileChanges)) {
+                foreach ($recommendedProfileChanges as $profileKey => $changeSet) {
+                    if (!is_array($changeSet)) {
+                        continue;
+                    }
+
+                    $label = ucwords(str_replace('_', ' ', (string)$profileKey));
+                    $oldValueRaw = $changeSet['old'] ?? '';
+                    $newValueRaw = $changeSet['new'] ?? '';
+                    $oldValueLabel = is_array($oldValueRaw)
+                        ? (json_encode($oldValueRaw, JSON_UNESCAPED_UNICODE) ?: '')
+                        : trim((string)$oldValueRaw);
+                    $newValueLabel = is_array($newValueRaw)
+                        ? (json_encode($newValueRaw, JSON_UNESCAPED_UNICODE) ?: '')
+                        : trim((string)$newValueRaw);
+
+                    $reviewPairs[] = [
+                        'field' => $label,
+                        'current' => $oldValueLabel !== '' ? $oldValueLabel : '-',
+                        'proposed' => $newValueLabel !== '' ? $newValueLabel : '-',
+                    ];
+                }
+            } else {
+                foreach ($recommendedProfile as $profileKey => $profileValue) {
+                    $label = ucwords(str_replace('_', ' ', (string)$profileKey));
+                    $newValueLabel = is_array($profileValue)
+                        ? (json_encode($profileValue, JSON_UNESCAPED_UNICODE) ?: '')
+                        : trim((string)$profileValue);
+
+                    $oldValueRaw = $oldData[$profileKey] ?? '';
+                    $oldValueLabel = is_array($oldValueRaw)
+                        ? (json_encode($oldValueRaw, JSON_UNESCAPED_UNICODE) ?: '')
+                        : trim((string)$oldValueRaw);
+
+                    if ($newValueLabel === '' && $oldValueLabel === '') {
+                        continue;
+                    }
+
+                    $reviewPairs[] = [
+                        'field' => $label,
+                        'current' => $oldValueLabel !== '' ? $oldValueLabel : '-',
+                        'proposed' => $newValueLabel !== '' ? $newValueLabel : '-',
+                    ];
+                }
+            }
+
+            $profileFieldCount = count($reviewPairs);
+            $summary = $profileFieldCount > 0
+                ? ($profileFieldCount . ' profile field(s) recommended for update')
+                : 'Profile details recommended for update';
+
+            $reviewTitle = 'Profile Update Recommendation';
+            $profileReviewLines = array_map(static function (array $pair): string {
+                return (string)($pair['field'] ?? 'Field') . ': '
+                    . (string)($pair['current'] ?? '-')
+                    . ' → '
+                    . (string)($pair['proposed'] ?? '-');
+            }, array_slice($reviewPairs, 0, 20));
+            $reviewContent = !empty($profileReviewLines)
+                ? implode("\n", $profileReviewLines)
+                : 'No profile field details available.';
+
+            $profileRecommendationNotes = trim((string)(cleanText($newData['recommendation_notes'] ?? null) ?? ''));
+            if ($profileRecommendationNotes !== '') {
+                $reviewContent .= "\nNotes: " . $profileRecommendationNotes;
+            }
+        }
+        if ($actionName === 'recommend_employee_status') {
+            $recommendedStatus = cleanText($newData['recommended_status'] ?? null) ?? '';
+            $summary = $recommendedStatus !== ''
+                ? ('Recommended status: ' . ucwords(str_replace('_', ' ', $recommendedStatus)))
+                : 'Employment status recommendation submitted';
+
+            $statusNotes = cleanText($newData['status_specification'] ?? null) ?? '';
+            $reviewTitle = 'Status Recommendation';
+            $reviewContent = $summary . ($statusNotes !== '' ? ("\nNotes: " . $statusNotes) : '');
+            $reviewPairs[] = [
+                'field' => 'Employment Status',
+                'current' => trim((string)(cleanText($oldData['employment_status'] ?? null) ?? '')) !== ''
+                    ? ucwords(str_replace('_', ' ', (string)$oldData['employment_status']))
+                    : '-',
+                'proposed' => $recommendedStatus !== ''
+                    ? ucwords(str_replace('_', ' ', $recommendedStatus))
+                    : '-',
+            ];
+        }
+        if ($actionName === 'recommend_department_position') {
+            $recommendedOfficeName = cleanText($newData['recommended_office_name'] ?? null) ?? 'Selected Division';
+            $recommendedPositionTitle = cleanText($newData['recommended_position_title'] ?? null) ?? 'Selected Position';
+            $summary = 'Recommended division/position: ' . $recommendedOfficeName . ' / ' . $recommendedPositionTitle;
+
+            $recommendationNotes = cleanText($newData['recommendation_notes'] ?? null) ?? '';
+            $reviewTitle = 'Division/Position Recommendation';
+            $reviewContent = $summary . ($recommendationNotes !== '' ? ("\nNotes: " . $recommendationNotes) : '');
+            $reviewPairs[] = [
+                'field' => 'Division',
+                'current' => trim((string)(cleanText($oldData['office_name'] ?? null) ?? '')) !== ''
+                    ? (string)$oldData['office_name']
+                    : '-',
+                'proposed' => $recommendedOfficeName,
+            ];
+            $reviewPairs[] = [
+                'field' => 'Position',
+                'current' => trim((string)(cleanText($oldData['position_title'] ?? null) ?? '')) !== ''
+                    ? (string)$oldData['position_title']
+                    : '-',
+                'proposed' => $recommendedPositionTitle,
+            ];
+        }
 
         $recommendationHistoryRows[] = [
-            'employee_name' => (string)($personNameById[$entityId] ?? 'Unknown Employee'),
+            'employee_name' => (string)($personNameById[$resolvedPersonId] ?? 'Unknown Employee'),
             'submitted_by' => $staffLabel,
             'submitted_at_label' => formatDateTimeForPhilippines(cleanText($recommendationLog['created_at'] ?? null), 'M d, Y h:i A'),
             'status_label' => 'Pending Admin Action',
             'status_class' => 'bg-amber-100 text-amber-800',
-            'summary' => $profileFieldCount > 0
-                ? ($profileFieldCount . ' profile field(s) recommended for update')
-                : 'Profile details recommended for update',
+            'summary' => $summary,
+            'review_title' => $reviewTitle,
+            'review_content' => $reviewContent,
+            'review_pairs' => $reviewPairs,
+            'recommendation_type' => $typeLabel,
+            'recommendation_action' => $actionName,
+            'person_id' => $resolvedPersonId,
+            'request_id' => cleanText($recommendationLog['id'] ?? null) ?? '',
+            'search_text' => strtolower(trim(
+                (string)($personNameById[$resolvedPersonId] ?? 'Unknown Employee')
+                . ' ' . $staffLabel
+                . ' ' . $summary
+                . ' ' . $reviewContent
+                . ' ' . $typeLabel
+            )),
         ];
     }
+
+    $pendingAdminApprovalRows = $recommendationHistoryRows;
 }
 
 $addressRows = [];
@@ -705,6 +869,8 @@ foreach ($employmentRows as $employment) {
     $employeeTableRows[] = [
         'employment_id' => $employmentId,
         'person_id' => $personId,
+        'office_id' => cleanText($employment['office_id'] ?? null) ?? '',
+        'position_id' => cleanText($employment['position_id'] ?? null) ?? '',
         'employee_code' => $employeeCode,
         'full_name' => $fullName,
         'first_name' => $firstName,

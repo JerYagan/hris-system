@@ -114,13 +114,15 @@ ob_start();
                             <td class="px-4 py-3">
                                 <div class="flex items-center gap-2">
                                     <?php $rowStatusRaw = strtolower((string)($row['status_raw'] ?? '')); ?>
-                                    <?php if ($rowStatusRaw === 'submitted' || $rowStatusRaw === 'draft'): ?>
+                                    <?php if (!empty($row['can_recommend'])): ?>
                                         <button
                                             type="button"
                                             data-open-review-modal
                                             data-document-id="<?= htmlspecialchars((string)($row['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                             data-document-title="<?= htmlspecialchars((string)($row['title'] ?? 'Document'), ENT_QUOTES, 'UTF-8') ?>"
                                             data-current-status="<?= htmlspecialchars((string)($row['status_label'] ?? 'Draft'), ENT_QUOTES, 'UTF-8') ?>"
+                                            data-previous-recommendation="<?= htmlspecialchars((string)($row['previous_recommendation'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                            data-previous-notes="<?= htmlspecialchars((string)($row['previous_recommendation_notes'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                             data-document-view-url="<?= htmlspecialchars((string)($row['view_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                             class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
                                         >
@@ -151,6 +153,112 @@ ob_start();
             </tbody>
         </table>
     </div>
+
+    <div class="px-6 pb-5 flex items-center justify-between gap-3 border-t" data-pagination-controls="staffDocumentTable">
+        <p class="text-xs text-gray-500" data-pagination-label>Showing 0 of 0</p>
+        <div class="flex items-center gap-2">
+            <button type="button" class="px-3 py-1.5 text-xs border rounded-md text-gray-700 hover:bg-gray-50" data-pagination-prev>Previous</button>
+            <span class="text-xs text-gray-600" data-pagination-page>Page 1</span>
+            <button type="button" class="px-3 py-1.5 text-xs border rounded-md text-gray-700 hover:bg-gray-50" data-pagination-next>Next</button>
+        </div>
+    </div>
+</section>
+
+<section class="bg-white border rounded-xl mb-6">
+    <header class="px-6 py-4 border-b">
+        <h2 class="text-lg font-semibold text-gray-800">Pending Staff Review</h2>
+        <p class="text-sm text-gray-500 mt-1">Queue for records still in staff recommendation stage before admin final review.</p>
+    </header>
+
+    <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div class="md:col-span-2">
+            <label for="pendingStaffReviewSearch" class="text-sm text-gray-600">Search Requests</label>
+            <input id="pendingStaffReviewSearch" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search by document title, employee, category, or status">
+        </div>
+        <div>
+            <label for="pendingStaffReviewCategory" class="text-sm text-gray-600">Category</label>
+            <select id="pendingStaffReviewCategory" class="w-full mt-1 border rounded-md px-3 py-2 text-sm">
+                <option value="">All Categories</option>
+                <?php foreach ($document201Types as $type): ?>
+                    <option value="<?= htmlspecialchars(strtolower($type), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($type, ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+    </div>
+
+    <div class="p-6 overflow-x-auto">
+        <table id="pendingStaffReviewTable" class="w-full text-sm">
+            <thead class="bg-gray-50 text-gray-600">
+                <tr>
+                    <th class="text-left px-4 py-3">Document</th>
+                    <th class="text-left px-4 py-3">Employee</th>
+                    <th class="text-left px-4 py-3">Category</th>
+                    <th class="text-left px-4 py-3">Submitted</th>
+                    <th class="text-left px-4 py-3">Status</th>
+                    <th class="text-left px-4 py-3">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y">
+                <?php if (empty($pendingStaffReviewRows)): ?>
+                    <tr data-pending-empty-static>
+                        <td class="px-4 py-3 text-gray-500" colspan="6">No pending records for staff review.</td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($pendingStaffReviewRows as $row): ?>
+                        <tr
+                            data-pending-row
+                            data-pending-search="<?= htmlspecialchars((string)($row['search_text'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                            data-pending-category="<?= htmlspecialchars(strtolower((string)($row['category_name'] ?? '')), ENT_QUOTES, 'UTF-8') ?>"
+                        >
+                            <td class="px-4 py-3">
+                                <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($row['title'] ?? 'Document'), ENT_QUOTES, 'UTF-8') ?></p>
+                            </td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['owner_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['category_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['submitted_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3">
+                                <span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)($row['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>">
+                                    <?= htmlspecialchars((string)($row['status_label'] ?? 'Unknown'), ENT_QUOTES, 'UTF-8') ?>
+                                </span>
+                            </td>
+                            <td class="px-4 py-3">
+                                <?php if (!empty($row['can_recommend'])): ?>
+                                    <button
+                                        type="button"
+                                        data-open-review-modal
+                                        data-document-id="<?= htmlspecialchars((string)($row['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-document-title="<?= htmlspecialchars((string)($row['title'] ?? 'Document'), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-current-status="<?= htmlspecialchars((string)($row['status_label'] ?? 'Draft'), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-previous-recommendation="<?= htmlspecialchars((string)($row['previous_recommendation'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-previous-notes="<?= htmlspecialchars((string)($row['previous_recommendation_notes'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-document-view-url="<?= htmlspecialchars((string)($row['view_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                        class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
+                                    >
+                                        <span class="material-symbols-outlined text-[14px]">fact_check</span>
+                                        Review
+                                    </button>
+                                <?php else: ?>
+                                    <span class="text-xs text-gray-500">Locked</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+                <tr id="pendingStaffReviewFilterEmpty" class="hidden">
+                    <td class="px-4 py-3 text-gray-500" colspan="6">No records match your current search/filter criteria.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="px-6 pb-5 flex items-center justify-between gap-3 border-t" data-pagination-controls="pendingStaffReviewTable">
+        <p class="text-xs text-gray-500" data-pagination-label>Showing 0 of 0</p>
+        <div class="flex items-center gap-2">
+            <button type="button" class="px-3 py-1.5 text-xs border rounded-md text-gray-700 hover:bg-gray-50" data-pagination-prev>Previous</button>
+            <span class="text-xs text-gray-600" data-pagination-page>Page 1</span>
+            <button type="button" class="px-3 py-1.5 text-xs border rounded-md text-gray-700 hover:bg-gray-50" data-pagination-next>Next</button>
+        </div>
+    </div>
 </section>
 
 <section class="bg-white border rounded-xl mb-6">
@@ -159,8 +267,24 @@ ob_start();
         <p class="text-sm text-gray-500 mt-1">Archived records are kept for retention and reference only. Viewing and downloading are disabled.</p>
     </header>
 
+    <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div class="md:col-span-2">
+            <label for="archivedDocumentSearchInput" class="text-sm text-gray-600">Search Requests</label>
+            <input id="archivedDocumentSearchInput" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search by document title, employee, or category">
+        </div>
+        <div>
+            <label for="archivedDocumentCategoryFilter" class="text-sm text-gray-600">Category</label>
+            <select id="archivedDocumentCategoryFilter" class="w-full mt-1 border rounded-md px-3 py-2 text-sm">
+                <option value="">All Categories</option>
+                <?php foreach ($document201Types as $type): ?>
+                    <option value="<?= htmlspecialchars(strtolower($type), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($type, ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+    </div>
+
     <div class="p-6 overflow-x-auto">
-        <table class="w-full text-sm">
+        <table id="archivedDocumentTable" class="w-full text-sm">
             <thead class="bg-gray-50 text-gray-600">
                 <tr>
                     <th class="text-left px-4 py-3">Document</th>
@@ -178,7 +302,7 @@ ob_start();
                     </tr>
                 <?php else: ?>
                     <?php foreach ($archivedDocumentRows as $row): ?>
-                        <tr class="bg-slate-50 text-slate-500">
+                        <tr class="bg-slate-50 text-slate-500" data-archived-row data-archived-search="<?= htmlspecialchars((string)($row['search_text'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-archived-category="<?= htmlspecialchars(strtolower((string)($row['category_name'] ?? '')), ENT_QUOTES, 'UTF-8') ?>">
                             <td class="px-4 py-3">
                                 <p class="font-medium text-slate-600"><?= htmlspecialchars((string)($row['title'] ?? 'Document'), ENT_QUOTES, 'UTF-8') ?></p>
                                 <p class="text-xs text-slate-500 mt-1">Updated <?= htmlspecialchars((string)($row['updated_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
@@ -194,6 +318,7 @@ ob_start();
                                     <input type="hidden" name="form_action" value="restore_document">
                                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                                     <input type="hidden" name="document_id" value="<?= htmlspecialchars((string)($row['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                    <input type="hidden" name="restore_reason" value="" data-restore-reason>
                                     <button type="submit" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
                                         <span class="material-symbols-outlined text-[14px]">restore</span>
                                         Restore
@@ -203,8 +328,20 @@ ob_start();
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
+                <tr id="archivedDocumentFilterEmpty" class="hidden">
+                    <td class="px-4 py-3 text-gray-500" colspan="6">No archived records match your current search/filter criteria.</td>
+                </tr>
             </tbody>
         </table>
+    </div>
+
+    <div class="px-6 pb-5 flex items-center justify-between gap-3 border-t" data-pagination-controls="archivedDocumentTable">
+        <p class="text-xs text-gray-500" data-pagination-label>Showing 0 of 0</p>
+        <div class="flex items-center gap-2">
+            <button type="button" class="px-3 py-1.5 text-xs border rounded-md text-gray-700 hover:bg-gray-50" data-pagination-prev>Previous</button>
+            <span class="text-xs text-gray-600" data-pagination-page>Page 1</span>
+            <button type="button" class="px-3 py-1.5 text-xs border rounded-md text-gray-700 hover:bg-gray-50" data-pagination-next>Next</button>
+        </div>
     </div>
 </section>
 
@@ -213,6 +350,21 @@ ob_start();
         <h2 class="text-lg font-semibold text-gray-800">Document Uploaders</h2>
         <p class="text-sm text-gray-500 mt-1">View employee and applicant uploader activity, then open each account's compiled document list.</p>
     </header>
+
+    <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-3 gap-3 border-b">
+        <div class="md:col-span-2">
+            <label for="uploaderTableSearch" class="text-sm text-gray-600">Search Uploaders</label>
+            <input id="uploaderTableSearch" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search by uploader name or email">
+        </div>
+        <div>
+            <label class="text-sm text-gray-600">Account Type</label>
+            <div class="mt-1 inline-flex rounded-md border overflow-hidden">
+                <button type="button" class="px-3 py-2 text-xs bg-green-700 text-white" data-uploader-tab="all">All</button>
+                <button type="button" class="px-3 py-2 text-xs bg-white text-gray-700 border-l" data-uploader-tab="employee">Employee</button>
+                <button type="button" class="px-3 py-2 text-xs bg-white text-gray-700 border-l" data-uploader-tab="applicant">Applicant</button>
+            </div>
+        </div>
+    </div>
 
     <div class="p-6 overflow-x-auto">
         <table id="staffDocumentUploadersTable" class="w-full text-sm">
@@ -247,7 +399,7 @@ ob_start();
                         };
                         $accountTypeLabel = ucfirst($accountType);
                         ?>
-                        <tr>
+                        <tr data-uploader-row data-uploader-type="<?= htmlspecialchars($accountType, ENT_QUOTES, 'UTF-8') ?>" data-uploader-search="<?= htmlspecialchars((string)($uploader['search_text'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                             <td class="px-4 py-3">
                                 <p class="font-medium text-gray-800"><?= htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8') ?></p>
                                 <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars($email, ENT_QUOTES, 'UTF-8') ?></p>
@@ -277,6 +429,15 @@ ob_start();
                 <?php endif; ?>
             </tbody>
         </table>
+    </div>
+
+    <div class="px-6 pb-5 flex items-center justify-between gap-3 border-t" data-pagination-controls="staffDocumentUploadersTable">
+        <p class="text-xs text-gray-500" data-pagination-label>Showing 0 of 0</p>
+        <div class="flex items-center gap-2">
+            <button type="button" class="px-3 py-1.5 text-xs border rounded-md text-gray-700 hover:bg-gray-50" data-pagination-prev>Previous</button>
+            <span class="text-xs text-gray-600" data-pagination-page>Page 1</span>
+            <button type="button" class="px-3 py-1.5 text-xs border rounded-md text-gray-700 hover:bg-gray-50" data-pagination-next>Next</button>
+        </div>
     </div>
 </section>
 
@@ -378,7 +539,7 @@ ob_start();
 </div>
 
 <div id="uploaderDocumentsModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4">
-    <div class="w-full max-w-6xl rounded-xl bg-white border shadow-lg overflow-hidden">
+    <div class="w-full max-w-6xl max-h-[90vh] rounded-xl bg-white border shadow-lg overflow-hidden flex flex-col">
         <div class="flex items-center justify-between px-6 py-4 border-b">
             <div>
                 <h3 id="uploaderDocumentsTitle" class="text-lg font-semibold text-gray-800">Uploaded Documents</h3>
@@ -405,9 +566,9 @@ ob_start();
             </div>
         </div>
 
-        <div class="p-6 overflow-x-auto max-h-[65vh]">
+        <div class="p-6 overflow-auto flex-1 min-h-0">
             <table class="w-full text-sm">
-                <thead class="bg-gray-50 text-gray-600 sticky top-0">
+            <thead class="bg-gray-50 text-gray-600">
                     <tr>
                         <th class="text-left px-4 py-3">Type</th>
                         <th class="text-left px-4 py-3">Document</th>

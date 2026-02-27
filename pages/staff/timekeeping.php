@@ -15,7 +15,7 @@ ob_start();
 
 <div class="mb-6">
     <h1 class="text-2xl font-bold text-gray-800">Timekeeping</h1>
-    <p class="text-sm text-gray-500">Review attendance and process employee leave, overtime, and adjustment requests across the organization.</p>
+    <p class="text-sm text-gray-500">Review attendance and process employee leave/CTO, time adjustment, and official business requests across the organization.</p>
 </div>
 
 <?php if ($state && $message): ?>
@@ -32,7 +32,7 @@ ob_start();
 
 <section class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
     <article class="rounded-xl border bg-white px-4 py-3">
-        <p class="text-xs text-gray-500 uppercase tracking-wide">Attendance Logs</p>
+        <p class="text-xs text-gray-500 uppercase tracking-wide">Attendance Records</p>
         <p class="text-2xl font-semibold text-gray-800 mt-1"><?= (int)($timekeepingMetrics['attendance_logs'] ?? 0) ?></p>
     </article>
     <article class="rounded-xl border bg-white px-4 py-3">
@@ -40,8 +40,8 @@ ob_start();
         <p class="text-2xl font-semibold text-amber-700 mt-1"><?= (int)($timekeepingMetrics['pending_leave'] ?? 0) ?></p>
     </article>
     <article class="rounded-xl border bg-white px-4 py-3">
-        <p class="text-xs text-gray-500 uppercase tracking-wide">Pending Overtime</p>
-        <p class="text-2xl font-semibold text-amber-700 mt-1"><?= (int)($timekeepingMetrics['pending_overtime'] ?? 0) ?></p>
+        <p class="text-xs text-gray-500 uppercase tracking-wide">Pending CTO</p>
+        <p class="text-2xl font-semibold text-amber-700 mt-1"><?= (int)($timekeepingMetrics['pending_cto'] ?? 0) ?></p>
     </article>
     <article class="rounded-xl border bg-white px-4 py-3">
         <p class="text-xs text-gray-500 uppercase tracking-wide">Pending Adjustments</p>
@@ -52,7 +52,7 @@ ob_start();
 <section class="bg-white border rounded-xl mb-6">
     <header class="px-6 py-4 border-b">
         <h2 class="text-lg font-semibold text-gray-800">RFID Employee Registration</h2>
-        <p class="text-sm text-gray-500 mt-1">Static registration form for now. Use this to capture employee details and generate an RFID card record.</p>
+        <p class="text-sm text-gray-500 mt-1">Use employee ID to auto-fill employee name, division, and position before generating the RFID card record.</p>
     </header>
 
     <form id="rfidRegistrationForm" class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -87,8 +87,13 @@ ob_start();
 
 <section class="bg-white border rounded-xl mb-6">
     <header class="px-6 py-4 border-b">
-        <h2 class="text-lg font-semibold text-gray-800">RFID Attendance Assist</h2>
-        <p class="text-sm text-gray-500 mt-1">Static attendance logging helper for employee RFID usage while scanner integration is pending.</p>
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-800">RFID Attendance Assist</h2>
+                <p class="text-sm text-gray-500 mt-1">Temporary/supportive helper only while scanner integration is pending. Use employee ID to auto-fill name before logging.</p>
+            </div>
+            <span class="inline-flex items-center rounded-full bg-amber-100 text-amber-800 text-xs px-2.5 py-1 font-medium">Temporary Supportive Tool</span>
+        </div>
     </header>
 
     <form id="rfidAttendanceAssistForm" class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -111,7 +116,7 @@ ob_start();
 
 <section class="bg-white border rounded-xl mb-6">
     <header class="px-6 py-4 border-b">
-        <h2 class="text-lg font-semibold text-gray-800">Attendance Logs</h2>
+        <h2 class="text-lg font-semibold text-gray-800">Attendance Records</h2>
         <p class="text-sm text-gray-500 mt-1">Latest attendance records across all active employees.</p>
     </header>
 
@@ -177,8 +182,8 @@ ob_start();
 
 <section class="bg-white border rounded-xl mb-6">
     <header class="px-6 py-4 border-b">
-        <h2 class="text-lg font-semibold text-gray-800">Leave Requests</h2>
-        <p class="text-sm text-gray-500 mt-1">Review leave status changes with confirmation and transition checks.</p>
+        <h2 class="text-lg font-semibold text-gray-800">Leave/CTO Requests</h2>
+        <p class="text-sm text-gray-500 mt-1">Review leave and CTO recommendations with confirmation and transition checks.</p>
     </header>
 
     <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -262,22 +267,22 @@ ob_start();
     </div>
 </section>
 
-<section class="bg-white border rounded-xl">
+<section class="bg-white border rounded-xl mt-6">
     <header class="px-6 py-4 border-b">
         <div>
-            <h2 class="text-lg font-semibold text-gray-800">Overtime Requests</h2>
-            <p class="text-sm text-gray-500 mt-1">Review overtime endorsements using the same decision modal pattern.</p>
+            <h2 class="text-lg font-semibold text-gray-800">Official Business Requests</h2>
+            <p class="text-sm text-gray-500 mt-1">Review official business entries routed with OB tagging.</p>
         </div>
     </header>
 
     <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-3 gap-3">
         <div class="md:col-span-2">
-            <label for="overtimeSearchInput" class="text-sm text-gray-600">Search Requests</label>
-            <input id="overtimeSearchInput" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search by employee, office, reason, or date">
+            <label for="obSearchInput" class="text-sm text-gray-600">Search Requests</label>
+            <input id="obSearchInput" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search by employee, office, reason, or date">
         </div>
         <div>
-            <label for="overtimeStatusFilter" class="text-sm text-gray-600">All Statuses</label>
-            <select id="overtimeStatusFilter" class="w-full mt-1 border rounded-md px-3 py-2 text-sm">
+            <label for="obStatusFilter" class="text-sm text-gray-600">All Statuses</label>
+            <select id="obStatusFilter" class="w-full mt-1 border rounded-md px-3 py-2 text-sm">
                 <option value="">All Statuses</option>
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
@@ -288,39 +293,37 @@ ob_start();
     </div>
 
     <div class="p-6 overflow-x-auto">
-        <table class="w-full text-sm" id="overtimeRequestsTable">
+        <table class="w-full text-sm" id="obRequestsTable">
             <thead class="bg-gray-50 text-gray-600">
                 <tr>
                     <th class="text-left px-4 py-3">Employee</th>
                     <th class="text-left px-4 py-3">Date</th>
                     <th class="text-left px-4 py-3">Requested Window</th>
-                    <th class="text-left px-4 py-3">Hours</th>
                     <th class="text-left px-4 py-3">Status</th>
                     <th class="text-left px-4 py-3">Requested</th>
                     <th class="text-left px-4 py-3">Action</th>
                 </tr>
             </thead>
             <tbody class="divide-y">
-                <?php if (empty($overtimeRequestRows)): ?>
+                <?php if (empty($officialBusinessRequestRows)): ?>
                     <tr>
-                        <td class="px-4 py-3 text-gray-500" colspan="7">No overtime requests found.</td>
+                        <td class="px-4 py-3 text-gray-500" colspan="6">No official business requests found.</td>
                     </tr>
                 <?php else: ?>
-                    <?php foreach ($overtimeRequestRows as $row): ?>
-                        <tr data-overtime-row data-overtime-search="<?= htmlspecialchars((string)($row['search_text'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-overtime-status="<?= htmlspecialchars((string)($row['status_raw'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                    <?php foreach ($officialBusinessRequestRows as $row): ?>
+                        <tr data-ob-row data-ob-search="<?= htmlspecialchars((string)($row['search_text'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-ob-status="<?= htmlspecialchars((string)($row['status_raw'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                             <td class="px-4 py-3">
                                 <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($row['employee_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
                                 <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars((string)($row['office_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
                             </td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['overtime_date'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['time_window'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['hours_requested'] ?? '0.00'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)($row['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($row['status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['requested_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3">
                                 <button
                                     type="button"
-                                    data-open-overtime-modal
+                                    data-open-ob-modal
                                     data-request-id="<?= htmlspecialchars((string)($row['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                     data-employee-name="<?= htmlspecialchars((string)($row['employee_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                     data-current-status="<?= htmlspecialchars((string)($row['status_raw'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
@@ -336,17 +339,17 @@ ob_start();
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
-                <tr id="overtimeFilterEmptyRow" class="hidden">
-                    <td class="px-4 py-3 text-gray-500" colspan="7">No overtime requests match your search/filter criteria.</td>
+                <tr id="obFilterEmptyRow" class="hidden">
+                    <td class="px-4 py-3 text-gray-500" colspan="6">No official business requests match your search/filter criteria.</td>
                 </tr>
             </tbody>
         </table>
     </div>
     <div class="px-6 pb-4 flex items-center justify-between gap-3">
-        <p id="overtimePaginationInfo" class="text-xs text-slate-500">Page 1 of 1</p>
+        <p id="obPaginationInfo" class="text-xs text-slate-500">Page 1 of 1</p>
         <div class="flex items-center gap-2">
-            <button type="button" id="overtimePrevPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Previous</button>
-            <button type="button" id="overtimeNextPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Next</button>
+            <button type="button" id="obPrevPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Previous</button>
+            <button type="button" id="obNextPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Next</button>
         </div>
     </div>
 </section>
@@ -486,36 +489,36 @@ ob_start();
     </div>
 </div>
 
-<div id="overtimeRequestModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4">
+<div id="obRequestModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4">
     <div class="w-full max-w-lg rounded-xl bg-white border shadow-lg">
         <div class="flex items-center justify-between px-6 py-4 border-b">
-            <h3 class="text-lg font-semibold text-gray-800">Recommend Overtime Decision</h3>
-            <button type="button" id="overtimeModalClose" class="text-gray-500 hover:text-gray-700" aria-label="Close modal"><span class="material-symbols-outlined">close</span></button>
+            <h3 class="text-lg font-semibold text-gray-800">Recommend Official Business Decision</h3>
+            <button type="button" id="obModalClose" class="text-gray-500 hover:text-gray-700" aria-label="Close modal"><span class="material-symbols-outlined">close</span></button>
         </div>
-        <form id="overtimeForm" method="POST" action="timekeeping.php" class="px-6 py-4 space-y-4 text-sm">
-            <input type="hidden" name="form_action" value="review_overtime_request">
+        <form id="obForm" method="POST" action="timekeeping.php" class="px-6 py-4 space-y-4 text-sm">
+            <input type="hidden" name="form_action" value="review_ob_request">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
-            <input type="hidden" name="request_id" id="overtimeRequestId" value="">
+            <input type="hidden" name="request_id" id="obRequestId" value="">
 
             <div>
                 <label class="text-gray-600">Employee</label>
-                <p id="overtimeEmployeeName" class="mt-1 text-sm font-medium text-gray-800">-</p>
+                <p id="obEmployeeName" class="mt-1 text-sm font-medium text-gray-800">-</p>
             </div>
             <div>
                 <label class="text-gray-600">Current Status</label>
-                <p id="overtimeCurrentStatus" class="mt-1 text-sm text-gray-700">-</p>
+                <p id="obCurrentStatus" class="mt-1 text-sm text-gray-700">-</p>
             </div>
             <div>
                 <label class="text-gray-600">Requested Window</label>
-                <p id="overtimeRequestedWindow" class="mt-1 text-sm text-gray-700">-</p>
+                <p id="obRequestedWindow" class="mt-1 text-sm text-gray-700">-</p>
             </div>
             <div>
                 <label class="text-gray-600">Reason</label>
-                <p id="overtimeReason" class="mt-1 text-sm text-gray-700">-</p>
+                <p id="obReason" class="mt-1 text-sm text-gray-700">-</p>
             </div>
             <div>
-                <label for="overtimeDecision" class="text-gray-600">Recommendation</label>
-                <select id="overtimeDecision" name="decision" class="w-full mt-1 border rounded-md px-3 py-2" required>
+                <label for="obDecision" class="text-gray-600">Recommendation</label>
+                <select id="obDecision" name="decision" class="w-full mt-1 border rounded-md px-3 py-2" required>
                     <option value="">Select recommendation</option>
                     <option value="approved">Recommend Approval</option>
                     <option value="rejected">Recommend Rejection</option>
@@ -523,12 +526,12 @@ ob_start();
                 </select>
             </div>
             <div>
-                <label for="overtimeNotes" class="text-gray-600">Notes</label>
-                <textarea id="overtimeNotes" name="notes" rows="3" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Add recommendation notes for admin review."></textarea>
+                <label for="obNotes" class="text-gray-600">Notes</label>
+                <textarea id="obNotes" name="notes" rows="3" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Add recommendation notes for admin review."></textarea>
             </div>
             <div class="flex justify-end gap-3">
-                <button type="button" id="overtimeModalCancel" class="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
-                <button type="submit" id="overtimeSubmit" class="px-4 py-2 rounded-md bg-green-700 text-white hover:bg-green-800">Submit Recommendation</button>
+                <button type="button" id="obModalCancel" class="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
+                <button type="submit" id="obSubmit" class="px-4 py-2 rounded-md bg-green-700 text-white hover:bg-green-800">Submit Recommendation</button>
             </div>
         </form>
     </div>
@@ -581,6 +584,11 @@ ob_start();
         </form>
     </div>
 </div>
+
+<script id="rfidEmployeeLookupData" type="application/json"><?= (string)json_encode(
+    $rfidEmployeeLookup,
+    JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+) ?></script>
 
 <script src="../../assets/js/staff/timekeeping/index.js" defer></script>
 

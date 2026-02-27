@@ -2,13 +2,13 @@
 
 $documentsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/documents?select=id,title,document_status,current_version_no,storage_bucket,storage_path,created_at,updated_at,uploaded_by,category:document_categories(category_name),owner:people(first_name,surname),uploader:user_accounts(email)&order=updated_at.desc&limit=1000',
+    $supabaseUrl . '/rest/v1/documents?select=id,title,description,document_status,current_version_no,storage_bucket,storage_path,created_at,updated_at,uploaded_by,owner_person_id,category:document_categories(category_name),owner:people(first_name,surname,user_id),uploader:user_accounts(id,email)&order=updated_at.desc&limit=2000',
     $headers
 );
 
 $reviewsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/document_reviews?select=document_id,review_status,reviewed_at,review_notes,reviewer:user_accounts(email)&order=created_at.desc&limit=1000',
+    $supabaseUrl . '/rest/v1/document_reviews?select=document_id,review_status,reviewed_at,review_notes,created_at,reviewer_user_id,reviewer:user_accounts(email)&order=created_at.desc&limit=4000',
     $headers
 );
 
@@ -20,7 +20,7 @@ $categoriesResponse = apiRequest(
 
 $ownersResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/people?select=id,first_name,surname&order=surname.asc,first_name.asc&limit=3000',
+    $supabaseUrl . '/rest/v1/people?select=id,first_name,surname,profile_photo_url,user:user_accounts(email)&order=surname.asc,first_name.asc&limit=3000',
     $headers
 );
 
@@ -30,56 +30,32 @@ $roleAssignmentsResponse = apiRequest(
     $headers
 );
 
-$documents = isSuccessful($documentsResponse) ? $documentsResponse['data'] : [];
-$reviews = isSuccessful($reviewsResponse) ? $reviewsResponse['data'] : [];
-$documentCategoryOptions = isSuccessful($categoriesResponse) ? (array)($categoriesResponse['data'] ?? []) : [];
+$documents = isSuccessful($documentsResponse) ? (array)($documentsResponse['data'] ?? []) : [];
+$reviews = isSuccessful($reviewsResponse) ? (array)($reviewsResponse['data'] ?? []) : [];
+$documentCategoryOptionsRaw = isSuccessful($categoriesResponse) ? (array)($categoriesResponse['data'] ?? []) : [];
 $documentOwnerOptions = isSuccessful($ownersResponse) ? (array)($ownersResponse['data'] ?? []) : [];
 $roleAssignments = isSuccessful($roleAssignmentsResponse) ? (array)($roleAssignmentsResponse['data'] ?? []) : [];
 
 $dataLoadError = null;
-if (!isSuccessful($documentsResponse)) {
-    $dataLoadError = 'Document query failed (HTTP ' . (int)($documentsResponse['status'] ?? 0) . ').';
-    $raw = trim((string)($documentsResponse['raw'] ?? ''));
-    if ($raw !== '') {
-        $dataLoadError .= ' ' . $raw;
+$appendDataError = static function (string $label, array $response) use (&$dataLoadError): void {
+    if (isSuccessful($response)) {
+        return;
     }
-}
 
-if (!isSuccessful($reviewsResponse)) {
-    $reviewError = 'Review query failed (HTTP ' . (int)($reviewsResponse['status'] ?? 0) . ').';
-    $raw = trim((string)($reviewsResponse['raw'] ?? ''));
+    $piece = $label . ' query failed (HTTP ' . (int)($response['status'] ?? 0) . ').';
+    $raw = trim((string)($response['raw'] ?? ''));
     if ($raw !== '') {
-        $reviewError .= ' ' . $raw;
+        $piece .= ' ' . $raw;
     }
-    $dataLoadError = $dataLoadError ? ($dataLoadError . ' ' . $reviewError) : $reviewError;
-}
 
-if (!isSuccessful($categoriesResponse)) {
-    $categoryError = 'Category query failed (HTTP ' . (int)($categoriesResponse['status'] ?? 0) . ').';
-    $raw = trim((string)($categoriesResponse['raw'] ?? ''));
-    if ($raw !== '') {
-        $categoryError .= ' ' . $raw;
-    }
-    $dataLoadError = $dataLoadError ? ($dataLoadError . ' ' . $categoryError) : $categoryError;
-}
+    $dataLoadError = $dataLoadError ? ($dataLoadError . ' ' . $piece) : $piece;
+};
 
-if (!isSuccessful($ownersResponse)) {
-    $ownerError = 'Owner query failed (HTTP ' . (int)($ownersResponse['status'] ?? 0) . ').';
-    $raw = trim((string)($ownersResponse['raw'] ?? ''));
-    if ($raw !== '') {
-        $ownerError .= ' ' . $raw;
-    }
-    $dataLoadError = $dataLoadError ? ($dataLoadError . ' ' . $ownerError) : $ownerError;
-}
-
-if (!isSuccessful($roleAssignmentsResponse)) {
-    $roleError = 'Role assignment query failed (HTTP ' . (int)($roleAssignmentsResponse['status'] ?? 0) . ').';
-    $raw = trim((string)($roleAssignmentsResponse['raw'] ?? ''));
-    if ($raw !== '') {
-        $roleError .= ' ' . $raw;
-    }
-    $dataLoadError = $dataLoadError ? ($dataLoadError . ' ' . $roleError) : $roleError;
-}
+$appendDataError('Document', $documentsResponse);
+$appendDataError('Review', $reviewsResponse);
+$appendDataError('Category', $categoriesResponse);
+$appendDataError('Owner', $ownersResponse);
+$appendDataError('Role assignment', $roleAssignmentsResponse);
 
 usort($documentOwnerOptions, static function (array $left, array $right): int {
     $leftName = trim((string)($left['surname'] ?? '') . ' ' . (string)($left['first_name'] ?? ''));
@@ -87,37 +63,285 @@ usort($documentOwnerOptions, static function (array $left, array $right): int {
     return strcmp($leftName, $rightName);
 });
 
-$latestReviewByDocument = [];
-foreach ($reviews as $review) {
-    $documentId = (string)($review['document_id'] ?? '');
-    if ($documentId === '' || isset($latestReviewByDocument[$documentId])) {
-        continue;
-    }
-
-    $latestReviewByDocument[$documentId] = [
-        'status' => (string)($review['review_status'] ?? ''),
-        'reviewed_at' => (string)($review['reviewed_at'] ?? ''),
-        'reviewer' => (string)($review['reviewer']['email'] ?? ''),
-        'notes' => (string)($review['review_notes'] ?? ''),
-    ];
-}
-
 $roleKeyByUserId = [];
 foreach ($roleAssignments as $assignment) {
     $userId = strtolower(trim((string)($assignment['user_id'] ?? '')));
-    if ($userId === '' || isset($roleKeyByUserId[$userId])) {
-        continue;
-    }
-
     $roleKey = strtolower(trim((string)($assignment['role']['role_key'] ?? '')));
-    if ($roleKey !== '') {
+    if ($userId !== '' && $roleKey !== '' && !isset($roleKeyByUserId[$userId])) {
         $roleKeyByUserId[$userId] = $roleKey;
     }
 }
 
+$canonicalCategories = [
+    'violation' => 'Violation',
+    'memorandum receipt' => 'Memorandum Receipt',
+    'memorandum' => 'Memorandum Receipt',
+    'gsis' => 'GSIS',
+    'gsis instead sss' => 'GSIS',
+    'copy of saln' => 'Copy of SALN',
+    'saln' => 'Copy of SALN',
+    'service record' => 'Service Record',
+    'coe' => 'COE',
+    'pds' => 'PDS',
+    'sss' => 'SSS',
+    'pagibig' => 'Pagibig',
+    'pag-ibig' => 'Pagibig',
+    'philhealth' => 'Philhealth',
+    'nbi' => 'NBI',
+    'medical' => 'Medical',
+    'drug test' => 'Drug Test',
+    'others' => 'Others',
+    'other' => 'Others',
+];
+
+$normalizeCategoryName = static function (string $value) use ($canonicalCategories): string {
+    $key = strtolower(trim(preg_replace('/\s+/', ' ', $value)));
+    if ($key === '') {
+        return 'Others';
+    }
+    return $canonicalCategories[$key] ?? 'Others';
+};
+
+$orderedCategoryDisplay = [
+    'Violation',
+    'Memorandum Receipt',
+    'GSIS',
+    'Copy of SALN',
+    'Service Record',
+    'COE',
+    'PDS',
+    'SSS',
+    'Pagibig',
+    'Philhealth',
+    'NBI',
+    'Medical',
+    'Drug Test',
+    'Others',
+];
+
+$documentCategoryFilterOptions = $orderedCategoryDisplay;
+
+$categoryIdByCanonical = [];
+foreach ($documentCategoryOptionsRaw as $category) {
+    $categoryId = trim((string)($category['id'] ?? ''));
+    $rawName = trim((string)($category['category_name'] ?? ''));
+    if ($categoryId === '' || $rawName === '') {
+        continue;
+    }
+
+    $canonicalName = $normalizeCategoryName($rawName);
+    if (!isset($categoryIdByCanonical[$canonicalName])) {
+        $categoryIdByCanonical[$canonicalName] = $categoryId;
+    }
+}
+
+$documentCategoryOptions = [];
+foreach ($orderedCategoryDisplay as $categoryName) {
+    if (!isset($categoryIdByCanonical[$categoryName])) {
+        continue;
+    }
+
+    $documentCategoryOptions[] = [
+        'id' => $categoryIdByCanonical[$categoryName],
+        'category_name' => $categoryName,
+    ];
+}
+
+if (empty($documentCategoryOptions)) {
+    $seen = [];
+    foreach ($documentCategoryOptionsRaw as $category) {
+        $categoryId = trim((string)($category['id'] ?? ''));
+        $rawName = trim((string)($category['category_name'] ?? ''));
+        if ($categoryId === '' || $rawName === '') {
+            continue;
+        }
+
+        $canonicalName = $normalizeCategoryName($rawName);
+        if (isset($seen[$canonicalName])) {
+            continue;
+        }
+
+        $seen[$canonicalName] = true;
+        $documentCategoryOptions[] = [
+            'id' => $categoryId,
+            'category_name' => $canonicalName,
+        ];
+    }
+}
+
+$buildStoragePublicUrl = static function (string $baseUrl, string $bucket, string $path): string {
+    $base = rtrim(trim($baseUrl), '/');
+    $bucketName = trim($bucket, '/');
+    $objectPath = trim($path, '/');
+
+    if ($base === '' || $bucketName === '' || $objectPath === '') {
+        return '';
+    }
+
+    if (in_array(strtolower($bucketName), ['local_documents', 'local', 'filesystem'], true)) {
+        $segments = array_values(array_filter(explode('/', preg_replace('#^document/#', '', $objectPath)), static fn(string $segment): bool => $segment !== ''));
+        return '/hris-system/storage/document/' . implode('/', array_map('rawurlencode', $segments));
+    }
+
+    $segments = array_values(array_filter(explode('/', $objectPath), static fn(string $segment): bool => $segment !== ''));
+    return $base . '/storage/v1/object/public/' . rawurlencode($bucketName) . '/' . implode('/', array_map('rawurlencode', $segments));
+};
+
+$statusLabel = static function (string $status): string {
+    $key = strtolower(trim($status));
+    return match ($key) {
+        'needs_revision', 'need_revision', 'need revision', 'needs revision' => 'Needs Revision',
+        'submitted' => 'Submitted',
+        'approved' => 'Approved',
+        'rejected' => 'Rejected',
+        'archived' => 'Archived',
+        default => 'Draft',
+    };
+};
+
+$mapAccountType = static function (string $roleKey): string {
+    return match (strtolower(trim($roleKey))) {
+        'employee' => 'employee',
+        'applicant' => 'applicant',
+        'staff' => 'staff',
+        'admin' => 'admin',
+        default => 'unknown',
+    };
+};
+
+$reviewsByDocument = [];
+foreach ($reviews as $review) {
+    $documentId = trim((string)($review['document_id'] ?? ''));
+    if ($documentId === '') {
+        continue;
+    }
+
+    $reviewerUserId = strtolower(trim((string)($review['reviewer_user_id'] ?? '')));
+    $reviewerRole = $reviewerUserId !== '' ? (string)($roleKeyByUserId[$reviewerUserId] ?? '') : '';
+    $reviewsByDocument[$documentId][] = [
+        'status' => strtolower(trim((string)($review['review_status'] ?? ''))),
+        'reviewed_at' => trim((string)($review['reviewed_at'] ?? '')),
+        'created_at' => trim((string)($review['created_at'] ?? '')),
+        'notes' => trim((string)($review['review_notes'] ?? '')),
+        'reviewer_email' => trim((string)($review['reviewer']['email'] ?? '')),
+        'reviewer_role' => $reviewerRole,
+    ];
+}
+
+$documentRegistryRows = [];
+$archivedDocumentRows = [];
+$pendingStaffApprovalRows = [];
+$pendingStaffReviewRows = [];
 $uploaderSummaryMap = [];
+
 foreach ($documents as $document) {
-    $uploaderId = strtolower(trim((string)($document['uploaded_by'] ?? '')));
+    $documentId = trim((string)($document['id'] ?? ''));
+    if ($documentId === '') {
+        continue;
+    }
+
+    $title = trim((string)($document['title'] ?? 'Untitled Document'));
+    $rawStatus = strtolower(trim((string)($document['document_status'] ?? 'draft')));
+    $versionNo = (int)($document['current_version_no'] ?? 1);
+    $rawCategory = trim((string)($document['category']['category_name'] ?? ''));
+    $categoryName = $normalizeCategoryName($rawCategory);
+
+    $ownerFirst = trim((string)($document['owner']['first_name'] ?? ''));
+    $ownerLast = trim((string)($document['owner']['surname'] ?? ''));
+    $ownerName = trim($ownerFirst . ' ' . $ownerLast);
+    if ($ownerName === '') {
+        $ownerName = 'Unknown Owner';
+    }
+
+    $uploadedBy = strtolower(trim((string)($document['uploaded_by'] ?? '')));
+    $uploaderRoleKey = (string)($roleKeyByUserId[$uploadedBy] ?? '');
+    $accountType = $mapAccountType($uploaderRoleKey);
+    if (!in_array($accountType, ['employee', 'applicant'], true)) {
+        $ownerUserId = strtolower(trim((string)($document['owner']['user_id'] ?? '')));
+        $accountType = $mapAccountType((string)($roleKeyByUserId[$ownerUserId] ?? ''));
+    }
+
+    if (!in_array($accountType, ['employee', 'applicant'], true)) {
+        $accountType = 'employee';
+    }
+
+    $createdAt = trim((string)($document['created_at'] ?? ''));
+    $updatedAt = trim((string)($document['updated_at'] ?? $createdAt));
+    $createdLabel = $createdAt !== '' ? date('M d, Y', strtotime($createdAt)) : '-';
+    $updatedLabel = $updatedAt !== '' ? date('M d, Y', strtotime($updatedAt)) : '-';
+
+    $bucket = trim((string)($document['storage_bucket'] ?? ''));
+    $path = trim((string)($document['storage_path'] ?? ''));
+    $storageLabel = trim(($bucket !== '' ? ($bucket . '/') : '') . $path);
+    $documentUrl = $buildStoragePublicUrl((string)$supabaseUrl, $bucket, $path);
+
+    $documentReviews = $reviewsByDocument[$documentId] ?? [];
+    $latestReview = $documentReviews[0] ?? null;
+    $latestStaffReview = null;
+    $latestAdminReview = null;
+    foreach ($documentReviews as $review) {
+        $role = strtolower(trim((string)($review['reviewer_role'] ?? '')));
+        if ($latestStaffReview === null && $role === 'staff') {
+            $latestStaffReview = $review;
+        }
+        if ($latestAdminReview === null && $role === 'admin') {
+            $latestAdminReview = $review;
+        }
+        if ($latestStaffReview !== null && $latestAdminReview !== null) {
+            break;
+        }
+    }
+
+    $lastReviewLabel = '-';
+    if (is_array($latestReview)) {
+        $lastReviewLabel = $statusLabel((string)($latestReview['status'] ?? ''));
+    }
+
+    $row = [
+        'id' => $documentId,
+        'title' => $title,
+        'status_raw' => $rawStatus,
+        'status_label' => $statusLabel($rawStatus),
+        'category' => $categoryName,
+        'owner_name' => $ownerName,
+        'account_type' => $accountType,
+        'version_no' => $versionNo,
+        'created_at' => $createdAt,
+        'created_label' => $createdLabel,
+        'updated_at' => $updatedAt,
+        'updated_label' => $updatedLabel,
+        'last_review' => $lastReviewLabel,
+        'latest_review_notes' => (string)($latestReview['notes'] ?? ''),
+        'storage_bucket' => $bucket,
+        'storage_path' => $path,
+        'storage_label' => $storageLabel,
+        'document_url' => $documentUrl,
+    ];
+
+    if ($rawStatus === 'archived') {
+        $archivedDocumentRows[] = $row;
+    } else {
+        $documentRegistryRows[] = $row;
+    }
+
+    $isFinalState = in_array($rawStatus, ['approved', 'rejected', 'archived'], true);
+    $staffReviewTs = strtotime((string)($latestStaffReview['created_at'] ?? '')) ?: 0;
+    $adminReviewTs = strtotime((string)($latestAdminReview['created_at'] ?? '')) ?: 0;
+
+    if (!$isFinalState) {
+        if ($latestStaffReview !== null && $staffReviewTs >= $adminReviewTs) {
+            $pendingStaffApprovalRows[] = array_merge($row, [
+                'staff_recommendation' => $statusLabel((string)($latestStaffReview['status'] ?? '')),
+                'staff_notes' => (string)($latestStaffReview['notes'] ?? ''),
+            ]);
+        }
+
+        if ($latestStaffReview === null) {
+            $pendingStaffReviewRows[] = $row;
+        }
+    }
+
+    $uploaderId = $uploadedBy;
     if ($uploaderId === '') {
         continue;
     }
@@ -126,23 +350,6 @@ foreach ($documents as $document) {
     if ($uploaderEmail === '') {
         $uploaderEmail = 'Unknown Email';
     }
-
-    $roleKey = $roleKeyByUserId[$uploaderId] ?? '';
-    $accountType = match ($roleKey) {
-        'staff' => 'staff',
-        'employee' => 'employee',
-        'applicant' => 'applicant',
-        default => ($roleKey !== '' ? $roleKey : 'unknown'),
-    };
-
-    $documentId = (string)($document['id'] ?? '');
-    $title = (string)($document['title'] ?? '-');
-    $category = (string)($document['category']['category_name'] ?? 'Uncategorized');
-    $status = (string)($document['document_status'] ?? 'draft');
-    $updatedAt = (string)($document['updated_at'] ?? $document['created_at'] ?? '');
-    $updatedLabel = $updatedAt !== '' ? date('M d, Y', strtotime($updatedAt)) : '-';
-    $storageBucket = (string)($document['storage_bucket'] ?? '');
-    $storagePath = (string)($document['storage_path'] ?? '');
 
     if (!isset($uploaderSummaryMap[$uploaderId])) {
         $uploaderSummaryMap[$uploaderId] = [
@@ -157,7 +364,6 @@ foreach ($documents as $document) {
     }
 
     $uploaderSummaryMap[$uploaderId]['total_uploads']++;
-
     $lastUploadedAt = (string)($uploaderSummaryMap[$uploaderId]['last_uploaded_at'] ?? '');
     if ($lastUploadedAt === '' || ($updatedAt !== '' && strtotime($updatedAt) > strtotime($lastUploadedAt))) {
         $uploaderSummaryMap[$uploaderId]['last_uploaded_at'] = $updatedAt;
@@ -167,11 +373,14 @@ foreach ($documents as $document) {
     $uploaderSummaryMap[$uploaderId]['documents'][] = [
         'id' => $documentId,
         'title' => $title,
-        'category' => $category,
-        'status' => $status,
+        'category' => $categoryName,
+        'status' => $statusLabel($rawStatus),
         'updated' => $updatedLabel,
-        'storage_bucket' => $storageBucket,
-        'storage_path' => $storagePath,
+        'updated_at' => $updatedAt,
+        'storage_bucket' => $bucket,
+        'storage_path' => $path,
+        'storage' => $storageLabel,
+        'url' => $documentUrl,
     ];
 }
 

@@ -11,6 +11,16 @@
     let currentPage = 1;
     let filteredRows = rows;
 
+    const pendingSearchInput = document.getElementById('personalInfoPendingSearchInput');
+    const pendingTypeFilter = document.getElementById('personalInfoPendingTypeFilter');
+    const pendingRows = Array.from(document.querySelectorAll('#personalInfoPendingTable tbody tr[data-pending-row]'));
+    const pendingEmptyFilterRow = document.getElementById('personalInfoPendingFilterEmpty');
+    const pendingPaginationInfo = document.getElementById('personalInfoPendingPaginationInfo');
+    const pendingPrevPageButton = document.getElementById('personalInfoPendingPrevPage');
+    const pendingNextPageButton = document.getElementById('personalInfoPendingNextPage');
+    let pendingCurrentPage = 1;
+    let filteredPendingRows = pendingRows;
+
     const profileModal = document.getElementById('personalInfoProfileModal');
     const profileForm = document.getElementById('personalInfoProfileForm');
     const profileSubmit = document.getElementById('personalInfoProfileSubmit');
@@ -22,6 +32,13 @@
     const statusModal = document.getElementById('personalInfoStatusModal');
     const statusForm = document.getElementById('personalInfoStatusForm');
     const statusSubmit = document.getElementById('personalInfoStatusSubmit');
+
+    const pendingReviewModal = document.getElementById('personalInfoPendingReviewModal');
+    const pendingReviewTitle = document.getElementById('personalInfoPendingReviewTitle');
+    const pendingReviewSummary = document.getElementById('personalInfoPendingReviewSummary');
+    const pendingReviewPairsBody = document.getElementById('personalInfoPendingReviewPairs');
+    const pendingReviewRemarks = document.getElementById('personalInfoPendingReviewRemarks');
+    const pendingReviewEditButton = document.getElementById('personalInfoPendingEditRecommendationBtn');
 
     const profileFields = {
         personId: document.getElementById('profilePersonId'),
@@ -64,12 +81,16 @@
         telephoneNo: document.getElementById('profileTelephoneNo'),
         email: document.getElementById('profileEmail'),
         mobile: document.getElementById('profileMobile'),
+        recommendationNotes: document.getElementById('profileRecommendationNotes'),
     };
 
     const assignmentFields = {
         personId: document.getElementById('personalInfoAssignmentPersonId'),
         employmentId: document.getElementById('personalInfoAssignmentEmploymentId'),
         employeeDisplay: document.getElementById('personalInfoAssignmentEmployeeDisplay'),
+        officeId: document.getElementById('personalInfoAssignmentOffice'),
+        positionId: document.getElementById('personalInfoAssignmentPosition'),
+        recommendationNotes: document.getElementById('personalInfoAssignmentRecommendationNotes'),
     };
 
     const statusFields = {
@@ -176,6 +197,23 @@
         }
     };
 
+    const escapeHtml = (value) => {
+        return (value || '').toString()
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    };
+
+    const escapeSelectorValue = (value) => {
+        const raw = (value || '').toString();
+        if (window.CSS && typeof window.CSS.escape === 'function') {
+            return window.CSS.escape(raw);
+        }
+        return raw.replace(/(["\\])/g, '\\$1');
+    };
+
     const closeModal = (modal, form) => {
         if (!modal) {
             return;
@@ -192,6 +230,14 @@
             }
             renderAddressGroup('residential');
             renderAddressGroup('permanent');
+        } else if (modal.id === 'personalInfoPendingReviewModal') {
+            if (pendingReviewRemarks instanceof HTMLTextAreaElement) {
+                pendingReviewRemarks.value = '';
+            }
+            if (pendingReviewEditButton instanceof HTMLButtonElement) {
+                pendingReviewEditButton.dataset.pendingPersonId = '';
+                pendingReviewEditButton.dataset.pendingAction = '';
+            }
         }
     };
 
@@ -276,6 +322,71 @@
         renderPage();
     };
 
+    const updatePendingPaginationUi = () => {
+        const totalRows = filteredPendingRows.length;
+        const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+        if (pendingCurrentPage > totalPages) {
+            pendingCurrentPage = totalPages;
+        }
+
+        if (pendingPaginationInfo) {
+            pendingPaginationInfo.textContent = `Page ${pendingCurrentPage} of ${totalPages}`;
+        }
+
+        if (pendingPrevPageButton) {
+            const disabled = pendingCurrentPage <= 1 || totalRows === 0;
+            pendingPrevPageButton.disabled = disabled;
+            pendingPrevPageButton.classList.toggle('opacity-60', disabled);
+            pendingPrevPageButton.classList.toggle('cursor-not-allowed', disabled);
+        }
+
+        if (pendingNextPageButton) {
+            const disabled = pendingCurrentPage >= totalPages || totalRows === 0;
+            pendingNextPageButton.disabled = disabled;
+            pendingNextPageButton.classList.toggle('opacity-60', disabled);
+            pendingNextPageButton.classList.toggle('cursor-not-allowed', disabled);
+        }
+    };
+
+    const renderPendingPage = () => {
+        if (pendingRows.length === 0) {
+            updatePendingPaginationUi();
+            return;
+        }
+
+        pendingRows.forEach((row) => row.classList.add('hidden'));
+
+        const start = (pendingCurrentPage - 1) * pageSize;
+        const end = start + pageSize;
+        filteredPendingRows.slice(start, end).forEach((row) => row.classList.remove('hidden'));
+
+        if (pendingEmptyFilterRow) {
+            pendingEmptyFilterRow.classList.toggle('hidden', filteredPendingRows.length > 0);
+        }
+
+        updatePendingPaginationUi();
+    };
+
+    const applyPendingFilters = () => {
+        if (pendingRows.length === 0) {
+            updatePendingPaginationUi();
+            return;
+        }
+
+        const query = normalize(pendingSearchInput ? pendingSearchInput.value : '');
+        const type = normalize(pendingTypeFilter ? pendingTypeFilter.value : '');
+
+        filteredPendingRows = pendingRows.filter((row) => {
+            const rowSearch = normalize(row.getAttribute('data-pending-search'));
+            const rowType = normalize(row.getAttribute('data-pending-type'));
+            return (query === '' || rowSearch.includes(query))
+                && (type === '' || rowType === type);
+        });
+
+        pendingCurrentPage = 1;
+        renderPendingPage();
+    };
+
     let debounceTimer = null;
     if (searchInput) {
         searchInput.addEventListener('input', () => {
@@ -310,6 +421,145 @@
             }
             currentPage += 1;
             renderPage();
+        });
+    }
+
+    if (pendingSearchInput) {
+        pendingSearchInput.addEventListener('input', () => {
+            if (debounceTimer) {
+                window.clearTimeout(debounceTimer);
+            }
+            debounceTimer = window.setTimeout(applyPendingFilters, 150);
+        });
+    }
+    if (pendingTypeFilter) {
+        pendingTypeFilter.addEventListener('change', applyPendingFilters);
+    }
+    if (pendingPrevPageButton) {
+        pendingPrevPageButton.addEventListener('click', () => {
+            if (pendingCurrentPage <= 1) {
+                return;
+            }
+            pendingCurrentPage -= 1;
+            renderPendingPage();
+        });
+    }
+    if (pendingNextPageButton) {
+        pendingNextPageButton.addEventListener('click', () => {
+            const totalPages = Math.max(1, Math.ceil(filteredPendingRows.length / pageSize));
+            if (pendingCurrentPage >= totalPages) {
+                return;
+            }
+            pendingCurrentPage += 1;
+            renderPendingPage();
+        });
+    }
+
+    document.querySelectorAll('[data-pending-review-open]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const row = button.closest('tr[data-pending-row]');
+            if (!row || !pendingReviewModal) {
+                return;
+            }
+
+            const title = (row.getAttribute('data-review-title') || 'Recommendation Details').trim();
+            const summary = (row.getAttribute('data-review-summary') || '').trim();
+            const fallbackContent = (row.getAttribute('data-review-content') || '').trim();
+            const reviewAction = (row.getAttribute('data-review-action') || '').trim();
+            const personId = (row.getAttribute('data-review-person-id') || '').trim();
+            const reviewPairs = parseJsonAttribute(row.getAttribute('data-review-pairs'));
+
+            if (pendingReviewTitle) {
+                pendingReviewTitle.textContent = title !== '' ? title : 'Recommendation Details';
+            }
+            if (pendingReviewSummary) {
+                pendingReviewSummary.textContent = summary !== '' ? summary : 'No summary provided.';
+            }
+
+            if (pendingReviewPairsBody) {
+                pendingReviewPairsBody.innerHTML = '';
+
+                const normalizedPairs = reviewPairs
+                    .filter((pair) => pair && typeof pair === 'object')
+                    .map((pair) => ({
+                        field: (pair.field || '').toString().trim(),
+                        current: (pair.current || '').toString().trim(),
+                        proposed: (pair.proposed || '').toString().trim(),
+                    }))
+                    .filter((pair) => pair.field !== '' || pair.current !== '' || pair.proposed !== '');
+
+                if (normalizedPairs.length === 0) {
+                    const rowElement = document.createElement('tr');
+                    rowElement.innerHTML = `<td class="px-4 py-3 text-slate-500" colspan="3">${escapeHtml(fallbackContent || 'No field-level changes available.')}</td>`;
+                    pendingReviewPairsBody.appendChild(rowElement);
+                } else {
+                    normalizedPairs.forEach((pair) => {
+                        const rowElement = document.createElement('tr');
+                        rowElement.innerHTML = `
+                            <td class="px-4 py-3 text-slate-700 font-medium align-top">${escapeHtml(pair.field || 'Field')}</td>
+                            <td class="px-4 py-3 text-slate-600 align-top whitespace-pre-wrap break-words">${escapeHtml(pair.current || '-')}</td>
+                            <td class="px-4 py-3 text-slate-700 align-top whitespace-pre-wrap break-words">${escapeHtml(pair.proposed || '-')}</td>
+                        `;
+                        pendingReviewPairsBody.appendChild(rowElement);
+                    });
+                }
+            }
+
+            if (pendingReviewRemarks instanceof HTMLTextAreaElement) {
+                pendingReviewRemarks.value = '';
+            }
+
+            if (pendingReviewEditButton instanceof HTMLButtonElement) {
+                pendingReviewEditButton.dataset.pendingPersonId = personId;
+                pendingReviewEditButton.dataset.pendingAction = reviewAction;
+            }
+
+            openModal(pendingReviewModal);
+        });
+    });
+
+    if (pendingReviewEditButton instanceof HTMLButtonElement) {
+        pendingReviewEditButton.addEventListener('click', () => {
+            const actionName = (pendingReviewEditButton.dataset.pendingAction || '').trim();
+            const personId = (pendingReviewEditButton.dataset.pendingPersonId || '').trim();
+            if (actionName === '' || personId === '') {
+                return;
+            }
+
+            const recommendationRemark = pendingReviewRemarks instanceof HTMLTextAreaElement
+                ? pendingReviewRemarks.value.trim()
+                : '';
+
+            const escapedPersonId = escapeSelectorValue(personId);
+            const triggerSelector = actionName === 'recommend_employee_profile_update'
+                ? `[data-person-profile-open][data-person-id="${escapedPersonId}"]`
+                : actionName === 'recommend_employee_status'
+                    ? `[data-person-status-open][data-person-id="${escapedPersonId}"]`
+                    : `[data-person-assignment-open][data-person-id="${escapedPersonId}"]`;
+
+            closeModal(pendingReviewModal, null);
+
+            const triggerButton = document.querySelector(triggerSelector);
+            if (!(triggerButton instanceof HTMLButtonElement)) {
+                return;
+            }
+
+            triggerButton.click();
+
+            if (recommendationRemark !== '') {
+                if (actionName === 'recommend_employee_profile_update' && profileFields.recommendationNotes instanceof HTMLTextAreaElement) {
+                    profileFields.recommendationNotes.value = recommendationRemark;
+                }
+                if (actionName === 'recommend_employee_status') {
+                    const notesField = document.getElementById('personalInfoStatusSpecification');
+                    if (notesField instanceof HTMLTextAreaElement) {
+                        notesField.value = recommendationRemark;
+                    }
+                }
+                if (actionName === 'recommend_department_position' && assignmentFields.recommendationNotes instanceof HTMLTextAreaElement) {
+                    assignmentFields.recommendationNotes.value = recommendationRemark;
+                }
+            }
         });
     }
 
@@ -837,6 +1087,191 @@
         autofillZip(groupKey);
     };
 
+    const createUniqueSortedOptions = (values) => {
+        const unique = new Set();
+        (Array.isArray(values) ? values : []).forEach((value) => {
+            const normalized = (value || '').toString().trim();
+            if (normalized !== '') {
+                unique.add(normalized);
+            }
+        });
+        return Array.from(unique).sort((left, right) => left.localeCompare(right));
+    };
+
+    const allZipOptions = createUniqueSortedOptions(Array.from(new Set([
+        ...Array.from(zipLookupMap.values()).flatMap((zipSet) => Array.from(zipSet || [])),
+        ...Array.from(cityZipLookupMap.values()).flatMap((zipSet) => Array.from(zipSet || [])),
+    ])));
+
+    const buildModernSearch = (inputElement, optionsResolver) => {
+        if (!(inputElement instanceof HTMLInputElement) || typeof optionsResolver !== 'function') {
+            return;
+        }
+
+        const originalListId = inputElement.getAttribute('list') || '';
+        if (originalListId !== '') {
+            inputElement.removeAttribute('list');
+        }
+
+        const container = document.createElement('div');
+        container.className = 'absolute z-[80] mt-1 hidden w-full rounded-md border border-slate-200 bg-white shadow-lg max-h-56 overflow-auto';
+        container.setAttribute('role', 'listbox');
+
+        const parent = inputElement.parentElement;
+        if (parent) {
+            parent.classList.add('relative');
+            parent.appendChild(container);
+        }
+
+        const legacyChevron = parent
+            ? parent.querySelector('.pointer-events-none .material-symbols-outlined')
+            : null;
+        if (legacyChevron instanceof HTMLElement && legacyChevron.parentElement instanceof HTMLElement) {
+            legacyChevron.parentElement.classList.add('hidden');
+        }
+
+        const triggerButton = document.createElement('button');
+        triggerButton.type = 'button';
+        triggerButton.className = 'absolute inset-y-0 right-0 inline-flex items-center px-3 text-slate-400 hover:text-slate-600';
+        triggerButton.setAttribute('aria-label', 'Show options');
+        triggerButton.innerHTML = '<span class="material-symbols-outlined text-[18px]">expand_more</span>';
+        if (parent) {
+            parent.appendChild(triggerButton);
+        }
+
+        let activeIndex = -1;
+        let activeOptions = [];
+
+        const applyActiveOption = () => {
+            const optionButtons = Array.from(container.querySelectorAll('button[data-modern-search-option]'));
+            optionButtons.forEach((optionButton, optionIndex) => {
+                optionButton.classList.toggle('bg-slate-100', optionIndex === activeIndex);
+            });
+            activeOptions = optionButtons;
+        };
+
+        const renderOptions = () => {
+            const query = normalize(inputElement.value || '');
+            const options = createUniqueSortedOptions(optionsResolver()).filter((option) => {
+                return query === '' || normalize(option).includes(query);
+            }).slice(0, 30);
+
+            container.innerHTML = '';
+
+            if (options.length === 0) {
+                container.classList.add('hidden');
+                activeIndex = -1;
+                activeOptions = [];
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+            options.forEach((option) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.setAttribute('data-modern-search-option', '1');
+                button.className = 'w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 border-b border-slate-100 last:border-b-0';
+                button.textContent = option;
+                button.addEventListener('mousedown', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    inputElement.value = option;
+                    inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+                    inputElement.dispatchEvent(new Event('change', { bubbles: true }));
+                    container.classList.add('hidden');
+                    activeIndex = -1;
+                });
+                fragment.appendChild(button);
+            });
+
+            container.appendChild(fragment);
+            container.classList.remove('hidden');
+            activeIndex = -1;
+            applyActiveOption();
+        };
+
+        container.addEventListener('mousedown', (event) => event.stopPropagation());
+
+        inputElement.addEventListener('focus', renderOptions);
+        inputElement.addEventListener('input', renderOptions);
+        inputElement.addEventListener('keydown', (event) => {
+            const optionCount = activeOptions.length;
+
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                if (container.classList.contains('hidden')) {
+                    renderOptions();
+                }
+
+                const nextCount = activeOptions.length;
+                if (nextCount > 0) {
+                    activeIndex = (activeIndex + 1 + nextCount) % nextCount;
+                    applyActiveOption();
+                }
+                return;
+            }
+
+            if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                if (container.classList.contains('hidden')) {
+                    renderOptions();
+                }
+
+                const nextCount = activeOptions.length;
+                if (nextCount > 0) {
+                    activeIndex = (activeIndex - 1 + nextCount) % nextCount;
+                    applyActiveOption();
+                }
+                return;
+            }
+
+            if (event.key === 'Enter' && !container.classList.contains('hidden') && optionCount > 0 && activeIndex >= 0 && activeIndex < optionCount) {
+                event.preventDefault();
+                const activeOption = activeOptions[activeIndex];
+                if (activeOption instanceof HTMLButtonElement) {
+                    activeOption.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+                }
+                return;
+            }
+
+            if (event.key === 'Escape') {
+                container.classList.add('hidden');
+                activeIndex = -1;
+            }
+        });
+
+        triggerButton.addEventListener('mousedown', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            inputElement.focus();
+            if (container.classList.contains('hidden')) {
+                renderOptions();
+            } else {
+                container.classList.add('hidden');
+                activeIndex = -1;
+            }
+        });
+
+        inputElement.addEventListener('blur', () => {
+            window.setTimeout(() => container.classList.add('hidden'), 120);
+        });
+    };
+
+    const byId = (id) => document.getElementById(id);
+    const datalistOptions = (id) => extractDatalistValues(byId(id));
+
+    buildModernSearch(byId('profilePlaceOfBirth'), () => datalistOptions('profilePlaceOfBirthList'));
+    buildModernSearch(byId('profileCivilStatus'), () => datalistOptions('profileCivilStatusList'));
+    buildModernSearch(byId('profileBloodType'), () => datalistOptions('profileBloodTypeList'));
+    buildModernSearch(byId('profileResidentialBarangay'), () => datalistOptions('profileResidentialBarangayList'));
+    buildModernSearch(byId('profilePermanentBarangay'), () => datalistOptions('profilePermanentBarangayList'));
+    buildModernSearch(byId('profileResidentialCity'), () => datalistOptions('profileCityList'));
+    buildModernSearch(byId('profilePermanentCity'), () => datalistOptions('profileCityList'));
+    buildModernSearch(byId('profileResidentialProvince'), () => datalistOptions('profileProvinceList'));
+    buildModernSearch(byId('profilePermanentProvince'), () => datalistOptions('profileProvinceList'));
+    buildModernSearch(byId('profileResidentialZipCode'), () => allZipOptions);
+    buildModernSearch(byId('profilePermanentZipCode'), () => allZipOptions);
+
     Object.entries(addressControls).forEach(([groupKey, controls]) => {
         if (controls.city instanceof HTMLInputElement) {
             controls.city.addEventListener('input', () => {
@@ -1001,6 +1436,9 @@
             profileFields.telephoneNo.value = button.getAttribute('data-telephone-no') || '';
             profileFields.email.value = button.getAttribute('data-email') || '';
             profileFields.mobile.value = button.getAttribute('data-mobile') || '';
+            if (profileFields.recommendationNotes instanceof HTMLTextAreaElement) {
+                profileFields.recommendationNotes.value = '';
+            }
             if (profileFields.sameAsPermanentAddress instanceof HTMLInputElement) {
                 profileFields.sameAsPermanentAddress.checked = false;
             }
@@ -1052,6 +1490,15 @@
             assignmentFields.personId.value = button.getAttribute('data-person-id') || '';
             assignmentFields.employmentId.value = button.getAttribute('data-employment-id') || '';
             assignmentFields.employeeDisplay.value = button.getAttribute('data-employee-name') || '';
+            if (assignmentFields.officeId instanceof HTMLSelectElement) {
+                assignmentFields.officeId.value = button.getAttribute('data-current-office-id') || '';
+            }
+            if (assignmentFields.positionId instanceof HTMLSelectElement) {
+                assignmentFields.positionId.value = button.getAttribute('data-current-position-id') || '';
+            }
+            if (assignmentFields.recommendationNotes instanceof HTMLTextAreaElement) {
+                assignmentFields.recommendationNotes.value = '';
+            }
             openModal(assignmentModal);
         });
     });
@@ -1105,23 +1552,21 @@
             }
 
             const employee = (profileFields.employeeName.textContent || 'employee').trim();
-            let shouldContinue = false;
-
-            if (window.Swal && typeof window.Swal.fire === 'function') {
-                const result = await window.Swal.fire({
-                    icon: 'warning',
-                    title: 'Confirm Profile Recommendation',
-                    html: `<div class="text-sm text-slate-600">Submit profile update recommendation for <strong>${employee}</strong>? Final approval will be done by admin.</div>`,
-                    showCancelButton: true,
-                    confirmButtonText: 'Submit Recommendation',
-                    cancelButtonText: 'Cancel',
-                    reverseButtons: true,
-                    focusCancel: true,
-                });
-                shouldContinue = !!result.isConfirmed;
-            } else {
-                shouldContinue = window.confirm(`Submit profile update recommendation for ${employee}? Final approval will be done by admin.`);
+            if (!window.Swal || typeof window.Swal.fire !== 'function') {
+                return;
             }
+
+            const result = await window.Swal.fire({
+                icon: 'warning',
+                title: 'Confirm Profile Recommendation',
+                html: `<div class="text-sm text-slate-600">Submit profile update recommendation for <strong>${employee}</strong>? Final approval will be done by admin.</div>`,
+                showCancelButton: true,
+                confirmButtonText: 'Submit Recommendation',
+                cancelButtonText: 'Cancel',
+                reverseButtons: true,
+                focusCancel: true,
+            });
+            const shouldContinue = !!result.isConfirmed;
 
             if (!shouldContinue) {
                 return;
@@ -1137,11 +1582,62 @@
     }
 
     if (assignmentForm) {
-        assignmentForm.addEventListener('submit', (event) => {
+        assignmentForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            if (typeof assignmentForm.reportValidity === 'function' && !assignmentForm.reportValidity()) {
+                return;
+            }
+
             const employee = (assignmentFields.employeeDisplay.value || 'employee').trim();
-            const shouldContinue = window.confirm(`Assign new department and position for ${employee}?`);
-            if (!shouldContinue) {
-                event.preventDefault();
+            if (!window.Swal || typeof window.Swal.fire !== 'function') {
+                return;
+            }
+
+            const noteResult = await window.Swal.fire({
+                icon: 'question',
+                title: 'Recommendation Notes Required',
+                input: 'textarea',
+                inputLabel: 'Explain why this division/position change is recommended',
+                inputPlaceholder: 'Enter recommendation notes',
+                inputValue: assignmentFields.recommendationNotes instanceof HTMLTextAreaElement
+                    ? assignmentFields.recommendationNotes.value
+                    : '',
+                inputAttributes: {
+                    maxlength: '500',
+                },
+                showCancelButton: true,
+                confirmButtonText: 'Continue',
+                cancelButtonText: 'Cancel',
+                reverseButtons: true,
+                inputValidator: (value) => {
+                    return (value || '').trim() === ''
+                        ? 'Recommendation notes are required.'
+                        : undefined;
+                },
+            });
+
+            if (!noteResult.isConfirmed) {
+                return;
+            }
+
+            const recommendationNotes = (noteResult.value || '').trim();
+            if (assignmentFields.recommendationNotes instanceof HTMLTextAreaElement) {
+                assignmentFields.recommendationNotes.value = recommendationNotes;
+            }
+
+            const confirmResult = await window.Swal.fire({
+                icon: 'warning',
+                title: 'Confirm Recommendation',
+                html: `<div class="text-sm text-slate-600">Submit division/position recommendation for <strong>${employee}</strong> to admin for final approval?</div>`,
+                showCancelButton: true,
+                confirmButtonText: 'Submit Recommendation',
+                cancelButtonText: 'Cancel',
+                reverseButtons: true,
+                focusCancel: true,
+            });
+
+            if (!confirmResult.isConfirmed) {
                 return;
             }
 
@@ -1149,6 +1645,8 @@
                 assignmentSubmit.disabled = true;
                 assignmentSubmit.classList.add('opacity-60', 'cursor-not-allowed');
             }
+
+            assignmentForm.submit();
         });
     }
 
@@ -1165,22 +1663,52 @@
             const oldStatus = (statusFields.currentStatusLabel.value || '-').trim();
             const newStatusLabel = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
 
-            let shouldContinue = false;
-            if (window.Swal && typeof window.Swal.fire === 'function') {
-                const result = await window.Swal.fire({
-                    icon: 'warning',
-                    title: 'Confirm Recommendation',
-                    html: `<div class="text-sm text-slate-600">Submit recommendation for <strong>${employee}</strong> from <strong>${oldStatus}</strong> to <strong>${newStatusLabel}</strong>? Final approval will be done by admin.</div>`,
-                    showCancelButton: true,
-                    confirmButtonText: 'Submit Recommendation',
-                    cancelButtonText: 'Cancel',
-                    reverseButtons: true,
-                    focusCancel: true,
-                });
-                shouldContinue = !!result.isConfirmed;
-            } else {
-                shouldContinue = window.confirm(`Submit recommendation for ${employee} from ${oldStatus} to ${newStatusLabel}? Final approval will be done by admin.`);
+            if (!window.Swal || typeof window.Swal.fire !== 'function') {
+                return;
             }
+
+            const notesField = document.getElementById('personalInfoStatusSpecification');
+            const notesResult = await window.Swal.fire({
+                icon: 'question',
+                title: 'Recommendation Notes Required',
+                input: 'textarea',
+                inputLabel: `State why ${employee} should be set to ${newStatusLabel}`,
+                inputPlaceholder: 'Enter recommendation notes',
+                inputValue: notesField instanceof HTMLTextAreaElement ? notesField.value : '',
+                inputAttributes: {
+                    maxlength: '500',
+                },
+                showCancelButton: true,
+                confirmButtonText: 'Continue',
+                cancelButtonText: 'Cancel',
+                reverseButtons: true,
+                inputValidator: (value) => {
+                    return (value || '').trim() === ''
+                        ? 'Recommendation notes are required.'
+                        : undefined;
+                },
+            });
+
+            if (!notesResult.isConfirmed) {
+                return;
+            }
+
+            if (notesField instanceof HTMLTextAreaElement) {
+                notesField.value = (notesResult.value || '').trim();
+            }
+
+            let shouldContinue = false;
+            const result = await window.Swal.fire({
+                icon: 'warning',
+                title: 'Confirm Recommendation',
+                html: `<div class="text-sm text-slate-600">Submit recommendation for <strong>${employee}</strong> from <strong>${oldStatus}</strong> to <strong>${newStatusLabel}</strong>? Final approval will be done by admin.</div>`,
+                showCancelButton: true,
+                confirmButtonText: 'Submit Recommendation',
+                cancelButtonText: 'Cancel',
+                reverseButtons: true,
+                focusCancel: true,
+            });
+            shouldContinue = !!result.isConfirmed;
 
             if (!shouldContinue) {
                 return;

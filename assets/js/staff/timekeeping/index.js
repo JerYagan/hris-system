@@ -1,5 +1,21 @@
 (() => {
     const normalize = (value) => (value || '').toString().trim().toLowerCase();
+    const normalizeEmployeeCode = (value) => (value || '').toString().trim().toUpperCase();
+    const parseJsonContent = (elementId) => {
+        const el = document.getElementById(elementId);
+        if (!(el instanceof HTMLScriptElement)) {
+            return {};
+        }
+
+        try {
+            const parsed = JSON.parse(el.textContent || '{}');
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch {
+            return {};
+        }
+    };
+
+    const rfidEmployeeLookup = parseJsonContent('rfidEmployeeLookupData');
 
     const bindTableFilters = ({
         searchId,
@@ -163,6 +179,20 @@
     const attendanceDateTo = document.getElementById('attendanceDateTo');
     const attendanceTodayIso = getManilaTodayIsoDate();
 
+    const showFilterWarning = (message) => {
+        if (window.Swal && typeof window.Swal.fire === 'function') {
+            window.Swal.fire({
+                icon: 'warning',
+                title: 'Invalid filter range',
+                text: message,
+                confirmButtonColor: '#166534',
+            });
+            return;
+        }
+
+        window.alert(message);
+    };
+
     const syncAttendanceDateInputs = () => {
         const preset = normalize(attendanceDatePreset ? attendanceDatePreset.value : 'today');
         if (!attendanceDateFrom || !attendanceDateTo) {
@@ -189,6 +219,36 @@
     if (attendanceDatePreset) {
         syncAttendanceDateInputs();
         attendanceDatePreset.addEventListener('change', syncAttendanceDateInputs);
+    }
+
+    if (window.flatpickr && attendanceDateFrom && attendanceDateTo) {
+        [attendanceDateFrom, attendanceDateTo].forEach((input) => {
+            if (!input || input.dataset.flatpickrInitialized === 'true') {
+                return;
+            }
+
+            window.flatpickr(input, {
+                dateFormat: 'Y-m-d',
+                allowInput: true,
+            });
+
+            input.dataset.flatpickrInitialized = 'true';
+        });
+    }
+
+    if (attendanceDateFrom && attendanceDateTo) {
+        const validateAttendanceRange = () => {
+            const fromValue = normalize(attendanceDateFrom.value).slice(0, 10);
+            const toValue = normalize(attendanceDateTo.value).slice(0, 10);
+
+            if (fromValue !== '' && toValue !== '' && fromValue > toValue) {
+                attendanceDateTo.value = fromValue;
+                showFilterWarning('From date cannot be later than To date. The To date was adjusted automatically.');
+            }
+        };
+
+        attendanceDateFrom.addEventListener('change', validateAttendanceRange);
+        attendanceDateTo.addEventListener('change', validateAttendanceRange);
     }
 
     const bindModalWorkflow = ({
@@ -374,15 +434,15 @@
     });
 
     bindTableFilters({
-        searchId: 'overtimeSearchInput',
-        statusId: 'overtimeStatusFilter',
-        rowSelector: '[data-overtime-row]',
-        emptyRowId: 'overtimeFilterEmptyRow',
-        searchAttr: 'data-overtime-search',
-        statusAttr: 'data-overtime-status',
-        paginationInfoId: 'overtimePaginationInfo',
-        prevPageId: 'overtimePrevPage',
-        nextPageId: 'overtimeNextPage',
+        searchId: 'obSearchInput',
+        statusId: 'obStatusFilter',
+        rowSelector: '[data-ob-row]',
+        emptyRowId: 'obFilterEmptyRow',
+        searchAttr: 'data-ob-search',
+        statusAttr: 'data-ob-status',
+        paginationInfoId: 'obPaginationInfo',
+        prevPageId: 'obPrevPage',
+        nextPageId: 'obNextPage',
     });
 
     bindTableFilters({
@@ -437,44 +497,44 @@
         entityLabel: 'leave request',
     });
 
-    const overtimeId = document.getElementById('overtimeRequestId');
-    const overtimeEmployee = document.getElementById('overtimeEmployeeName');
-    const overtimeCurrent = document.getElementById('overtimeCurrentStatus');
-    const overtimeWindow = document.getElementById('overtimeRequestedWindow');
-    const overtimeReason = document.getElementById('overtimeReason');
-    const overtimeDecision = document.getElementById('overtimeDecision');
+    const obId = document.getElementById('obRequestId');
+    const obEmployee = document.getElementById('obEmployeeName');
+    const obCurrent = document.getElementById('obCurrentStatus');
+    const obWindow = document.getElementById('obRequestedWindow');
+    const obReason = document.getElementById('obReason');
+    const obDecision = document.getElementById('obDecision');
 
     bindModalWorkflow({
-        modalId: 'overtimeRequestModal',
-        formId: 'overtimeForm',
-        submitId: 'overtimeSubmit',
-        closeId: 'overtimeModalClose',
-        cancelId: 'overtimeModalCancel',
-        openSelector: '[data-open-overtime-modal]',
+        modalId: 'obRequestModal',
+        formId: 'obForm',
+        submitId: 'obSubmit',
+        closeId: 'obModalClose',
+        cancelId: 'obModalCancel',
+        openSelector: '[data-open-ob-modal]',
         fill: (button) => {
-            if (overtimeId) {
-                overtimeId.value = button.getAttribute('data-request-id') || '';
+            if (obId) {
+                obId.value = button.getAttribute('data-request-id') || '';
             }
-            if (overtimeEmployee) {
-                overtimeEmployee.textContent = button.getAttribute('data-employee-name') || '-';
+            if (obEmployee) {
+                obEmployee.textContent = button.getAttribute('data-employee-name') || '-';
             }
-            if (overtimeCurrent) {
-                overtimeCurrent.textContent = button.getAttribute('data-current-status-label') || '-';
+            if (obCurrent) {
+                obCurrent.textContent = button.getAttribute('data-current-status-label') || '-';
             }
-            if (overtimeWindow) {
-                overtimeWindow.textContent = button.getAttribute('data-requested-window') || '-';
+            if (obWindow) {
+                obWindow.textContent = button.getAttribute('data-requested-window') || '-';
             }
-            if (overtimeReason) {
-                overtimeReason.textContent = button.getAttribute('data-reason') || '-';
+            if (obReason) {
+                obReason.textContent = button.getAttribute('data-reason') || '-';
             }
-            if (overtimeDecision) {
-                setDefaultDecision(overtimeDecision, button.getAttribute('data-current-status') || '');
+            if (obDecision) {
+                setDefaultDecision(obDecision, button.getAttribute('data-current-status') || '');
             }
         },
-        titleField: overtimeEmployee,
-        currentField: overtimeCurrent,
-        decisionField: overtimeDecision,
-        entityLabel: 'overtime request',
+        titleField: obEmployee,
+        currentField: obCurrent,
+        decisionField: obDecision,
+        entityLabel: 'official business request',
     });
 
     const adjustmentId = document.getElementById('adjustmentRequestId');
@@ -519,6 +579,38 @@
 
     const rfidForm = document.getElementById('rfidRegistrationForm');
     const rfidSubmit = document.getElementById('rfidGenerateButton');
+    const rfidEmployeeIdInput = document.getElementById('rfidEmployeeId');
+    const rfidEmployeeNameInput = document.getElementById('rfidEmployeeName');
+    const rfidDepartmentInput = document.getElementById('rfidDepartment');
+    const rfidPositionInput = document.getElementById('rfidPosition');
+
+    const applyRfidRegistrationAutofill = () => {
+        if (!(rfidEmployeeIdInput instanceof HTMLInputElement)) {
+            return;
+        }
+
+        const employeeCode = normalizeEmployeeCode(rfidEmployeeIdInput.value);
+        const record = employeeCode !== '' ? rfidEmployeeLookup[employeeCode] : null;
+        if (!record || typeof record !== 'object') {
+            return;
+        }
+
+        if (rfidEmployeeNameInput instanceof HTMLInputElement && !rfidEmployeeNameInput.value.trim()) {
+            rfidEmployeeNameInput.value = (record.employee_name || '').toString();
+        }
+        if (rfidDepartmentInput instanceof HTMLInputElement && !rfidDepartmentInput.value.trim()) {
+            rfidDepartmentInput.value = (record.office_name || '').toString();
+        }
+        if (rfidPositionInput instanceof HTMLInputElement && !rfidPositionInput.value.trim()) {
+            rfidPositionInput.value = (record.position_title || '').toString();
+        }
+    };
+
+    if (rfidEmployeeIdInput instanceof HTMLInputElement) {
+        rfidEmployeeIdInput.addEventListener('blur', applyRfidRegistrationAutofill);
+        rfidEmployeeIdInput.addEventListener('change', applyRfidRegistrationAutofill);
+    }
+
     if (rfidForm) {
         rfidForm.addEventListener('submit', (event) => {
             event.preventDefault();
@@ -556,6 +648,30 @@
     }
 
     const rfidAttendanceAssistForm = document.getElementById('rfidAttendanceAssistForm');
+    const rfidAttendanceEmployeeId = document.getElementById('rfidAttendanceEmployeeId');
+    const rfidAttendanceEmployeeName = document.getElementById('rfidAttendanceEmployeeName');
+
+    const applyRfidAttendanceAutofill = () => {
+        if (!(rfidAttendanceEmployeeId instanceof HTMLInputElement)) {
+            return;
+        }
+
+        const employeeCode = normalizeEmployeeCode(rfidAttendanceEmployeeId.value);
+        const record = employeeCode !== '' ? rfidEmployeeLookup[employeeCode] : null;
+        if (!record || typeof record !== 'object') {
+            return;
+        }
+
+        if (rfidAttendanceEmployeeName instanceof HTMLInputElement && !rfidAttendanceEmployeeName.value.trim()) {
+            rfidAttendanceEmployeeName.value = (record.employee_name || '').toString();
+        }
+    };
+
+    if (rfidAttendanceEmployeeId instanceof HTMLInputElement) {
+        rfidAttendanceEmployeeId.addEventListener('blur', applyRfidAttendanceAutofill);
+        rfidAttendanceEmployeeId.addEventListener('change', applyRfidAttendanceAutofill);
+    }
+
     if (rfidAttendanceAssistForm) {
         rfidAttendanceAssistForm.addEventListener('submit', (event) => {
             event.preventDefault();
