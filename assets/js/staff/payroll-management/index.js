@@ -138,6 +138,7 @@
             modal.classList.add('hidden');
             modal.classList.remove('flex');
             form.reset();
+            form.dataset.confirmed = '0';
         };
 
         openButtons.forEach((button) => {
@@ -187,7 +188,8 @@
             }
 
             const code = codeLabel ? codeLabel.textContent || 'Adjustment' : 'Adjustment';
-            const shouldContinue = await showConfirmation(`Confirm ${decision} decision for salary adjustment "${code}"?`, 'Salary Adjustment Review');
+            const recommendationLabel = decision === 'approved' ? 'approve' : 'reject';
+            const shouldContinue = await showConfirmation(`Submit recommendation to ${recommendationLabel} salary adjustment "${code}" for admin final review?`, 'Salary Adjustment Recommendation');
             if (!shouldContinue) {
                 return;
             }
@@ -284,6 +286,7 @@
         const form = document.getElementById('createSalaryAdjustmentForm');
         const submitButton = document.getElementById('createSalaryAdjustmentSubmit');
         const typeSelect = document.getElementById('createSalaryAdjustmentType');
+        const recommendationSelect = document.getElementById('createSalaryAdjustmentRecommendation');
 
         if (!modal || !openButton || !form) {
             return;
@@ -293,6 +296,7 @@
             modal.classList.add('hidden');
             modal.classList.remove('flex');
             form.reset();
+            form.dataset.confirmed = '0';
         };
 
         openButton.addEventListener('click', () => {
@@ -321,7 +325,13 @@
 
             event.preventDefault();
             const adjustmentType = normalize(typeSelect ? typeSelect.value : 'deduction') || 'deduction';
-            const shouldContinue = await showConfirmation(`Create this ${adjustmentType} salary adjustment and submit it for admin review?`, 'Create Salary Adjustment');
+            const recommendation = normalize(recommendationSelect ? recommendationSelect.value : 'draft') || 'draft';
+            const shouldContinue = await showConfirmation(
+                recommendation === 'draft'
+                    ? `Create this ${adjustmentType} salary adjustment as draft?`
+                    : `Create this ${adjustmentType} salary adjustment and submit recommendation (${recommendation}) for admin review?`,
+                'Create Salary Adjustment'
+            );
             if (!shouldContinue) {
                 return;
             }
@@ -345,6 +355,7 @@
         const submitButton = document.getElementById('computePayrollSubmit');
         const periodIdInput = document.getElementById('computePayrollPeriodId');
         const periodLabel = document.getElementById('computePayrollPeriodLabel');
+        const recommendationInput = document.getElementById('computePayrollRecommendation');
         const employeesBody = document.getElementById('computePayrollEmployeesBody');
         const employeeCount = document.getElementById('computePayrollEmployeeCount');
         const previewByPeriod = parseJsonScript('payrollComputePreviewData');
@@ -357,6 +368,9 @@
             modal.classList.add('hidden');
             modal.classList.remove('flex');
             form.dataset.confirmed = '0';
+            if (recommendationInput) {
+                recommendationInput.value = '';
+            }
         };
 
         const renderEmployees = (periodId) => {
@@ -402,6 +416,9 @@
                 periodIdInput.value = periodId;
                 if (periodLabel) {
                     periodLabel.textContent = periodCode;
+                }
+                if (recommendationInput) {
+                    recommendationInput.value = 'Recommend approval';
                 }
                 renderEmployees(periodId);
 

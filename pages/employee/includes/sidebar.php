@@ -103,13 +103,13 @@
         </a>
 
         <a href="payroll.php"
-           title="Payroll"
+           title="My Payslip"
            class="flex items-center gap-3 px-4 py-2 rounded-lg
            <?= $activePage === 'payroll.php'
                 ? 'bg-green-100 font-medium'
                 : 'hover:bg-gray-100' ?>">
           <span class="material-icons text-base">payments</span>
-          <span class="sidebar-label">Payroll</span>
+          <span class="sidebar-label">My Payslip</span>
         </a>
       </div>
     </div>

@@ -29,6 +29,29 @@ $notificationsResponse = apiRequest(
 $appendNotificationsError('Notifications', $notificationsResponse);
 $notifications = isSuccessful($notificationsResponse) ? (array)($notificationsResponse['data'] ?? []) : [];
 
+foreach ($notifications as $index => $notificationRow) {
+    if (!is_array($notificationRow)) {
+        continue;
+    }
+
+    $category = strtolower(trim((string)(cleanText($notificationRow['category'] ?? null) ?? '')));
+    if ($category !== 'payroll') {
+        continue;
+    }
+
+    $linkUrl = cleanText($notificationRow['link_url'] ?? null) ?? '';
+    $linkLower = strtolower($linkUrl);
+    if (
+        $linkUrl === ''
+        || str_contains($linkLower, '/pages/admin/payroll-management.php')
+        || str_contains($linkLower, '/pages/employee/payroll.php')
+    ) {
+        $notificationRow['link_url'] = '/hris-system/pages/staff/payroll-management.php';
+    }
+
+    $notifications[$index] = $notificationRow;
+}
+
 $recentActivityResponse = apiRequest(
     'GET',
     $supabaseUrl

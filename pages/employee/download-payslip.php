@@ -79,6 +79,12 @@ $absolutePath = (string)$resolvedFile['absolute_path'];
 
 $mimeType = (string)(mime_content_type($absolutePath) ?: 'application/pdf');
 $fileName = basename($absolutePath);
+$extension = strtolower((string)pathinfo($fileName, PATHINFO_EXTENSION));
+$safeBaseName = preg_replace('/[^a-zA-Z0-9\-_]+/', '-', (string)($payslipRow['payslip_no'] ?? 'payslip'));
+if (!is_string($safeBaseName) || trim($safeBaseName) === '') {
+    $safeBaseName = 'payslip';
+}
+$downloadName = $safeBaseName . ($extension !== '' ? ('.' . $extension) : '.pdf');
 
 apiRequest(
     'PATCH',
@@ -88,9 +94,10 @@ apiRequest(
 );
 
 header('Content-Type: ' . $mimeType);
-header('Content-Disposition: attachment; filename="' . rawurlencode($fileName) . '"');
+header('Content-Disposition: attachment; filename="' . $downloadName . '"');
 header('Content-Length: ' . filesize($absolutePath));
 header('X-Content-Type-Options: nosniff');
+header('Cache-Control: private, max-age=0, must-revalidate');
 
 readfile($absolutePath);
 exit;

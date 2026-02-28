@@ -54,6 +54,45 @@ if (!function_exists('payrollDateString')) {
     }
 }
 
+if (!function_exists('payrollMaskEmailAddress')) {
+    function payrollMaskEmailAddress(string $email): string
+    {
+        $normalized = strtolower(trim($email));
+        if ($normalized === '' || !str_contains($normalized, '@')) {
+            return '';
+        }
+
+        [$local, $domain] = explode('@', $normalized, 2);
+        $localLength = strlen($local);
+        if ($localLength <= 2) {
+            $maskedLocal = str_repeat('*', max(1, $localLength));
+        } else {
+            $maskedLocal = substr($local, 0, 1)
+                . str_repeat('*', max(1, $localLength - 2))
+                . substr($local, -1);
+        }
+
+        return $maskedLocal . '@' . $domain;
+    }
+}
+
+if (!function_exists('payrollSanitizeEmailError')) {
+    function payrollSanitizeEmailError(string $raw): string
+    {
+        $value = trim(preg_replace('/\s+/', ' ', $raw));
+        if ($value === '') {
+            return 'SMTP send failed';
+        }
+
+        $value = preg_replace('/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i', '[redacted-email]', $value);
+        if (!is_string($value)) {
+            return 'SMTP send failed';
+        }
+
+        return mb_substr($value, 0, 240);
+    }
+}
+
 if (!function_exists('payrollNormalizeCompensationRow')) {
     function payrollNormalizeCompensationRow(array $row): array
     {
@@ -76,7 +115,7 @@ if (!function_exists('payrollNormalizeCompensationRow')) {
 if (!function_exists('payrollFetchCompensations')) {
     function payrollFetchCompensations(string $supabaseUrl, array $headers, string $querySuffix): array
     {
-        $selectWithComponents = 'id,person_id,monthly_rate,pay_frequency,effective_from,effective_to,base_pay,allowance_total,tax_deduction,government_deductions,other_deductions,created_at';
+        $selectWithComponents = 'id,person_id,monthly_rate,daily_rate,hourly_rate,pay_frequency,effective_from,effective_to,base_pay,allowance_total,tax_deduction,government_deductions,other_deductions,created_at';
         $primaryResponse = apiRequest(
             'GET',
             $supabaseUrl . '/rest/v1/employee_compensations?select=' . $selectWithComponents . $querySuffix,
@@ -215,6 +254,18 @@ if (!function_exists('payrollGeneratePayslipDocument')) {
         $grossPay = (float)($payload['gross_pay'] ?? 0);
         $deductionsTotal = (float)($payload['deductions_total'] ?? 0);
         $netPay = (float)($payload['net_pay'] ?? 0);
+        $basicPay = (float)($payload['basic_pay'] ?? 0);
+        $ctoPay = (float)($payload['cto_pay'] ?? 0);
+        $allowancesTotal = (float)($payload['allowances_total'] ?? 0);
+        $statutoryDeductions = (float)($payload['statutory_deductions'] ?? 0);
+        $timekeepingDeductions = (float)($payload['timekeeping_deductions'] ?? 0);
+        $adjustmentDeductions = (float)($payload['adjustment_deductions'] ?? 0);
+        $adjustmentEarnings = (float)($payload['adjustment_earnings'] ?? 0);
+        $earningsLines = is_array($payload['earnings_lines'] ?? null) ? (array)$payload['earnings_lines'] : [];
+        $deductionLines = is_array($payload['deduction_lines'] ?? null) ? (array)$payload['deduction_lines'] : [];
+        $lateMinutes = (int)($payload['late_minutes'] ?? 0);
+        $undertimeHours = (float)($payload['undertime_hours'] ?? 0);
+        $absentDays = (int)($payload['absent_days'] ?? 0);
         $generatedAt = gmdate('Y-m-d H:i:s') . ' UTC';
 
         $exportsDir = $projectRoot . '/storage/payslips';
@@ -225,15 +276,56 @@ if (!function_exists('payrollGeneratePayslipDocument')) {
             $baseFileName = 'payslip-' . gmdate('Ymd-His') . '-' . substr(bin2hex(random_bytes(6)), 0, 12);
         }
 
+        if (empty($earningsLines)) {
+            $earningsLines = [
+                ['label' => 'Basic Pay', 'amount' => $basicPay],
+                ['label' => 'CTO Pay', 'amount' => $ctoPay],
+                ['label' => 'Allowances', 'amount' => $allowancesTotal],
+            ];
+        }
+
+        if (empty($deductionLines)) {
+            $deductionLines = [
+                ['label' => 'Withholding Tax', 'amount' => $statutoryDeductions],
+                ['label' => 'Government Contributions (SSS/Pag-IBIG/PhilHealth)', 'amount' => 0],
+                ['label' => 'Timekeeping Deductions', 'amount' => $timekeepingDeductions],
+                ['label' => 'Adjustment Deductions', 'amount' => $adjustmentDeductions],
+            ];
+        }
+
+        $renderRows = static function (array $rows): string {
+            $htmlRows = '';
+            foreach ($rows as $rowRaw) {
+                $row = (array)$rowRaw;
+                $label = trim((string)($row['label'] ?? $row['description'] ?? 'Entry'));
+                if ($label === '') {
+                    $label = 'Entry';
+                }
+                $amount = (float)($row['amount'] ?? 0);
+                $htmlRows .= '<tr><th style="text-align:left; background:#f8fafc;">' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</th><td>PHP ' . number_format($amount, 2) . '</td></tr>';
+            }
+            return $htmlRows;
+        };
+
         $html = '<h2 style="font-family: Arial, sans-serif; margin-bottom: 8px;">Employee Payslip</h2>'
             . '<p style="font-family: Arial, sans-serif; font-size: 12px; margin: 4px 0;"><strong>Payslip No:</strong> ' . htmlspecialchars($payslipNo, ENT_QUOTES, 'UTF-8') . '</p>'
             . '<p style="font-family: Arial, sans-serif; font-size: 12px; margin: 4px 0;"><strong>Employee:</strong> ' . htmlspecialchars($employeeName, ENT_QUOTES, 'UTF-8') . '</p>'
             . '<p style="font-family: Arial, sans-serif; font-size: 12px; margin: 4px 0;"><strong>Period:</strong> ' . htmlspecialchars($periodLabel, ENT_QUOTES, 'UTF-8') . '</p>'
+            . '<h3 style="font-family: Arial, sans-serif; margin: 14px 0 8px 0;">Earnings Breakdown</h3>'
+            . '<table width="100%" cellspacing="0" cellpadding="8" border="1" style="border-collapse: collapse; margin-top: 8px; font-family: Arial, sans-serif; font-size: 12px;">'
+            . $renderRows($earningsLines)
+            . '<tr><th style="text-align:left; background:#f8fafc;">Gross Pay</th><td><strong>PHP ' . number_format($grossPay, 2) . '</strong></td></tr>'
+            . '</table>'
+            . '<h3 style="font-family: Arial, sans-serif; margin: 14px 0 8px 0;">Deduction Breakdown</h3>'
             . '<table width="100%" cellspacing="0" cellpadding="8" border="1" style="border-collapse: collapse; margin-top: 12px; font-family: Arial, sans-serif; font-size: 12px;">'
-            . '<tr><th style="text-align:left; background:#f8fafc;">Gross Pay</th><td>PHP ' . number_format($grossPay, 2) . '</td></tr>'
-            . '<tr><th style="text-align:left; background:#f8fafc;">Deductions</th><td>PHP ' . number_format($deductionsTotal, 2) . '</td></tr>'
+            . $renderRows($deductionLines)
+            . '<tr><th style="text-align:left; background:#f8fafc;">Adjustment Earnings</th><td>PHP ' . number_format($adjustmentEarnings, 2) . '</td></tr>'
+            . '<tr><th style="text-align:left; background:#f8fafc;">Total Deductions</th><td><strong>PHP ' . number_format($deductionsTotal, 2) . '</strong></td></tr>'
             . '<tr><th style="text-align:left; background:#f8fafc;">Net Pay</th><td><strong>PHP ' . number_format($netPay, 2) . '</strong></td></tr>'
             . '</table>'
+            . '<p style="font-family: Arial, sans-serif; font-size: 11px; color: #334155; margin-top: 8px;">'
+            . 'Attendance source: ' . (string)$absentDays . ' absent day(s), ' . (string)$lateMinutes . ' late minute(s), '
+            . number_format($undertimeHours, 2) . ' undertime hour(s).</p>'
             . '<p style="font-family: Arial, sans-serif; font-size: 11px; color: #64748b; margin-top: 12px;">System generated on ' . htmlspecialchars($generatedAt, ENT_QUOTES, 'UTF-8') . '.</p>';
 
         $autoloadPath = $projectRoot . '/vendor/autoload.php';
@@ -459,7 +551,67 @@ if ($action === 'generate_payroll_batch') {
     }
 
     $itemPayload = [];
+    $itemPayloadByPersonId = [];
     $skippedEmployees = 0;
+    $attendanceStatsByPersonId = [];
+    $attendanceLogCount = 0;
+
+    $attendancePersonIds = [];
+    foreach ($employmentRows as $employmentRow) {
+        $personId = strtolower(trim((string)($employmentRow['person_id'] ?? '')));
+        if (!isValidUuid($personId)) {
+            continue;
+        }
+        if (!isset($latestCompensationByPerson[$personId])) {
+            continue;
+        }
+        $attendancePersonIds[$personId] = true;
+    }
+
+    $attendancePersonFilter = formatInFilterList(array_keys($attendancePersonIds));
+    if ($attendancePersonFilter !== '') {
+        $attendanceResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/attendance_logs?select=person_id,attendance_date,late_minutes,undertime_hours,attendance_status'
+            . '&person_id=in.(' . $attendancePersonFilter . ')'
+            . '&attendance_date=gte.' . $periodStart
+            . '&attendance_date=lte.' . $periodEnd
+            . '&limit=50000',
+            $headers
+        );
+
+        if (!isSuccessful($attendanceResponse)) {
+            redirectWithState('error', 'Failed to load attendance logs for payroll deduction computation.');
+        }
+
+        foreach ((array)($attendanceResponse['data'] ?? []) as $attendanceRow) {
+            $personId = strtolower(trim((string)($attendanceRow['person_id'] ?? '')));
+            if (!isValidUuid($personId)) {
+                continue;
+            }
+
+            if (!isset($attendanceStatsByPersonId[$personId])) {
+                $attendanceStatsByPersonId[$personId] = [
+                    'absent_days' => 0,
+                    'late_minutes' => 0,
+                    'undertime_hours' => 0.0,
+                ];
+            }
+
+            $attendanceLogCount++;
+            $status = strtolower(trim((string)($attendanceRow['attendance_status'] ?? '')));
+            if ($status === 'absent') {
+                $attendanceStatsByPersonId[$personId]['absent_days']++;
+            }
+
+            $attendanceStatsByPersonId[$personId]['late_minutes'] += max(0, (int)($attendanceRow['late_minutes'] ?? 0));
+            $attendanceStatsByPersonId[$personId]['undertime_hours'] += max(0.0, (float)($attendanceRow['undertime_hours'] ?? 0));
+        }
+    }
+
+    $totalTimekeepingDeductions = 0.0;
+    $totalStatutoryDeductions = 0.0;
     foreach ($employmentRows as $employmentRow) {
         $personId = strtolower(trim((string)($employmentRow['person_id'] ?? '')));
         if (!isValidUuid($personId)) {
@@ -480,10 +632,19 @@ if ($action === 'generate_payroll_batch') {
         $taxMonthly = max(0.0, (float)($compensationRow['tax_deduction'] ?? 0));
         $governmentMonthly = max(0.0, (float)($compensationRow['government_deductions'] ?? 0));
         $otherMonthly = max(0.0, (float)($compensationRow['other_deductions'] ?? 0));
+        $dailyRate = max(0.0, (float)($compensationRow['daily_rate'] ?? 0));
+        $hourlyRate = max(0.0, (float)($compensationRow['hourly_rate'] ?? 0));
         $payFrequency = strtolower((string)($compensationRow['pay_frequency'] ?? 'semi_monthly'));
         if ($monthlyRate <= 0) {
             $skippedEmployees++;
             continue;
+        }
+
+        if ($dailyRate <= 0) {
+            $dailyRate = round($monthlyRate / 22, 2);
+        }
+        if ($hourlyRate <= 0) {
+            $hourlyRate = round($dailyRate / 8, 2);
         }
 
         $divisor = 1;
@@ -495,23 +656,51 @@ if ($action === 'generate_payroll_batch') {
 
         $basicPay = $basePayMonthly / $divisor;
         $allowancesTotal = $allowanceMonthly / $divisor;
-        $deductionsTotal = ($taxMonthly + $governmentMonthly + $otherMonthly) / $divisor;
+        $statutoryDeductions = ($taxMonthly + $governmentMonthly + $otherMonthly) / $divisor;
         $basicPay = round($basicPay, 2);
         $allowancesTotal = round($allowancesTotal, 2);
-        $overtimePay = 0.0;
-        $deductionsTotal = round($deductionsTotal, 2);
-        $grossPay = round($basicPay + $allowancesTotal + $overtimePay, 2);
+        $ctoPay = 0.0;
+        $statutoryDeductions = round($statutoryDeductions, 2);
+
+        $attendanceStats = $attendanceStatsByPersonId[$personId] ?? [
+            'absent_days' => 0,
+            'late_minutes' => 0,
+            'undertime_hours' => 0.0,
+        ];
+        $lateHours = ((float)($attendanceStats['late_minutes'] ?? 0)) / 60;
+        $undertimeHours = max(0.0, (float)($attendanceStats['undertime_hours'] ?? 0));
+        $absentDays = max(0, (int)($attendanceStats['absent_days'] ?? 0));
+        $timekeepingDeductions = round(max(0.0, ($absentDays * $dailyRate) + (($lateHours + $undertimeHours) * $hourlyRate)), 2);
+
+        $deductionsTotal = round($statutoryDeductions + $timekeepingDeductions, 2);
+        $grossPay = round($basicPay + $allowancesTotal + $ctoPay, 2);
         $netPay = round($grossPay - $deductionsTotal, 2);
 
-        $itemPayload[] = [
+        $totalStatutoryDeductions += $statutoryDeductions;
+        $totalTimekeepingDeductions += $timekeepingDeductions;
+
+        $itemPayloadRow = [
             'person_id' => $personId,
+            'compensation_id' => (string)($compensationRow['id'] ?? ''),
             'basic_pay' => $basicPay,
-            'overtime_pay' => $overtimePay,
+            'overtime_pay' => $ctoPay,
             'allowances_total' => $allowancesTotal,
+            'statutory_deductions' => $statutoryDeductions,
+            'timekeeping_deduction' => $timekeepingDeductions,
             'deductions_total' => $deductionsTotal,
             'gross_pay' => $grossPay,
             'net_pay' => $netPay,
+            'daily_rate' => $dailyRate,
+            'hourly_rate' => $hourlyRate,
+            'attendance_metrics' => [
+                'absent_days' => $absentDays,
+                'late_minutes' => (int)($attendanceStats['late_minutes'] ?? 0),
+                'undertime_hours' => $undertimeHours,
+            ],
         ];
+
+        $itemPayload[] = $itemPayloadRow;
+        $itemPayloadByPersonId[$personId] = $itemPayloadRow;
     }
 
     if (empty($itemPayload)) {
@@ -542,6 +731,7 @@ if ($action === 'generate_payroll_batch') {
 
     $payloadChunks = array_chunk($itemPayload, 200);
     $generatedCount = 0;
+    $itemBreakdownLogPayload = [];
     foreach ($payloadChunks as $chunk) {
         $rows = [];
         foreach ($chunk as $entry) {
@@ -568,7 +758,78 @@ if ($action === 'generate_payroll_batch') {
             redirectWithState('error', 'Payroll batch created, but failed to insert payroll items. Please cancel batch ' . $runId . ' and retry.');
         }
 
+        foreach ((array)($insertItemsResponse['data'] ?? []) as $insertedRow) {
+            $itemId = strtolower(trim((string)($insertedRow['id'] ?? '')));
+            $personId = strtolower(trim((string)($insertedRow['person_id'] ?? '')));
+            if (!isValidUuid($itemId) || !isValidUuid($personId)) {
+                continue;
+            }
+
+            $source = (array)($itemPayloadByPersonId[$personId] ?? []);
+            if (empty($source)) {
+                continue;
+            }
+
+            $attendanceMetrics = (array)($source['attendance_metrics'] ?? []);
+            $itemBreakdownLogPayload[] = [
+                'actor_user_id' => $adminUserId !== '' ? $adminUserId : null,
+                'module_name' => 'payroll_management',
+                'entity_name' => 'payroll_items',
+                'entity_id' => $itemId,
+                'action_name' => 'compute_item_breakdown',
+                'old_data' => null,
+                'new_data' => [
+                    'payroll_run_id' => $runId,
+                    'person_id' => $personId,
+                    'period_start' => $periodStart,
+                    'period_end' => $periodEnd,
+                    'compensation_id' => (string)($source['compensation_id'] ?? ''),
+                    'daily_rate' => (float)($source['daily_rate'] ?? 0),
+                    'hourly_rate' => (float)($source['hourly_rate'] ?? 0),
+                    'earnings' => [
+                        'basic_pay' => (float)($source['basic_pay'] ?? 0),
+                        'cto_pay' => (float)($source['overtime_pay'] ?? 0),
+                        'allowances_total' => (float)($source['allowances_total'] ?? 0),
+                        'gross_pay' => (float)($source['gross_pay'] ?? 0),
+                    ],
+                    'deductions' => [
+                        'statutory_deductions' => (float)($source['statutory_deductions'] ?? 0),
+                        'timekeeping_deductions' => (float)($source['timekeeping_deduction'] ?? 0),
+                        'adjustment_deductions' => 0.0,
+                        'adjustment_earnings' => 0.0,
+                        'total_deductions' => (float)($source['deductions_total'] ?? 0),
+                    ],
+                    'attendance_source' => [
+                        'absent_days' => (int)($attendanceMetrics['absent_days'] ?? 0),
+                        'late_minutes' => (int)($attendanceMetrics['late_minutes'] ?? 0),
+                        'undertime_hours' => (float)($attendanceMetrics['undertime_hours'] ?? 0),
+                    ],
+                    'net_pay' => (float)($source['net_pay'] ?? 0),
+                ],
+                'ip_address' => clientIp(),
+            ];
+        }
+
+        if (count($itemBreakdownLogPayload) >= 200) {
+            apiRequest(
+                'POST',
+                $supabaseUrl . '/rest/v1/activity_logs',
+                array_merge($headers, ['Prefer: return=minimal']),
+                $itemBreakdownLogPayload
+            );
+            $itemBreakdownLogPayload = [];
+        }
+
         $generatedCount += count((array)($insertItemsResponse['data'] ?? []));
+    }
+
+    if (!empty($itemBreakdownLogPayload)) {
+        apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/activity_logs',
+            array_merge($headers, ['Prefer: return=minimal']),
+            $itemBreakdownLogPayload
+        );
     }
 
     apiRequest(
@@ -586,6 +847,15 @@ if ($action === 'generate_payroll_batch') {
                 'payroll_period_id' => $periodId,
                 'generated_items' => $generatedCount,
                 'skipped_employees' => $skippedEmployees,
+                'source_inputs' => [
+                    'attendance_log_count' => $attendanceLogCount,
+                    'compensation_rows_count' => count($latestCompensationByPerson),
+                    'employment_rows_count' => count($employmentRows),
+                ],
+                'computation_breakdown_totals' => [
+                    'timekeeping_deductions' => round($totalTimekeepingDeductions, 2),
+                    'statutory_deductions' => round($totalStatutoryDeductions, 2),
+                ],
             ],
             'ip_address' => clientIp(),
         ]]
@@ -964,11 +1234,6 @@ if ($action === 'delete_payroll_batch') {
         redirectWithState('error', 'Payroll batch was not found.');
     }
 
-    $runStatus = strtolower(trim((string)($runRow['run_status'] ?? 'draft')));
-    if ($runStatus === 'released') {
-        redirectWithState('error', 'Released payroll batches cannot be deleted.');
-    }
-
     $deleteResponse = apiRequest(
         'DELETE',
         $supabaseUrl . '/rest/v1/payroll_runs?id=eq.' . $runId,
@@ -997,6 +1262,96 @@ if ($action === 'delete_payroll_batch') {
 
     $periodCode = (string)($runRow['payroll_period']['period_code'] ?? 'selected period');
     redirectWithState('success', 'Payroll batch for ' . $periodCode . ' was deleted successfully.');
+}
+
+if ($action === 'delete_payroll_batch_bulk') {
+    $submittedIds = $_POST['run_ids'] ?? [];
+    if (!is_array($submittedIds) || empty($submittedIds)) {
+        redirectWithState('error', 'Select at least one payroll batch to delete.');
+    }
+
+    $runIds = [];
+    foreach ($submittedIds as $submittedId) {
+        $candidate = strtolower(trim((string)$submittedId));
+        if (!isValidUuid($candidate)) {
+            continue;
+        }
+        $runIds[] = $candidate;
+    }
+    $runIds = array_values(array_unique($runIds));
+
+    if (empty($runIds)) {
+        redirectWithState('error', 'No valid payroll batch IDs were provided for deletion.');
+    }
+
+    $runFilter = formatInFilterList($runIds);
+    if ($runFilter === '') {
+        redirectWithState('error', 'Unable to prepare selected payroll batches for deletion.');
+    }
+
+    $runResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/payroll_runs?select=id,run_status,payroll_period_id,payroll_period:payroll_periods(period_code)&id=in.(' . $runFilter . ')&limit=5000',
+        $headers
+    );
+
+    if (!isSuccessful($runResponse)) {
+        redirectWithState('error', 'Failed to load selected payroll batches.');
+    }
+
+    $runRows = array_values(array_filter((array)($runResponse['data'] ?? []), static function (array $row): bool {
+        return isValidUuid((string)($row['id'] ?? ''));
+    }));
+
+    if (empty($runRows)) {
+        redirectWithState('error', 'Selected payroll batches were not found.');
+    }
+
+    $targetIds = array_values(array_unique(array_map(static function (array $row): string {
+        return strtolower((string)($row['id'] ?? ''));
+    }, $runRows)));
+
+    $deleteFilter = formatInFilterList($targetIds);
+    if ($deleteFilter === '') {
+        redirectWithState('error', 'Unable to prepare selected payroll batch IDs for deletion.');
+    }
+
+    $deleteResponse = apiRequest(
+        'DELETE',
+        $supabaseUrl . '/rest/v1/payroll_runs?id=in.(' . $deleteFilter . ')',
+        array_merge($headers, ['Prefer: return=minimal'])
+    );
+
+    if (!isSuccessful($deleteResponse)) {
+        redirectWithState('error', 'Failed to delete selected payroll batches.');
+    }
+
+    $activityRows = [];
+    foreach ($runRows as $runRow) {
+        $runId = strtolower((string)($runRow['id'] ?? ''));
+        $activityRows[] = [
+            'actor_user_id' => $adminUserId !== '' ? $adminUserId : null,
+            'module_name' => 'payroll_management',
+            'entity_name' => 'payroll_runs',
+            'entity_id' => $runId !== '' ? $runId : null,
+            'action_name' => 'delete_batch_bulk',
+            'old_data' => $runRow,
+            'new_data' => null,
+            'ip_address' => clientIp(),
+        ];
+    }
+
+    if (!empty($activityRows)) {
+        apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/activity_logs',
+            array_merge($headers, ['Prefer: return=minimal']),
+            $activityRows
+        );
+    }
+
+    $deletedCount = count($targetIds);
+    redirectWithState('success', 'Deleted ' . $deletedCount . ' payroll ' . ($deletedCount === 1 ? 'batch' : 'batches') . ' successfully.');
 }
 
 if ($action === 'delete_payroll_period') {
@@ -1075,6 +1430,126 @@ if ($action === 'delete_payroll_period') {
     redirectWithState('success', 'Payroll period ' . $periodCode . ' was deleted successfully.');
 }
 
+if ($action === 'delete_payroll_period_bulk') {
+    $submittedIds = $_POST['period_ids'] ?? [];
+    if (!is_array($submittedIds) || empty($submittedIds)) {
+        redirectWithState('error', 'Select at least one payroll period to delete.');
+    }
+
+    $periodIds = [];
+    foreach ($submittedIds as $submittedId) {
+        $candidate = strtolower(trim((string)$submittedId));
+        if (!isValidUuid($candidate)) {
+            continue;
+        }
+        $periodIds[] = $candidate;
+    }
+    $periodIds = array_values(array_unique($periodIds));
+
+    if (empty($periodIds)) {
+        redirectWithState('error', 'No valid payroll period IDs were provided for deletion.');
+    }
+
+    $periodFilter = formatInFilterList($periodIds);
+    if ($periodFilter === '') {
+        redirectWithState('error', 'Unable to prepare selected payroll periods for deletion.');
+    }
+
+    $periodCountResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/payroll_periods?select=id&limit=5000',
+        $headers
+    );
+
+    if (isSuccessful($periodCountResponse)) {
+        $periodCount = count((array)($periodCountResponse['data'] ?? []));
+        if ($periodCount <= count($periodIds)) {
+            redirectWithState('error', 'Cannot delete all payroll periods. Keep at least one payroll period in the system.');
+        }
+    }
+
+    $periodResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/payroll_periods?select=id,period_code,period_start,period_end,status&id=in.(' . $periodFilter . ')&limit=5000',
+        $headers
+    );
+
+    if (!isSuccessful($periodResponse)) {
+        redirectWithState('error', 'Failed to load selected payroll periods.');
+    }
+
+    $periodRows = array_values(array_filter((array)($periodResponse['data'] ?? []), static function (array $row): bool {
+        return isValidUuid((string)($row['id'] ?? ''));
+    }));
+
+    if (empty($periodRows)) {
+        redirectWithState('error', 'Selected payroll periods were not found.');
+    }
+
+    $targetIds = array_values(array_unique(array_map(static function (array $row): string {
+        return strtolower((string)($row['id'] ?? ''));
+    }, $periodRows)));
+
+    if (!empty($targetIds) && count($targetIds) >= 1) {
+        $runsResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/payroll_runs?select=id,run_status,payroll_period_id&payroll_period_id=in.(' . formatInFilterList($targetIds) . ')&limit=5000',
+            $headers
+        );
+
+        if (!isSuccessful($runsResponse)) {
+            redirectWithState('error', 'Failed to validate selected payroll period dependencies.');
+        }
+
+        $existingRuns = (array)($runsResponse['data'] ?? []);
+        if (!empty($existingRuns)) {
+            redirectWithState('error', 'Cannot delete selected payroll periods because one or more already have payroll batches. Delete related batches first.');
+        }
+    }
+
+    $deleteFilter = formatInFilterList($targetIds);
+    if ($deleteFilter === '') {
+        redirectWithState('error', 'Unable to prepare selected payroll period IDs for deletion.');
+    }
+
+    $deleteResponse = apiRequest(
+        'DELETE',
+        $supabaseUrl . '/rest/v1/payroll_periods?id=in.(' . $deleteFilter . ')',
+        array_merge($headers, ['Prefer: return=minimal'])
+    );
+
+    if (!isSuccessful($deleteResponse)) {
+        redirectWithState('error', 'Failed to delete selected payroll periods.');
+    }
+
+    $activityRows = [];
+    foreach ($periodRows as $periodRow) {
+        $periodId = strtolower((string)($periodRow['id'] ?? ''));
+        $activityRows[] = [
+            'actor_user_id' => $adminUserId !== '' ? $adminUserId : null,
+            'module_name' => 'payroll_management',
+            'entity_name' => 'payroll_periods',
+            'entity_id' => $periodId !== '' ? $periodId : null,
+            'action_name' => 'delete_period_bulk',
+            'old_data' => $periodRow,
+            'new_data' => null,
+            'ip_address' => clientIp(),
+        ];
+    }
+
+    if (!empty($activityRows)) {
+        apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/activity_logs',
+            array_merge($headers, ['Prefer: return=minimal']),
+            $activityRows
+        );
+    }
+
+    $deletedCount = count($targetIds);
+    redirectWithState('success', 'Deleted ' . $deletedCount . ' payroll ' . ($deletedCount === 1 ? 'period' : 'periods') . ' successfully.');
+}
+
 if ($action === 'review_payroll_batch') {
     $runId = cleanText($_POST['run_id'] ?? null) ?? '';
     $decision = strtolower((string)(cleanText($_POST['decision'] ?? null) ?? 'approved'));
@@ -1134,6 +1609,37 @@ if ($action === 'review_payroll_batch') {
         $decision,
         $notes
     );
+
+    $handoffLogResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/activity_logs?select=actor_user_id,created_at'
+        . '&entity_name=eq.payroll_runs'
+        . '&entity_id=eq.' . $runId
+        . '&action_name=eq.submit_batch_for_admin_approval'
+        . '&order=created_at.desc&limit=1',
+        $headers
+    );
+
+    if (isSuccessful($handoffLogResponse)) {
+        $handoffLog = (array)(($handoffLogResponse['data'] ?? [])[0] ?? []);
+        $staffRecipientId = cleanText($handoffLog['actor_user_id'] ?? null) ?? '';
+        if (isValidUuid($staffRecipientId)) {
+            $decisionLabel = $decision === 'approved' ? 'approved' : 'returned/cancelled';
+            apiRequest(
+                'POST',
+                $supabaseUrl . '/rest/v1/notifications',
+                array_merge($headers, ['Prefer: return=minimal']),
+                [[
+                    'recipient_user_id' => $staffRecipientId,
+                    'category' => 'payroll',
+                    'title' => 'Payroll Batch Reviewed by Admin',
+                    'body' => 'Payroll batch ' . $runId . ' has been ' . $decisionLabel . ' by Admin.',
+                    'link_url' => '/hris-system/pages/staff/payroll-management.php',
+                ]]
+            );
+        }
+    }
 
     redirectWithState('success', 'Payroll batch updated successfully.');
 }
@@ -1257,13 +1763,13 @@ if ($action === 'release_payslips') {
         redirectWithState('success', 'Selected payroll batch is already released.');
     }
 
-    if (!in_array($runStatus, ['approved', 'computed'], true)) {
-        redirectWithState('error', 'Only approved or computed payroll batches can be released.');
+    if ($runStatus !== 'approved') {
+        redirectWithState('error', 'Only approved payroll batches can be released.');
     }
 
     $itemResponse = apiRequest(
         'GET',
-        $supabaseUrl . '/rest/v1/payroll_items?select=id,person_id,gross_pay,deductions_total,net_pay,person:people(first_name,surname,user_id)&payroll_run_id=eq.' . $runId . '&limit=5000',
+        $supabaseUrl . '/rest/v1/payroll_items?select=id,person_id,basic_pay,overtime_pay,allowances_total,gross_pay,deductions_total,net_pay,person:people(first_name,surname,user_id)&payroll_run_id=eq.' . $runId . '&limit=5000',
         $headers
     );
 
@@ -1279,6 +1785,16 @@ if ($action === 'release_payslips') {
     $shouldSendEmails = strtolower($deliveryMode) === 'immediate';
     if ($shouldSendEmails && !smtpConfigIsReady($smtpConfig, $mailFrom)) {
         redirectWithState('error', 'SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, and MAIL_FROM are required for SMTP email sending.');
+    }
+
+    $smtpEncryption = strtolower(trim((string)($smtpConfig['encryption'] ?? 'tls')));
+    $smtpAuthEnabled = ((string)($smtpConfig['auth'] ?? '1')) !== '0';
+    if ($shouldSendEmails && !in_array($smtpEncryption, ['tls', 'starttls', 'ssl'], true)) {
+        redirectWithState('error', 'Secure SMTP encryption must be TLS/STARTTLS or SSL before sending payslips.');
+    }
+
+    if ($shouldSendEmails && !$smtpAuthEnabled) {
+        redirectWithState('error', 'SMTP authentication must be enabled before sending payslips.');
     }
 
     $emailAddressByUserId = [];
@@ -1315,6 +1831,45 @@ if ($action === 'release_payslips') {
     $inFilter = formatInFilterList($itemIds);
     if ($inFilter === '') {
         redirectWithState('error', 'Invalid payroll item identifiers.');
+    }
+
+    $itemBreakdownByItemId = [];
+    $itemBreakdownLogResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/activity_logs?select=entity_id,new_data,created_at'
+        . '&entity_name=eq.payroll_items'
+        . '&action_name=eq.compute_item_breakdown'
+        . '&entity_id=in.(' . $inFilter . ')'
+        . '&order=created_at.desc&limit=10000',
+        $headers
+    );
+
+    if (isSuccessful($itemBreakdownLogResponse)) {
+        foreach ((array)($itemBreakdownLogResponse['data'] ?? []) as $logRow) {
+            $itemId = strtolower(trim((string)($logRow['entity_id'] ?? '')));
+            if (!isValidUuid($itemId) || isset($itemBreakdownByItemId[$itemId])) {
+                continue;
+            }
+
+            $newData = is_array($logRow['new_data'] ?? null) ? (array)$logRow['new_data'] : [];
+            $earnings = is_array($newData['earnings'] ?? null) ? (array)$newData['earnings'] : [];
+            $deductions = is_array($newData['deductions'] ?? null) ? (array)$newData['deductions'] : [];
+            $attendanceSource = is_array($newData['attendance_source'] ?? null) ? (array)$newData['attendance_source'] : [];
+
+            $itemBreakdownByItemId[$itemId] = [
+                'basic_pay' => (float)($earnings['basic_pay'] ?? 0),
+                'cto_pay' => (float)($earnings['cto_pay'] ?? 0),
+                'allowances_total' => (float)($earnings['allowances_total'] ?? 0),
+                'statutory_deductions' => (float)($deductions['statutory_deductions'] ?? 0),
+                'timekeeping_deductions' => (float)($deductions['timekeeping_deductions'] ?? 0),
+                'adjustment_deductions' => (float)($deductions['adjustment_deductions'] ?? 0),
+                'adjustment_earnings' => (float)($deductions['adjustment_earnings'] ?? 0),
+                'absent_days' => (int)($attendanceSource['absent_days'] ?? 0),
+                'late_minutes' => (int)($attendanceSource['late_minutes'] ?? 0),
+                'undertime_hours' => (float)($attendanceSource['undertime_hours'] ?? 0),
+            ];
+        }
     }
 
     $existingPayslipsResponse = apiRequest(
@@ -1381,6 +1936,7 @@ if ($action === 'release_payslips') {
         ? (date('M d, Y', strtotime($periodStartRaw)) . ' - ' . date('M d, Y', strtotime($periodEndRaw)))
         : strtoupper($periodCode);
 
+    $documentGenerationFailed = 0;
     foreach ($items as $item) {
         $payrollItemId = strtolower(trim((string)($item['id'] ?? '')));
         if ($payrollItemId === '' || !isset($existingPayslips[$payrollItemId])) {
@@ -1401,15 +1957,56 @@ if ($action === 'release_payslips') {
             $employeeName = 'Employee';
         }
 
+        $breakdown = (array)($itemBreakdownByItemId[$payrollItemId] ?? []);
+        $statutoryDeductions = (float)($breakdown['statutory_deductions'] ?? 0);
+        $timekeepingDeductions = (float)($breakdown['timekeeping_deductions'] ?? 0);
+        $adjustmentDeductions = (float)($breakdown['adjustment_deductions'] ?? 0);
+        $adjustmentEarnings = (float)($breakdown['adjustment_earnings'] ?? 0);
+        if (!isset($itemBreakdownByItemId[$payrollItemId])) {
+            $statutoryDeductions = max(0.0, (float)($item['deductions_total'] ?? 0));
+            $timekeepingDeductions = 0.0;
+            $adjustmentDeductions = 0.0;
+            $adjustmentEarnings = 0.0;
+        }
+
         try {
             $document = payrollGeneratePayslipDocument([
                 'project_root' => dirname(__DIR__, 4),
                 'payslip_no' => $payslipNo,
                 'employee_name' => $employeeName,
                 'period_label' => $periodLabel,
+                'basic_pay' => (float)($item['basic_pay'] ?? 0),
+                'cto_pay' => (float)($item['overtime_pay'] ?? 0),
+                'allowances_total' => (float)($item['allowances_total'] ?? 0),
+                'statutory_deductions' => $statutoryDeductions,
+                'timekeeping_deductions' => $timekeepingDeductions,
+                'adjustment_deductions' => $adjustmentDeductions,
+                'adjustment_earnings' => $adjustmentEarnings,
+                'absent_days' => (int)($breakdown['absent_days'] ?? 0),
+                'late_minutes' => (int)($breakdown['late_minutes'] ?? 0),
+                'undertime_hours' => (float)($breakdown['undertime_hours'] ?? 0),
                 'gross_pay' => (float)($item['gross_pay'] ?? 0),
                 'deductions_total' => (float)($item['deductions_total'] ?? 0),
                 'net_pay' => (float)($item['net_pay'] ?? 0),
+                'earnings_lines' => [
+                    ['label' => 'Basic Pay', 'amount' => (float)($item['basic_pay'] ?? 0)],
+                    ['label' => 'CTO Pay', 'amount' => (float)($item['overtime_pay'] ?? 0)],
+                    ['label' => 'Allowances', 'amount' => (float)($item['allowances_total'] ?? 0)],
+                ],
+                'deduction_lines' => [
+                    [
+                        'label' => 'Statutory / Government Contributions (SSS/Pag-IBIG/PhilHealth)',
+                        'amount' => $statutoryDeductions,
+                    ],
+                    [
+                        'label' => 'Timekeeping Deductions',
+                        'amount' => $timekeepingDeductions,
+                    ],
+                    [
+                        'label' => 'Adjustment Deductions',
+                        'amount' => $adjustmentDeductions,
+                    ],
+                ],
             ]);
 
             $storagePath = cleanText($document['storage_path'] ?? null);
@@ -1421,9 +2018,16 @@ if ($action === 'release_payslips') {
                     ['pdf_storage_path' => $storagePath]
                 );
                 $existingPayslips[$payrollItemId]['pdf_storage_path'] = $storagePath;
+            } else {
+                $documentGenerationFailed++;
             }
         } catch (Throwable $throwable) {
+            $documentGenerationFailed++;
         }
+    }
+
+    if ($documentGenerationFailed > 0) {
+        redirectWithState('error', 'Failed to generate ' . $documentGenerationFailed . ' payslip document(s). Release aborted to keep payslip view and generated files consistent.');
     }
 
     $allPayslipIds = formatInFilterList(array_values(array_map(static fn(array $row): string => (string)($row['id'] ?? ''), array_values($existingPayslips))));
@@ -1516,6 +2120,7 @@ if ($action === 'release_payslips') {
     $emailsSent = 0;
     $emailsFailed = 0;
     $emailErrorSamples = [];
+    $emailAttemptLogs = [];
 
     if ($shouldSendEmails) {
         foreach ($items as $item) {
@@ -1532,6 +2137,10 @@ if ($action === 'release_payslips') {
             $payrollItemId = strtolower(trim((string)($item['id'] ?? '')));
             $payslipRow = $existingPayslips[$payrollItemId] ?? null;
             $payslipNo = cleanText($payslipRow['payslip_no'] ?? null) ?? strtoupper($periodCode);
+            $payslipId = strtolower(trim((string)($payslipRow['id'] ?? '')));
+            if (!isValidUuid($payslipId)) {
+                continue;
+            }
 
             $firstName = cleanText($item['person']['first_name'] ?? null) ?? '';
             $surname = cleanText($item['person']['surname'] ?? null) ?? '';
@@ -1539,6 +2148,8 @@ if ($action === 'release_payslips') {
             if ($employeeName === '') {
                 $employeeName = 'Employee';
             }
+
+            $maskedRecipient = payrollMaskEmailAddress($recipientEmail);
 
             $emailsAttempted++;
 
@@ -1561,12 +2172,72 @@ if ($action === 'release_payslips') {
 
             if (isSuccessful($emailResponse)) {
                 $emailsSent++;
+                $emailAttemptLogs[] = [
+                    'actor_user_id' => $adminUserId !== '' ? $adminUserId : null,
+                    'module_name' => 'payroll_management',
+                    'entity_name' => 'payslips',
+                    'entity_id' => $payslipId,
+                    'action_name' => 'send_payslip_email_attempt',
+                    'old_data' => null,
+                    'new_data' => [
+                        'payroll_run_id' => $runId,
+                        'payroll_item_id' => $payrollItemId,
+                        'payslip_no' => $payslipNo,
+                        'delivery_mode' => $deliveryMode,
+                        'recipient_masked' => $maskedRecipient,
+                        'status' => 'sent',
+                        'smtp_encryption' => $smtpEncryption,
+                        'smtp_auth' => $smtpAuthEnabled,
+                    ],
+                    'ip_address' => clientIp(),
+                ];
             } else {
                 $emailsFailed++;
+                $sanitizedError = payrollSanitizeEmailError((string)($emailResponse['raw'] ?? 'SMTP send failed'));
                 if (count($emailErrorSamples) < 3) {
-                    $emailErrorSamples[] = trim((string)($emailResponse['raw'] ?? 'SMTP send failed'));
+                    $emailErrorSamples[] = $sanitizedError;
                 }
+
+                $emailAttemptLogs[] = [
+                    'actor_user_id' => $adminUserId !== '' ? $adminUserId : null,
+                    'module_name' => 'payroll_management',
+                    'entity_name' => 'payslips',
+                    'entity_id' => $payslipId,
+                    'action_name' => 'send_payslip_email_attempt',
+                    'old_data' => null,
+                    'new_data' => [
+                        'payroll_run_id' => $runId,
+                        'payroll_item_id' => $payrollItemId,
+                        'payslip_no' => $payslipNo,
+                        'delivery_mode' => $deliveryMode,
+                        'recipient_masked' => $maskedRecipient,
+                        'status' => 'failed',
+                        'smtp_encryption' => $smtpEncryption,
+                        'smtp_auth' => $smtpAuthEnabled,
+                        'error' => $sanitizedError,
+                    ],
+                    'ip_address' => clientIp(),
+                ];
             }
+
+            if (count($emailAttemptLogs) >= 100) {
+                apiRequest(
+                    'POST',
+                    $supabaseUrl . '/rest/v1/activity_logs',
+                    array_merge($headers, ['Prefer: return=minimal']),
+                    $emailAttemptLogs
+                );
+                $emailAttemptLogs = [];
+            }
+        }
+
+        if (!empty($emailAttemptLogs)) {
+            apiRequest(
+                'POST',
+                $supabaseUrl . '/rest/v1/activity_logs',
+                array_merge($headers, ['Prefer: return=minimal']),
+                $emailAttemptLogs
+            );
         }
     }
 
@@ -1590,6 +2261,8 @@ if ($action === 'release_payslips') {
                 'email_sent' => $emailsSent,
                 'email_failed' => $emailsFailed,
                 'email_error_samples' => $emailErrorSamples,
+                'smtp_encryption' => $smtpEncryption,
+                'smtp_auth' => $smtpAuthEnabled,
             ],
             'ip_address' => clientIp(),
         ]]

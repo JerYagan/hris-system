@@ -62,13 +62,68 @@ $setupStatusPill = static function (string $status): array {
 <?php endif; ?>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
-    <header class="px-6 py-4 border-b border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800">Manage Salary Setup (Base Pay, Deductions, Allowance)</h2>
-        <p class="text-sm text-slate-500 mt-1">Save compensation setup and create a new effective salary configuration for the selected employee.</p>
-        <p id="payrollEffectivityHint" class="text-xs text-slate-500 mt-2">Tip: Future effectivity dates are scheduled and only apply to payroll periods that cover that date.</p>
+    <header class="px-6 py-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+            <h2 class="text-lg font-semibold text-slate-800">Payroll Management</h2>
+            <p class="text-sm text-slate-500 mt-1">Use quick actions for payroll generation, salary adjustment review, and payslip release workflows.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <button type="button" data-modal-open="generatePayrollBatchModal" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm">
+                <span class="material-symbols-outlined text-[15px]">calculate</span>Generate Payroll Batch
+            </button>
+            <button type="button" data-modal-open="reviewSalaryAdjustmentsModal" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm">
+                <span class="material-symbols-outlined text-[15px]">rule_settings</span>Review Salary Adjustments
+            </button>
+            <button type="button" data-modal-open="releasePayslipsModal" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm">
+                <span class="material-symbols-outlined text-[15px]">forward_to_inbox</span>Send Payslips
+            </button>
+        </div>
     </header>
+</section>
 
-    <form id="payrollSalarySetupForm" action="payroll-management.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-800">Payroll Batch Approval Flow</h2>
+        <p class="text-sm text-slate-500 mt-1">Follow this sequence so staff recommendations and admin final decisions stay aligned and auditable.</p>
+    </header>
+    <div class="p-6 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+        <article class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs uppercase text-slate-500">Step 1</p>
+            <p class="font-semibold text-slate-800 mt-1">Staff prepares payroll batch</p>
+            <p class="text-slate-600 mt-1">Staff computes payroll for the selected cutoff and verifies employee totals.</p>
+        </article>
+        <article class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs uppercase text-slate-500">Step 2</p>
+            <p class="font-semibold text-slate-800 mt-1">Staff submits recommendation</p>
+            <p class="text-slate-600 mt-1">Staff submits the batch to Admin with recommendation and supporting notes.</p>
+        </article>
+        <article class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs uppercase text-slate-500">Step 3</p>
+            <p class="font-semibold text-slate-800 mt-1">Admin reviews submitted batch</p>
+            <p class="text-slate-600 mt-1">Admin checks cutoff details, totals, and staff recommendation before deciding.</p>
+        </article>
+        <article class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs uppercase text-slate-500">Step 4</p>
+            <p class="font-semibold text-slate-800 mt-1">Admin final decision</p>
+            <p class="text-slate-600 mt-1">Admin approves or rejects the batch; decision is logged and reflected back to staff history.</p>
+        </article>
+    </div>
+</section>
+
+<div id="payrollSalarySetupModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-slate-900/60" data-modal-close="payrollSalarySetupModal"></div>
+    <div class="relative min-h-full flex items-start sm:items-center justify-center p-4 sm:p-6 overflow-y-auto">
+        <section class="w-full max-w-5xl max-h-[92vh] overflow-y-auto bg-white border border-slate-200 rounded-2xl">
+            <header class="px-6 py-4 border-b border-slate-200 flex items-start justify-between gap-3">
+                <div>
+                    <h2 class="text-lg font-semibold text-slate-800">Manage Salary Setup (Base Pay, Deductions, Allowance)</h2>
+                    <p class="text-sm text-slate-500 mt-1">Save compensation setup and create a new effective salary configuration for the selected employee.</p>
+                    <p id="payrollEffectivityHint" class="text-xs text-slate-500 mt-2">Tip: Future effectivity dates are scheduled and only apply to payroll periods that cover that date.</p>
+                </div>
+                <button type="button" data-modal-close="payrollSalarySetupModal" class="text-slate-500 hover:text-slate-700">✕</button>
+            </header>
+
+            <form id="payrollSalarySetupForm" action="payroll-management.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
         <input type="hidden" name="form_action" value="save_salary_setup">
         <input type="hidden" name="person_id" id="payrollSelectedPersonId" value="">
         <div>
@@ -112,7 +167,7 @@ $setupStatusPill = static function (string $status): array {
         </div>
         <div>
             <label class="text-slate-600">Effective From</label>
-            <input type="date" name="effective_from" value="<?= htmlspecialchars(gmdate('Y-m-d'), ENT_QUOTES, 'UTF-8') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+            <input id="payrollEffectiveFrom" type="date" name="effective_from" value="<?= htmlspecialchars(gmdate('Y-m-d'), ENT_QUOTES, 'UTF-8') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
         </div>
         <div>
             <label class="text-slate-600">Pay Frequency</label>
@@ -154,16 +209,19 @@ $setupStatusPill = static function (string $status): array {
             <input id="payrollEstimatedNetCycle" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" value="₱0.00" readonly>
         </div>
         <div class="md:col-span-4 flex justify-end gap-3 mt-2">
+            <button type="button" data-modal-close="payrollSalarySetupModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button>
             <button type="reset" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Reset</button>
             <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Save Salary Setup</button>
         </div>
-    </form>
-</section>
+            </form>
+        </section>
+    </div>
+</div>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800">Select Employee for Salary Setup</h2>
-        <p class="text-sm text-slate-500 mt-1">Use this table to pick an employee instead of typing the name. Search typing is still supported above.</p>
+        <h2 class="text-lg font-semibold text-slate-800">Employees Salary Setup</h2>
+        <p class="text-sm text-slate-500 mt-1">Select an employee to manage salary setup in a modal without leaving payroll management.</p>
     </header>
 
     <div class="px-6 pb-3 pt-4 flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
@@ -221,7 +279,7 @@ $setupStatusPill = static function (string $status): array {
                                     data-employee-label="<?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?>"
                                     class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm"
                                 >
-                                    <span class="material-symbols-outlined text-[15px]">person_add</span>Select
+                                    <span class="material-symbols-outlined text-[15px]">edit_square</span>Manage Setup
                                 </button>
                             </td>
                         </tr>
@@ -365,10 +423,22 @@ $setupStatusPill = static function (string $status): array {
         </article>
     </div>
 
+    <?php if (!empty($payrollEstimateHistoryRows)): ?>
+        <form id="payrollBulkDeletePeriodsForm" action="payroll-management.php" method="POST" class="px-6 pb-2 flex justify-end">
+            <input type="hidden" name="form_action" value="delete_payroll_period_bulk">
+            <button id="payrollBulkDeletePeriodsButton" type="submit" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg border border-rose-300 bg-white text-rose-700 hover:bg-rose-50 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled aria-disabled="true">
+                <span class="material-symbols-outlined text-[15px]">delete</span>Delete Selected
+            </button>
+        </form>
+    <?php endif; ?>
+
     <div id="payrollEstimateHistory" class="px-6 pb-6 overflow-x-auto">
         <table class="w-full text-sm">
             <thead class="bg-slate-50 text-slate-600">
                 <tr>
+                    <th class="text-left px-4 py-3 w-12">
+                        <input id="payrollPeriodsSelectAll" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500">
+                    </th>
                     <th class="text-left px-4 py-3">Period</th>
                     <th class="text-left px-4 py-3">Period Status</th>
                     <th class="text-left px-4 py-3">Employees</th>
@@ -380,7 +450,7 @@ $setupStatusPill = static function (string $status): array {
             <tbody class="divide-y divide-slate-100">
                 <?php if (empty($payrollEstimateHistoryRows)): ?>
                     <tr>
-                        <td class="px-4 py-3 text-slate-500" colspan="6">No period estimates available.</td>
+                        <td class="px-4 py-3 text-slate-500" colspan="7">No period estimates available.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($payrollEstimateHistoryRows as $history): ?>
@@ -388,6 +458,11 @@ $setupStatusPill = static function (string $status): array {
                         $historyPeriodId = (string)($history['period_id'] ?? '');
                         ?>
                         <tr>
+                            <td class="px-4 py-3">
+                                <?php if ($historyPeriodId !== ''): ?>
+                                    <input type="checkbox" name="period_ids[]" value="<?= htmlspecialchars($historyPeriodId, ENT_QUOTES, 'UTF-8') ?>" form="payrollBulkDeletePeriodsForm" data-payroll-period-select class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500">
+                                <?php endif; ?>
+                            </td>
                             <td class="px-4 py-3 text-slate-700"><?= htmlspecialchars((string)$history['period_code'] . ' • ' . (string)$history['period_label'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars(ucfirst((string)$history['status']), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)$history['employee_count'], ENT_QUOTES, 'UTF-8') ?></td>
@@ -414,62 +489,68 @@ $setupStatusPill = static function (string $status): array {
     </div>
 </section>
 
-<section class="bg-white border border-slate-200 rounded-2xl mb-6">
-    <header class="px-6 py-4 border-b border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div>
-            <h2 class="text-lg font-semibold text-slate-800">Generate Payroll Batch</h2>
-            <p class="text-sm text-slate-500 mt-1">Create computed payroll items from active employee salary setup before approval and release.</p>
-        </div>
-        <div class="inline-flex items-center gap-2 text-xs">
-            <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">Eligible Periods: <?= htmlspecialchars((string)count($generationPeriodOptions), ENT_QUOTES, 'UTF-8') ?></span>
-        </div>
-    </header>
+<div id="generatePayrollBatchModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-slate-900/60" data-modal-close="generatePayrollBatchModal"></div>
+    <div class="relative min-h-full flex items-start sm:items-center justify-center p-4 sm:p-6 overflow-y-auto">
+        <section class="w-full max-w-5xl max-h-[92vh] overflow-y-auto bg-white border border-slate-200 rounded-2xl mb-0">
+            <header class="px-6 py-4 border-b border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div>
+                    <h2 class="text-lg font-semibold text-slate-800">Generate Payroll Batch</h2>
+                    <p class="text-sm text-slate-500 mt-1">Create computed payroll items from active employee salary setup before approval and release.</p>
+                </div>
+                <div class="inline-flex items-center gap-2 text-xs">
+                    <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">Eligible Periods: <?= htmlspecialchars((string)count($generationPeriodOptions), ENT_QUOTES, 'UTF-8') ?></span>
+                </div>
+            </header>
 
-    <form id="generatePayrollBatchForm" action="payroll-management.php" method="POST" class="p-6 text-sm space-y-4">
-        <input type="hidden" name="form_action" value="generate_payroll_batch">
-        <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="md:col-span-2">
-                <label class="text-slate-700 font-medium">Payroll Period</label>
-                <select id="generatePayrollPeriod" name="payroll_period_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-white" required>
-                    <option value="">Select payroll period</option>
-                    <?php foreach ($generationPeriodOptions as $period): ?>
-                        <?php
-                        $periodId = (string)($period['id'] ?? '');
-                        $periodCode = (string)($period['period_code'] ?? 'PR');
-                        $periodStart = (string)($period['period_start'] ?? '');
-                        $periodEnd = (string)($period['period_end'] ?? '');
-                        $status = ucfirst((string)($period['status'] ?? 'open'));
-                        $label = $periodCode;
-                        if ($periodStart !== '' && $periodEnd !== '') {
-                            $label .= ' • ' . date('M d, Y', strtotime($periodStart)) . ' - ' . date('M d, Y', strtotime($periodEnd));
-                        }
-                        $label .= ' • ' . $status;
-                        ?>
-                        <option
-                            value="<?= htmlspecialchars($periodId, ENT_QUOTES, 'UTF-8') ?>"
-                            data-period-code="<?= htmlspecialchars($periodCode, ENT_QUOTES, 'UTF-8') ?>"
-                            data-period-start="<?= htmlspecialchars($periodStart, ENT_QUOTES, 'UTF-8') ?>"
-                            data-period-end="<?= htmlspecialchars($periodEnd, ENT_QUOTES, 'UTF-8') ?>"
-                            data-period-status="<?= htmlspecialchars($status, ENT_QUOTES, 'UTF-8') ?>"
-                        ><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <p id="generatePayrollPeriodHint" class="text-xs text-slate-500 mt-1">Select a period to review estimated employees and totals before generation.</p>
-                <?php if (empty($generationPeriodOptions)): ?>
-                    <p class="text-xs text-amber-700 mt-1">No eligible payroll periods available for generation.</p>
-                <?php endif; ?>
-            </div>
-            <div class="rounded-lg border border-slate-200 bg-white p-3">
-                <p class="text-xs uppercase text-slate-500">Preview Snapshot</p>
-                <p id="generatePayrollPreviewQuickEmployees" class="text-sm font-medium text-slate-800 mt-2">No period selected</p>
-                <p id="generatePayrollPreviewQuickNet" class="text-sm text-slate-600 mt-1">Net: ₱0.00</p>
-            </div>
-        </div>
-        <div class="flex items-center justify-end gap-3">
-            <button type="button" id="openGeneratePayrollSummary" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed" <?= empty($generationPeriodOptions) ? 'disabled aria-disabled="true"' : '' ?>>Review Summary</button>
-        </div>
-    </form>
-</section>
+            <form id="generatePayrollBatchForm" action="payroll-management.php" method="POST" class="p-6 text-sm space-y-4">
+                <input type="hidden" name="form_action" value="generate_payroll_batch">
+                <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="text-slate-700 font-medium">Payroll Period</label>
+                        <select id="generatePayrollPeriod" name="payroll_period_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-white" required>
+                            <option value="">Select payroll period</option>
+                            <?php foreach ($generationPeriodOptions as $period): ?>
+                                <?php
+                                $periodId = (string)($period['id'] ?? '');
+                                $periodCode = (string)($period['period_code'] ?? 'PR');
+                                $periodStart = (string)($period['period_start'] ?? '');
+                                $periodEnd = (string)($period['period_end'] ?? '');
+                                $status = ucfirst((string)($period['status'] ?? 'open'));
+                                $label = $periodCode;
+                                if ($periodStart !== '' && $periodEnd !== '') {
+                                    $label .= ' • ' . date('M d, Y', strtotime($periodStart)) . ' - ' . date('M d, Y', strtotime($periodEnd));
+                                }
+                                $label .= ' • ' . $status;
+                                ?>
+                                <option
+                                    value="<?= htmlspecialchars($periodId, ENT_QUOTES, 'UTF-8') ?>"
+                                    data-period-code="<?= htmlspecialchars($periodCode, ENT_QUOTES, 'UTF-8') ?>"
+                                    data-period-start="<?= htmlspecialchars($periodStart, ENT_QUOTES, 'UTF-8') ?>"
+                                    data-period-end="<?= htmlspecialchars($periodEnd, ENT_QUOTES, 'UTF-8') ?>"
+                                    data-period-status="<?= htmlspecialchars($status, ENT_QUOTES, 'UTF-8') ?>"
+                                ><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <p id="generatePayrollPeriodHint" class="text-xs text-slate-500 mt-1">Select a period to review estimated employees and totals before generation.</p>
+                        <?php if (empty($generationPeriodOptions)): ?>
+                            <p class="text-xs text-amber-700 mt-1">No eligible payroll periods available for generation.</p>
+                        <?php endif; ?>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 bg-white p-3">
+                        <p class="text-xs uppercase text-slate-500">Preview Snapshot</p>
+                        <p id="generatePayrollPreviewQuickEmployees" class="text-sm font-medium text-slate-800 mt-2">No period selected</p>
+                        <p id="generatePayrollPreviewQuickNet" class="text-sm text-slate-600 mt-1">Net: ₱0.00</p>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end gap-3">
+                    <button type="button" data-modal-close="generatePayrollBatchModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Close</button>
+                    <button type="button" id="openGeneratePayrollSummary" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed" <?= empty($generationPeriodOptions) ? 'disabled aria-disabled="true"' : '' ?>>Review Summary</button>
+                </div>
+            </form>
+        </section>
+    </div>
+</div>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
@@ -495,14 +576,27 @@ $setupStatusPill = static function (string $status): array {
         </div>
     </div>
 
+    <?php if (!empty($batchRows)): ?>
+        <form id="payrollBulkDeleteBatchesForm" action="payroll-management.php" method="POST" class="px-6 pb-2 flex justify-end">
+            <input type="hidden" name="form_action" value="delete_payroll_batch_bulk">
+            <button id="payrollBulkDeleteBatchesButton" type="submit" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg border border-rose-300 bg-white text-rose-700 hover:bg-rose-50 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled aria-disabled="true">
+                <span class="material-symbols-outlined text-[15px]">delete</span>Delete Selected
+            </button>
+        </form>
+    <?php endif; ?>
+
     <div class="p-6 overflow-x-auto">
         <table id="payrollBatchesTable" data-simple-table="true" class="w-full text-sm">
             <thead class="bg-slate-50 text-slate-600">
                 <tr>
+                    <th class="text-left px-4 py-3 w-12">
+                        <input id="payrollBatchesSelectAll" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500">
+                    </th>
                     <th class="text-left px-4 py-3">Batch ID</th>
                     <th class="text-left px-4 py-3">Cutoff Period</th>
                     <th class="text-left px-4 py-3">Employee Count</th>
                     <th class="text-left px-4 py-3">Total Net Pay</th>
+                    <th class="text-left px-4 py-3">Staff Recommendation</th>
                     <th class="text-left px-4 py-3">Status</th>
                     <th class="text-left px-4 py-3">Action</th>
                 </tr>
@@ -510,7 +604,7 @@ $setupStatusPill = static function (string $status): array {
             <tbody class="divide-y divide-slate-100">
                 <?php if (empty($batchRows)): ?>
                     <tr>
-                        <td class="px-4 py-3 text-slate-500" colspan="6">No payroll batches found.</td>
+                        <td class="px-4 py-3 text-slate-500" colspan="8">No payroll batches found.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($batchRows as $batch): ?>
@@ -519,10 +613,17 @@ $setupStatusPill = static function (string $status): array {
                         $searchText = strtolower(trim((string)$batch['id'] . ' ' . (string)$batch['period_label'] . ' ' . $statusLabel));
                         ?>
                         <tr class="hover:bg-slate-100 transition-colors" data-payroll-batch-search="<?= htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8') ?>" data-payroll-batch-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>">
+                            <td class="px-4 py-3">
+                                <input type="checkbox" name="run_ids[]" value="<?= htmlspecialchars((string)$batch['id'], ENT_QUOTES, 'UTF-8') ?>" form="payrollBulkDeleteBatchesForm" data-payroll-batch-select class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500">
+                            </td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)$batch['id'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)$batch['period_label'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)$batch['employee_count'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($currency((float)$batch['total_net']), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3">
+                                <p class="text-slate-700"><?= htmlspecialchars((string)($batch['staff_recommendation'] ?? 'Not yet submitted by Staff'), ENT_QUOTES, 'UTF-8') ?></p>
+                                <p class="text-xs text-slate-500 mt-1"><?= htmlspecialchars(formatDateTimeForPhilippines((string)($batch['staff_submitted_at'] ?? ''), 'M d, Y h:i A'), ENT_QUOTES, 'UTF-8') ?></p>
+                            </td>
                             <td class="px-4 py-3"><span class="inline-flex items-center justify-center min-w-[95px] px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td class="px-4 py-3">
                                 <div class="flex items-center gap-2">
@@ -534,6 +635,9 @@ $setupStatusPill = static function (string $status): array {
                                         data-current-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>"
                                         data-employee-count="<?= htmlspecialchars((string)$batch['employee_count'], ENT_QUOTES, 'UTF-8') ?>"
                                         data-total-net="<?= htmlspecialchars($currency((float)$batch['total_net']), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-staff-recommendation="<?= htmlspecialchars((string)($batch['staff_recommendation'] ?? 'Not yet submitted by Staff'), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-staff-submitted="<?= htmlspecialchars(formatDateTimeForPhilippines((string)($batch['staff_submitted_at'] ?? ''), 'M d, Y h:i A'), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-admin-reviewed="<?= htmlspecialchars(formatDateTimeForPhilippines((string)($batch['admin_reviewed_at'] ?? ''), 'M d, Y h:i A'), ENT_QUOTES, 'UTF-8') ?>"
                                         class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm"
                                     >
                                         <span class="material-symbols-outlined text-[15px]">rule</span>Review
@@ -556,73 +660,82 @@ $setupStatusPill = static function (string $status): array {
     </div>
 </section>
 
-<section class="bg-white border border-slate-200 rounded-2xl mb-6">
-    <header class="px-6 py-4 border-b border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800">Review Salary Adjustments</h2>
-        <p class="text-sm text-slate-500 mt-1">Review salary adjustments submitted by Staff and approve or reject each entry.</p>
-    </header>
+<div id="reviewSalaryAdjustmentsModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-slate-900/60" data-modal-close="reviewSalaryAdjustmentsModal"></div>
+    <div class="relative min-h-full flex items-start sm:items-center justify-center p-4 sm:p-6 overflow-y-auto">
+        <section class="w-full max-w-6xl max-h-[92vh] overflow-y-auto bg-white border border-slate-200 rounded-2xl mb-0">
+            <header class="px-6 py-4 border-b border-slate-200">
+                <h2 class="text-lg font-semibold text-slate-800">Review Salary Adjustments</h2>
+                <p class="text-sm text-slate-500 mt-1">Review salary adjustments submitted by Staff and approve or reject each entry.</p>
+            </header>
 
-    <div class="p-6 overflow-x-auto">
-        <table class="w-full text-sm">
-            <thead class="bg-slate-50 text-slate-600">
-                <tr>
-                    <th class="text-left px-4 py-3">Adjustment Code</th>
-                    <th class="text-left px-4 py-3">Employee</th>
-                    <th class="text-left px-4 py-3">Period</th>
-                    <th class="text-left px-4 py-3">Type</th>
-                    <th class="text-left px-4 py-3">Amount</th>
-                    <th class="text-left px-4 py-3">Status</th>
-                    <th class="text-left px-4 py-3">Action</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-                <?php if (empty($payrollAdjustmentRows)): ?>
-                    <tr>
-                        <td class="px-4 py-3 text-slate-500" colspan="7">No salary adjustments found.</td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($payrollAdjustmentRows as $adjustment): ?>
-                        <?php
-                        $statusRaw = strtolower((string)($adjustment['status_raw'] ?? 'pending'));
-                        ?>
+            <div class="p-6 overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-50 text-slate-600">
                         <tr>
-                            <td class="px-4 py-3 font-medium text-slate-800"><?= htmlspecialchars((string)($adjustment['adjustment_code'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3 text-slate-700"><?= htmlspecialchars((string)($adjustment['employee_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)($adjustment['period_code'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)($adjustment['adjustment_type_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3 text-slate-700"><?= htmlspecialchars($currency((float)($adjustment['amount'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><span class="inline-flex items-center justify-center min-w-[95px] px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars((string)($adjustment['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($adjustment['status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?></span></td>
-                            <td class="px-4 py-3">
-                                <?php if ($statusRaw === 'pending'): ?>
-                                    <div class="flex items-center gap-2">
-                                        <form action="payroll-management.php" method="POST" class="inline">
-                                            <input type="hidden" name="form_action" value="review_salary_adjustment">
-                                            <input type="hidden" name="adjustment_id" value="<?= htmlspecialchars((string)($adjustment['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
-                                            <input type="hidden" name="decision" value="approved">
-                                            <button type="submit" onclick="return window.confirm('Approve this salary adjustment?');" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50 shadow-sm">
-                                                <span class="material-symbols-outlined text-[15px]">check</span>Approve
-                                            </button>
-                                        </form>
-                                        <form action="payroll-management.php" method="POST" class="inline">
-                                            <input type="hidden" name="form_action" value="review_salary_adjustment">
-                                            <input type="hidden" name="adjustment_id" value="<?= htmlspecialchars((string)($adjustment['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
-                                            <input type="hidden" name="decision" value="rejected">
-                                            <button type="submit" onclick="return window.confirm('Reject this salary adjustment?');" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-rose-300 bg-white text-rose-700 hover:bg-rose-50 shadow-sm">
-                                                <span class="material-symbols-outlined text-[15px]">close</span>Reject
-                                            </button>
-                                        </form>
-                                    </div>
-                                <?php else: ?>
-                                    <span class="text-xs text-slate-500">Reviewed</span>
-                                <?php endif; ?>
-                            </td>
+                            <th class="text-left px-4 py-3">Adjustment Code</th>
+                            <th class="text-left px-4 py-3">Employee</th>
+                            <th class="text-left px-4 py-3">Period</th>
+                            <th class="text-left px-4 py-3">Type</th>
+                            <th class="text-left px-4 py-3">Amount</th>
+                            <th class="text-left px-4 py-3">Status</th>
+                            <th class="text-left px-4 py-3">Action</th>
                         </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <?php if (empty($payrollAdjustmentRows)): ?>
+                            <tr>
+                                <td class="px-4 py-3 text-slate-500" colspan="7">No salary adjustments found.</td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($payrollAdjustmentRows as $adjustment): ?>
+                                <?php
+                                $statusRaw = strtolower((string)($adjustment['status_raw'] ?? 'pending'));
+                                ?>
+                                <tr>
+                                    <td class="px-4 py-3 font-medium text-slate-800"><?= htmlspecialchars((string)($adjustment['adjustment_code'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td class="px-4 py-3 text-slate-700"><?= htmlspecialchars((string)($adjustment['employee_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)($adjustment['period_code'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)($adjustment['adjustment_type_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td class="px-4 py-3 text-slate-700"><?= htmlspecialchars($currency((float)($adjustment['amount'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td class="px-4 py-3"><span class="inline-flex items-center justify-center min-w-[95px] px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars((string)($adjustment['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($adjustment['status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?></span></td>
+                                    <td class="px-4 py-3">
+                                        <?php if ($statusRaw === 'pending'): ?>
+                                            <div class="flex items-center gap-2">
+                                                <form action="payroll-management.php" method="POST" class="inline">
+                                                    <input type="hidden" name="form_action" value="review_salary_adjustment">
+                                                    <input type="hidden" name="adjustment_id" value="<?= htmlspecialchars((string)($adjustment['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                                    <input type="hidden" name="decision" value="approved">
+                                                    <button type="submit" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50 shadow-sm">
+                                                        <span class="material-symbols-outlined text-[15px]">check</span>Approve
+                                                    </button>
+                                                </form>
+                                                <form action="payroll-management.php" method="POST" class="inline">
+                                                    <input type="hidden" name="form_action" value="review_salary_adjustment">
+                                                    <input type="hidden" name="adjustment_id" value="<?= htmlspecialchars((string)($adjustment['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                                    <input type="hidden" name="decision" value="rejected">
+                                                    <button type="submit" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-rose-300 bg-white text-rose-700 hover:bg-rose-50 shadow-sm">
+                                                        <span class="material-symbols-outlined text-[15px]">close</span>Reject
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        <?php else: ?>
+                                            <span class="text-xs text-slate-500">Reviewed</span>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="px-6 pb-6 flex justify-end">
+                <button type="button" data-modal-close="reviewSalaryAdjustmentsModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Close</button>
+            </div>
+        </section>
     </div>
-</section>
+</div>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
@@ -651,8 +764,8 @@ $setupStatusPill = static function (string $status): array {
                 <tr>
                     <th class="text-left px-4 py-3">Employee</th>
                     <th class="text-left px-4 py-3">Cutoff</th>
-                    <th class="text-left px-4 py-3">Gross Pay</th>
-                    <th class="text-left px-4 py-3">Deductions</th>
+                    <th class="text-left px-4 py-3">Earnings Breakdown</th>
+                    <th class="text-left px-4 py-3">Deduction Breakdown</th>
                     <th class="text-left px-4 py-3">Net Pay</th>
                     <th class="text-left px-4 py-3">Status</th>
                     <th class="text-left px-4 py-3">Action</th>
@@ -672,8 +785,20 @@ $setupStatusPill = static function (string $status): array {
                         <tr class="hover:bg-slate-100 transition-colors" data-payroll-payslip-search="<?= htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8') ?>" data-payroll-payslip-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>">
                             <td class="px-4 py-3"><?= htmlspecialchars((string)$row['employee_name'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)$row['period_label'], ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars($currency((float)$row['gross_pay']), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars($currency((float)$row['deductions_total']), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-xs text-slate-700 leading-5">
+                                <p>Basic: <?= htmlspecialchars($currency((float)($row['basic_pay'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></p>
+                                <p>CTO: <?= htmlspecialchars($currency((float)($row['cto_pay'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></p>
+                                <p>Allowances: <?= htmlspecialchars($currency((float)($row['allowances_total'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></p>
+                                <p class="font-medium text-slate-800">Gross: <?= htmlspecialchars($currency((float)$row['gross_pay']), ENT_QUOTES, 'UTF-8') ?></p>
+                            </td>
+                            <td class="px-4 py-3 text-xs text-slate-700 leading-5">
+                                <p>Statutory: <?= htmlspecialchars($currency((float)($row['statutory_deductions'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></p>
+                                <p>Timekeeping: <?= htmlspecialchars($currency((float)($row['timekeeping_deductions'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></p>
+                                <p>Adj. Deduction: <?= htmlspecialchars($currency((float)($row['adjustment_deductions'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></p>
+                                <p>Adj. Earning: <?= htmlspecialchars($currency((float)($row['adjustment_earnings'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></p>
+                                <p class="text-[11px] text-slate-500">Absent: <?= (int)($row['absent_days'] ?? 0) ?>, Late: <?= (int)($row['late_minutes'] ?? 0) ?> min, Undertime: <?= number_format((float)($row['undertime_hours'] ?? 0), 2) ?> h</p>
+                                <p class="font-medium text-slate-800">Total: <?= htmlspecialchars($currency((float)$row['deductions_total']), ENT_QUOTES, 'UTF-8') ?></p>
+                            </td>
                             <td class="px-4 py-3"><?= htmlspecialchars($currency((float)$row['net_pay']), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><span class="inline-flex items-center justify-center min-w-[95px] px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td class="px-4 py-3">
@@ -691,7 +816,10 @@ $setupStatusPill = static function (string $status): array {
     </div>
 </section>
 
-<section class="bg-white border border-slate-200 rounded-2xl">
+<div id="releasePayslipsModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-slate-900/60" data-modal-close="releasePayslipsModal"></div>
+    <div class="relative min-h-full flex items-start sm:items-center justify-center p-4 sm:p-6 overflow-y-auto">
+<section class="w-full max-w-6xl max-h-[92vh] overflow-y-auto bg-white border border-slate-200 rounded-2xl mb-0">
     <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
         <div>
             <h2 class="text-lg font-semibold text-slate-800">Send Payslip to Employees via Email</h2>
@@ -744,11 +872,17 @@ $setupStatusPill = static function (string $status): array {
             <p id="releasePayslipRunHint" class="text-xs text-slate-600">Select a payroll batch to review release details before sending payslips.</p>
             <p id="releasePayslipRunMeta" class="text-sm text-slate-800 mt-1">No payroll batch selected.</p>
             <?php if (empty($releaseEligibleRuns)): ?>
-                <p class="text-xs text-amber-700 mt-1">No computed/approved payroll batches are ready for release.</p>
+                <p class="text-xs text-amber-700 mt-1">No approved payroll batches are ready for release.</p>
             <?php endif; ?>
+        </div>
+
+        <div class="flex justify-end">
+            <button type="button" data-modal-close="releasePayslipsModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Close</button>
         </div>
     </form>
 </section>
+</div>
+</div>
 
 <div id="generatePayrollSummaryModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-slate-900/60" data-modal-close="generatePayrollSummaryModal"></div>
@@ -827,8 +961,8 @@ $setupStatusPill = static function (string $status): array {
 
 <div id="reviewPayrollBatchModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-slate-900/60" data-modal-close="reviewPayrollBatchModal"></div>
-    <div class="relative min-h-full flex items-center justify-center p-4">
-        <div class="w-full max-w-2xl bg-white rounded-2xl border border-slate-200 shadow-xl">
+    <div class="relative min-h-full flex items-start sm:items-center justify-center p-4 sm:p-6 overflow-y-auto">
+        <div class="w-full max-w-2xl max-h-[92vh] overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl">
             <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
                 <h3 class="text-lg font-semibold text-slate-800">Review Payroll Batch</h3>
                 <button type="button" data-modal-close="reviewPayrollBatchModal" class="text-slate-500 hover:text-slate-700">✕</button>
@@ -851,6 +985,18 @@ $setupStatusPill = static function (string $status): array {
                 <div class="md:col-span-2">
                     <label class="text-slate-600">Total Net Pay</label>
                     <input id="payrollBatchNet" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="text-slate-600">Staff Recommendation</label>
+                    <textarea id="payrollBatchRecommendation" rows="3" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly></textarea>
+                </div>
+                <div>
+                    <label class="text-slate-600">Submitted by Staff</label>
+                    <input id="payrollBatchSubmittedAt" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
+                </div>
+                <div>
+                    <label class="text-slate-600">Last Admin Review</label>
+                    <input id="payrollBatchReviewedAt" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
                 </div>
                 <div>
                     <label class="text-slate-600">Decision</label>

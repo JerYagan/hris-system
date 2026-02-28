@@ -513,29 +513,66 @@ Rules applied while consolidating:
 ---
 
 ## 9) Payroll Module
-
 ### Admin
-- [ ] Ensure payroll is fully connected to timekeeping deductions and approved policies.
-- [ ] Ensure payroll runs include traceable source inputs (attendance, salary setup, deductions) for validation and auditability.
-- [ ] Show complete payroll computation breakdown in UI and export/PDF.
-- [ ] Enforce final payroll batch approval with audit logs.
-- [ ] Enforce payroll handoff flow: staff submit batch for admin approval; admin final decision reflects back to staff queue/history with timestamp and notification.
-- [ ] Keep secure payslip email sending with logging.
-- [ ] Remove/replace overtime filing references in payroll UI/export and align all policy wording to CTO-only process.
+- [ ] In setting up salary for employees, remove reason in the sweetalert confirmation for saving the salary setup. Since salary setup is a routine task that the admin will be doing, it may not be necessary to capture a reason for audit logs every time they save a salary setup, as long as there are proper audit logs in place to track the changes made to the salary setup.
+- [x] Also don't include people with the role of staff in the employee list for managing salary setup, it should only include users with the employee role.
+- [x] Remove the restriction for deleting payroll batches (including the released ones) to allow for better error handling and correction in case of any issues with the payroll batches.
+- [x] Saving salary setup requires sweetalert confirmation and reason capture for audit logs.
+- [x] Use flatpickr when selecting the effective date for salary setup to improve the user experience and ensure consistency in date input across the module.
+- [ ] Change the instruction step by step to this:
+  1. 
+- [x] The modals you implemented are broken (See images)
+- [x] Add an instruction flow for the payroll batch approval process, which includes the staff preparing the payroll batch and submitting it to the admin for final approval, and the admin reviewing the submitted payroll batch along with the staff's recommendation and making a final decision to approve or reject the payroll batch. This instruction flow can be section below the quick action buttons, make it in a step-by-step format with clear and concise instructions for admin to follow, ensuring that the payroll batch approval process is well understood and followed correctly by all users involved.
+- [x] Instead of having a standalone section for managing salary setup, the payroll module can have a section that lists all employees and the admin can select from that list to manage their salary setup. This way, the salary setup can be more integrated into the overall payroll management process and it will also allow the admin to easily access and manage the salary setup for each employee without having to navigate to a separate section. The salary setup can be displayed in a modal or a separate page that is accessed when the admin selects an employee from the list, and it should include all the necessary fields and options for managing the employee's salary setup in a clear and organized layout. This will improve the user experience for the admin and make it easier for them to manage employee salaries effectively within the payroll module.
 
+- [x] Turn some of the sections here into a quick action button that opens a modal instead of having all the sections in one page. Generate Payroll Batch, Send Payslip to Employees via Email, Review Salary adjustments sections. Make sure that the quick links are at the top of the page along with the Payroll header for better visibility and accessibility.
+
+
+- [x] Review payroll batch modal is too long vertically and does not fit the screen properly, especially for users with smaller screens.
+- [x] Submitted Review Salary Adjustments (by the staff) are not showing in the admin. 
+- [x] Approve Payroll Batches autoamtically showing as computed even though the staff has not yet made any recommendation or submitted it for approval.
+- [x] Ensure that the payslip viewing and document generation are functioning correctly, with the payslip view showing accurate and complete information based on the payroll data, and the document generation producing correct and well-formatted payslips for employees. This includes verifying that all relevant payroll components (earnings, deductions, net pay) are accurately reflected in both the UI and the generated documents, and that any changes made to payroll data are properly updated in the payslip view and documents.
+- [x] Keep secure payslip email sending with logging.
+- [x] Remove/replace overtime filing references in payroll UI/export and align all policy wording to CTO-only process.
+- [x] Ensure payroll is fully connected to timekeeping deductions and approved policies.
+- [x] Ensure payroll runs include traceable source inputs (attendance, salary setup, deductions) for validation and auditability.
+- [x] Show complete payroll computation breakdown in UI and export/PDF.
+- [x] Enforce final payroll batch approval with audit logs.
+- [x] Enforce payroll handoff flow: staff submit batch for admin approval; admin final decision reflects back to staff queue/history with timestamp and notification.
+- [x] Add a recommendation column in the staff payroll queue/history to show the staff's recommendation for each payroll batch, and ensure that this recommendation is visible to the admin when reviewing the payroll batch for final approval. This will provide additional context for the admin's decision-making process and help ensure that staff input is considered in the payroll approval workflow.
+
+## 9) Payroll Module
 ### Staff
-- [ ] Change salary adjustment action to recommendation flow for Admin final approval.
-- [ ] Fix generate payslip flow.
-- [ ] Resolve payroll category open-button error.
-- [ ] Show Admin final disposition of submitted payroll batches in staff queue/history with decision timestamp.
+- [ ] After creating salary adjustment, it doesn't show in the table in the Recommend Salary Adjustment section in the staff payroll module, and it also doesn't show in the admin side for review and approval.
+- [ ] In the create salary adjustment modal, the Adjustment Code field should be a dropdown selection instead of a free text input to ensure consistency and accuracy in the adjustment codes used for salary adjustments.
+- [ ] In the create salary adjustment modal, there should be a field for the staff to select their recommendation approval (e.g., Draft, Approve, Reject) for the salary adjustment they are creating.
+- [x] Staff payroll module doesn't have the same scope as the admin so it only shows 1 employee in every section of the payroll module
+- [x] Fix the modal for salary adjustment being too large vertically and not fitting the screen properly, especially for users with smaller screens.
+- [x] Change salary adjustment action to recommendation flow for Admin final approval.
+- [x] Fix generate payslip flow.
+- [x] Resolve payroll category open-button error.
+- [x] Show Admin final disposition of submitted payroll batches in staff queue/history with decision timestamp.
 
+## 9) Payroll Module
 ### Employee
-- [ ] Keep module naming clarity (`Payroll` vs `My Payslip`) based on approved UX.
-- [ ] Ensure payslip view/history access is stable.
-- [ ] Ensure deduction breakdown visibility (e.g., SSS/Pag-IBIG and other deductions) is clear in payslip UI and PDF.
+- [x] Ensure the payroll data is correctly reflected in the employee's payslip view and history, and that any changes made by the admin or staff are accurately updated in the employee's view.
+- [x] Keep module naming clarity (`Payroll` vs `My Payslip`) based on approved UX.
+- [x] Ensure payslip view/history access is stable.
+- [x] Ensure deduction breakdown visibility (e.g., SSS/Pag-IBIG and other deductions) is clear in payslip UI and PDF.
 
 
-- [x] Double check if all the revisions for payroll module are included in the checklist and that they align with the approved decisions and policies. This includes ensuring that the payroll computations are accurate and reflect the approved timekeeping deductions, that the payroll batch approval process is properly implemented with audit logs, and that the payslip email sending functionality is secure and includes logging for accountability. Additionally, make sure that any references to overtime filing are updated to reflect the change to a CTO-only process with leave-style approval flow, and that the UI elements for payroll computation breakdown and payslip viewing are clear and user-friendly for both admin and employees. (See revisions folder)
+### Cross users Payroll module revision:
+- [ ] Validate payroll computation accuracy against approved policies (salary grade rules, absences/leave/timekeeping deductions, and period-based calculations).
+- [ ] Validate payroll inputs traceability: each payroll run can be traced to attendance, compensation setup, adjustments, and deduction sources.
+- [ ] Enforce payroll batch final approval controls with mandatory reason capture and immutable audit logs for compute/export/send/approve/reject actions.
+- [ ] Ensure secure payslip delivery workflow (approved templates, access-safe payload handling) and log every send attempt/result.
+- [ ] Remove/replace overtime filing references across payroll screens, exports, and labels; standardize wording to CTO-only policy with leave-style approval flow.
+- [ ] Standardize payroll section naming across roles (module title, table headers, buttons, status labels) for consistent UX.
+- [ ] Ensure admin payroll breakdown UI is clear and complete (earnings, deductions, net pay) and consistent with export/PDF output.
+- [ ] Ensure employee payslip UI is clear and user-friendly, with visible deduction breakdown and stable view/history access.
+- [ ] Execute pre-deployment payroll QA checklist (cross-role flow tests, policy conformance checks, and audit-log verification) based on revisions folder requirements.
+- [x] Ensure to follow the Localized JS Performance optimization (FRONTEND_LOCALIZED_JS_PERFORMANCE_GUIDE.md)
+- [x] Enforce staff -> admin payroll handoff flow end-to-end (prepare/submit, admin final decision, reflected status/history for staff).
 
 ---
 

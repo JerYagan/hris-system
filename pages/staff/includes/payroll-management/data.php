@@ -156,6 +156,36 @@ if ($employeeRoleQuerySuccessful && $employeeUserFilter !== '') {
 	}
 }
 
+$employmentPeopleResponse = apiRequest(
+	'GET',
+	$supabaseUrl
+	. '/rest/v1/employment_records?select=person_id,employment_status,person:people!employment_records_person_id_fkey(id,user_id,first_name,middle_name,surname)'
+	. '&is_current=eq.true&limit=10000',
+	$headers
+);
+$appendDataError('Employee employment records', $employmentPeopleResponse);
+
+if (isSuccessful($employmentPeopleResponse)) {
+	foreach ((array)($employmentPeopleResponse['data'] ?? []) as $employmentRow) {
+		$employmentStatus = strtolower((string)(cleanText($employmentRow['employment_status'] ?? null) ?? 'active'));
+		if ($employmentStatus !== 'active') {
+			continue;
+		}
+
+		$personId = cleanText($employmentRow['person_id'] ?? null) ?? '';
+		if (!isValidUuid($personId)) {
+			continue;
+		}
+
+		$personRow = is_array($employmentRow['person'] ?? null) ? (array)$employmentRow['person'] : [];
+		if (!isset($personRow['id']) || !isValidUuid((string)$personRow['id'])) {
+			$personRow['id'] = $personId;
+		}
+
+		$employeePeopleByPersonId[$personId] = $personRow;
+	}
+}
+
 $employeeCompensationByPerson = [];
 if (!empty($employeePeopleByPersonId)) {
 	$personFilter = $formatUuidInFilter(array_keys($employeePeopleByPersonId));
@@ -245,6 +275,54 @@ foreach ($runRows as $run) {
 	$runIds[] = $runId;
 }
 
+$recommendationByRunId = [];
+$adminDecisionByRunId = [];
+if (!empty($runIds)) {
+	$runLogResponse = apiRequest(
+		'GET',
+		$supabaseUrl
+		. '/rest/v1/activity_logs?select=entity_id,action_name,new_data,created_at'
+		. '&entity_name=eq.payroll_runs'
+		. '&entity_id=in.' . rawurlencode('(' . implode(',', $runIds) . ')')
+		. '&action_name=in.' . rawurlencode('(submit_batch_for_admin_approval,review_batch)')
+		. '&order=created_at.desc&limit=10000',
+		$headers
+	);
+	$appendDataError('Payroll run handoff logs', $runLogResponse);
+
+	if (isSuccessful($runLogResponse)) {
+		foreach ((array)($runLogResponse['data'] ?? []) as $logRow) {
+			$runId = cleanText($logRow['entity_id'] ?? null) ?? '';
+			if (!isValidUuid($runId)) {
+				continue;
+			}
+
+			$actionName = strtolower((string)(cleanText($logRow['action_name'] ?? null) ?? ''));
+			$newData = is_array($logRow['new_data'] ?? null) ? (array)$logRow['new_data'] : [];
+
+			if ($actionName === 'submit_batch_for_admin_approval' && !isset($recommendationByRunId[$runId])) {
+				$recommendationByRunId[$runId] = [
+					'text' => cleanText($newData['staff_recommendation'] ?? null) ?? 'Recommend approval',
+					'submitted_at' => cleanText($logRow['created_at'] ?? null) ?? '',
+				];
+			}
+
+			if ($actionName === 'review_batch' && !isset($adminDecisionByRunId[$runId])) {
+				$decisionRaw = strtolower((string)(cleanText($newData['status'] ?? null) ?? (cleanText($newData['new_status'] ?? null) ?? '')));
+				if (!in_array($decisionRaw, ['approved', 'cancelled', 'rejected', 'needs_revision'], true)) {
+					$decisionRaw = 'reviewed';
+				}
+
+				$adminDecisionByRunId[$runId] = [
+					'decision' => $decisionRaw,
+					'notes' => cleanText($newData['notes'] ?? null) ?? (cleanText($newData['comment'] ?? null) ?? ''),
+					'decided_at' => cleanText($logRow['created_at'] ?? null) ?? '',
+				];
+			}
+		}
+	}
+}
+
 $itemRows = [];
 if (!empty($runIds)) {
 	$itemsResponse = apiRequest(
@@ -261,13 +339,11 @@ if (!empty($runIds)) {
 
 $scopedItemRows = [];
 foreach ($itemRows as $itemRow) {
-	$personRow = is_array($itemRow['person'] ?? null) ? (array)$itemRow['person'] : [];
-	$userId = cleanText($personRow['user_id'] ?? null) ?? '';
+	$personId = cleanText($itemRow['person_id'] ?? null) ?? '';
 
 	if (
-		$employeeRoleQuerySuccessful
-		&& !empty($employeeRoleUserIds)
-		&& (!isValidUuid($userId) || !isset($employeeRoleUserIds[$userId]))
+		!empty($employeePeopleByPersonId)
+		&& (!isValidUuid($personId) || !isset($employeePeopleByPersonId[$personId]))
 	) {
 		continue;
 	}
@@ -503,7 +579,18 @@ foreach ($runRows as $run) {
 		'gross_total' => (float)($runStats['gross_total'] ?? 0),
 		'net_total' => (float)($runStats['net_total'] ?? 0),
 		'released_count' => (int)($runStats['released_count'] ?? 0),
-		'search_text' => strtolower(trim($periodCode . ' ' . $statusLabel . ' ' . $runId)),
+		'staff_recommendation' => (string)(($recommendationByRunId[$runId]['text'] ?? 'Not yet submitted by Staff')),
+		'staff_submitted_label' => formatDateTimeForPhilippines(($recommendationByRunId[$runId]['submitted_at'] ?? null), 'M d, Y h:i A'),
+		'admin_decision' => (string)($adminDecisionByRunId[$runId]['decision'] ?? ''),
+		'admin_decision_notes' => (string)($adminDecisionByRunId[$runId]['notes'] ?? ''),
+		'admin_decision_label' => formatDateTimeForPhilippines(($adminDecisionByRunId[$runId]['decided_at'] ?? null), 'M d, Y h:i A'),
+		'search_text' => strtolower(trim(
+			$periodCode . ' '
+			. $statusLabel . ' '
+			. $runId . ' '
+			. (string)($recommendationByRunId[$runId]['text'] ?? '') . ' '
+			. (string)($adminDecisionByRunId[$runId]['decision'] ?? '')
+		)),
 	];
 }
 
@@ -604,6 +691,42 @@ if (!empty($adjustmentIds)) {
 	}
 }
 
+$staffRecommendationByAdjustmentId = [];
+if (!empty($adjustmentIds)) {
+	$recommendationLogResponse = apiRequest(
+		'GET',
+		$supabaseUrl
+		. '/rest/v1/activity_logs?select=entity_id,new_data,created_at'
+		. '&entity_name=eq.payroll_adjustments'
+		. '&action_name=eq.recommend_payroll_adjustment'
+		. '&entity_id=in.' . rawurlencode('(' . implode(',', $adjustmentIds) . ')')
+		. '&order=created_at.desc'
+		. '&limit=5000',
+		$headers
+	);
+	$appendDataError('Payroll adjustment recommendations', $recommendationLogResponse);
+	$recommendationLogRows = isSuccessful($recommendationLogResponse) ? (array)($recommendationLogResponse['data'] ?? []) : [];
+
+	foreach ($recommendationLogRows as $logRow) {
+		$entityId = cleanText($logRow['entity_id'] ?? null) ?? '';
+		if (!isValidUuid($entityId) || isset($staffRecommendationByAdjustmentId[$entityId])) {
+			continue;
+		}
+
+		$newData = is_array($logRow['new_data'] ?? null) ? (array)$logRow['new_data'] : [];
+		$recommendationStatus = strtolower((string)(cleanText($newData['recommendation_status'] ?? null) ?? ''));
+		if (!in_array($recommendationStatus, ['approved', 'rejected'], true)) {
+			$recommendationStatus = '';
+		}
+
+		$staffRecommendationByAdjustmentId[$entityId] = [
+			'recommendation_status' => $recommendationStatus,
+			'notes' => cleanText($newData['notes'] ?? null) ?? '',
+			'submitted_at' => cleanText($logRow['created_at'] ?? null) ?? '',
+		];
+	}
+}
+
 foreach ($adjustmentRows as $adjustment) {
 	$adjustmentId = cleanText($adjustment['id'] ?? null) ?? '';
 	if (!isValidUuid($adjustmentId)) {
@@ -612,11 +735,10 @@ foreach ($adjustmentRows as $adjustment) {
 
 	$itemRow = is_array($adjustment['item'] ?? null) ? (array)$adjustment['item'] : [];
 	$personRow = is_array($itemRow['person'] ?? null) ? (array)$itemRow['person'] : [];
-	$personUserId = cleanText($personRow['user_id'] ?? null) ?? '';
+	$personId = cleanText($itemRow['person_id'] ?? null) ?? '';
 	if (
-		$employeeRoleQuerySuccessful
-		&& !empty($employeeRoleUserIds)
-		&& (!isValidUuid($personUserId) || !isset($employeeRoleUserIds[$personUserId]))
+		!empty($employeePeopleByPersonId)
+		&& (!isValidUuid($personId) || !isset($employeePeopleByPersonId[$personId]))
 	) {
 		continue;
 	}
@@ -635,6 +757,10 @@ foreach ($adjustmentRows as $adjustment) {
 	}
 
 	$reviewStatus = $reviewStatusByAdjustmentId[$adjustmentId] ?? 'pending';
+	$recommendationRow = is_array($staffRecommendationByAdjustmentId[$adjustmentId] ?? null)
+		? (array)$staffRecommendationByAdjustmentId[$adjustmentId]
+		: [];
+	$isSubmittedToAdmin = !empty($recommendationRow);
 	[$statusLabel, $statusClass] = $adjustmentStatusPill($reviewStatus);
 
 	$adjustmentCode = cleanText($adjustment['adjustment_code'] ?? null) ?? 'Adjustment';
@@ -653,7 +779,12 @@ foreach ($adjustmentRows as $adjustment) {
 		'status_raw' => $reviewStatus,
 		'status_label' => $statusLabel,
 		'status_class' => $statusClass,
+		'is_submitted_to_admin' => $isSubmittedToAdmin,
+		'staff_recommendation' => (string)($recommendationRow['recommendation_status'] ?? ''),
+		'staff_recommendation_label' => formatDateTimeForPhilippines(($recommendationRow['submitted_at'] ?? null), 'M d, Y h:i A'),
 		'created_label' => formatDateTimeForPhilippines(cleanText($adjustment['created_at'] ?? null), 'M d, Y'),
 		'search_text' => strtolower(trim($adjustmentCode . ' ' . $fullName . ' ' . $periodCode . ' ' . $description . ' ' . $statusLabel)),
 	];
 }
+
+$payrollAdjustmentRows = array_values($payrollAdjustmentRows);

@@ -8,9 +8,9 @@ require_once __DIR__ . '/includes/payroll/bootstrap.php';
 require_once __DIR__ . '/includes/payroll/actions.php';
 require_once __DIR__ . '/includes/payroll/data.php';
 
-$pageTitle = 'Payroll | DA HRIS';
+$pageTitle = 'My Payslip | DA HRIS';
 $activePage = 'payroll.php';
-$breadcrumbs = ['Payroll'];
+$breadcrumbs = ['My Payslip'];
 $pageScripts = $pageScripts ?? [];
 $pageScripts[] = '/hris-system/assets/js/employee/payroll/index.js';
 
@@ -44,8 +44,8 @@ $payslipStatusMeta = static function (string $status): array {
 ?>
 
 <div class="mb-6">
-  <h1 class="text-2xl font-bold">Payroll</h1>
-  <p class="text-sm text-gray-500">View payroll breakdown and retrieve your payslips.</p>
+  <h1 class="text-2xl font-bold">My Payslip</h1>
+  <p class="text-sm text-gray-500">Review payroll history, deduction breakdown, and released payslip files.</p>
 </div>
 
 <?php if (!empty($message)): ?>
@@ -83,7 +83,7 @@ $payslipStatusMeta = static function (string $status): array {
 
 <div class="bg-white rounded-lg shadow border">
   <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-6 py-4 border-b">
-    <h2 class="text-lg font-bold">Payslip <span class="text-daGreen">History</span></h2>
+    <h2 class="text-lg font-bold">My Payslip <span class="text-daGreen">History</span></h2>
 
     <div class="w-full md:w-52">
       <label class="text-xs text-gray-500">Filter by year</label>

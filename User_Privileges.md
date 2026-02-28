@@ -164,6 +164,7 @@ Admin:
 - [ ] Audit Trail Logging (Every modification, calculation, export, and email must be logged)
 
 Staff:
+
 - [x] Compute Monthly Payroll and Export it 
 - [x] Process Payroll for approval of admin 
 - [x] Generate Payslip and send it via email after admin approval 

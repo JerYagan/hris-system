@@ -93,6 +93,11 @@ if (!function_exists('staffPayrollGeneratePayslipDocument')) {
         $grossPay = (float)($payload['gross_pay'] ?? 0);
         $deductionsTotal = (float)($payload['deductions_total'] ?? 0);
         $netPay = (float)($payload['net_pay'] ?? 0);
+        $basicPay = (float)($payload['basic_pay'] ?? 0);
+        $overtimePay = (float)($payload['overtime_pay'] ?? 0);
+        $allowancesTotal = (float)($payload['allowances_total'] ?? 0);
+        $earningsLines = is_array($payload['earnings_lines'] ?? null) ? (array)$payload['earnings_lines'] : [];
+        $deductionLines = is_array($payload['deduction_lines'] ?? null) ? (array)$payload['deduction_lines'] : [];
         $generatedAt = gmdate('Y-m-d H:i:s') . ' UTC';
 
         $exportsDir = $projectRoot . '/storage/payslips';
@@ -103,13 +108,48 @@ if (!function_exists('staffPayrollGeneratePayslipDocument')) {
             $baseFileName = 'payslip-' . gmdate('Ymd-His') . '-' . substr(bin2hex(random_bytes(6)), 0, 12);
         }
 
+        if (empty($earningsLines)) {
+            $earningsLines = [
+                ['label' => 'Basic Pay', 'amount' => $basicPay],
+                ['label' => 'CTO Pay', 'amount' => $overtimePay],
+                ['label' => 'Allowances', 'amount' => $allowancesTotal],
+            ];
+        }
+
+        if (empty($deductionLines)) {
+            $deductionLines = [[
+                'label' => 'Government Contributions (SSS/Pag-IBIG/PhilHealth) and Other Deductions',
+                'amount' => $deductionsTotal,
+            ]];
+        }
+
+        $renderRows = static function (array $rows): string {
+            $htmlRows = '';
+            foreach ($rows as $rowRaw) {
+                $row = (array)$rowRaw;
+                $label = trim((string)($row['label'] ?? $row['description'] ?? 'Entry'));
+                if ($label === '') {
+                    $label = 'Entry';
+                }
+                $amount = (float)($row['amount'] ?? 0);
+                $htmlRows .= '<tr><th style="text-align:left; background:#f8fafc;">' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</th><td>PHP ' . number_format($amount, 2) . '</td></tr>';
+            }
+            return $htmlRows;
+        };
+
         $html = '<h2 style="font-family: Arial, sans-serif; margin-bottom: 8px;">Employee Payslip</h2>'
             . '<p style="font-family: Arial, sans-serif; font-size: 12px; margin: 4px 0;"><strong>Payslip No:</strong> ' . htmlspecialchars($payslipNo, ENT_QUOTES, 'UTF-8') . '</p>'
             . '<p style="font-family: Arial, sans-serif; font-size: 12px; margin: 4px 0;"><strong>Employee:</strong> ' . htmlspecialchars($employeeName, ENT_QUOTES, 'UTF-8') . '</p>'
             . '<p style="font-family: Arial, sans-serif; font-size: 12px; margin: 4px 0;"><strong>Period:</strong> ' . htmlspecialchars($periodLabel, ENT_QUOTES, 'UTF-8') . '</p>'
-            . '<table width="100%" cellspacing="0" cellpadding="8" border="1" style="border-collapse: collapse; margin-top: 12px; font-family: Arial, sans-serif; font-size: 12px;">'
-            . '<tr><th style="text-align:left; background:#f8fafc;">Gross Pay</th><td>PHP ' . number_format($grossPay, 2) . '</td></tr>'
-            . '<tr><th style="text-align:left; background:#f8fafc;">Deductions</th><td>PHP ' . number_format($deductionsTotal, 2) . '</td></tr>'
+            . '<h3 style="font-family: Arial, sans-serif; margin: 14px 0 8px 0;">Earnings Breakdown</h3>'
+            . '<table width="100%" cellspacing="0" cellpadding="8" border="1" style="border-collapse: collapse; margin-top: 8px; font-family: Arial, sans-serif; font-size: 12px;">'
+            . $renderRows($earningsLines)
+            . '<tr><th style="text-align:left; background:#f8fafc;">Gross Pay</th><td><strong>PHP ' . number_format($grossPay, 2) . '</strong></td></tr>'
+            . '</table>'
+            . '<h3 style="font-family: Arial, sans-serif; margin: 14px 0 8px 0;">Deduction Breakdown</h3>'
+            . '<table width="100%" cellspacing="0" cellpadding="8" border="1" style="border-collapse: collapse; margin-top: 8px; font-family: Arial, sans-serif; font-size: 12px;">'
+            . $renderRows($deductionLines)
+            . '<tr><th style="text-align:left; background:#f8fafc;">Total Deductions</th><td><strong>PHP ' . number_format($deductionsTotal, 2) . '</strong></td></tr>'
             . '<tr><th style="text-align:left; background:#f8fafc;">Net Pay</th><td><strong>PHP ' . number_format($netPay, 2) . '</strong></td></tr>'
             . '</table>'
             . '<p style="font-family: Arial, sans-serif; font-size: 11px; color: #64748b; margin-top: 12px;">System generated on ' . htmlspecialchars($generatedAt, ENT_QUOTES, 'UTF-8') . '.</p>';
@@ -440,6 +480,10 @@ if ($action === 'review_payroll_run') {
 
 if ($action === 'compute_monthly_payroll') {
     $periodId = cleanText($_POST['period_id'] ?? null) ?? '';
+    $staffRecommendation = cleanText($_POST['staff_recommendation'] ?? null) ?? 'Recommend approval';
+    if (trim($staffRecommendation) === '') {
+        $staffRecommendation = 'Recommend approval';
+    }
     if (!isValidUuid($periodId)) {
         redirectWithState('error', 'Invalid payroll period selected.');
     }
@@ -492,74 +536,42 @@ if ($action === 'compute_monthly_payroll') {
         }
     }
 
-    $assignmentResponse = apiRequest(
+    $employmentResponse = apiRequest(
         'GET',
         $supabaseUrl
-        . '/rest/v1/user_role_assignments?select=user_id,expires_at,role:roles!inner(role_key)'
-        . '&role.role_key=eq.employee&limit=10000',
+        . '/rest/v1/employment_records?select=person_id,employment_status,person:people!employment_records_person_id_fkey(id,user_id,first_name,middle_name,surname)'
+        . '&is_current=eq.true&limit=10000',
         $headers
     );
 
-    if (!isSuccessful($assignmentResponse)) {
-        redirectWithState('error', 'Failed to load employee role assignments.');
-    }
-
-    $nowTimestamp = time();
-    $employeeUserIds = [];
-    foreach ((array)($assignmentResponse['data'] ?? []) as $assignmentRow) {
-        $userId = cleanText($assignmentRow['user_id'] ?? null) ?? '';
-        if (!isValidUuid($userId)) {
-            continue;
-        }
-
-        $expiresAt = cleanText($assignmentRow['expires_at'] ?? null);
-        if ($expiresAt !== null) {
-            $expiresTimestamp = strtotime($expiresAt);
-            if ($expiresTimestamp !== false && $expiresTimestamp <= $nowTimestamp) {
-                continue;
-            }
-        }
-
-        $employeeUserIds[$userId] = true;
-    }
-
-    if (empty($employeeUserIds)) {
-        redirectWithState('error', 'No active employee role assignments found.');
-    }
-
-    $userIdFilter = staffPayrollFormatInFilterList(array_keys($employeeUserIds));
-    if ($userIdFilter === '') {
-        redirectWithState('error', 'Employee user identifiers are invalid.');
-    }
-
-    $peopleResponse = apiRequest(
-        'GET',
-        $supabaseUrl
-        . '/rest/v1/people?select=id,user_id,first_name,middle_name,surname'
-        . '&user_id=in.' . rawurlencode('(' . $userIdFilter . ')')
-        . '&limit=10000',
-        $headers
-    );
-
-    if (!isSuccessful($peopleResponse)) {
-        redirectWithState('error', 'Failed to load employee records for payroll compute.');
-    }
-
-    $peopleRows = (array)($peopleResponse['data'] ?? []);
-    if (empty($peopleRows)) {
-        redirectWithState('error', 'No employee person records found for payroll compute.');
+    if (!isSuccessful($employmentResponse)) {
+        redirectWithState('error', 'Failed to load active employment records for payroll compute.');
     }
 
     $personIds = [];
     $peopleById = [];
-    foreach ($peopleRows as $personRow) {
-        $personId = cleanText($personRow['id'] ?? null) ?? '';
-        if (!isValidUuid($personId)) {
+    foreach ((array)($employmentResponse['data'] ?? []) as $employmentRow) {
+        $employmentStatus = strtolower((string)(cleanText($employmentRow['employment_status'] ?? null) ?? 'active'));
+        if ($employmentStatus !== 'active') {
             continue;
         }
 
+        $personId = cleanText($employmentRow['person_id'] ?? null) ?? '';
+        if (!isValidUuid($personId) || isset($peopleById[$personId])) {
+            continue;
+        }
+
+        $personRow = is_array($employmentRow['person'] ?? null) ? (array)$employmentRow['person'] : [];
+        if (!isset($personRow['id']) || !isValidUuid((string)$personRow['id'])) {
+            $personRow['id'] = $personId;
+        }
+
         $personIds[] = $personId;
-        $peopleById[$personId] = (array)$personRow;
+        $peopleById[$personId] = $personRow;
+    }
+
+    if (empty($peopleById)) {
+        redirectWithState('error', 'No active employee person records found for payroll compute.');
     }
 
     $personIdFilter = staffPayrollFormatInFilterList($personIds);
@@ -745,8 +757,65 @@ if ($action === 'compute_monthly_payroll') {
             'status' => 'processing',
             'payroll_run_id' => $payrollRunId,
             'computed_employee_count' => count($upsertItemsPayload),
+            'staff_recommendation' => $staffRecommendation,
         ]
     );
+
+    $writeActivityLog(
+        'payroll_runs',
+        $payrollRunId,
+        'submit_batch_for_admin_approval',
+        ['run_status' => $existingRunStatus ?? 'draft'],
+        [
+            'run_status' => 'computed',
+            'staff_recommendation' => $staffRecommendation,
+            'submitted_at' => $nowIso,
+        ]
+    );
+
+    $adminAssignmentResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/user_role_assignments?select=user_id,expires_at,role:roles!inner(role_key)'
+        . '&role.role_key=eq.admin&limit=1000',
+        $headers
+    );
+
+    if (isSuccessful($adminAssignmentResponse)) {
+        $nowTimestamp = time();
+        $adminNotifications = [];
+        foreach ((array)($adminAssignmentResponse['data'] ?? []) as $assignmentRow) {
+            $adminUserId = cleanText($assignmentRow['user_id'] ?? null) ?? '';
+            if (!isValidUuid($adminUserId)) {
+                continue;
+            }
+
+            $expiresAt = cleanText($assignmentRow['expires_at'] ?? null);
+            if ($expiresAt !== null) {
+                $expiryTimestamp = strtotime($expiresAt);
+                if ($expiryTimestamp !== false && $expiryTimestamp <= $nowTimestamp) {
+                    continue;
+                }
+            }
+
+            $adminNotifications[] = [
+                'recipient_user_id' => $adminUserId,
+                'category' => 'payroll',
+                'title' => 'Payroll Batch Ready for Approval',
+                'body' => 'Staff submitted a computed payroll batch for period ' . (string)($periodRow['period_code'] ?? 'selected period') . '. Recommendation: ' . $staffRecommendation . '. Please review and apply final decision.',
+                'link_url' => '/hris-system/pages/admin/payroll-management.php',
+            ];
+        }
+
+        if (!empty($adminNotifications)) {
+            apiRequest(
+                'POST',
+                $supabaseUrl . '/rest/v1/notifications',
+                array_merge($headers, ['Prefer: return=minimal']),
+                $adminNotifications
+            );
+        }
+    }
 
     redirectWithState('success', 'Payroll computed successfully for ' . count($upsertItemsPayload) . ' employee(s).');
 }
@@ -755,6 +824,7 @@ if ($action === 'create_salary_adjustment') {
     $payrollItemId = cleanText($_POST['payroll_item_id'] ?? null) ?? '';
     $adjustmentType = strtolower((string)(cleanText($_POST['adjustment_type'] ?? null) ?? 'deduction'));
     $adjustmentCodeInput = cleanText($_POST['adjustment_code'] ?? null) ?? '';
+    $recommendationStatus = strtolower((string)(cleanText($_POST['recommendation_status'] ?? null) ?? 'draft'));
     $description = cleanText($_POST['description'] ?? null) ?? '';
     $amountRaw = (string)(cleanText($_POST['amount'] ?? null) ?? '');
     $amount = is_numeric($amountRaw) ? (float)$amountRaw : 0.0;
@@ -775,9 +845,14 @@ if ($action === 'create_salary_adjustment') {
         redirectWithState('error', 'Salary adjustment amount must be greater than zero.');
     }
 
+    if (!in_array($recommendationStatus, ['draft', 'approved', 'rejected'], true)) {
+        redirectWithState('error', 'Invalid recommendation selection for salary adjustment.');
+    }
+
     $adjustmentCode = strtoupper(trim($adjustmentCodeInput));
-    if ($adjustmentCode === '') {
-        $adjustmentCode = 'ADJ-' . strtoupper(substr(str_replace('-', '', $payrollItemId), 0, 8));
+    $allowedAdjustmentCodes = ['ABSENCE', 'LATE', 'UNDERTIME', 'ALLOWANCE', 'BONUS', 'CORRECTION', 'OTHER'];
+    if (!in_array($adjustmentCode, $allowedAdjustmentCodes, true)) {
+        redirectWithState('error', 'Please select a valid adjustment code.');
     }
 
     $itemResponse = apiRequest(
@@ -842,12 +917,70 @@ if ($action === 'create_salary_adjustment') {
                 'review_status' => 'pending',
             ]
         );
+
+        if (in_array($recommendationStatus, ['approved', 'rejected'], true)) {
+            $writeActivityLog(
+                'payroll_adjustments',
+                $adjustmentId,
+                'recommend_payroll_adjustment',
+                ['recommendation_status' => 'pending'],
+                ['recommendation_status' => $recommendationStatus, 'notes' => '', 'submitted_to_admin' => true]
+            );
+
+            $adminAssignmentResponse = apiRequest(
+                'GET',
+                $supabaseUrl
+                . '/rest/v1/user_role_assignments?select=user_id,expires_at,role:roles!inner(role_key)'
+                . '&role.role_key=eq.admin&limit=1000',
+                $headers
+            );
+
+            if (isSuccessful($adminAssignmentResponse)) {
+                $nowTimestamp = time();
+                $adminNotifications = [];
+                foreach ((array)($adminAssignmentResponse['data'] ?? []) as $assignmentRow) {
+                    $adminUserId = cleanText($assignmentRow['user_id'] ?? null) ?? '';
+                    if (!isValidUuid($adminUserId)) {
+                        continue;
+                    }
+
+                    $expiresAt = cleanText($assignmentRow['expires_at'] ?? null);
+                    if ($expiresAt !== null) {
+                        $expiryTimestamp = strtotime($expiresAt);
+                        if ($expiryTimestamp !== false && $expiryTimestamp <= $nowTimestamp) {
+                            continue;
+                        }
+                    }
+
+                    $adminNotifications[] = [
+                        'recipient_user_id' => $adminUserId,
+                        'category' => 'payroll',
+                        'title' => 'Salary Adjustment Recommendation Submitted',
+                        'body' => 'Staff recommended ' . $recommendationStatus . ' for ' . $adjustmentCode . '. Please apply final decision in payroll adjustment review.',
+                        'link_url' => '/hris-system/pages/admin/payroll-management.php',
+                    ];
+                }
+
+                if (!empty($adminNotifications)) {
+                    apiRequest(
+                        'POST',
+                        $supabaseUrl . '/rest/v1/notifications',
+                        array_merge($headers, ['Prefer: return=minimal']),
+                        $adminNotifications
+                    );
+                }
+            }
+        }
     }
 
-    redirectWithState('success', 'Salary adjustment created. Staff can now review and finalize the decision.');
+    if ($recommendationStatus === 'draft') {
+        redirectWithState('success', 'Salary adjustment created as draft. You can submit recommendation to Admin from the table.');
+    }
+
+    redirectWithState('success', 'Salary adjustment created and recommendation submitted to Admin for final approval.');
 }
 
-if ($action === 'review_salary_adjustment') {
+if ($action === 'recommend_salary_adjustment') {
     $adjustmentId = cleanText($_POST['adjustment_id'] ?? null) ?? '';
     $decision = strtolower((string)(cleanText($_POST['decision'] ?? null) ?? ''));
     $notes = cleanText($_POST['review_notes'] ?? null);
@@ -857,7 +990,7 @@ if ($action === 'review_salary_adjustment') {
     }
 
     if (!in_array($decision, ['approved', 'rejected'], true)) {
-        redirectWithState('error', 'Invalid salary adjustment decision.');
+        redirectWithState('error', 'Invalid salary adjustment recommendation.');
     }
 
     $adjustmentResponse = apiRequest(
@@ -874,8 +1007,8 @@ if ($action === 'review_salary_adjustment') {
         redirectWithState('error', 'Salary adjustment not found.');
     }
 
-    $previousStatus = 'pending';
-    $lastDecisionResponse = apiRequest(
+    $adminReviewStatus = 'pending';
+    $lastAdminDecisionResponse = apiRequest(
         'GET',
         $supabaseUrl
         . '/rest/v1/activity_logs?select=new_data,created_at'
@@ -886,34 +1019,94 @@ if ($action === 'review_salary_adjustment') {
         $headers
     );
 
-    if (isSuccessful($lastDecisionResponse) && !empty((array)($lastDecisionResponse['data'] ?? []))) {
-        $lastLogRow = (array)$lastDecisionResponse['data'][0];
+    if (isSuccessful($lastAdminDecisionResponse) && !empty((array)($lastAdminDecisionResponse['data'] ?? []))) {
+        $lastLogRow = (array)$lastAdminDecisionResponse['data'][0];
         $newData = is_array($lastLogRow['new_data'] ?? null) ? (array)$lastLogRow['new_data'] : [];
-        $previousStatus = strtolower((string)(cleanText($newData['review_status'] ?? null) ?? 'pending'));
-        if (!in_array($previousStatus, ['pending', 'approved', 'rejected'], true)) {
-            $previousStatus = 'pending';
+        $adminReviewStatus = strtolower((string)(cleanText($newData['review_status'] ?? null) ?? 'pending'));
+        if (!in_array($adminReviewStatus, ['pending', 'approved', 'rejected'], true)) {
+            $adminReviewStatus = 'pending';
+        }
+    }
+
+    if ($adminReviewStatus !== 'pending') {
+        redirectWithState('error', 'This salary adjustment has already been finalized by Admin.');
+    }
+
+    $previousRecommendation = 'pending';
+    $lastRecommendationResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/activity_logs?select=new_data,created_at'
+        . '&entity_name=eq.payroll_adjustments'
+        . '&action_name=eq.recommend_payroll_adjustment'
+        . '&entity_id=eq.' . rawurlencode($adjustmentId)
+        . '&order=created_at.desc&limit=1',
+        $headers
+    );
+
+    if (isSuccessful($lastRecommendationResponse) && !empty((array)($lastRecommendationResponse['data'] ?? []))) {
+        $lastLogRow = (array)$lastRecommendationResponse['data'][0];
+        $newData = is_array($lastLogRow['new_data'] ?? null) ? (array)$lastLogRow['new_data'] : [];
+        $previousRecommendation = strtolower((string)(cleanText($newData['recommendation_status'] ?? null) ?? 'pending'));
+        if (!in_array($previousRecommendation, ['pending', 'approved', 'rejected'], true)) {
+            $previousRecommendation = 'pending';
         }
     }
 
     $writeActivityLog(
         'payroll_adjustments',
         $adjustmentId,
-        'review_payroll_adjustment',
-        ['review_status' => $previousStatus],
-        ['review_status' => $decision, 'notes' => $notes]
+        'recommend_payroll_adjustment',
+        ['recommendation_status' => $previousRecommendation],
+        ['recommendation_status' => $decision, 'notes' => $notes, 'submitted_to_admin' => true]
     );
 
-    $personRow = is_array($adjustmentRow['item']['person'] ?? null) ? (array)$adjustmentRow['item']['person'] : [];
-    $recipientUserId = cleanText($personRow['user_id'] ?? null) ?? '';
-    if (isValidUuid($recipientUserId)) {
-        $notifyUser(
-            $recipientUserId,
-            'Salary Adjustment Reviewed',
-            'Your salary adjustment request has been marked as ' . $decision . '.'
-        );
+    $adminAssignmentResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/user_role_assignments?select=user_id,expires_at,role:roles!inner(role_key)'
+        . '&role.role_key=eq.admin&limit=1000',
+        $headers
+    );
+
+    if (isSuccessful($adminAssignmentResponse)) {
+        $nowTimestamp = time();
+        $adminNotifications = [];
+        $adjustmentCode = cleanText($adjustmentRow['adjustment_code'] ?? null) ?? 'Salary adjustment';
+        foreach ((array)($adminAssignmentResponse['data'] ?? []) as $assignmentRow) {
+            $adminUserId = cleanText($assignmentRow['user_id'] ?? null) ?? '';
+            if (!isValidUuid($adminUserId)) {
+                continue;
+            }
+
+            $expiresAt = cleanText($assignmentRow['expires_at'] ?? null);
+            if ($expiresAt !== null) {
+                $expiryTimestamp = strtotime($expiresAt);
+                if ($expiryTimestamp !== false && $expiryTimestamp <= $nowTimestamp) {
+                    continue;
+                }
+            }
+
+            $adminNotifications[] = [
+                'recipient_user_id' => $adminUserId,
+                'category' => 'payroll',
+                'title' => 'Salary Adjustment Recommendation Submitted',
+                'body' => 'Staff recommended ' . $decision . ' for ' . $adjustmentCode . '. Please apply final decision in payroll adjustment review.',
+                'link_url' => '/hris-system/pages/admin/payroll-management.php',
+            ];
+        }
+
+        if (!empty($adminNotifications)) {
+            apiRequest(
+                'POST',
+                $supabaseUrl . '/rest/v1/notifications',
+                array_merge($headers, ['Prefer: return=minimal']),
+                $adminNotifications
+            );
+        }
     }
 
-    redirectWithState('success', 'Salary adjustment marked as ' . $decision . '.');
+    redirectWithState('success', 'Salary adjustment recommendation submitted to Admin for final approval.');
 }
 
 if ($action === 'generate_payslip_run') {
@@ -1005,7 +1198,7 @@ if ($action === 'generate_payslip_run') {
 
     $existingByItemId = [];
     foreach ($existingPayslipRows as $existingRow) {
-        $existingItemId = cleanText($existingRow['payroll_item_id'] ?? null) ?? '';
+        $existingItemId = strtolower(trim((string)(cleanText($existingRow['payroll_item_id'] ?? null) ?? '')));
         if (!isValidUuid($existingItemId)) {
             continue;
         }
@@ -1038,6 +1231,29 @@ if ($action === 'generate_payslip_run') {
                 ['released_at' => $nowIso]
             );
         }
+    }
+
+    $currentPayslipResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/payslips?select=id,payroll_item_id,payslip_no,released_at,pdf_storage_path'
+        . '&payroll_item_id=in.' . rawurlencode('(' . implode(',', $itemIds) . ')')
+        . '&limit=5000',
+        $headers
+    );
+
+    if (!isSuccessful($currentPayslipResponse)) {
+        redirectWithState('error', 'Payslips were created but could not be reloaded for document generation.');
+    }
+
+    $existingByItemId = [];
+    foreach ((array)($currentPayslipResponse['data'] ?? []) as $existingRow) {
+        $existingItemId = strtolower(trim((string)(cleanText($existingRow['payroll_item_id'] ?? null) ?? '')));
+        if (!isValidUuid($existingItemId)) {
+            continue;
+        }
+
+        $existingByItemId[$existingItemId] = (array)$existingRow;
     }
 
     if (!empty($insertPayload)) {
@@ -1117,9 +1333,23 @@ if ($action === 'generate_payslip_run') {
                 'payslip_no' => $payslipNo,
                 'employee_name' => $employeeName,
                 'period_label' => $periodLabel,
+                'basic_pay' => (float)($itemRow['basic_pay'] ?? 0),
+                'overtime_pay' => (float)($itemRow['overtime_pay'] ?? 0),
+                'allowances_total' => (float)($itemRow['allowances_total'] ?? 0),
                 'gross_pay' => (float)($itemRow['gross_pay'] ?? 0),
                 'deductions_total' => (float)($itemRow['deductions_total'] ?? 0),
                 'net_pay' => (float)($itemRow['net_pay'] ?? 0),
+                'earnings_lines' => [
+                    ['label' => 'Basic Pay', 'amount' => (float)($itemRow['basic_pay'] ?? 0)],
+                    ['label' => 'CTO Pay', 'amount' => (float)($itemRow['overtime_pay'] ?? 0)],
+                    ['label' => 'Allowances', 'amount' => (float)($itemRow['allowances_total'] ?? 0)],
+                ],
+                'deduction_lines' => [
+                    [
+                        'label' => 'Government Contributions (SSS/Pag-IBIG/PhilHealth) and Other Deductions',
+                        'amount' => (float)($itemRow['deductions_total'] ?? 0),
+                    ],
+                ],
             ]);
 
             $storagePath = cleanText($document['storage_path'] ?? null);

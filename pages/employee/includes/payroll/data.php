@@ -14,6 +14,50 @@ $payrollSummary = [
 $employeePayrollRows = [];
 $payrollYears = [];
 
+$payFrequencyDivisor = static function (?string $payFrequency): float {
+    $frequency = strtolower(trim((string)$payFrequency));
+    return match ($frequency) {
+        'monthly' => 1.0,
+        'weekly' => 4.0,
+        default => 2.0,
+    };
+};
+
+$resolveAdjustmentDescription = static function (array $adjustment): string {
+    $description = trim((string)($adjustment['description'] ?? ''));
+    $code = strtoupper(trim((string)($adjustment['adjustment_code'] ?? '')));
+
+    if ($description !== '') {
+        return $description;
+    }
+
+    if ($code === '') {
+        return 'Payroll Entry';
+    }
+
+    if (strpos($code, 'SSS') !== false) {
+        return 'SSS Contribution';
+    }
+
+    if (strpos($code, 'PAG') !== false || strpos($code, 'HDMF') !== false) {
+        return 'Pag-IBIG Contribution';
+    }
+
+    if (strpos($code, 'PHILHEALTH') !== false || strpos($code, 'PHIC') !== false) {
+        return 'PhilHealth Contribution';
+    }
+
+    if (strpos($code, 'TAX') !== false || strpos($code, 'WITHHOLD') !== false) {
+        return 'Withholding Tax';
+    }
+
+    if (strpos($code, 'GOV') !== false || strpos($code, 'STAT') !== false) {
+        return 'Government Contributions (SSS/Pag-IBIG/PhilHealth)';
+    }
+
+    return ucwords(strtolower(str_replace('_', ' ', $code)));
+};
+
 if (!(bool)($employeeContextResolved ?? false)) {
     $dataLoadError = (string)($employeeContextError ?? 'Employee context could not be resolved.');
     return;
@@ -22,9 +66,9 @@ if (!(bool)($employeeContextResolved ?? false)) {
 $payrollItemsResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/payroll_items?select=id,payroll_run_id,gross_pay,deductions_total,net_pay,created_at,payroll_run:payroll_runs(run_status,payroll_period:payroll_periods(period_code,period_start,period_end,payout_date,status))'
+    . '/rest/v1/payroll_items?select=id,payroll_run_id,gross_pay,deductions_total,net_pay,created_at,updated_at,payroll_run:payroll_runs(run_status,payroll_period:payroll_periods(period_code,period_start,period_end,payout_date,status))'
     . '&person_id=eq.' . rawurlencode((string)$employeePersonId)
-    . '&order=created_at.desc&limit=400',
+    . '&order=updated_at.desc,created_at.desc&limit=400',
     $headers
 );
 
@@ -50,6 +94,19 @@ foreach ($itemRows as $itemRaw) {
 if (empty($payrollItemIds)) {
     return;
 }
+
+$compensationResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/employee_compensations?select=id,effective_from,effective_to,pay_frequency,tax_deduction,government_deductions,other_deductions'
+    . '&person_id=eq.' . rawurlencode((string)$employeePersonId)
+    . '&order=effective_from.desc&limit=200',
+    $headers
+);
+
+$compensationRows = isSuccessful($compensationResponse)
+    ? (array)($compensationResponse['data'] ?? [])
+    : [];
 
 $inClause = implode(',', array_map(static fn(string $id): string => rawurlencode($id), $payrollItemIds));
 
@@ -100,7 +157,7 @@ if (isSuccessful($adjustmentsResponse)) {
             'id' => (string)($adjustment['id'] ?? ''),
             'adjustment_type' => strtolower((string)($adjustment['adjustment_type'] ?? 'deduction')),
             'adjustment_code' => (string)($adjustment['adjustment_code'] ?? ''),
-            'description' => (string)($adjustment['description'] ?? ''),
+            'description' => $resolveAdjustmentDescription($adjustment),
             'amount' => (float)($adjustment['amount'] ?? 0),
         ];
     }
@@ -153,12 +210,70 @@ foreach ($itemRows as $index => $itemRaw) {
     }
 
     if (empty($deductions)) {
-        $deductions[] = [
-            'adjustment_type' => 'deduction',
-            'adjustment_code' => 'DEDUCTIONS',
-            'description' => 'Total Deductions',
-            'amount' => $totalDeductions,
-        ];
+        $periodStartDate = $periodStart !== '' ? date('Y-m-d', strtotime($periodStart)) : '';
+        $matchedCompensation = null;
+
+        if ($periodStartDate !== '' && !empty($compensationRows)) {
+            foreach ($compensationRows as $compensationRaw) {
+                $compensation = (array)$compensationRaw;
+                $effectiveFrom = trim((string)($compensation['effective_from'] ?? ''));
+                $effectiveTo = trim((string)($compensation['effective_to'] ?? ''));
+
+                if ($effectiveFrom === '' || $effectiveFrom > $periodStartDate) {
+                    continue;
+                }
+
+                if ($effectiveTo !== '' && $effectiveTo < $periodStartDate) {
+                    continue;
+                }
+
+                $matchedCompensation = $compensation;
+                break;
+            }
+        }
+
+        if (is_array($matchedCompensation)) {
+            $divisor = $payFrequencyDivisor((string)($matchedCompensation['pay_frequency'] ?? 'semi_monthly'));
+            $withholding = round(max(0.0, (float)($matchedCompensation['tax_deduction'] ?? 0)) / $divisor, 2);
+            $government = round(max(0.0, (float)($matchedCompensation['government_deductions'] ?? 0)) / $divisor, 2);
+            $other = round(max(0.0, (float)($matchedCompensation['other_deductions'] ?? 0)) / $divisor, 2);
+
+            if ($withholding > 0) {
+                $deductions[] = [
+                    'adjustment_type' => 'deduction',
+                    'adjustment_code' => 'WITHHOLDING_TAX',
+                    'description' => 'Withholding Tax',
+                    'amount' => $withholding,
+                ];
+            }
+
+            if ($government > 0) {
+                $deductions[] = [
+                    'adjustment_type' => 'deduction',
+                    'adjustment_code' => 'GOVERNMENT_CONTRIBUTIONS',
+                    'description' => 'Government Contributions (SSS/Pag-IBIG/PhilHealth)',
+                    'amount' => $government,
+                ];
+            }
+
+            if ($other > 0) {
+                $deductions[] = [
+                    'adjustment_type' => 'deduction',
+                    'adjustment_code' => 'OTHER_DEDUCTIONS',
+                    'description' => 'Other Deductions',
+                    'amount' => $other,
+                ];
+            }
+        }
+
+        if (empty($deductions)) {
+            $deductions[] = [
+                'adjustment_type' => 'deduction',
+                'adjustment_code' => 'DEDUCTIONS',
+                'description' => 'Total Deductions',
+                'amount' => $totalDeductions,
+            ];
+        }
     }
 
     $yearSource = $periodEnd !== '' ? $periodEnd : ($periodStart !== '' ? $periodStart : (string)($item['created_at'] ?? ''));

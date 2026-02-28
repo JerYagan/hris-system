@@ -2697,6 +2697,9 @@
     const payrollBatchStatus = document.getElementById('payrollBatchStatus');
     const payrollBatchEmployees = document.getElementById('payrollBatchEmployees');
     const payrollBatchNet = document.getElementById('payrollBatchNet');
+    const payrollBatchRecommendation = document.getElementById('payrollBatchRecommendation');
+    const payrollBatchSubmittedAt = document.getElementById('payrollBatchSubmittedAt');
+    const payrollBatchReviewedAt = document.getElementById('payrollBatchReviewedAt');
     const openGeneratePayrollSummary = document.getElementById('openGeneratePayrollSummary');
     const generatePayrollPeriod = document.getElementById('generatePayrollPeriod');
     const generatePayrollPeriodIdConfirm = document.getElementById('generatePayrollPeriodIdConfirm');
@@ -3733,12 +3736,18 @@
         const currentStatus = button.getAttribute('data-current-status') || '';
         const employeeCount = button.getAttribute('data-employee-count') || '';
         const totalNet = button.getAttribute('data-total-net') || '';
+        const staffRecommendation = button.getAttribute('data-staff-recommendation') || '';
+        const staffSubmitted = button.getAttribute('data-staff-submitted') || '-';
+        const adminReviewed = button.getAttribute('data-admin-reviewed') || '-';
 
         if (payrollRunId) payrollRunId.value = runId;
         if (payrollBatchPeriod) payrollBatchPeriod.value = periodLabel;
         if (payrollBatchStatus) payrollBatchStatus.value = currentStatus;
         if (payrollBatchEmployees) payrollBatchEmployees.value = employeeCount;
         if (payrollBatchNet) payrollBatchNet.value = totalNet;
+        if (payrollBatchRecommendation) payrollBatchRecommendation.value = staffRecommendation || 'Recommend approval';
+        if (payrollBatchSubmittedAt) payrollBatchSubmittedAt.value = staffSubmitted;
+        if (payrollBatchReviewedAt) payrollBatchReviewedAt.value = adminReviewed;
         openModal('reviewPayrollBatchModal');
       });
     });

@@ -19,6 +19,7 @@ const adminModuleMap = {
   recruitment: () => import('/hris-system/assets/js/admin/recruitment/index.js'),
   evaluation: () => import('/hris-system/assets/js/admin/evaluation/index.js'),
   'document-management': () => import('/hris-system/assets/js/admin/document-management/index.js'),
+  'payroll-management': () => import('/hris-system/assets/js/admin/payroll-management/index.js'),
 };
 
 const init = async () => {

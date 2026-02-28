@@ -123,8 +123,8 @@ ob_start();
 <section class="bg-white border rounded-xl mb-6">
     <header class="px-6 py-4 border-b flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-            <h2 class="text-lg font-semibold text-gray-800">Review Salary Adjustment</h2>
-            <p class="text-sm text-gray-500 mt-1">Create salary adjustments for employees and review pending adjustments.</p>
+            <h2 class="text-lg font-semibold text-gray-800">Recommend Salary Adjustment</h2>
+            <p class="text-sm text-gray-500 mt-1">Create salary adjustments for employees and submit recommendation to Admin for final approval.</p>
         </div>
         <button type="button" id="openCreateSalaryAdjustmentModal" class="inline-flex items-center gap-1.5 justify-center px-3 py-2 text-xs rounded-md border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100">
             <span class="material-symbols-outlined text-[14px]">add</span>
@@ -177,23 +177,30 @@ ob_start();
                             <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)($row['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($row['status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td class="px-4 py-3">
                                 <?php if (strtolower((string)($row['status_raw'] ?? 'pending')) === 'pending'): ?>
-                                    <button
-                                        type="button"
-                                        data-open-adjustment-modal
-                                        data-adjustment-id="<?= htmlspecialchars((string)($row['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                        data-adjustment-code="<?= htmlspecialchars((string)($row['adjustment_code'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                        data-employee-name="<?= htmlspecialchars((string)($row['employee_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                        data-current-status="<?= htmlspecialchars((string)($row['status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?>"
-                                        data-description="<?= htmlspecialchars((string)($row['description'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
-                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
-                                    >
-                                        <span class="material-symbols-outlined text-[13px]">gavel</span>
-                                        Review Adjustment
-                                    </button>
+                                    <?php if (!empty($row['is_submitted_to_admin'])): ?>
+                                        <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded-md border border-blue-200 bg-blue-50 text-blue-700">
+                                            <span class="material-symbols-outlined text-[13px]">schedule_send</span>
+                                            Submitted to Admin
+                                        </span>
+                                    <?php else: ?>
+                                        <button
+                                            type="button"
+                                            data-open-adjustment-modal
+                                            data-adjustment-id="<?= htmlspecialchars((string)($row['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                            data-adjustment-code="<?= htmlspecialchars((string)($row['adjustment_code'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                            data-employee-name="<?= htmlspecialchars((string)($row['employee_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                            data-current-status="<?= htmlspecialchars((string)($row['status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?>"
+                                            data-description="<?= htmlspecialchars((string)($row['description'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
+                                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                                        >
+                                            <span class="material-symbols-outlined text-[13px]">gavel</span>
+                                            Recommend to Admin
+                                        </button>
+                                    <?php endif; ?>
                                 <?php else: ?>
                                     <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded-md border border-slate-200 bg-slate-50 text-slate-700">
                                         <span class="material-symbols-outlined text-[13px]">verified</span>
-                                        Reviewed by Staff
+                                        Reviewed by Admin
                                     </span>
                                 <?php endif; ?>
                             </td>
@@ -240,6 +247,8 @@ ob_start();
                     <th class="text-left px-4 py-3">Period</th>
                     <th class="text-left px-4 py-3">Employees</th>
                     <th class="text-left px-4 py-3">Gross / Net</th>
+                    <th class="text-left px-4 py-3">Staff Recommendation</th>
+                    <th class="text-left px-4 py-3">Admin Review</th>
                     <th class="text-left px-4 py-3">Status</th>
                     <th class="text-left px-4 py-3">Action</th>
                 </tr>
@@ -247,7 +256,7 @@ ob_start();
             <tbody class="divide-y">
                 <?php if (empty($payrollRunRows)): ?>
                     <tr>
-                        <td class="px-4 py-3 text-gray-500" colspan="6">No payroll runs found.</td>
+                        <td class="px-4 py-3 text-gray-500" colspan="8">No payroll runs found.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($payrollRunRows as $row): ?>
@@ -261,6 +270,19 @@ ob_start();
                             <td class="px-4 py-3">
                                 <p>₱<?= number_format((float)($row['gross_total'] ?? 0), 2) ?></p>
                                 <p class="text-xs text-gray-500 mt-1">Net: ₱<?= number_format((float)($row['net_total'] ?? 0), 2) ?></p>
+                            </td>
+                            <td class="px-4 py-3">
+                                <p class="text-gray-800"><?= htmlspecialchars((string)($row['staff_recommendation'] ?? 'Recommend approval'), ENT_QUOTES, 'UTF-8') ?></p>
+                                <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars((string)($row['staff_submitted_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                            </td>
+                            <td class="px-4 py-3">
+                                <?php if (!empty($row['admin_decision'])): ?>
+                                    <p class="text-gray-800"><?= htmlspecialchars(ucwords(str_replace('_', ' ', (string)($row['admin_decision'] ?? 'reviewed'))), ENT_QUOTES, 'UTF-8') ?></p>
+                                    <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars((string)($row['admin_decision_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                                <?php else: ?>
+                                    <p class="text-slate-600">Awaiting admin review</p>
+                                    <p class="text-xs text-gray-500 mt-1">-</p>
+                                <?php endif; ?>
                             </td>
                             <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)($row['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($row['status_label'] ?? 'Draft'), ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td class="px-4 py-3">
@@ -282,7 +304,7 @@ ob_start();
                     <?php endforeach; ?>
                 <?php endif; ?>
                 <tr id="payrollRunFilterEmptyRow" class="hidden">
-                    <td class="px-4 py-3 text-gray-500" colspan="6">No payroll runs match your search/filter criteria.</td>
+                    <td class="px-4 py-3 text-gray-500" colspan="8">No payroll runs match your search/filter criteria.</td>
                 </tr>
             </tbody>
         </table>
@@ -352,6 +374,12 @@ ob_start();
                 <p id="computePayrollEmployeeCount" class="text-xs text-slate-500 mt-2">0 employee(s)</p>
             </div>
 
+            <div>
+                <label for="computePayrollRecommendation" class="text-gray-600">Recommendation for Admin Review</label>
+                <textarea id="computePayrollRecommendation" name="staff_recommendation" rows="3" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Recommend approval"></textarea>
+                <p class="text-xs text-gray-500 mt-1">This recommendation is saved in the staff-to-admin payroll handoff log.</p>
+            </div>
+
             <div class="flex justify-end gap-3">
                 <button type="button" id="computePayrollModalCancel" class="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
                 <button type="submit" id="computePayrollSubmit" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-violet-700 text-white hover:bg-violet-800 disabled:opacity-60 disabled:cursor-not-allowed">
@@ -363,15 +391,15 @@ ob_start();
     </div>
 </div>
 
-<div id="salaryAdjustmentReviewModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4">
-    <div class="w-full max-w-lg rounded-xl bg-white border shadow-lg">
+<div id="salaryAdjustmentReviewModal" class="fixed inset-0 z-50 hidden items-start sm:items-center justify-center bg-black/40 px-4 py-4 sm:py-6">
+    <div class="w-full max-w-lg rounded-xl bg-white border shadow-lg max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between px-6 py-4 border-b">
-            <h3 class="text-lg font-semibold text-gray-800">Review Salary Adjustment</h3>
+            <h3 class="text-lg font-semibold text-gray-800">Recommend Salary Adjustment</h3>
             <button type="button" id="salaryAdjustmentModalClose" class="text-gray-500 hover:text-gray-700" aria-label="Close modal"><span class="material-symbols-outlined">close</span></button>
         </div>
 
         <form id="salaryAdjustmentForm" method="POST" action="payroll-management.php" class="px-6 py-4 space-y-4 text-sm">
-            <input type="hidden" name="form_action" value="review_salary_adjustment">
+            <input type="hidden" name="form_action" value="recommend_salary_adjustment">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="adjustment_id" id="salaryAdjustmentId" value="">
 
@@ -383,22 +411,22 @@ ob_start();
             </div>
 
             <div>
-                <label for="salaryAdjustmentDecision" class="text-gray-600">Decision</label>
+                <label for="salaryAdjustmentDecision" class="text-gray-600">Recommendation for Admin</label>
                 <select id="salaryAdjustmentDecision" name="decision" class="w-full mt-1 border rounded-md px-3 py-2" required>
-                    <option value="">Select decision</option>
-                    <option value="approved">Approve</option>
-                    <option value="rejected">Reject</option>
+                    <option value="">Select recommendation</option>
+                    <option value="approved">Recommend Approve</option>
+                    <option value="rejected">Recommend Reject</option>
                 </select>
             </div>
 
             <div>
-                <label for="salaryAdjustmentNotes" class="text-gray-600">Review Notes</label>
-                <textarea id="salaryAdjustmentNotes" name="review_notes" rows="3" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Optional notes for this decision."></textarea>
+                <label for="salaryAdjustmentNotes" class="text-gray-600">Recommendation Notes</label>
+                <textarea id="salaryAdjustmentNotes" name="review_notes" rows="3" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Optional notes for admin review."></textarea>
             </div>
 
             <div class="flex justify-end gap-3">
                 <button type="button" id="salaryAdjustmentModalCancel" class="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
-                <button type="submit" id="salaryAdjustmentSubmit" class="px-4 py-2 rounded-md bg-violet-700 text-white hover:bg-violet-800 disabled:opacity-60 disabled:cursor-not-allowed">Save Decision</button>
+                <button type="submit" id="salaryAdjustmentSubmit" class="px-4 py-2 rounded-md bg-violet-700 text-white hover:bg-violet-800 disabled:opacity-60 disabled:cursor-not-allowed">Submit Recommendation</button>
             </div>
         </form>
     </div>
@@ -448,8 +476,8 @@ ob_start();
     </div>
 </div>
 
-<div id="createSalaryAdjustmentModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4">
-    <div class="w-full max-w-lg rounded-xl bg-white border shadow-lg">
+<div id="createSalaryAdjustmentModal" class="fixed inset-0 z-50 hidden items-start sm:items-center justify-center bg-black/40 px-4 py-4 sm:py-6">
+    <div class="w-full max-w-lg rounded-xl bg-white border shadow-lg max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between px-6 py-4 border-b">
             <h3 class="text-lg font-semibold text-gray-800">Create Salary Adjustment</h3>
             <button type="button" id="createSalaryAdjustmentModalClose" class="text-gray-500 hover:text-gray-700" aria-label="Close modal"><span class="material-symbols-outlined">close</span></button>
@@ -477,7 +505,24 @@ ob_start();
             </div>
             <div>
                 <label for="createSalaryAdjustmentCode" class="text-gray-600">Adjustment Code</label>
-                <input id="createSalaryAdjustmentCode" name="adjustment_code" type="text" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="e.g. ABSENCE, ALLOWANCE, CORRECTION">
+                <select id="createSalaryAdjustmentCode" name="adjustment_code" class="w-full mt-1 border rounded-md px-3 py-2" required>
+                    <option value="">Select adjustment code</option>
+                    <option value="ABSENCE">ABSENCE</option>
+                    <option value="LATE">LATE</option>
+                    <option value="UNDERTIME">UNDERTIME</option>
+                    <option value="ALLOWANCE">ALLOWANCE</option>
+                    <option value="BONUS">BONUS</option>
+                    <option value="CORRECTION">CORRECTION</option>
+                    <option value="OTHER">OTHER</option>
+                </select>
+            </div>
+            <div>
+                <label for="createSalaryAdjustmentRecommendation" class="text-gray-600">Staff Recommendation</label>
+                <select id="createSalaryAdjustmentRecommendation" name="recommendation_status" class="w-full mt-1 border rounded-md px-3 py-2" required>
+                    <option value="draft" selected>Draft (save only)</option>
+                    <option value="approved">Recommend Approve (submit to Admin)</option>
+                    <option value="rejected">Recommend Reject (submit to Admin)</option>
+                </select>
             </div>
             <div>
                 <label for="createSalaryAdjustmentDescription" class="text-gray-600">Description</label>

@@ -420,6 +420,47 @@ export const initStatusChangeConfirmations = () => {
       text: 'This marks the salary adjustment as approved or rejected.',
       confirmButtonText: 'Submit review',
     },
+    save_salary_setup: {
+      title: 'Save salary setup?',
+      text: 'This updates payroll compensation details and timeline coverage for the selected employee.',
+      confirmButtonText: 'Save setup',
+    },
+    delete_salary_setup: {
+      title: 'Delete salary setup entry?',
+      text: 'This permanently deletes the selected salary setup entry and refreshes the compensation timeline.',
+      confirmButtonText: 'Delete entry',
+      confirmButtonColor: '#dc2626',
+    },
+    delete_salary_setup_bulk: {
+      title: 'Delete selected salary setup entries?',
+      text: 'This permanently deletes all selected salary setup entries and refreshes their compensation timelines.',
+      confirmButtonText: 'Delete selected',
+      confirmButtonColor: '#dc2626',
+    },
+    delete_payroll_period: {
+      title: 'Delete payroll period?',
+      text: 'This permanently deletes the selected payroll period when no payroll batch depends on it.',
+      confirmButtonText: 'Delete period',
+      confirmButtonColor: '#dc2626',
+    },
+    delete_payroll_period_bulk: {
+      title: 'Delete selected payroll periods?',
+      text: 'This permanently deletes all selected payroll periods that have no payroll batch dependencies.',
+      confirmButtonText: 'Delete selected',
+      confirmButtonColor: '#dc2626',
+    },
+    delete_payroll_batch: {
+      title: 'Delete payroll batch?',
+      text: 'This permanently deletes the selected payroll batch and its related computed items.',
+      confirmButtonText: 'Delete batch',
+      confirmButtonColor: '#dc2626',
+    },
+    delete_payroll_batch_bulk: {
+      title: 'Delete selected payroll batches?',
+      text: 'This permanently deletes all selected payroll batches and their related computed items.',
+      confirmButtonText: 'Delete selected',
+      confirmButtonColor: '#dc2626',
+    },
     update_status: {
       title: 'Update application status?',
       text: 'This changes applicant status and triggers applicant notifications.',
@@ -446,6 +487,7 @@ export const initStatusChangeConfirmations = () => {
       }
 
       event.preventDefault();
+      const requiresReason = config.requireReason === true;
 
       try {
         const Swal = await ensureSweetAlert();
@@ -458,10 +500,36 @@ export const initStatusChangeConfirmations = () => {
           cancelButtonText: 'Cancel',
           confirmButtonColor: config.confirmButtonColor || '#0f172a',
           reverseButtons: true,
+          input: requiresReason ? 'textarea' : undefined,
+          inputLabel: requiresReason ? (config.reasonLabel || 'Reason') : undefined,
+          inputPlaceholder: requiresReason ? (config.reasonPlaceholder || 'Enter reason') : undefined,
+          inputAttributes: requiresReason ? { 'aria-label': config.reasonLabel || 'Reason' } : undefined,
+          preConfirm: requiresReason
+            ? (value) => {
+              const normalized = String(value || '').trim();
+              if (normalized.length < 3) {
+                Swal.showValidationMessage(config.reasonValidationMessage || 'Please provide a reason.');
+                return false;
+              }
+              return normalized;
+            }
+            : undefined,
         });
 
         if (!result.isConfirmed) {
           return;
+        }
+
+        if (requiresReason) {
+          const reason = String(result.value || '').trim();
+          let reasonInput = form.querySelector('input[name="action_reason"]');
+          if (!reasonInput) {
+            reasonInput = document.createElement('input');
+            reasonInput.setAttribute('type', 'hidden');
+            reasonInput.setAttribute('name', 'action_reason');
+            form.appendChild(reasonInput);
+          }
+          reasonInput.value = reason;
         }
 
         form.dataset.confirmedSubmit = 'true';
@@ -470,6 +538,23 @@ export const initStatusChangeConfirmations = () => {
         const accepted = window.confirm(config.text || config.title || 'Proceed with this action?');
         if (!accepted) {
           return;
+        }
+
+        if (requiresReason) {
+          const enteredReason = window.prompt(config.reasonLabel || 'Enter reason for this action:');
+          const normalizedReason = String(enteredReason || '').trim();
+          if (normalizedReason.length < 3) {
+            return;
+          }
+
+          let reasonInput = form.querySelector('input[name="action_reason"]');
+          if (!reasonInput) {
+            reasonInput = document.createElement('input');
+            reasonInput.setAttribute('type', 'hidden');
+            reasonInput.setAttribute('name', 'action_reason');
+            form.appendChild(reasonInput);
+          }
+          reasonInput.value = normalizedReason;
         }
 
         form.dataset.confirmedSubmit = 'true';
