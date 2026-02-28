@@ -35,6 +35,7 @@ $periodStatusPill = static function (string $status): array {
 $runStatusPill = static function (string $status): array {
 	$key = strtolower(trim($status));
 	return match ($key) {
+		'pending_review' => ['Pending Review', 'bg-amber-100 text-amber-800'],
 		'computed' => ['Computed', 'bg-violet-100 text-violet-800'],
 		'approved' => ['Approved', 'bg-blue-100 text-blue-800'],
 		'released' => ['Released', 'bg-emerald-100 text-emerald-800'],
@@ -328,7 +329,7 @@ if (!empty($runIds)) {
 	$itemsResponse = apiRequest(
 		'GET',
 		$supabaseUrl
-		. '/rest/v1/payroll_items?select=id,payroll_run_id,person_id,gross_pay,net_pay,deductions_total,created_at,person:people(id,user_id,first_name,middle_name,surname)'
+		. '/rest/v1/payroll_items?select=id,payroll_run_id,person_id,basic_pay,overtime_pay,allowances_total,gross_pay,net_pay,deductions_total,created_at,person:people(id,user_id,first_name,middle_name,surname)'
 		. '&payroll_run_id=in.' . rawurlencode('(' . implode(',', $runIds) . ')')
 		. '&limit=5000',
 		$headers
@@ -362,6 +363,135 @@ foreach ($itemRows as $item) {
 	$itemIds[] = $itemId;
 }
 
+$approvedAdjustmentByItemId = [];
+if (!empty($itemIds)) {
+	$adjustmentsForItemsResponse = apiRequest(
+		'GET',
+		$supabaseUrl
+		. '/rest/v1/payroll_adjustments?select=id,payroll_item_id,adjustment_type,amount'
+		. '&payroll_item_id=in.' . rawurlencode('(' . implode(',', $itemIds) . ')')
+		. '&limit=10000',
+		$headers
+	);
+	$appendDataError('Payroll adjustments for payroll items', $adjustmentsForItemsResponse);
+	$adjustmentRowsForItems = isSuccessful($adjustmentsForItemsResponse) ? (array)($adjustmentsForItemsResponse['data'] ?? []) : [];
+
+	$adjustmentIdsForItems = [];
+	foreach ($adjustmentRowsForItems as $adjustmentRow) {
+		$adjustmentId = cleanText($adjustmentRow['id'] ?? null) ?? '';
+		if (!isValidUuid($adjustmentId)) {
+			continue;
+		}
+
+		$adjustmentIdsForItems[] = $adjustmentId;
+	}
+
+	$reviewStatusByAdjustmentId = [];
+	if (!empty($adjustmentIdsForItems)) {
+		$adjustmentReviewResponse = apiRequest(
+			'GET',
+			$supabaseUrl
+			. '/rest/v1/activity_logs?select=entity_id,new_data,created_at'
+			. '&entity_name=eq.payroll_adjustments'
+			. '&action_name=eq.review_payroll_adjustment'
+			. '&entity_id=in.' . rawurlencode('(' . implode(',', $adjustmentIdsForItems) . ')')
+			. '&order=created_at.desc&limit=10000',
+			$headers
+		);
+		$appendDataError('Payroll adjustment reviews for payroll items', $adjustmentReviewResponse);
+		$adjustmentReviewRows = isSuccessful($adjustmentReviewResponse) ? (array)($adjustmentReviewResponse['data'] ?? []) : [];
+
+		foreach ($adjustmentReviewRows as $reviewRow) {
+			$entityId = cleanText($reviewRow['entity_id'] ?? null) ?? '';
+			if (!isValidUuid($entityId) || isset($reviewStatusByAdjustmentId[$entityId])) {
+				continue;
+			}
+
+			$newData = is_array($reviewRow['new_data'] ?? null) ? (array)$reviewRow['new_data'] : [];
+			$reviewStatus = strtolower((string)(cleanText($newData['review_status'] ?? null) ?? cleanText($newData['status_to'] ?? null) ?? cleanText($newData['status'] ?? null) ?? 'pending'));
+			if (!in_array($reviewStatus, ['pending', 'approved', 'rejected'], true)) {
+				$reviewStatus = 'pending';
+			}
+
+			$reviewStatusByAdjustmentId[$entityId] = $reviewStatus;
+		}
+	}
+
+	foreach ($adjustmentRowsForItems as $adjustmentRow) {
+		$adjustmentId = cleanText($adjustmentRow['id'] ?? null) ?? '';
+		if (!isValidUuid($adjustmentId)) {
+			continue;
+		}
+
+		$itemId = cleanText($adjustmentRow['payroll_item_id'] ?? null) ?? '';
+		if (!isValidUuid($itemId)) {
+			continue;
+		}
+
+		if (strtolower((string)($reviewStatusByAdjustmentId[$adjustmentId] ?? 'pending')) !== 'approved') {
+			continue;
+		}
+
+		if (!isset($approvedAdjustmentByItemId[$itemId])) {
+			$approvedAdjustmentByItemId[$itemId] = [
+				'adjustment_earnings' => 0.0,
+				'adjustment_deductions' => 0.0,
+			];
+		}
+
+		$amount = (float)($adjustmentRow['amount'] ?? 0);
+		$type = strtolower((string)(cleanText($adjustmentRow['adjustment_type'] ?? null) ?? 'deduction'));
+		if ($type === 'earning') {
+			$approvedAdjustmentByItemId[$itemId]['adjustment_earnings'] += $amount;
+		} else {
+			$approvedAdjustmentByItemId[$itemId]['adjustment_deductions'] += $amount;
+		}
+	}
+}
+
+$itemBreakdownByItemId = [];
+if (!empty($itemIds)) {
+	$itemBreakdownResponse = apiRequest(
+		'GET',
+		$supabaseUrl
+		. '/rest/v1/activity_logs?select=entity_id,new_data,created_at'
+		. '&entity_name=eq.payroll_items'
+		. '&action_name=eq.compute_item_breakdown'
+		. '&entity_id=in.' . rawurlencode('(' . implode(',', $itemIds) . ')')
+		. '&order=created_at.desc&limit=10000',
+		$headers
+	);
+	$appendDataError('Payroll item breakdown logs', $itemBreakdownResponse);
+
+	if (isSuccessful($itemBreakdownResponse)) {
+		foreach ((array)($itemBreakdownResponse['data'] ?? []) as $breakdownLog) {
+			$itemId = cleanText($breakdownLog['entity_id'] ?? null) ?? '';
+			if (!isValidUuid($itemId) || isset($itemBreakdownByItemId[$itemId])) {
+				continue;
+			}
+
+			$newData = is_array($breakdownLog['new_data'] ?? null) ? (array)$breakdownLog['new_data'] : [];
+			$earnings = is_array($newData['earnings'] ?? null) ? (array)$newData['earnings'] : [];
+			$deductions = is_array($newData['deductions'] ?? null) ? (array)$newData['deductions'] : [];
+			$attendanceSource = is_array($newData['attendance_source'] ?? null) ? (array)$newData['attendance_source'] : [];
+
+			$itemBreakdownByItemId[$itemId] = [
+				'basic_pay' => (float)($earnings['basic_pay'] ?? 0),
+				'cto_pay' => (float)($earnings['cto_pay'] ?? 0),
+				'allowances_total' => (float)($earnings['allowances_total'] ?? 0),
+				'statutory_deductions' => (float)($deductions['statutory_deductions'] ?? 0),
+				'timekeeping_deductions' => (float)($deductions['timekeeping_deductions'] ?? 0),
+				'adjustment_deductions' => (float)($deductions['adjustment_deductions'] ?? 0),
+				'adjustment_earnings' => (float)($earnings['adjustment_earnings'] ?? 0),
+				'absent_days' => (int)($attendanceSource['absent_days'] ?? 0),
+				'late_minutes' => (int)($attendanceSource['late_minutes'] ?? 0),
+				'undertime_hours' => (float)($attendanceSource['undertime_hours'] ?? 0),
+				'attendance_source' => $attendanceSource,
+			];
+		}
+	}
+}
+
 $releasedByItemId = [];
 if (!empty($itemIds)) {
 	$payslipResponse = apiRequest(
@@ -387,6 +517,7 @@ if (!empty($itemIds)) {
 
 $runStatsById = [];
 $periodStatsById = [];
+$batchBreakdownByRun = [];
 
 foreach ($itemRows as $item) {
 	$runId = cleanText($item['payroll_run_id'] ?? null) ?? '';
@@ -409,7 +540,15 @@ foreach ($itemRows as $item) {
 	}
 
 	$runStatsById[$runId]['gross_total'] += (float)($item['gross_pay'] ?? 0);
-	$runStatsById[$runId]['net_total'] += (float)($item['net_pay'] ?? 0);
+	$itemId = cleanText($item['id'] ?? null) ?? '';
+	$approvedAdjustment = is_array($approvedAdjustmentByItemId[$itemId] ?? null)
+		? (array)$approvedAdjustmentByItemId[$itemId]
+		: ['adjustment_earnings' => 0.0, 'adjustment_deductions' => 0.0];
+	$adjustmentEarnings = (float)($approvedAdjustment['adjustment_earnings'] ?? 0);
+	$adjustmentDeductions = (float)($approvedAdjustment['adjustment_deductions'] ?? 0);
+
+	$runStatsById[$runId]['gross_total'] += $adjustmentEarnings;
+	$runStatsById[$runId]['net_total'] += (float)($item['net_pay'] ?? 0) + $adjustmentEarnings - $adjustmentDeductions;
 
 	$itemId = cleanText($item['id'] ?? null) ?? '';
 	if ($itemId !== '' && !empty($releasedByItemId[$itemId])) {
@@ -522,16 +661,32 @@ foreach ($runRows as $run) {
 	}
 
 	$statusRaw = strtolower((string)(cleanText($run['run_status'] ?? null) ?? 'draft'));
-	[$statusLabel, $statusClass] = $runStatusPill($statusRaw);
+	$hasStaffSubmission = isset($recommendationByRunId[$runId]);
+	$effectiveStatus = (!$hasStaffSubmission && $statusRaw === 'computed') ? 'pending_review' : $statusRaw;
+	[$statusLabel, $statusClass] = $runStatusPill($effectiveStatus);
 	$runStats = $runStatsById[$runId] ?? ['employees' => [], 'gross_total' => 0.0, 'net_total' => 0.0, 'released_count' => 0];
 
 	$periodCode = cleanText($run['period']['period_code'] ?? null) ?? 'Uncoded';
+	$periodStart = cleanText($run['period']['period_start'] ?? null) ?? '';
+	$periodEnd = cleanText($run['period']['period_end'] ?? null) ?? '';
+	$periodLabel = ($periodStart !== '' && $periodEnd !== '')
+		? (formatDateTimeForPhilippines($periodStart, 'M d, Y') . ' - ' . formatDateTimeForPhilippines($periodEnd, 'M d, Y'))
+		: $periodCode;
 
 	$generateRows = [];
+	$breakdownRows = [];
+	$breakdownEmployeeIds = [];
+	$breakdownTotalGross = 0.0;
+	$breakdownTotalNet = 0.0;
 	foreach ($itemRows as $itemRow) {
 		$itemRunId = cleanText($itemRow['payroll_run_id'] ?? null) ?? '';
 		if ($itemRunId !== $runId) {
 			continue;
+		}
+
+		$personId = cleanText($itemRow['person_id'] ?? null) ?? '';
+		if (isValidUuid($personId)) {
+			$breakdownEmployeeIds[$personId] = true;
 		}
 
 		$personRow = is_array($itemRow['person'] ?? null) ? (array)$itemRow['person'] : [];
@@ -544,11 +699,47 @@ foreach ($runRows as $run) {
 			$fullName = 'Employee';
 		}
 
+		$itemId = cleanText($itemRow['id'] ?? null) ?? '';
+		$approvedAdjustment = is_array($approvedAdjustmentByItemId[$itemId] ?? null)
+			? (array)$approvedAdjustmentByItemId[$itemId]
+			: ['adjustment_earnings' => 0.0, 'adjustment_deductions' => 0.0];
+		$adjustmentEarnings = (float)($approvedAdjustment['adjustment_earnings'] ?? 0);
+		$adjustmentDeductions = (float)($approvedAdjustment['adjustment_deductions'] ?? 0);
+		$grossPayAdjusted = (float)($itemRow['gross_pay'] ?? 0) + $adjustmentEarnings;
+		$netPayAdjusted = (float)($itemRow['net_pay'] ?? 0) + $adjustmentEarnings - $adjustmentDeductions;
+
+		$breakdown = is_array($itemBreakdownByItemId[$itemId] ?? null) ? (array)$itemBreakdownByItemId[$itemId] : [];
+		$statutoryDeductions = (float)($breakdown['statutory_deductions'] ?? 0);
+		$timekeepingDeductions = (float)($breakdown['timekeeping_deductions'] ?? 0);
+		if (!isset($itemBreakdownByItemId[$itemId])) {
+			$statutoryDeductions = max(0.0, (float)($itemRow['deductions_total'] ?? 0));
+			$timekeepingDeductions = 0.0;
+		}
+
 		$generateRows[] = [
 			'employee_name' => $fullName,
-			'gross_pay' => (float)($itemRow['gross_pay'] ?? 0),
-			'net_pay' => (float)($itemRow['net_pay'] ?? 0),
+			'gross_pay' => $grossPayAdjusted,
+			'net_pay' => $netPayAdjusted,
 		];
+
+		$breakdownRows[] = [
+			'employee_name' => $fullName,
+			'basic_pay' => (float)($itemRow['basic_pay'] ?? ($breakdown['basic_pay'] ?? 0)),
+			'cto_pay' => (float)($itemRow['overtime_pay'] ?? ($breakdown['cto_pay'] ?? 0)),
+			'allowances_total' => (float)($itemRow['allowances_total'] ?? ($breakdown['allowances_total'] ?? 0)),
+			'gross_pay' => $grossPayAdjusted,
+			'net_pay' => $netPayAdjusted,
+			'statutory_deductions' => $statutoryDeductions,
+			'timekeeping_deductions' => $timekeepingDeductions,
+			'adjustment_deductions' => $adjustmentDeductions,
+			'adjustment_earnings' => $adjustmentEarnings,
+			'absent_days' => (int)($breakdown['absent_days'] ?? 0),
+			'late_minutes' => (int)($breakdown['late_minutes'] ?? 0),
+			'undertime_hours' => (float)($breakdown['undertime_hours'] ?? 0),
+		];
+
+		$breakdownTotalGross += $grossPayAdjusted;
+		$breakdownTotalNet += $netPayAdjusted;
 	}
 
 	usort($generateRows, static function (array $left, array $right): int {
@@ -557,6 +748,20 @@ foreach ($runRows as $run) {
 			strtolower((string)($right['employee_name'] ?? ''))
 		);
 	});
+
+	usort($breakdownRows, static function (array $left, array $right): int {
+		return strcmp(
+			strtolower((string)($left['employee_name'] ?? '')),
+			strtolower((string)($right['employee_name'] ?? ''))
+		);
+	});
+
+	$batchBreakdownByRun[$runId] = [
+		'employee_count' => count($breakdownEmployeeIds),
+		'total_gross' => $breakdownTotalGross,
+		'total_net' => $breakdownTotalNet,
+		'rows' => $breakdownRows,
+	];
 
 	$generatePreviewByRun[$runId] = [
 		'run_short_id' => strtoupper(substr(str_replace('-', '', $runId), 0, 8)),
@@ -569,9 +774,10 @@ foreach ($runRows as $run) {
 		'id' => $runId,
 		'short_id' => strtoupper(substr(str_replace('-', '', $runId), 0, 8)),
 		'period_code' => $periodCode,
+		'period_label' => $periodLabel,
 		'generated_label' => formatDateTimeForPhilippines(cleanText($run['generated_at'] ?? null), 'M d, Y'),
 		'approved_label' => formatDateTimeForPhilippines(cleanText($run['approved_at'] ?? null), 'M d, Y'),
-		'status_raw' => $statusRaw,
+		'status_raw' => $effectiveStatus,
 		'status_label' => $statusLabel,
 		'status_class' => $statusClass,
 		'can_generate' => $statusRaw === 'approved',
@@ -682,7 +888,7 @@ if (!empty($adjustmentIds)) {
 		}
 
 		$newData = is_array($logRow['new_data'] ?? null) ? (array)$logRow['new_data'] : [];
-		$reviewStatus = strtolower((string)(cleanText($newData['review_status'] ?? null) ?? 'pending'));
+		$reviewStatus = strtolower((string)(cleanText($newData['review_status'] ?? null) ?? cleanText($newData['status_to'] ?? null) ?? cleanText($newData['status'] ?? null) ?? 'pending'));
 		if (!in_array($reviewStatus, ['pending', 'approved', 'rejected'], true)) {
 			$reviewStatus = 'pending';
 		}
@@ -727,6 +933,7 @@ if (!empty($adjustmentIds)) {
 	}
 }
 
+$runAdjustmentSummaryByRun = [];
 foreach ($adjustmentRows as $adjustment) {
 	$adjustmentId = cleanText($adjustment['id'] ?? null) ?? '';
 	if (!isValidUuid($adjustmentId)) {
@@ -734,6 +941,10 @@ foreach ($adjustmentRows as $adjustment) {
 	}
 
 	$itemRow = is_array($adjustment['item'] ?? null) ? (array)$adjustment['item'] : [];
+	$runId = cleanText($itemRow['payroll_run_id'] ?? null) ?? '';
+	if (!isValidUuid($runId)) {
+		continue;
+	}
 	$personRow = is_array($itemRow['person'] ?? null) ? (array)$itemRow['person'] : [];
 	$personId = cleanText($itemRow['person_id'] ?? null) ?? '';
 	if (
@@ -770,6 +981,7 @@ foreach ($adjustmentRows as $adjustment) {
 
 	$payrollAdjustmentRows[] = [
 		'id' => $adjustmentId,
+		'run_id' => $runId,
 		'adjustment_code' => $adjustmentCode,
 		'employee_name' => $fullName,
 		'period_code' => $periodCode,
@@ -785,6 +997,69 @@ foreach ($adjustmentRows as $adjustment) {
 		'created_label' => formatDateTimeForPhilippines(cleanText($adjustment['created_at'] ?? null), 'M d, Y'),
 		'search_text' => strtolower(trim($adjustmentCode . ' ' . $fullName . ' ' . $periodCode . ' ' . $description . ' ' . $statusLabel)),
 	];
+
+	if ($isSubmittedToAdmin) {
+		if (!isset($runAdjustmentSummaryByRun[$runId])) {
+			$runAdjustmentSummaryByRun[$runId] = [
+				'submitted_count' => 0,
+				'pending_count' => 0,
+				'approved_count' => 0,
+				'rejected_count' => 0,
+				'rows' => [],
+			];
+		}
+
+		$runAdjustmentSummaryByRun[$runId]['submitted_count']++;
+		if ($reviewStatus === 'approved') {
+			$runAdjustmentSummaryByRun[$runId]['approved_count']++;
+		} elseif ($reviewStatus === 'rejected') {
+			$runAdjustmentSummaryByRun[$runId]['rejected_count']++;
+		} else {
+			$runAdjustmentSummaryByRun[$runId]['pending_count']++;
+		}
+
+		$runAdjustmentSummaryByRun[$runId]['rows'][] = [
+			'id' => $adjustmentId,
+			'adjustment_code' => $adjustmentCode,
+			'employee_name' => $fullName,
+			'adjustment_type_label' => $typeLabel,
+			'description' => $description,
+			'amount' => (float)($adjustment['amount'] ?? 0),
+			'staff_recommendation' => (string)($recommendationRow['recommendation_status'] ?? ''),
+			'staff_recommendation_label' => formatDateTimeForPhilippines(($recommendationRow['submitted_at'] ?? null), 'M d, Y h:i A'),
+			'staff_recommendation_notes' => (string)($recommendationRow['notes'] ?? ''),
+			'admin_status_raw' => $reviewStatus,
+			'admin_status_label' => $statusLabel,
+		];
+	}
 }
 
 $payrollAdjustmentRows = array_values($payrollAdjustmentRows);
+
+foreach ($payrollRunRows as &$payrollRunRow) {
+	$runId = cleanText($payrollRunRow['id'] ?? null) ?? '';
+	$summary = is_array($runAdjustmentSummaryByRun[$runId] ?? null)
+		? (array)$runAdjustmentSummaryByRun[$runId]
+		: ['submitted_count' => 0, 'pending_count' => 0, 'approved_count' => 0, 'rejected_count' => 0, 'rows' => []];
+
+	$payrollRunRow['adjustment_submitted_count'] = (int)($summary['submitted_count'] ?? 0);
+	$payrollRunRow['adjustment_pending_count'] = (int)($summary['pending_count'] ?? 0);
+	$payrollRunRow['adjustment_approved_count'] = (int)($summary['approved_count'] ?? 0);
+	$payrollRunRow['adjustment_rejected_count'] = (int)($summary['rejected_count'] ?? 0);
+}
+unset($payrollRunRow);
+
+foreach ($batchBreakdownByRun as $runId => &$breakdownRow) {
+	$summary = is_array($runAdjustmentSummaryByRun[$runId] ?? null)
+		? (array)$runAdjustmentSummaryByRun[$runId]
+		: ['submitted_count' => 0, 'pending_count' => 0, 'approved_count' => 0, 'rejected_count' => 0, 'rows' => []];
+
+	$breakdownRow['adjustment_summary'] = [
+		'submitted_count' => (int)($summary['submitted_count'] ?? 0),
+		'pending_count' => (int)($summary['pending_count'] ?? 0),
+		'approved_count' => (int)($summary['approved_count'] ?? 0),
+		'rejected_count' => (int)($summary['rejected_count'] ?? 0),
+	];
+	$breakdownRow['adjustment_rows'] = array_values((array)($summary['rows'] ?? []));
+}
+unset($breakdownRow);

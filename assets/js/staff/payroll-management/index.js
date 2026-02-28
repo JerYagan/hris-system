@@ -466,53 +466,129 @@
         const openButtons = Array.from(document.querySelectorAll('[data-open-generate-modal]'));
         const closeButton = document.getElementById('generatePayslipModalClose');
         const cancelButton = document.getElementById('generatePayslipModalCancel');
+        const backdrop = document.getElementById('generatePayslipModalBackdrop');
         const form = document.getElementById('generatePayslipForm');
         const submitButton = document.getElementById('generatePayslipSubmit');
         const runIdInput = document.getElementById('generatePayslipRunId');
-        const runLabel = document.getElementById('generatePayslipRunLabel');
-        const employeesBody = document.getElementById('generatePayslipEmployeesBody');
-        const employeeCount = document.getElementById('generatePayslipEmployeeCount');
-        const previewByRun = parseJsonScript('payrollGeneratePreviewData');
+        const periodInput = document.getElementById('generatePayslipBatchPeriod');
+        const statusInput = document.getElementById('generatePayslipBatchStatus');
+        const employeesInput = document.getElementById('generatePayslipBatchEmployees');
+        const netInput = document.getElementById('generatePayslipBatchNet');
+        const recommendationInput = document.getElementById('generatePayslipBatchRecommendation');
+        const submittedAtInput = document.getElementById('generatePayslipBatchSubmittedAt');
+        const reviewedAtInput = document.getElementById('generatePayslipBatchReviewedAt');
 
-        if (!modal || !form || !runIdInput || !employeesBody) {
+        const breakdownEmployees = document.getElementById('generatePayslipBreakdownEmployees');
+        const breakdownGross = document.getElementById('generatePayslipBreakdownGross');
+        const breakdownNet = document.getElementById('generatePayslipBreakdownNet');
+        const breakdownRows = document.getElementById('generatePayslipBreakdownRows');
+        const breakdownBody = document.getElementById('generatePayslipBreakdownBody');
+
+        const adjustmentSubmitted = document.getElementById('generatePayslipAdjustmentSubmitted');
+        const adjustmentPending = document.getElementById('generatePayslipAdjustmentPending');
+        const adjustmentApproved = document.getElementById('generatePayslipAdjustmentApproved');
+        const adjustmentRejected = document.getElementById('generatePayslipAdjustmentRejected');
+        const adjustmentBody = document.getElementById('generatePayslipAdjustmentBody');
+
+        const batchBreakdownByRun = parseJsonScript('payrollBatchBreakdownByRunData');
+
+        if (!modal || !form || !runIdInput) {
             return;
         }
 
+        const escapeText = (value) => String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+
         const closeModal = () => {
             modal.classList.add('hidden');
-            modal.classList.remove('flex');
+            modal.classList.remove('block');
             form.dataset.confirmed = '0';
         };
 
-        const renderEmployees = (runId) => {
-            const payload = previewByRun[runId] && typeof previewByRun[runId] === 'object' ? previewByRun[runId] : {};
-            const rows = Array.isArray(payload.employees) ? payload.employees : [];
-            employeesBody.innerHTML = '';
+        const renderBreakdown = (runId) => {
+            const payload = runId && batchBreakdownByRun[runId] ? batchBreakdownByRun[runId] : null;
+            const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+            const adjustmentRows = Array.isArray(payload?.adjustment_rows) ? payload.adjustment_rows : [];
+            const adjustmentSummary = payload && typeof payload === 'object' && payload.adjustment_summary && typeof payload.adjustment_summary === 'object'
+                ? payload.adjustment_summary
+                : {};
+            const submittedCount = Number(adjustmentSummary.submitted_count) || 0;
+            const pendingCount = Number(adjustmentSummary.pending_count) || 0;
+            const approvedCount = Number(adjustmentSummary.approved_count) || 0;
+            const rejectedCount = Number(adjustmentSummary.rejected_count) || 0;
+            const employeeCount = Number(payload?.employee_count) || 0;
+            const totalGross = Number(payload?.total_gross) || 0;
+            const totalNet = Number(payload?.total_net) || 0;
 
-            if (rows.length === 0) {
-                employeesBody.innerHTML = '<tr><td colspan="2" class="px-3 py-4 text-center text-slate-500">No payroll items found for this run.</td></tr>';
-                if (employeeCount) {
-                    employeeCount.textContent = '0 employee(s)';
+            if (breakdownEmployees) breakdownEmployees.textContent = String(employeeCount);
+            if (breakdownGross) breakdownGross.textContent = currencyFormatter.format(totalGross);
+            if (breakdownNet) breakdownNet.textContent = currencyFormatter.format(totalNet);
+            if (breakdownRows) breakdownRows.textContent = String(rows.length);
+
+            if (breakdownBody) {
+                if (!rows.length) {
+                    breakdownBody.innerHTML = '<tr id="generatePayslipBreakdownEmptyRow"><td class="px-3 py-3 text-slate-500" colspan="10">No computation breakdown available for this batch.</td></tr>';
+                } else {
+                    breakdownBody.innerHTML = rows.map((row) => {
+                        const adjustmentNet = (Number(row.adjustment_earnings) || 0) - (Number(row.adjustment_deductions) || 0);
+                        return `
+                            <tr>
+                                <td class="px-3 py-2 text-slate-700">${escapeText(row.employee_name || '-')}</td>
+                                <td class="px-3 py-2 text-right text-slate-700">${currencyFormatter.format(Number(row.basic_pay) || 0)}</td>
+                                <td class="px-3 py-2 text-right text-slate-700">${currencyFormatter.format(Number(row.allowances_total) || 0)}</td>
+                                <td class="px-3 py-2 text-right text-slate-700">${currencyFormatter.format(Number(row.cto_pay) || 0)}</td>
+                                <td class="px-3 py-2 text-right text-slate-700">${currencyFormatter.format(Number(row.statutory_deductions) || 0)}</td>
+                                <td class="px-3 py-2 text-right text-slate-700">${currencyFormatter.format(Number(row.timekeeping_deductions) || 0)}</td>
+                                <td class="px-3 py-2 text-right text-slate-700">${Number(row.absent_days) || 0}/${Number(row.late_minutes) || 0}/${Number(row.undertime_hours) || 0}</td>
+                                <td class="px-3 py-2 text-right text-slate-700">${currencyFormatter.format(adjustmentNet)}</td>
+                                <td class="px-3 py-2 text-right text-slate-700">${currencyFormatter.format(Number(row.gross_pay) || 0)}</td>
+                                <td class="px-3 py-2 text-right text-slate-800 font-medium">${currencyFormatter.format(Number(row.net_pay) || 0)}</td>
+                            </tr>
+                        `;
+                    }).join('');
                 }
-                if (submitButton) {
-                    submitButton.disabled = true;
-                }
-                return;
             }
 
-            const fragment = document.createDocumentFragment();
-            rows.forEach((entry) => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `<td class="px-3 py-2 text-slate-700">${(entry.employee_name || entry.full_name || '-').toString()}</td><td class="px-3 py-2 text-right text-slate-700">${currencyFormatter.format(Number(entry.net_pay || 0))}</td>`;
-                fragment.appendChild(tr);
-            });
-            employeesBody.appendChild(fragment);
+            if (adjustmentSubmitted) adjustmentSubmitted.textContent = String(submittedCount);
+            if (adjustmentPending) adjustmentPending.textContent = String(pendingCount);
+            if (adjustmentApproved) adjustmentApproved.textContent = String(approvedCount);
+            if (adjustmentRejected) adjustmentRejected.textContent = String(rejectedCount);
 
-            if (employeeCount) {
-                employeeCount.textContent = `${rows.length} employee(s)`;
+            if (adjustmentBody) {
+                if (!adjustmentRows.length) {
+                    adjustmentBody.innerHTML = '<tr id="generatePayslipAdjustmentEmptyRow"><td class="px-3 py-3 text-slate-500" colspan="6">No staff-submitted salary adjustment recommendations in this batch.</td></tr>';
+                } else {
+                    adjustmentBody.innerHTML = adjustmentRows.map((row) => {
+                        const recommendation = String(row.staff_recommendation || '').trim();
+                        const recommendationLabel = recommendation === '' ? 'Not submitted' : recommendation.replace(/_/g, ' ');
+                        const adminLabel = String(row.admin_status_label || 'Pending').trim() || 'Pending';
+                        const submittedAt = String(row.staff_recommendation_label || '-').trim() || '-';
+                        const notes = String(row.staff_recommendation_notes || '').trim();
+
+                        return `
+                            <tr>
+                                <td class="px-3 py-2 text-slate-700 font-medium">${escapeText(row.adjustment_code || '-')}</td>
+                                <td class="px-3 py-2 text-slate-700">${escapeText(row.employee_name || '-')}</td>
+                                <td class="px-3 py-2 text-slate-700">${escapeText(row.adjustment_type_label || '-')}</td>
+                                <td class="px-3 py-2 text-right text-slate-700">${currencyFormatter.format(Number(row.amount) || 0)}</td>
+                                <td class="px-3 py-2 text-slate-700">
+                                    <div>${escapeText(recommendationLabel)}</div>
+                                    <div class="text-[11px] text-slate-500">${escapeText(submittedAt)}</div>
+                                    ${notes !== '' ? `<div class="text-[11px] text-slate-500">Notes: ${escapeText(notes)}</div>` : ''}
+                                </td>
+                                <td class="px-3 py-2 text-slate-700">${escapeText(adminLabel)}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
             }
+
             if (submitButton) {
-                submitButton.disabled = false;
+                submitButton.disabled = rows.length === 0;
             }
         };
 
@@ -523,15 +599,18 @@
                 }
 
                 const runId = button.getAttribute('data-run-id') || '';
-                const shortId = button.getAttribute('data-run-short-id') || '-';
                 runIdInput.value = runId;
-                if (runLabel) {
-                    runLabel.textContent = shortId;
-                }
-                renderEmployees(runId);
+                if (periodInput) periodInput.value = button.getAttribute('data-period-label') || '';
+                if (statusInput) statusInput.value = button.getAttribute('data-current-status') || '';
+                if (employeesInput) employeesInput.value = button.getAttribute('data-employee-count') || '';
+                if (netInput) netInput.value = button.getAttribute('data-total-net') || '';
+                if (recommendationInput) recommendationInput.value = button.getAttribute('data-staff-recommendation') || 'Recommend approval';
+                if (submittedAtInput) submittedAtInput.value = button.getAttribute('data-staff-submitted') || '-';
+                if (reviewedAtInput) reviewedAtInput.value = button.getAttribute('data-admin-reviewed') || '-';
+                renderBreakdown(runId);
 
                 modal.classList.remove('hidden');
-                modal.classList.add('flex');
+                modal.classList.add('block');
             });
         });
 
@@ -541,6 +620,11 @@
         if (cancelButton) {
             cancelButton.addEventListener('click', closeModal);
         }
+
+        if (backdrop) {
+            backdrop.addEventListener('click', closeModal);
+        }
+
         modal.addEventListener('click', (event) => {
             if (event.target === modal) {
                 closeModal();
@@ -553,8 +637,8 @@
             }
 
             event.preventDefault();
-            const runShortId = runLabel ? runLabel.textContent || 'selected run' : 'selected run';
-            const shouldContinue = await showConfirmation(`Generate payslips for run ${runShortId}?`, 'Generate Payslips');
+            const runShortId = (runIdInput?.value || '').trim() || 'selected run';
+            const shouldContinue = await showConfirmation(`Generate payslips for run ${runShortId} after final review?`, 'Generate Payslips');
             if (!shouldContinue) {
                 return;
             }

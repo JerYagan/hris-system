@@ -1022,7 +1022,7 @@ if ($action === 'recommend_salary_adjustment') {
     if (isSuccessful($lastAdminDecisionResponse) && !empty((array)($lastAdminDecisionResponse['data'] ?? []))) {
         $lastLogRow = (array)$lastAdminDecisionResponse['data'][0];
         $newData = is_array($lastLogRow['new_data'] ?? null) ? (array)$lastLogRow['new_data'] : [];
-        $adminReviewStatus = strtolower((string)(cleanText($newData['review_status'] ?? null) ?? 'pending'));
+        $adminReviewStatus = strtolower((string)(cleanText($newData['review_status'] ?? null) ?? cleanText($newData['status_to'] ?? null) ?? cleanText($newData['status'] ?? null) ?? 'pending'));
         if (!in_array($adminReviewStatus, ['pending', 'approved', 'rejected'], true)) {
             $adminReviewStatus = 'pending';
         }
@@ -1161,6 +1161,111 @@ if ($action === 'generate_payslip_run') {
     if (empty($itemIds)) {
         redirectWithState('error', 'No valid payroll items found for this run.');
     }
+
+    $approvedAdjustmentByItemId = [];
+    $adjustmentsForItemsResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/payroll_adjustments?select=id,payroll_item_id,adjustment_type,amount'
+        . '&payroll_item_id=in.' . rawurlencode('(' . implode(',', $itemIds) . ')')
+        . '&limit=10000',
+        $headers
+    );
+
+    if (isSuccessful($adjustmentsForItemsResponse)) {
+        $adjustmentRowsForItems = (array)($adjustmentsForItemsResponse['data'] ?? []);
+        $adjustmentIdsForItems = [];
+        foreach ($adjustmentRowsForItems as $adjustmentRow) {
+            $adjustmentId = cleanText($adjustmentRow['id'] ?? null) ?? '';
+            if (!isValidUuid($adjustmentId)) {
+                continue;
+            }
+            $adjustmentIdsForItems[$adjustmentId] = true;
+        }
+
+        $reviewStatusByAdjustmentId = [];
+        if (!empty($adjustmentIdsForItems)) {
+            $adjustmentReviewResponse = apiRequest(
+                'GET',
+                $supabaseUrl
+                . '/rest/v1/activity_logs?select=entity_id,new_data,created_at'
+                . '&entity_name=eq.payroll_adjustments'
+                . '&action_name=eq.review_payroll_adjustment'
+                . '&entity_id=in.' . rawurlencode('(' . implode(',', array_keys($adjustmentIdsForItems)) . ')')
+                . '&order=created_at.desc&limit=10000',
+                $headers
+            );
+
+            if (isSuccessful($adjustmentReviewResponse)) {
+                foreach ((array)($adjustmentReviewResponse['data'] ?? []) as $reviewRow) {
+                    $entityId = cleanText($reviewRow['entity_id'] ?? null) ?? '';
+                    if (!isValidUuid($entityId) || isset($reviewStatusByAdjustmentId[$entityId])) {
+                        continue;
+                    }
+
+                    $newData = is_array($reviewRow['new_data'] ?? null) ? (array)$reviewRow['new_data'] : [];
+                    $reviewStatus = strtolower((string)(cleanText($newData['review_status'] ?? null) ?? cleanText($newData['status_to'] ?? null) ?? cleanText($newData['status'] ?? null) ?? 'pending'));
+                    if (!in_array($reviewStatus, ['pending', 'approved', 'rejected'], true)) {
+                        $reviewStatus = 'pending';
+                    }
+
+                    $reviewStatusByAdjustmentId[$entityId] = $reviewStatus;
+                }
+            }
+        }
+
+        foreach ($adjustmentRowsForItems as $adjustmentRow) {
+            $adjustmentId = cleanText($adjustmentRow['id'] ?? null) ?? '';
+            if (!isValidUuid($adjustmentId)) {
+                continue;
+            }
+
+            if (strtolower((string)($reviewStatusByAdjustmentId[$adjustmentId] ?? 'pending')) !== 'approved') {
+                continue;
+            }
+
+            $itemId = cleanText($adjustmentRow['payroll_item_id'] ?? null) ?? '';
+            if (!isValidUuid($itemId)) {
+                continue;
+            }
+
+            if (!isset($approvedAdjustmentByItemId[$itemId])) {
+                $approvedAdjustmentByItemId[$itemId] = [
+                    'adjustment_earnings' => 0.0,
+                    'adjustment_deductions' => 0.0,
+                ];
+            }
+
+            $amount = (float)($adjustmentRow['amount'] ?? 0);
+            $type = strtolower((string)(cleanText($adjustmentRow['adjustment_type'] ?? null) ?? 'deduction'));
+            if ($type === 'earning') {
+                $approvedAdjustmentByItemId[$itemId]['adjustment_earnings'] += $amount;
+            } else {
+                $approvedAdjustmentByItemId[$itemId]['adjustment_deductions'] += $amount;
+            }
+        }
+    }
+
+    $computeAdjustedPayrollFigures = static function (array $itemRow) use ($approvedAdjustmentByItemId): array {
+        $itemId = cleanText($itemRow['id'] ?? null) ?? '';
+        $adjustment = is_array($approvedAdjustmentByItemId[$itemId] ?? null)
+            ? (array)$approvedAdjustmentByItemId[$itemId]
+            : ['adjustment_earnings' => 0.0, 'adjustment_deductions' => 0.0];
+
+        $adjustmentEarnings = (float)($adjustment['adjustment_earnings'] ?? 0);
+        $adjustmentDeductions = (float)($adjustment['adjustment_deductions'] ?? 0);
+        $grossPay = (float)($itemRow['gross_pay'] ?? 0) + $adjustmentEarnings;
+        $deductionsTotal = (float)($itemRow['deductions_total'] ?? 0) + $adjustmentDeductions;
+        $netPay = (float)($itemRow['net_pay'] ?? 0) + $adjustmentEarnings - $adjustmentDeductions;
+
+        return [
+            'adjustment_earnings' => $adjustmentEarnings,
+            'adjustment_deductions' => $adjustmentDeductions,
+            'gross_pay' => $grossPay,
+            'deductions_total' => $deductionsTotal,
+            'net_pay' => $netPay,
+        ];
+    };
 
     $smtpConfig = [
         'host' => cleanText($_ENV['SMTP_HOST'] ?? ($_SERVER['SMTP_HOST'] ?? null)) ?? '',
@@ -1328,6 +1433,8 @@ if ($action === 'generate_payslip_run') {
         $payslipNo = cleanText($payslipRow['payslip_no'] ?? null) ?? ('PS-' . $runShort . '-' . strtoupper(substr(str_replace('-', '', $itemId), 0, 8)));
 
         try {
+            $adjustedFigures = $computeAdjustedPayrollFigures($itemRow);
+
             $document = staffPayrollGeneratePayslipDocument([
                 'project_root' => dirname(__DIR__, 4),
                 'payslip_no' => $payslipNo,
@@ -1336,18 +1443,23 @@ if ($action === 'generate_payslip_run') {
                 'basic_pay' => (float)($itemRow['basic_pay'] ?? 0),
                 'overtime_pay' => (float)($itemRow['overtime_pay'] ?? 0),
                 'allowances_total' => (float)($itemRow['allowances_total'] ?? 0),
-                'gross_pay' => (float)($itemRow['gross_pay'] ?? 0),
-                'deductions_total' => (float)($itemRow['deductions_total'] ?? 0),
-                'net_pay' => (float)($itemRow['net_pay'] ?? 0),
+                'gross_pay' => (float)($adjustedFigures['gross_pay'] ?? 0),
+                'deductions_total' => (float)($adjustedFigures['deductions_total'] ?? 0),
+                'net_pay' => (float)($adjustedFigures['net_pay'] ?? 0),
                 'earnings_lines' => [
                     ['label' => 'Basic Pay', 'amount' => (float)($itemRow['basic_pay'] ?? 0)],
                     ['label' => 'CTO Pay', 'amount' => (float)($itemRow['overtime_pay'] ?? 0)],
                     ['label' => 'Allowances', 'amount' => (float)($itemRow['allowances_total'] ?? 0)],
+                    ['label' => 'Approved Adjustment Earnings', 'amount' => (float)($adjustedFigures['adjustment_earnings'] ?? 0)],
                 ],
                 'deduction_lines' => [
                     [
                         'label' => 'Government Contributions (SSS/Pag-IBIG/PhilHealth) and Other Deductions',
                         'amount' => (float)($itemRow['deductions_total'] ?? 0),
+                    ],
+                    [
+                        'label' => 'Approved Adjustment Deductions',
+                        'amount' => (float)($adjustedFigures['adjustment_deductions'] ?? 0),
                     ],
                 ],
             ]);
@@ -1435,10 +1547,11 @@ if ($action === 'generate_payslip_run') {
         }
 
         $subject = 'Payslip Released - ' . strtoupper($periodCode);
+            $adjustedFigures = $computeAdjustedPayrollFigures($itemRow);
         $html = '<p>Hi ' . htmlspecialchars($employeeName, ENT_QUOTES, 'UTF-8') . ',</p>'
             . '<p>Your payslip for payroll period <strong>' . htmlspecialchars(strtoupper($periodCode), ENT_QUOTES, 'UTF-8') . '</strong> is now released.</p>'
             . '<p>Payslip No: <strong>' . htmlspecialchars($payslipNo, ENT_QUOTES, 'UTF-8') . '</strong><br>'
-            . 'Net Pay: <strong>PHP ' . number_format((float)($itemRow['net_pay'] ?? 0), 2) . '</strong></p>'
+                . 'Net Pay: <strong>PHP ' . number_format((float)($adjustedFigures['net_pay'] ?? 0), 2) . '</strong></p>'
             . '<p>You may view details in your employee payroll page.</p>';
 
         $attachmentPath = cleanText($documentByItemId[$itemId]['absolute_path'] ?? null) ?? '';

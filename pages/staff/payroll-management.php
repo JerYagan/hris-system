@@ -230,6 +230,7 @@ ob_start();
             <label for="payrollRunStatusFilter" class="text-sm text-gray-600">Status Filter</label>
             <select id="payrollRunStatusFilter" class="w-full mt-1 border rounded-md px-3 py-2 text-sm">
                 <option value="">All Statuses</option>
+                <option value="pending_review">Pending Review</option>
                 <option value="draft">Draft</option>
                 <option value="computed">Computed</option>
                 <option value="approved">Approved</option>
@@ -248,6 +249,7 @@ ob_start();
                     <th class="text-left px-4 py-3">Employees</th>
                     <th class="text-left px-4 py-3">Gross / Net</th>
                     <th class="text-left px-4 py-3">Staff Recommendation</th>
+                    <th class="text-left px-4 py-3">Salary Adjustments</th>
                     <th class="text-left px-4 py-3">Admin Review</th>
                     <th class="text-left px-4 py-3">Status</th>
                     <th class="text-left px-4 py-3">Action</th>
@@ -256,7 +258,7 @@ ob_start();
             <tbody class="divide-y">
                 <?php if (empty($payrollRunRows)): ?>
                     <tr>
-                        <td class="px-4 py-3 text-gray-500" colspan="8">No payroll runs found.</td>
+                        <td class="px-4 py-3 text-gray-500" colspan="9">No payroll runs found.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($payrollRunRows as $row): ?>
@@ -276,6 +278,20 @@ ob_start();
                                 <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars((string)($row['staff_submitted_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
                             </td>
                             <td class="px-4 py-3">
+                                <?php
+                                $adjustmentSubmitted = (int)($row['adjustment_submitted_count'] ?? 0);
+                                $adjustmentPending = (int)($row['adjustment_pending_count'] ?? 0);
+                                $adjustmentApproved = (int)($row['adjustment_approved_count'] ?? 0);
+                                $adjustmentRejected = (int)($row['adjustment_rejected_count'] ?? 0);
+                                ?>
+                                <?php if ($adjustmentSubmitted > 0): ?>
+                                    <p class="text-gray-800"><?= htmlspecialchars((string)$adjustmentSubmitted, ENT_QUOTES, 'UTF-8') ?> submitted</p>
+                                    <p class="text-xs mt-1 <?= $adjustmentPending > 0 ? 'text-rose-600' : 'text-gray-500' ?>">Pending: <?= htmlspecialchars((string)$adjustmentPending, ENT_QUOTES, 'UTF-8') ?> · Approved: <?= htmlspecialchars((string)$adjustmentApproved, ENT_QUOTES, 'UTF-8') ?> · Rejected: <?= htmlspecialchars((string)$adjustmentRejected, ENT_QUOTES, 'UTF-8') ?></p>
+                                <?php else: ?>
+                                    <p class="text-gray-500 text-xs">No staff-submitted adjustments</p>
+                                <?php endif; ?>
+                            </td>
+                            <td class="px-4 py-3">
                                 <?php if (!empty($row['admin_decision'])): ?>
                                     <p class="text-gray-800"><?= htmlspecialchars(ucwords(str_replace('_', ' ', (string)($row['admin_decision'] ?? 'reviewed'))), ENT_QUOTES, 'UTF-8') ?></p>
                                     <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars((string)($row['admin_decision_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
@@ -292,6 +308,13 @@ ob_start();
                                         data-open-generate-modal
                                         data-run-id="<?= htmlspecialchars((string)($row['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                         data-run-short-id="<?= htmlspecialchars((string)($row['short_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-period-label="<?= htmlspecialchars((string)($row['period_label'] ?? $row['period_code'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-current-status="<?= htmlspecialchars((string)($row['status_label'] ?? 'Draft'), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-employee-count="<?= htmlspecialchars((string)($row['employee_count'] ?? 0), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-total-net="<?= htmlspecialchars((string)number_format((float)($row['net_total'] ?? 0), 2), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-staff-recommendation="<?= htmlspecialchars((string)($row['staff_recommendation'] ?? 'Recommend approval'), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-staff-submitted="<?= htmlspecialchars((string)($row['staff_submitted_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-admin-reviewed="<?= htmlspecialchars((string)($row['admin_decision_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
                                         class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-60 disabled:cursor-not-allowed"
                                         <?= !empty($row['can_generate']) ? '' : 'disabled aria-disabled="true"' ?>
                                     >
@@ -304,7 +327,7 @@ ob_start();
                     <?php endforeach; ?>
                 <?php endif; ?>
                 <tr id="payrollRunFilterEmptyRow" class="hidden">
-                    <td class="px-4 py-3 text-gray-500" colspan="8">No payroll runs match your search/filter criteria.</td>
+                    <td class="px-4 py-3 text-gray-500" colspan="9">No payroll runs match your search/filter criteria.</td>
                 </tr>
             </tbody>
         </table>
@@ -432,47 +455,146 @@ ob_start();
     </div>
 </div>
 
-<div id="generatePayslipModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4">
-    <div class="w-full max-w-2xl rounded-xl bg-white border shadow-lg">
-        <div class="flex items-center justify-between px-6 py-4 border-b">
-            <h3 class="text-lg font-semibold text-gray-800">Generate Payslips</h3>
-            <button type="button" id="generatePayslipModalClose" class="text-gray-500 hover:text-gray-700" aria-label="Close modal"><span class="material-symbols-outlined">close</span></button>
-        </div>
-
-        <form id="generatePayslipForm" method="POST" action="payroll-management.php" class="px-6 py-4 space-y-4 text-sm">
-            <input type="hidden" name="form_action" value="generate_payslip_run">
-            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
-            <input type="hidden" name="run_id" id="generatePayslipRunId" value="">
-
-            <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-                <p class="text-xs text-slate-500 uppercase tracking-wide">Selected Run</p>
-                <p id="generatePayslipRunLabel" class="font-semibold text-slate-800 mt-1">-</p>
+<div id="generatePayslipModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-slate-900/60" id="generatePayslipModalBackdrop"></div>
+    <div class="relative min-h-full flex items-start sm:items-center justify-center p-4 sm:p-6 overflow-y-auto">
+        <div class="w-full max-w-6xl max-h-[92vh] overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-slate-800">Final Review Payroll Batch</h3>
+                <button type="button" id="generatePayslipModalClose" class="text-slate-500 hover:text-slate-700" aria-label="Close modal"><span class="material-symbols-outlined">close</span></button>
             </div>
 
-            <div>
-                <p class="text-sm text-gray-700 mb-2">Employees included in this payroll run</p>
-                <div class="max-h-72 overflow-auto border rounded-md">
-                    <table class="w-full text-xs">
-                        <thead class="bg-slate-50 text-slate-600 sticky top-0">
-                            <tr>
-                                <th class="text-left px-3 py-2">Employee</th>
-                                <th class="text-right px-3 py-2">Net Pay</th>
-                            </tr>
-                        </thead>
-                        <tbody id="generatePayslipEmployeesBody" class="divide-y"></tbody>
-                    </table>
+            <form id="generatePayslipForm" method="POST" action="payroll-management.php" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <input type="hidden" name="form_action" value="generate_payslip_run">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="run_id" id="generatePayslipRunId" value="">
+
+                <div class="md:col-span-2">
+                    <label class="text-slate-600">Cutoff Period</label>
+                    <input id="generatePayslipBatchPeriod" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
                 </div>
-                <p id="generatePayslipEmployeeCount" class="text-xs text-slate-500 mt-2">0 employee(s)</p>
-            </div>
+                <div>
+                    <label class="text-slate-600">Current Status</label>
+                    <input id="generatePayslipBatchStatus" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
+                </div>
+                <div>
+                    <label class="text-slate-600">Employee Count</label>
+                    <input id="generatePayslipBatchEmployees" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="text-slate-600">Total Net Pay</label>
+                    <input id="generatePayslipBatchNet" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="text-slate-600">Staff Recommendation</label>
+                    <textarea id="generatePayslipBatchRecommendation" rows="3" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly></textarea>
+                </div>
+                <div>
+                    <label class="text-slate-600">Submitted by Staff</label>
+                    <input id="generatePayslipBatchSubmittedAt" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
+                </div>
+                <div>
+                    <label class="text-slate-600">Last Admin Review</label>
+                    <input id="generatePayslipBatchReviewedAt" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
+                </div>
 
-            <div class="flex justify-end gap-3">
-                <button type="button" id="generatePayslipModalCancel" class="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
-                <button type="submit" id="generatePayslipSubmit" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-blue-700 text-white hover:bg-blue-800 disabled:opacity-60 disabled:cursor-not-allowed">
-                    <span class="material-symbols-outlined text-[16px]">receipt_long</span>
-                    Generate Payslips
-                </button>
-            </div>
-        </form>
+                <div class="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Payroll Computation Breakdown</p>
+                    <p class="text-xs text-slate-600 mt-1">Includes salary setup components, timekeeping deductions, and adjustment impact per employee.</p>
+                    <div class="mt-3 grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                            <p class="text-xs text-slate-500">Employees</p>
+                            <p id="generatePayslipBreakdownEmployees" class="text-sm font-semibold text-slate-800 mt-1">0</p>
+                        </div>
+                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                            <p class="text-xs text-slate-500">Gross Total</p>
+                            <p id="generatePayslipBreakdownGross" class="text-sm font-semibold text-slate-800 mt-1">₱0.00</p>
+                        </div>
+                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                            <p class="text-xs text-slate-500">Net Total</p>
+                            <p id="generatePayslipBreakdownNet" class="text-sm font-semibold text-slate-800 mt-1">₱0.00</p>
+                        </div>
+                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                            <p class="text-xs text-slate-500">Rows</p>
+                            <p id="generatePayslipBreakdownRows" class="text-sm font-semibold text-slate-800 mt-1">0</p>
+                        </div>
+                    </div>
+                    <div class="mt-3 overflow-x-auto border border-slate-200 rounded-lg bg-white">
+                        <table class="w-full text-xs">
+                            <thead class="bg-slate-50 text-slate-600">
+                                <tr>
+                                    <th class="text-left px-3 py-2">Employee</th>
+                                    <th class="text-right px-3 py-2">Basic Pay</th>
+                                    <th class="text-right px-3 py-2">Allowances</th>
+                                    <th class="text-right px-3 py-2">CTO Pay</th>
+                                    <th class="text-right px-3 py-2">Statutory</th>
+                                    <th class="text-right px-3 py-2">Timekeeping</th>
+                                    <th class="text-right px-3 py-2">Attendance (A/L/U)</th>
+                                    <th class="text-right px-3 py-2">Adj +/-</th>
+                                    <th class="text-right px-3 py-2">Gross</th>
+                                    <th class="text-right px-3 py-2">Net</th>
+                                </tr>
+                            </thead>
+                            <tbody id="generatePayslipBreakdownBody" class="divide-y divide-slate-100">
+                                <tr id="generatePayslipBreakdownEmptyRow">
+                                    <td class="px-3 py-3 text-slate-500" colspan="10">No computation breakdown available for this batch.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Salary Adjustment Recommendations</p>
+                    <p class="text-xs text-slate-600 mt-1">Run-scoped staff recommendations and current admin review status for each adjustment.</p>
+                    <div class="mt-3 grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                            <p class="text-xs text-slate-500">Submitted</p>
+                            <p id="generatePayslipAdjustmentSubmitted" class="text-sm font-semibold text-slate-800 mt-1">0</p>
+                        </div>
+                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                            <p class="text-xs text-slate-500">Pending Review</p>
+                            <p id="generatePayslipAdjustmentPending" class="text-sm font-semibold text-rose-700 mt-1">0</p>
+                        </div>
+                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                            <p class="text-xs text-slate-500">Approved</p>
+                            <p id="generatePayslipAdjustmentApproved" class="text-sm font-semibold text-emerald-700 mt-1">0</p>
+                        </div>
+                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                            <p class="text-xs text-slate-500">Rejected</p>
+                            <p id="generatePayslipAdjustmentRejected" class="text-sm font-semibold text-rose-700 mt-1">0</p>
+                        </div>
+                    </div>
+                    <div class="mt-3 overflow-x-auto border border-slate-200 rounded-lg bg-white">
+                        <table class="w-full text-xs">
+                            <thead class="bg-slate-50 text-slate-600">
+                                <tr>
+                                    <th class="text-left px-3 py-2">Code</th>
+                                    <th class="text-left px-3 py-2">Employee</th>
+                                    <th class="text-left px-3 py-2">Type</th>
+                                    <th class="text-right px-3 py-2">Amount</th>
+                                    <th class="text-left px-3 py-2">Staff Recommendation</th>
+                                    <th class="text-left px-3 py-2">Admin Review</th>
+                                </tr>
+                            </thead>
+                            <tbody id="generatePayslipAdjustmentBody" class="divide-y divide-slate-100">
+                                <tr id="generatePayslipAdjustmentEmptyRow">
+                                    <td class="px-3 py-3 text-slate-500" colspan="6">No staff-submitted salary adjustment recommendations in this batch.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="md:col-span-2 flex justify-end gap-3 mt-2">
+                    <button type="button" id="generatePayslipModalCancel" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button>
+                    <button type="submit" id="generatePayslipSubmit" class="inline-flex items-center gap-1.5 px-5 py-2 rounded-md bg-blue-700 text-white hover:bg-blue-800 disabled:opacity-60 disabled:cursor-not-allowed">
+                        <span class="material-symbols-outlined text-[16px]">receipt_long</span>
+                        Generate Payslips
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -545,6 +667,7 @@ ob_start();
 
 <script id="payrollComputePreviewData" type="application/json"><?= htmlspecialchars((string)json_encode($computePreviewByPeriod, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?></script>
 <script id="payrollGeneratePreviewData" type="application/json"><?= htmlspecialchars((string)json_encode($generatePreviewByRun, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?></script>
+<script id="payrollBatchBreakdownByRunData" type="application/json"><?= htmlspecialchars((string)json_encode($batchBreakdownByRun, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?></script>
 
 <script src="../../assets/js/staff/payroll-management/index.js" defer></script>
 

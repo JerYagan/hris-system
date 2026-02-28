@@ -20,6 +20,74 @@ if (!function_exists('smtpSendTransactionalEmail')) {
     }
 }
 
+if (!function_exists('payrollSmtpSendEmailWithAttachment')) {
+    function payrollSmtpSendEmailWithAttachment(
+        array $smtpConfig,
+        string $fromEmail,
+        string $fromName,
+        string $toEmail,
+        string $toName,
+        string $subject,
+        string $htmlContent,
+        string $attachmentPath,
+        string $attachmentName
+    ): array {
+        if (function_exists('adminMailEnsureAutoload')) {
+            adminMailEnsureAutoload();
+        }
+
+        if (!class_exists('PHPMailer\\PHPMailer\\PHPMailer')) {
+            return smtpSendTransactionalEmail($smtpConfig, $fromEmail, $fromName, $toEmail, $toName, $subject, $htmlContent);
+        }
+
+        try {
+            $mailer = new \PHPMailer\PHPMailer\PHPMailer(true);
+            $mailer->isSMTP();
+            $mailer->Host = (string)($smtpConfig['host'] ?? '');
+            $mailer->Port = (int)($smtpConfig['port'] ?? 587);
+            $mailer->SMTPAuth = ((string)($smtpConfig['auth'] ?? '1')) !== '0';
+            $mailer->Username = (string)($smtpConfig['username'] ?? '');
+            $mailer->Password = (string)($smtpConfig['password'] ?? '');
+
+            $encryption = strtolower(trim((string)($smtpConfig['encryption'] ?? 'tls')));
+            if ($encryption === 'ssl') {
+                $mailer->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+            } elseif ($encryption === 'tls' || $encryption === 'starttls') {
+                $mailer->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+            } else {
+                $mailer->SMTPSecure = '';
+                $mailer->SMTPAutoTLS = false;
+            }
+
+            $mailer->CharSet = 'UTF-8';
+            $mailer->setFrom($fromEmail, $fromName !== '' ? $fromName : $fromEmail);
+            $mailer->addAddress($toEmail, $toName !== '' ? $toName : $toEmail);
+            $mailer->isHTML(true);
+            $mailer->Subject = $subject;
+            $mailer->Body = $htmlContent;
+            $mailer->AltBody = trim(strip_tags(str_replace(['<br>', '<br/>', '<br />'], "\n", $htmlContent)));
+
+            if ($attachmentPath !== '' && is_file($attachmentPath)) {
+                $mailer->addAttachment($attachmentPath, $attachmentName !== '' ? $attachmentName : basename($attachmentPath));
+            }
+
+            $mailer->send();
+
+            return [
+                'status' => 200,
+                'data' => ['provider' => 'smtp'],
+                'raw' => 'SMTP send success',
+            ];
+        } catch (\Throwable $error) {
+            return [
+                'status' => 500,
+                'data' => [],
+                'raw' => $error->getMessage(),
+            ];
+        }
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     return;
 }
@@ -1576,6 +1644,143 @@ if ($action === 'review_payroll_batch') {
 
     $oldStatus = strtolower((string)($runRow['run_status'] ?? 'draft'));
 
+    if ($decision === 'approved') {
+        $itemResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/payroll_items?select=id'
+            . '&payroll_run_id=eq.' . rawurlencode($runId)
+            . '&limit=5000',
+            $headers
+        );
+
+        if (!isSuccessful($itemResponse)) {
+            redirectWithState('error', 'Unable to validate salary adjustment reviews for this payroll batch. Please try again.');
+        }
+
+        $itemIds = [];
+        foreach ((array)($itemResponse['data'] ?? []) as $itemRow) {
+            $itemId = cleanText($itemRow['id'] ?? null) ?? '';
+            if (isValidUuid($itemId)) {
+                $itemIds[] = $itemId;
+            }
+        }
+
+        if (!empty($itemIds)) {
+            $adjustmentResponse = apiRequest(
+                'GET',
+                $supabaseUrl
+                . '/rest/v1/payroll_adjustments?select=id,adjustment_code,payroll_item_id'
+                . '&payroll_item_id=in.' . rawurlencode('(' . implode(',', $itemIds) . ')')
+                . '&limit=5000',
+                $headers
+            );
+
+            if (!isSuccessful($adjustmentResponse)) {
+                redirectWithState('error', 'Unable to validate salary adjustment reviews for this payroll batch. Please try again.');
+            }
+
+            $adjustmentCodesById = [];
+            foreach ((array)($adjustmentResponse['data'] ?? []) as $adjustmentRow) {
+                $adjustmentId = cleanText($adjustmentRow['id'] ?? null) ?? '';
+                if (!isValidUuid($adjustmentId)) {
+                    continue;
+                }
+
+                $adjustmentCodesById[$adjustmentId] = cleanText($adjustmentRow['adjustment_code'] ?? null) ?? 'Adjustment';
+            }
+
+            if (!empty($adjustmentCodesById)) {
+                $adjustmentIds = array_keys($adjustmentCodesById);
+
+                $recommendationResponse = apiRequest(
+                    'GET',
+                    $supabaseUrl
+                    . '/rest/v1/activity_logs?select=entity_id,new_data,created_at'
+                    . '&entity_name=eq.payroll_adjustments'
+                    . '&action_name=eq.recommend_payroll_adjustment'
+                    . '&entity_id=in.' . rawurlencode('(' . implode(',', $adjustmentIds) . ')')
+                    . '&order=created_at.desc&limit=10000',
+                    $headers
+                );
+
+                if (!isSuccessful($recommendationResponse)) {
+                    redirectWithState('error', 'Unable to validate salary adjustment reviews for this payroll batch. Please try again.');
+                }
+
+                $recommendedAdjustmentIds = [];
+                foreach ((array)($recommendationResponse['data'] ?? []) as $recommendationRow) {
+                    $entityId = cleanText($recommendationRow['entity_id'] ?? null) ?? '';
+                    if (!isValidUuid($entityId) || isset($recommendedAdjustmentIds[$entityId])) {
+                        continue;
+                    }
+
+                    $newData = is_array($recommendationRow['new_data'] ?? null) ? (array)$recommendationRow['new_data'] : [];
+                    $recommendationStatus = strtolower((string)(cleanText($newData['recommendation_status'] ?? null) ?? ''));
+                    if (!in_array($recommendationStatus, ['approved', 'rejected'], true)) {
+                        continue;
+                    }
+
+                    $recommendedAdjustmentIds[$entityId] = true;
+                }
+
+                if (!empty($recommendedAdjustmentIds)) {
+                    $reviewResponse = apiRequest(
+                        'GET',
+                        $supabaseUrl
+                        . '/rest/v1/activity_logs?select=entity_id,new_data,created_at'
+                        . '&entity_name=eq.payroll_adjustments'
+                        . '&action_name=eq.review_payroll_adjustment'
+                        . '&entity_id=in.' . rawurlencode('(' . implode(',', array_keys($recommendedAdjustmentIds)) . ')')
+                        . '&order=created_at.desc&limit=10000',
+                        $headers
+                    );
+
+                    if (!isSuccessful($reviewResponse)) {
+                        redirectWithState('error', 'Unable to validate salary adjustment reviews for this payroll batch. Please try again.');
+                    }
+
+                    $reviewStatusByAdjustmentId = [];
+                    foreach ((array)($reviewResponse['data'] ?? []) as $reviewRow) {
+                        $entityId = cleanText($reviewRow['entity_id'] ?? null) ?? '';
+                        if (!isValidUuid($entityId) || isset($reviewStatusByAdjustmentId[$entityId])) {
+                            continue;
+                        }
+
+                        $newData = is_array($reviewRow['new_data'] ?? null) ? (array)$reviewRow['new_data'] : [];
+                        $reviewStatus = strtolower((string)(cleanText($newData['review_status'] ?? null) ?? cleanText($newData['status_to'] ?? null) ?? cleanText($newData['status'] ?? null) ?? 'pending'));
+                        if (!in_array($reviewStatus, ['pending', 'approved', 'rejected'], true)) {
+                            $reviewStatus = 'pending';
+                        }
+
+                        $reviewStatusByAdjustmentId[$entityId] = $reviewStatus;
+                    }
+
+                    $pendingCodes = [];
+                    foreach (array_keys($recommendedAdjustmentIds) as $adjustmentId) {
+                        $reviewStatus = strtolower((string)($reviewStatusByAdjustmentId[$adjustmentId] ?? 'pending'));
+                        if ($reviewStatus === 'pending') {
+                            $pendingCodes[] = (string)($adjustmentCodesById[$adjustmentId] ?? 'Adjustment');
+                        }
+                    }
+
+                    if (!empty($pendingCodes)) {
+                        $previewCodes = array_slice($pendingCodes, 0, 3);
+                        $suffix = count($pendingCodes) > 3
+                            ? ' +' . (count($pendingCodes) - 3) . ' more'
+                            : '';
+                        redirectWithState(
+                            'error',
+                            'Cannot approve this payroll batch yet. There are ' . count($pendingCodes)
+                            . ' staff-submitted salary adjustment recommendation(s) pending admin review in this batch: '
+                            . implode(', ', $previewCodes) . $suffix . '.'
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     $patchPayload = [
         'run_status' => $decision,
         'updated_at' => gmdate('c'),
@@ -1686,7 +1891,7 @@ if ($action === 'review_salary_adjustment') {
     if (isSuccessful($lastDecisionResponse) && !empty((array)($lastDecisionResponse['data'] ?? []))) {
         $lastLogRow = (array)$lastDecisionResponse['data'][0];
         $newData = is_array($lastLogRow['new_data'] ?? null) ? (array)$lastLogRow['new_data'] : [];
-        $previousStatus = strtolower((string)(cleanText($newData['review_status'] ?? null) ?? 'pending'));
+        $previousStatus = strtolower((string)(cleanText($newData['review_status'] ?? null) ?? cleanText($newData['status_to'] ?? null) ?? cleanText($newData['status'] ?? null) ?? 'pending'));
         if (!in_array($previousStatus, ['pending', 'approved', 'rejected'], true)) {
             $previousStatus = 'pending';
         }
@@ -1833,6 +2038,111 @@ if ($action === 'release_payslips') {
         redirectWithState('error', 'Invalid payroll item identifiers.');
     }
 
+    $approvedAdjustmentByItemId = [];
+    $adjustmentsForItemsResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/payroll_adjustments?select=id,payroll_item_id,adjustment_type,amount'
+        . '&payroll_item_id=in.(' . $inFilter . ')'
+        . '&limit=10000',
+        $headers
+    );
+
+    if (isSuccessful($adjustmentsForItemsResponse)) {
+        $adjustmentRowsForItems = (array)($adjustmentsForItemsResponse['data'] ?? []);
+        $adjustmentIdsForItems = [];
+        foreach ($adjustmentRowsForItems as $adjustmentRow) {
+            $adjustmentId = strtolower(trim((string)($adjustmentRow['id'] ?? '')));
+            if (!isValidUuid($adjustmentId)) {
+                continue;
+            }
+            $adjustmentIdsForItems[$adjustmentId] = true;
+        }
+
+        $reviewStatusByAdjustmentId = [];
+        if (!empty($adjustmentIdsForItems)) {
+            $adjustmentReviewResponse = apiRequest(
+                'GET',
+                $supabaseUrl
+                . '/rest/v1/activity_logs?select=entity_id,new_data,created_at'
+                . '&entity_name=eq.payroll_adjustments'
+                . '&action_name=eq.review_payroll_adjustment'
+                . '&entity_id=in.(' . implode(',', array_keys($adjustmentIdsForItems)) . ')'
+                . '&order=created_at.desc&limit=10000',
+                $headers
+            );
+
+            if (isSuccessful($adjustmentReviewResponse)) {
+                foreach ((array)($adjustmentReviewResponse['data'] ?? []) as $reviewLog) {
+                    $entityId = strtolower(trim((string)($reviewLog['entity_id'] ?? '')));
+                    if (!isValidUuid($entityId) || isset($reviewStatusByAdjustmentId[$entityId])) {
+                        continue;
+                    }
+
+                    $newData = is_array($reviewLog['new_data'] ?? null) ? (array)$reviewLog['new_data'] : [];
+                    $reviewStatus = strtolower(trim((string)($newData['review_status'] ?? $newData['status_to'] ?? $newData['status'] ?? 'pending')));
+                    if (!in_array($reviewStatus, ['pending', 'approved', 'rejected'], true)) {
+                        $reviewStatus = 'pending';
+                    }
+
+                    $reviewStatusByAdjustmentId[$entityId] = $reviewStatus;
+                }
+            }
+        }
+
+        foreach ($adjustmentRowsForItems as $adjustmentRow) {
+            $adjustmentId = strtolower(trim((string)($adjustmentRow['id'] ?? '')));
+            if (!isValidUuid($adjustmentId)) {
+                continue;
+            }
+
+            if (strtolower((string)($reviewStatusByAdjustmentId[$adjustmentId] ?? 'pending')) !== 'approved') {
+                continue;
+            }
+
+            $itemId = strtolower(trim((string)($adjustmentRow['payroll_item_id'] ?? '')));
+            if (!isValidUuid($itemId)) {
+                continue;
+            }
+
+            if (!isset($approvedAdjustmentByItemId[$itemId])) {
+                $approvedAdjustmentByItemId[$itemId] = [
+                    'adjustment_earnings' => 0.0,
+                    'adjustment_deductions' => 0.0,
+                ];
+            }
+
+            $amount = (float)($adjustmentRow['amount'] ?? 0);
+            $type = strtolower(trim((string)($adjustmentRow['adjustment_type'] ?? 'deduction')));
+            if ($type === 'earning') {
+                $approvedAdjustmentByItemId[$itemId]['adjustment_earnings'] += $amount;
+            } else {
+                $approvedAdjustmentByItemId[$itemId]['adjustment_deductions'] += $amount;
+            }
+        }
+    }
+
+    $computeAdjustedPayrollFigures = static function (array $itemRow) use ($approvedAdjustmentByItemId): array {
+        $itemId = strtolower(trim((string)($itemRow['id'] ?? '')));
+        $adjustment = is_array($approvedAdjustmentByItemId[$itemId] ?? null)
+            ? (array)$approvedAdjustmentByItemId[$itemId]
+            : ['adjustment_earnings' => 0.0, 'adjustment_deductions' => 0.0];
+
+        $adjustmentEarnings = (float)($adjustment['adjustment_earnings'] ?? 0);
+        $adjustmentDeductions = (float)($adjustment['adjustment_deductions'] ?? 0);
+        $grossPay = (float)($itemRow['gross_pay'] ?? 0) + $adjustmentEarnings;
+        $deductionsTotal = (float)($itemRow['deductions_total'] ?? 0) + $adjustmentDeductions;
+        $netPay = (float)($itemRow['net_pay'] ?? 0) + $adjustmentEarnings - $adjustmentDeductions;
+
+        return [
+            'adjustment_earnings' => $adjustmentEarnings,
+            'adjustment_deductions' => $adjustmentDeductions,
+            'gross_pay' => $grossPay,
+            'deductions_total' => $deductionsTotal,
+            'net_pay' => $netPay,
+        ];
+    };
+
     $itemBreakdownByItemId = [];
     $itemBreakdownLogResponse = apiRequest(
         'GET',
@@ -1958,15 +2268,14 @@ if ($action === 'release_payslips') {
         }
 
         $breakdown = (array)($itemBreakdownByItemId[$payrollItemId] ?? []);
+        $adjustedFigures = $computeAdjustedPayrollFigures($item);
         $statutoryDeductions = (float)($breakdown['statutory_deductions'] ?? 0);
         $timekeepingDeductions = (float)($breakdown['timekeeping_deductions'] ?? 0);
-        $adjustmentDeductions = (float)($breakdown['adjustment_deductions'] ?? 0);
-        $adjustmentEarnings = (float)($breakdown['adjustment_earnings'] ?? 0);
+        $adjustmentDeductions = (float)($adjustedFigures['adjustment_deductions'] ?? 0);
+        $adjustmentEarnings = (float)($adjustedFigures['adjustment_earnings'] ?? 0);
         if (!isset($itemBreakdownByItemId[$payrollItemId])) {
             $statutoryDeductions = max(0.0, (float)($item['deductions_total'] ?? 0));
             $timekeepingDeductions = 0.0;
-            $adjustmentDeductions = 0.0;
-            $adjustmentEarnings = 0.0;
         }
 
         try {
@@ -1985,13 +2294,14 @@ if ($action === 'release_payslips') {
                 'absent_days' => (int)($breakdown['absent_days'] ?? 0),
                 'late_minutes' => (int)($breakdown['late_minutes'] ?? 0),
                 'undertime_hours' => (float)($breakdown['undertime_hours'] ?? 0),
-                'gross_pay' => (float)($item['gross_pay'] ?? 0),
-                'deductions_total' => (float)($item['deductions_total'] ?? 0),
-                'net_pay' => (float)($item['net_pay'] ?? 0),
+                'gross_pay' => (float)($adjustedFigures['gross_pay'] ?? 0),
+                'deductions_total' => (float)($adjustedFigures['deductions_total'] ?? 0),
+                'net_pay' => (float)($adjustedFigures['net_pay'] ?? 0),
                 'earnings_lines' => [
                     ['label' => 'Basic Pay', 'amount' => (float)($item['basic_pay'] ?? 0)],
                     ['label' => 'CTO Pay', 'amount' => (float)($item['overtime_pay'] ?? 0)],
                     ['label' => 'Allowances', 'amount' => (float)($item['allowances_total'] ?? 0)],
+                    ['label' => 'Approved Adjustment Earnings', 'amount' => $adjustmentEarnings],
                 ],
                 'deduction_lines' => [
                     [
@@ -2154,20 +2464,39 @@ if ($action === 'release_payslips') {
             $emailsAttempted++;
 
             $subject = 'Payslip Released - ' . strtoupper($periodCode);
+            $adjustedFigures = $computeAdjustedPayrollFigures($item);
             $html = '<p>Hi ' . htmlspecialchars($employeeName, ENT_QUOTES, 'UTF-8') . ',</p>'
                 . '<p>Your payslip for payroll period <strong>' . htmlspecialchars(strtoupper($periodCode), ENT_QUOTES, 'UTF-8') . '</strong> is now released.</p>'
                 . '<p>Payslip No: <strong>' . htmlspecialchars($payslipNo, ENT_QUOTES, 'UTF-8') . '</strong><br>'
-                . 'Net Pay: <strong>PHP ' . number_format((float)($item['net_pay'] ?? 0), 2) . '</strong></p>'
+                . 'Net Pay: <strong>PHP ' . number_format((float)($adjustedFigures['net_pay'] ?? 0), 2) . '</strong></p>'
                 . '<p>You may view details in your employee payroll page.</p>';
 
-            $emailResponse = smtpSendTransactionalEmail(
+            $pdfStoragePath = cleanText($payslipRow['pdf_storage_path'] ?? null) ?? '';
+            $attachmentPath = '';
+            if ($pdfStoragePath !== '') {
+                $normalizedStoragePath = str_replace('\\', '/', $pdfStoragePath);
+                if (str_starts_with($normalizedStoragePath, '/hris-system/storage/payslips/')) {
+                    $normalizedStoragePath = substr($normalizedStoragePath, strlen('/hris-system/storage/payslips/'));
+                }
+                $normalizedStoragePath = ltrim($normalizedStoragePath, '/');
+                $candidate = dirname(__DIR__, 4) . '/storage/payslips/' . basename($normalizedStoragePath);
+                if (is_file($candidate)) {
+                    $attachmentPath = $candidate;
+                }
+            }
+
+            $attachmentName = ($payslipNo !== '' ? $payslipNo : 'payslip') . '.pdf';
+
+            $emailResponse = payrollSmtpSendEmailWithAttachment(
                 $smtpConfig,
                 $mailFrom,
                 $mailFromName,
                 $recipientEmail,
                 $employeeName,
                 $subject,
-                $html
+                $html,
+                $attachmentPath,
+                $attachmentName
             );
 
             if (isSuccessful($emailResponse)) {

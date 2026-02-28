@@ -514,13 +514,18 @@ Rules applied while consolidating:
 
 ## 9) Payroll Module
 ### Admin
-- [ ] In setting up salary for employees, remove reason in the sweetalert confirmation for saving the salary setup. Since salary setup is a routine task that the admin will be doing, it may not be necessary to capture a reason for audit logs every time they save a salary setup, as long as there are proper audit logs in place to track the changes made to the salary setup.
+- [x] Audit the entire module and make sure that the salary adjustment is reflected. There are some sections and parts of admin that doesn't take the adjustment into account such as "View Employee Payslips" section, Approve Payroll Batches section, the modal there shows Adj +/- but it doesn't reflect the adjustment, and also in the payroll batch details when you click the batch, it also doesn't reflect the adjustment. Make sure that the salary adjustment is properly reflected in all relevant sections of the admin side of the payroll module, including the "View Employee Payslips" section, Approve Payroll Batches section, and the payroll batch details. This will ensure that the admin has accurate and up-to-date information on employee compensation and payroll computations, allowing them to make informed decisions when reviewing and approving payroll batches.
+- [x] Audit the staff as well for this issue.
+- [x] Approving salary adjustment doesn't work, when I approve a salary adjustment it shows a success message but when I go back to the payroll batch review, the salary adjustment is not reflected in the payroll batch details.
+- [x] Verify if the salary adjustments recommended by staff are properly reflected in the payroll batch review for the admin (and also staff), and that the admin can see the details of the salary adjustments along with the staff's recommendation when reviewing the payroll batch for final approval. This will ensure that the admin has all the necessary information to make informed decisions on payroll batches, including any adjustments that may impact the payroll computation and employee compensation.
+- [x] Add a logic where the system blocks the admin from approving a payroll batch if there are pending staff recommendations for salary adjustments that have not yet been reviewed and approved by the admin ONLY IN THAT PAYROLL BATCH. This will help ensure that all relevant information, including staff recommendations for salary adjustments, is considered and reviewed by the admin before approving a payroll batch, and it will also help prevent any potential issues or discrepancies in the payroll computation that may arise from unreviewed salary adjustments.
+- [x] In approve payroll batches, the initial state for the batches is computed even though the staff has not yet made any recommendation or submitted it for approval. The initial state for the batches should be "Pending Review" or something similar to indicate that the batch is still awaiting staff recommendation and admin review, rather than showing it as already computed. This will help avoid confusion and ensure that the workflow accurately reflects the status of the payroll batch as it goes through the approval process. Same in the staff side in Generate Payslip section, the batch should not be shown as computed until the staff has made a recommendation and submitted it for admin approval.
+- [x] Also in the reviewing payroll batches modal, it should show the breakdown of the payroll computation for the batch being reviewed, including the details of the salary setup, timekeeping records, deductions, and any other relevant information that contributes to the payroll computation. This will provide the admin with a clear and comprehensive view of how the payroll batch was computed, allowing them to make informed decisions when approving or rejecting the batch. The breakdown should be organized in a clear and easy-to-understand format, such as tables or sections, to help the admin quickly grasp the details of the payroll computation during their review process.
+- [x] In setting up salary for employees, remove reason in the sweetalert confirmation for saving the salary setup. Since salary setup is a routine task that the admin will be doing, it may not be necessary to capture a reason for audit logs every time they save a salary setup, as long as there are proper audit logs in place to track the changes made to the salary setup.
 - [x] Also don't include people with the role of staff in the employee list for managing salary setup, it should only include users with the employee role.
 - [x] Remove the restriction for deleting payroll batches (including the released ones) to allow for better error handling and correction in case of any issues with the payroll batches.
 - [x] Saving salary setup requires sweetalert confirmation and reason capture for audit logs.
 - [x] Use flatpickr when selecting the effective date for salary setup to improve the user experience and ensure consistency in date input across the module.
-- [ ] Change the instruction step by step to this:
-  1. 
 - [x] The modals you implemented are broken (See images)
 - [x] Add an instruction flow for the payroll batch approval process, which includes the staff preparing the payroll batch and submitting it to the admin for final approval, and the admin reviewing the submitted payroll batch along with the staff's recommendation and making a final decision to approve or reject the payroll batch. This instruction flow can be section below the quick action buttons, make it in a step-by-step format with clear and concise instructions for admin to follow, ensuring that the payroll batch approval process is well understood and followed correctly by all users involved.
 - [x] Instead of having a standalone section for managing salary setup, the payroll module can have a section that lists all employees and the admin can select from that list to manage their salary setup. This way, the salary setup can be more integrated into the overall payroll management process and it will also allow the admin to easily access and manage the salary setup for each employee without having to navigate to a separate section. The salary setup can be displayed in a modal or a separate page that is accessed when the admin selects an employee from the list, and it should include all the necessary fields and options for managing the employee's salary setup in a clear and organized layout. This will improve the user experience for the admin and make it easier for them to manage employee salaries effectively within the payroll module.
@@ -543,9 +548,10 @@ Rules applied while consolidating:
 
 ## 9) Payroll Module
 ### Staff
-- [ ] After creating salary adjustment, it doesn't show in the table in the Recommend Salary Adjustment section in the staff payroll module, and it also doesn't show in the admin side for review and approval.
-- [ ] In the create salary adjustment modal, the Adjustment Code field should be a dropdown selection instead of a free text input to ensure consistency and accuracy in the adjustment codes used for salary adjustments.
-- [ ] In the create salary adjustment modal, there should be a field for the staff to select their recommendation approval (e.g., Draft, Approve, Reject) for the salary adjustment they are creating.
+- [x] Staff should be able to have a final review before generating payslips to employee, just copy the Review Payroll Batch modal from the admin side and apply it to the staff side as a final review before generating payslips for employees.
+- [x] After creating salary adjustment, it doesn't show in the table in the Recommend Salary Adjustment section in the staff payroll module, and it also doesn't show in the admin side for review and approval.
+- [x] In the create salary adjustment modal, the Adjustment Code field should be a dropdown selection instead of a free text input to ensure consistency and accuracy in the adjustment codes used for salary adjustments.
+- [x] In the create salary adjustment modal, there should be a field for the staff to select their recommendation approval (e.g., Draft, Approve, Reject) for the salary adjustment they are creating.
 - [x] Staff payroll module doesn't have the same scope as the admin so it only shows 1 employee in every section of the payroll module
 - [x] Fix the modal for salary adjustment being too large vertically and not fitting the screen properly, especially for users with smaller screens.
 - [x] Change salary adjustment action to recommendation flow for Admin final approval.
@@ -571,6 +577,7 @@ Rules applied while consolidating:
 - [ ] Ensure admin payroll breakdown UI is clear and complete (earnings, deductions, net pay) and consistent with export/PDF output.
 - [ ] Ensure employee payslip UI is clear and user-friendly, with visible deduction breakdown and stable view/history access.
 - [ ] Execute pre-deployment payroll QA checklist (cross-role flow tests, policy conformance checks, and audit-log verification) based on revisions folder requirements.
+- [x] Ensure that when generating payslip, it also generates the payslip document (PDF) and attaches it to the employee's profile for record-keeping and easy access. This will allow employees to easily view and download their payslips from their profile, and it will also help ensure that all payroll records are properly stored and organized within the system. Also if possible, attach the PDF in the emails sent to employees when sending payslips via email, so that employees can have a copy of their payslip in their email for easy reference and record-keeping.
 - [x] Ensure to follow the Localized JS Performance optimization (FRONTEND_LOCALIZED_JS_PERFORMANCE_GUIDE.md)
 - [x] Enforce staff -> admin payroll handoff flow end-to-end (prepare/submit, admin final decision, reflected status/history for staff).
 
@@ -750,6 +757,17 @@ Rules applied while consolidating:
 - [ ] Phase 6: Module removal/deprecation decisions and navigation cleanup.
 - [ ] Phase 7: Full localized JS performance pass and QA sign-off.
 
+
+To dos
 Applicant side:
-Change application timeline
+Change application timeline design
 Audit UI
+
+Add a modal for notifications in all users, when opening a notification it should open a modal that shows the details of the notification, it'll also mark the notifications as read. This will improve the user experience by providing a more visually appealing interface for viewing notifications and allowing users to easily manage their notifications without having to navigate away from the current page. The modal should also include any relevant information related to the notification, such as links or attachments, to provide users with all the necessary context when viewing their notifications.
+
+Change the sidebar behavior to overlay instead of pushing the content when opened in the staff and employee side.
+
+Add utility/tool pages in admin, such as OCR for document processing, setting up RFID for timekeeping, setting up email templates for notifications, etc. This will provide the admin with additional tools and functionalities to manage and maintain the system more effectively, and it will also help streamline various processes such as document processing, timekeeping setup, and notification management within the system.
+
+change timekeeping CTO filing to match the excel sent by the client
+

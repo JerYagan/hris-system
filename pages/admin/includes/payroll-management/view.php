@@ -12,6 +12,9 @@ $runStatusPill = static function (string $status): array {
     if ($key === 'computed') {
         return ['Computed', 'bg-violet-100 text-violet-800'];
     }
+    if ($key === 'pending_review') {
+        return ['Pending Review', 'bg-amber-100 text-amber-800'];
+    }
     if ($key === 'cancelled') {
         return ['Cancelled', 'bg-rose-100 text-rose-800'];
     }
@@ -84,7 +87,7 @@ $setupStatusPill = static function (string $status): array {
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Payroll Batch Approval Flow</h2>
-        <p class="text-sm text-slate-500 mt-1">Follow this sequence so staff recommendations and admin final decisions stay aligned and auditable.</p>
+                        <td class="px-4 py-3 text-slate-500" colspan="9">No payroll batches found.</td>
     </header>
     <div class="p-6 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
         <article class="rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -567,6 +570,7 @@ $setupStatusPill = static function (string $status): array {
             <label class="text-sm text-slate-600">Status Filter</label>
             <select id="payrollBatchesStatusFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
                 <option value="">All Status</option>
+                <option value="Pending Review">Pending Review</option>
                 <option value="Draft">Draft</option>
                 <option value="Computed">Computed</option>
                 <option value="Approved">Approved</option>
@@ -624,6 +628,20 @@ $setupStatusPill = static function (string $status): array {
                                 <p class="text-slate-700"><?= htmlspecialchars((string)($batch['staff_recommendation'] ?? 'Not yet submitted by Staff'), ENT_QUOTES, 'UTF-8') ?></p>
                                 <p class="text-xs text-slate-500 mt-1"><?= htmlspecialchars(formatDateTimeForPhilippines((string)($batch['staff_submitted_at'] ?? ''), 'M d, Y h:i A'), ENT_QUOTES, 'UTF-8') ?></p>
                             </td>
+                            <td class="px-4 py-3">
+                                <?php
+                                $adjustmentSubmitted = (int)($batch['adjustment_submitted_count'] ?? 0);
+                                $adjustmentPending = (int)($batch['adjustment_pending_count'] ?? 0);
+                                $adjustmentApproved = (int)($batch['adjustment_approved_count'] ?? 0);
+                                $adjustmentRejected = (int)($batch['adjustment_rejected_count'] ?? 0);
+                                ?>
+                                <?php if ($adjustmentSubmitted > 0): ?>
+                                    <p class="text-slate-700"><?= htmlspecialchars((string)$adjustmentSubmitted, ENT_QUOTES, 'UTF-8') ?> submitted</p>
+                                    <p class="text-xs mt-1 <?= $adjustmentPending > 0 ? 'text-rose-600' : 'text-slate-500' ?>">Pending: <?= htmlspecialchars((string)$adjustmentPending, ENT_QUOTES, 'UTF-8') ?> · Approved: <?= htmlspecialchars((string)$adjustmentApproved, ENT_QUOTES, 'UTF-8') ?> · Rejected: <?= htmlspecialchars((string)$adjustmentRejected, ENT_QUOTES, 'UTF-8') ?></p>
+                                <?php else: ?>
+                                    <p class="text-slate-500 text-xs">No staff-submitted adjustments</p>
+                                <?php endif; ?>
+                            </td>
                             <td class="px-4 py-3"><span class="inline-flex items-center justify-center min-w-[95px] px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td class="px-4 py-3">
                                 <div class="flex items-center gap-2">
@@ -638,6 +656,8 @@ $setupStatusPill = static function (string $status): array {
                                         data-staff-recommendation="<?= htmlspecialchars((string)($batch['staff_recommendation'] ?? 'Not yet submitted by Staff'), ENT_QUOTES, 'UTF-8') ?>"
                                         data-staff-submitted="<?= htmlspecialchars(formatDateTimeForPhilippines((string)($batch['staff_submitted_at'] ?? ''), 'M d, Y h:i A'), ENT_QUOTES, 'UTF-8') ?>"
                                         data-admin-reviewed="<?= htmlspecialchars(formatDateTimeForPhilippines((string)($batch['admin_reviewed_at'] ?? ''), 'M d, Y h:i A'), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-adjustment-pending-count="<?= htmlspecialchars((string)($batch['adjustment_pending_count'] ?? 0), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-breakdown-run-id="<?= htmlspecialchars((string)$batch['id'], ENT_QUOTES, 'UTF-8') ?>"
                                         class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm"
                                     >
                                         <span class="material-symbols-outlined text-[15px]">rule</span>Review
@@ -659,6 +679,8 @@ $setupStatusPill = static function (string $status): array {
         </table>
     </div>
 </section>
+
+<script id="payrollBatchBreakdownByRunData" type="application/json"><?= json_encode($batchBreakdownByRun, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>
 
 <div id="reviewSalaryAdjustmentsModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-slate-900/60" data-modal-close="reviewSalaryAdjustmentsModal"></div>
@@ -962,7 +984,7 @@ $setupStatusPill = static function (string $status): array {
 <div id="reviewPayrollBatchModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-slate-900/60" data-modal-close="reviewPayrollBatchModal"></div>
     <div class="relative min-h-full flex items-start sm:items-center justify-center p-4 sm:p-6 overflow-y-auto">
-        <div class="w-full max-w-2xl max-h-[92vh] overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl">
+        <div class="w-full max-w-6xl max-h-[92vh] overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl">
             <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
                 <h3 class="text-lg font-semibold text-slate-800">Review Payroll Batch</h3>
                 <button type="button" data-modal-close="reviewPayrollBatchModal" class="text-slate-500 hover:text-slate-700">✕</button>
@@ -998,9 +1020,102 @@ $setupStatusPill = static function (string $status): array {
                     <label class="text-slate-600">Last Admin Review</label>
                     <input id="payrollBatchReviewedAt" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
                 </div>
+                <div class="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Payroll Computation Breakdown</p>
+                    <p class="text-xs text-slate-600 mt-1">Includes salary setup components, timekeeping deductions, and adjustment impact per employee.</p>
+                    <div class="mt-3 grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                            <p class="text-xs text-slate-500">Employees</p>
+                            <p id="payrollBatchBreakdownEmployees" class="text-sm font-semibold text-slate-800 mt-1">0</p>
+                        </div>
+                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                            <p class="text-xs text-slate-500">Gross Total</p>
+                            <p id="payrollBatchBreakdownGross" class="text-sm font-semibold text-slate-800 mt-1">₱0.00</p>
+                        </div>
+                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                            <p class="text-xs text-slate-500">Net Total</p>
+                            <p id="payrollBatchBreakdownNet" class="text-sm font-semibold text-slate-800 mt-1">₱0.00</p>
+                        </div>
+                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                            <p class="text-xs text-slate-500">Rows</p>
+                            <p id="payrollBatchBreakdownRows" class="text-sm font-semibold text-slate-800 mt-1">0</p>
+                        </div>
+                    </div>
+                    <div class="mt-3 overflow-x-auto border border-slate-200 rounded-lg bg-white">
+                        <table class="w-full text-xs">
+                            <thead class="bg-slate-50 text-slate-600">
+                                <tr>
+                                    <th class="text-left px-3 py-2">Employee</th>
+                                    <th class="text-right px-3 py-2">Basic Pay</th>
+                                    <th class="text-right px-3 py-2">Allowances</th>
+                                    <th class="text-right px-3 py-2">CTO Pay</th>
+                                    <th class="text-right px-3 py-2">Statutory</th>
+                                    <th class="text-right px-3 py-2">Timekeeping</th>
+                                    <th class="text-right px-3 py-2">Attendance (A/L/U)</th>
+                                    <th class="text-right px-3 py-2">Adj +/-</th>
+                                    <th class="text-right px-3 py-2">Gross</th>
+                                    <th class="text-right px-3 py-2">Net</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payrollBatchBreakdownBody" class="divide-y divide-slate-100">
+                                <tr id="payrollBatchBreakdownEmptyRow">
+                                    <td class="px-3 py-3 text-slate-500" colspan="10">No computation breakdown available for this batch.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="text-xs uppercase tracking-wide text-slate-500">Salary Adjustment Recommendations</p>
+                            <p class="text-xs text-slate-600 mt-1">Run-scoped staff recommendations and current admin review status for each adjustment.</p>
+                        </div>
+                        <div id="payrollBatchAdjustmentApprovalWarning" class="hidden rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                            Approval blocked: pending salary adjustment reviews in this batch.
+                        </div>
+                    </div>
+                    <div class="mt-3 grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                            <p class="text-xs text-slate-500">Submitted</p>
+                            <p id="payrollBatchAdjustmentSubmitted" class="text-sm font-semibold text-slate-800 mt-1">0</p>
+                        </div>
+                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                            <p class="text-xs text-slate-500">Pending Review</p>
+                            <p id="payrollBatchAdjustmentPending" class="text-sm font-semibold text-rose-700 mt-1">0</p>
+                        </div>
+                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                            <p class="text-xs text-slate-500">Approved</p>
+                            <p id="payrollBatchAdjustmentApproved" class="text-sm font-semibold text-emerald-700 mt-1">0</p>
+                        </div>
+                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                            <p class="text-xs text-slate-500">Rejected</p>
+                            <p id="payrollBatchAdjustmentRejected" class="text-sm font-semibold text-rose-700 mt-1">0</p>
+                        </div>
+                    </div>
+                    <div class="mt-3 overflow-x-auto border border-slate-200 rounded-lg bg-white">
+                        <table class="w-full text-xs">
+                            <thead class="bg-slate-50 text-slate-600">
+                                <tr>
+                                    <th class="text-left px-3 py-2">Code</th>
+                                    <th class="text-left px-3 py-2">Employee</th>
+                                    <th class="text-left px-3 py-2">Type</th>
+                                    <th class="text-right px-3 py-2">Amount</th>
+                                    <th class="text-left px-3 py-2">Staff Recommendation</th>
+                                    <th class="text-left px-3 py-2">Admin Review</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payrollBatchAdjustmentBody" class="divide-y divide-slate-100">
+                                <tr id="payrollBatchAdjustmentEmptyRow">
+                                    <td class="px-3 py-3 text-slate-500" colspan="6">No staff-submitted salary adjustment recommendations in this batch.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
                 <div>
                     <label class="text-slate-600">Decision</label>
-                    <select name="decision" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                    <select id="payrollBatchDecision" name="decision" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
                         <option value="approved">Approve</option>
                         <option value="cancelled">Cancel Batch</option>
                     </select>

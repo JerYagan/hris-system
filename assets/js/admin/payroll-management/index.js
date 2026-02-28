@@ -134,10 +134,136 @@ const initPayrollBatchReviewModal = () => {
   const recommendationInput = document.getElementById('payrollBatchRecommendation');
   const submittedAtInput = document.getElementById('payrollBatchSubmittedAt');
   const reviewedAtInput = document.getElementById('payrollBatchReviewedAt');
+  const breakdownEmployees = document.getElementById('payrollBatchBreakdownEmployees');
+  const breakdownGross = document.getElementById('payrollBatchBreakdownGross');
+  const breakdownNet = document.getElementById('payrollBatchBreakdownNet');
+  const breakdownRows = document.getElementById('payrollBatchBreakdownRows');
+  const breakdownBody = document.getElementById('payrollBatchBreakdownBody');
+  const adjustmentSubmitted = document.getElementById('payrollBatchAdjustmentSubmitted');
+  const adjustmentPending = document.getElementById('payrollBatchAdjustmentPending');
+  const adjustmentApproved = document.getElementById('payrollBatchAdjustmentApproved');
+  const adjustmentRejected = document.getElementById('payrollBatchAdjustmentRejected');
+  const adjustmentBody = document.getElementById('payrollBatchAdjustmentBody');
+  const adjustmentWarning = document.getElementById('payrollBatchAdjustmentApprovalWarning');
+  const decisionSelect = document.getElementById('payrollBatchDecision');
+
+  const batchBreakdownByRun = parseJsonScriptNode('payrollBatchBreakdownByRunData');
+  const escapeText = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+  const renderBreakdown = (runId) => {
+    const payload = runId && batchBreakdownByRun[runId] ? batchBreakdownByRun[runId] : null;
+    const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+    const adjustmentRows = Array.isArray(payload?.adjustment_rows) ? payload.adjustment_rows : [];
+    const adjustmentSummary = payload && typeof payload === 'object' && payload.adjustment_summary && typeof payload.adjustment_summary === 'object'
+      ? payload.adjustment_summary
+      : {};
+    const submittedCount = Number(adjustmentSummary.submitted_count) || 0;
+    const pendingCount = Number(adjustmentSummary.pending_count) || 0;
+    const approvedCount = Number(adjustmentSummary.approved_count) || 0;
+    const rejectedCount = Number(adjustmentSummary.rejected_count) || 0;
+    const employeeCount = Number(payload?.employee_count) || 0;
+    const totalGross = Number(payload?.total_gross) || 0;
+    const totalNet = Number(payload?.total_net) || 0;
+
+    if (breakdownEmployees) breakdownEmployees.textContent = String(employeeCount);
+    if (breakdownGross) breakdownGross.textContent = formatCurrency(totalGross);
+    if (breakdownNet) breakdownNet.textContent = formatCurrency(totalNet);
+    if (breakdownRows) breakdownRows.textContent = String(rows.length);
+
+    if (!breakdownBody) {
+      return;
+    }
+
+    if (!rows.length) {
+      breakdownBody.innerHTML = '<tr id="payrollBatchBreakdownEmptyRow"><td class="px-3 py-3 text-slate-500" colspan="10">No computation breakdown available for this batch.</td></tr>';
+    } else {
+      breakdownBody.innerHTML = rows.map((row) => {
+        const adjustmentNet = (Number(row.adjustment_earnings) || 0) - (Number(row.adjustment_deductions) || 0);
+        return `
+          <tr>
+            <td class="px-3 py-2 text-slate-700">${escapeText(row.employee_name || '-')}</td>
+            <td class="px-3 py-2 text-right text-slate-700">${formatCurrency(Number(row.basic_pay) || 0)}</td>
+            <td class="px-3 py-2 text-right text-slate-700">${formatCurrency(Number(row.allowances_total) || 0)}</td>
+            <td class="px-3 py-2 text-right text-slate-700">${formatCurrency(Number(row.cto_pay) || 0)}</td>
+            <td class="px-3 py-2 text-right text-slate-700">${formatCurrency(Number(row.statutory_deductions) || 0)}</td>
+            <td class="px-3 py-2 text-right text-slate-700">${formatCurrency(Number(row.timekeeping_deductions) || 0)}</td>
+            <td class="px-3 py-2 text-right text-slate-700">${Number(row.absent_days) || 0}/${Number(row.late_minutes) || 0}/${Number(row.undertime_hours) || 0}</td>
+            <td class="px-3 py-2 text-right text-slate-700">${formatCurrency(adjustmentNet)}</td>
+            <td class="px-3 py-2 text-right text-slate-700">${formatCurrency(Number(row.gross_pay) || 0)}</td>
+            <td class="px-3 py-2 text-right text-slate-800 font-medium">${formatCurrency(Number(row.net_pay) || 0)}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    if (adjustmentSubmitted) adjustmentSubmitted.textContent = String(submittedCount);
+    if (adjustmentPending) adjustmentPending.textContent = String(pendingCount);
+    if (adjustmentApproved) adjustmentApproved.textContent = String(approvedCount);
+    if (adjustmentRejected) adjustmentRejected.textContent = String(rejectedCount);
+
+    if (adjustmentBody) {
+      if (!adjustmentRows.length) {
+        adjustmentBody.innerHTML = '<tr id="payrollBatchAdjustmentEmptyRow"><td class="px-3 py-3 text-slate-500" colspan="6">No staff-submitted salary adjustment recommendations in this batch.</td></tr>';
+      } else {
+        adjustmentBody.innerHTML = adjustmentRows.map((row) => {
+          const recommendation = String(row.staff_recommendation || '').trim();
+          const recommendationLabel = recommendation === '' ? 'Not submitted' : recommendation.replace(/_/g, ' ');
+          const adminLabel = String(row.admin_status_label || 'Pending').trim() || 'Pending';
+          const submittedAt = String(row.staff_recommendation_label || '-').trim() || '-';
+          const notes = String(row.staff_recommendation_notes || '').trim();
+
+          return `
+            <tr>
+              <td class="px-3 py-2 text-slate-700 font-medium">${escapeText(row.adjustment_code || '-')}</td>
+              <td class="px-3 py-2 text-slate-700">${escapeText(row.employee_name || '-')}</td>
+              <td class="px-3 py-2 text-slate-700">${escapeText(row.adjustment_type_label || '-')}</td>
+              <td class="px-3 py-2 text-right text-slate-700">${formatCurrency(Number(row.amount) || 0)}</td>
+              <td class="px-3 py-2 text-slate-700">
+                <div>${escapeText(recommendationLabel)}</div>
+                <div class="text-[11px] text-slate-500">${escapeText(submittedAt)}</div>
+                ${notes !== '' ? `<div class="text-[11px] text-slate-500">Notes: ${escapeText(notes)}</div>` : ''}
+              </td>
+              <td class="px-3 py-2 text-slate-700">${escapeText(adminLabel)}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+    }
+
+    if (decisionSelect) {
+      const approvedOption = Array.from(decisionSelect.options).find((option) => option.value === 'approved');
+      if (approvedOption) {
+        if (!approvedOption.dataset.defaultLabel) {
+          approvedOption.dataset.defaultLabel = approvedOption.textContent || 'Approve';
+        }
+        if (pendingCount > 0) {
+          approvedOption.disabled = true;
+          approvedOption.textContent = `Approve (Blocked: ${pendingCount} pending adjustment review${pendingCount > 1 ? 's' : ''})`;
+          if (decisionSelect.value === 'approved') {
+            decisionSelect.value = 'cancelled';
+          }
+        } else {
+          approvedOption.disabled = false;
+          approvedOption.textContent = approvedOption.dataset.defaultLabel;
+        }
+      }
+    }
+
+    if (adjustmentWarning) {
+      adjustmentWarning.classList.toggle('hidden', pendingCount === 0);
+    }
+  };
 
   document.querySelectorAll('[data-payroll-review]').forEach((button) => {
     button.addEventListener('click', () => {
-      if (runIdInput) runIdInput.value = button.getAttribute('data-run-id') || '';
+      const runId = button.getAttribute('data-run-id') || '';
+
+      if (runIdInput) runIdInput.value = runId;
       if (periodInput) periodInput.value = button.getAttribute('data-period-label') || '';
       if (statusInput) statusInput.value = button.getAttribute('data-current-status') || '';
       if (employeesInput) employeesInput.value = button.getAttribute('data-employee-count') || '';
@@ -145,6 +271,7 @@ const initPayrollBatchReviewModal = () => {
       if (recommendationInput) recommendationInput.value = button.getAttribute('data-staff-recommendation') || 'Recommend approval';
       if (submittedAtInput) submittedAtInput.value = button.getAttribute('data-staff-submitted') || '-';
       if (reviewedAtInput) reviewedAtInput.value = button.getAttribute('data-admin-reviewed') || '-';
+      renderBreakdown(runId);
       openModal('reviewPayrollBatchModal');
     });
   });
