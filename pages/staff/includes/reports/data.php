@@ -35,6 +35,22 @@ $officesResponse = apiRequest(
 $appendReportDataError('Offices', $officesResponse);
 $offices = isSuccessful($officesResponse) ? (array)($officesResponse['data'] ?? []) : [];
 
+$latePolicyModeResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/system_settings?select=setting_value&setting_key=eq.' . rawurlencode('timekeeping.late_policy_mode') . '&limit=1',
+    $headers
+);
+$latePolicySettingResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/system_settings?select=setting_value&setting_key=eq.' . rawurlencode('timekeeping.late_policy') . '&limit=1',
+    $headers
+);
+$holidayPolicyResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/system_settings?select=setting_value&setting_key=eq.' . rawurlencode('timekeeping.holiday_payroll_policy') . '&limit=1',
+    $headers
+);
+
 $officeNameById = [];
 foreach ($offices as $office) {
     $officeId = cleanText($office['id'] ?? null) ?? '';
@@ -79,6 +95,63 @@ $employeeRows = [];
 $employeeStatusFilters = [];
 $employeeDepartmentFilters = [];
 $personDepartmentById = [];
+
+$staffReportsPolicyHasNoLateMode = static function (mixed $value) use (&$staffReportsPolicyHasNoLateMode): bool {
+    if (is_array($value)) {
+        foreach ($value as $nestedKey => $nestedValue) {
+            $normalizedKey = strtolower(trim((string)$nestedKey));
+            if (in_array($normalizedKey, ['late_policy_mode', 'late_policy', 'policy_mode', 'mode'], true) && $staffReportsPolicyHasNoLateMode($nestedValue)) {
+                return true;
+            }
+
+            if ($staffReportsPolicyHasNoLateMode($nestedValue)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    $raw = strtolower(trim((string)$value));
+    if ($raw === '') {
+        return false;
+    }
+
+    if (in_array($raw, ['no_late', 'no-late', 'no late'], true)) {
+        return true;
+    }
+
+    if (str_contains($raw, 'no_late') || str_contains($raw, 'no-late') || str_contains($raw, 'no late')) {
+        return true;
+    }
+
+    if (str_starts_with($raw, '{') || str_starts_with($raw, '[')) {
+        $decoded = json_decode((string)$value, true);
+        if (is_array($decoded)) {
+            return $staffReportsPolicyHasNoLateMode($decoded);
+        }
+    }
+
+    return false;
+};
+
+$noLatePolicyApproved = false;
+$policyCandidates = [];
+if (isSuccessful($latePolicyModeResponse) && !empty((array)($latePolicyModeResponse['data'] ?? []))) {
+    $policyCandidates[] = $latePolicyModeResponse['data'][0]['setting_value'] ?? null;
+}
+if (isSuccessful($latePolicySettingResponse) && !empty((array)($latePolicySettingResponse['data'] ?? []))) {
+    $policyCandidates[] = $latePolicySettingResponse['data'][0]['setting_value'] ?? null;
+}
+if (isSuccessful($holidayPolicyResponse) && !empty((array)($holidayPolicyResponse['data'] ?? []))) {
+    $policyCandidates[] = $holidayPolicyResponse['data'][0]['setting_value'] ?? null;
+}
+foreach ($policyCandidates as $candidate) {
+    if ($staffReportsPolicyHasNoLateMode($candidate)) {
+        $noLatePolicyApproved = true;
+        break;
+    }
+}
 
 foreach ($uniqueEmploymentRecords as $record) {
     $personId = cleanText($record['person_id'] ?? null) ?? '';

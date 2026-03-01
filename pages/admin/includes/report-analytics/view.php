@@ -180,12 +180,14 @@ $employeeStatusPill = static function (string $status): string {
                     <td class="px-4 py-3"><?= htmlspecialchars(number_format($attendanceCompliancePrevious, 1), ENT_QUOTES, 'UTF-8') ?>%</td>
                     <td class="px-4 py-3"><span class="<?= htmlspecialchars($percentDeltaClass($attendanceVariance), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(($attendanceVariance >= 0 ? '+' : '') . number_format($attendanceVariance, 1), ENT_QUOTES, 'UTF-8') ?>%</span></td>
                 </tr>
-                <tr>
-                    <td class="px-4 py-3">Late Incidents</td>
-                    <td class="px-4 py-3"><?= htmlspecialchars((string)$attendanceCurrent['late'], ENT_QUOTES, 'UTF-8') ?></td>
-                    <td class="px-4 py-3"><?= htmlspecialchars((string)$attendancePrevious['late'], ENT_QUOTES, 'UTF-8') ?></td>
-                    <td class="px-4 py-3"><span class="<?= htmlspecialchars($percentDeltaClass((float)(-$lateVariance)), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(($lateVariance >= 0 ? '+' : '') . (string)$lateVariance, ENT_QUOTES, 'UTF-8') ?></span></td>
-                </tr>
+                <?php if (!(bool)($noLatePolicyApproved ?? false)): ?>
+                    <tr>
+                        <td class="px-4 py-3">Late Incidents</td>
+                        <td class="px-4 py-3"><?= htmlspecialchars((string)$attendanceCurrent['late'], ENT_QUOTES, 'UTF-8') ?></td>
+                        <td class="px-4 py-3"><?= htmlspecialchars((string)$attendancePrevious['late'], ENT_QUOTES, 'UTF-8') ?></td>
+                        <td class="px-4 py-3"><span class="<?= htmlspecialchars($percentDeltaClass((float)(-$lateVariance)), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(($lateVariance >= 0 ? '+' : '') . (string)$lateVariance, ENT_QUOTES, 'UTF-8') ?></span></td>
+                    </tr>
+                <?php endif; ?>
                 <tr>
                     <td class="px-4 py-3">Total Gross Payroll</td>
                     <td class="px-4 py-3"><?= htmlspecialchars($money((float)$payrollCurrent['gross']), ENT_QUOTES, 'UTF-8') ?></td>
@@ -200,6 +202,42 @@ $employeeStatusPill = static function (string $status): string {
                 </tr>
             </tbody>
         </table>
+    </div>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-800">Cross-Module KPI Snapshot</h2>
+        <p class="text-sm text-slate-500 mt-1">Administrative visibility across attendance, payroll, recruitment, documents, performance, and audit logs.</p>
+    </header>
+
+    <div class="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 text-sm">
+        <article class="rounded-xl border border-slate-200 p-4 bg-slate-50">
+            <p class="text-xs uppercase tracking-wide text-slate-500">Attendance Logs</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)($crossModuleKpis['attendance_logs'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
+        </article>
+        <article class="rounded-xl border border-slate-200 p-4 bg-emerald-50">
+            <p class="text-xs uppercase tracking-wide text-emerald-700">Payroll Items</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)($crossModuleKpis['payroll_items'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
+        </article>
+        <article class="rounded-xl border border-slate-200 p-4 bg-indigo-50">
+            <p class="text-xs uppercase tracking-wide text-indigo-700">Recruitment (Hired)</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)($crossModuleKpis['recruitment_hired'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
+            <p class="text-xs text-slate-500 mt-1">Submitted: <?= htmlspecialchars((string)($crossModuleKpis['recruitment_submitted'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
+        </article>
+        <article class="rounded-xl border border-slate-200 p-4 bg-amber-50">
+            <p class="text-xs uppercase tracking-wide text-amber-700">Documents Pending</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)($crossModuleKpis['documents_pending'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
+            <p class="text-xs text-slate-500 mt-1">Total docs: <?= htmlspecialchars((string)($crossModuleKpis['documents_total'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
+        </article>
+        <article class="rounded-xl border border-slate-200 p-4 bg-violet-50">
+            <p class="text-xs uppercase tracking-wide text-violet-700">Performance Completed</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)($crossModuleKpis['performance_completed'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
+        </article>
+        <article class="rounded-xl border border-slate-200 p-4 bg-rose-50">
+            <p class="text-xs uppercase tracking-wide text-rose-700">Audit Logs (30 Days)</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)($crossModuleKpis['audit_logs_30_days'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
+        </article>
     </div>
 </section>
 
@@ -219,6 +257,7 @@ $employeeStatusPill = static function (string $status): string {
                 <option value="performance">Performance</option>
                 <option value="documents">Documents</option>
                 <option value="recruitment">Recruitment</option>
+                <option value="audit_logs">Audit Logs</option>
             </select>
         </div>
         <div>

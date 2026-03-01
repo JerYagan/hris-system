@@ -18,6 +18,218 @@ if (!function_exists('userManagementIsValidCode')) {
     }
 }
 
+if (!function_exists('userManagementAdminRoleId')) {
+    function userManagementAdminRoleId(string $supabaseUrl, array $headers): string
+    {
+        $response = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/roles?select=id&role_key=eq.admin&limit=1',
+            $headers
+        );
+
+        return (string)($response['data'][0]['id'] ?? '');
+    }
+}
+
+if (!function_exists('userManagementPrimaryRoleKey')) {
+    function userManagementPrimaryRoleKey(string $userId, string $supabaseUrl, array $headers): string
+    {
+        if (!userManagementIsValidUuid($userId)) {
+            return '';
+        }
+
+        $primaryRoleResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/user_role_assignments?select=role:roles!inner(role_key)'
+            . '&user_id=eq.' . rawurlencode($userId)
+            . '&is_primary=eq.true'
+            . '&expires_at=is.null'
+            . '&limit=1',
+            $headers
+        );
+
+        $primaryRoleKey = strtolower(trim((string)($primaryRoleResponse['data'][0]['role']['role_key'] ?? '')));
+        if ($primaryRoleKey !== '') {
+            return $primaryRoleKey;
+        }
+
+        $fallbackRoleResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/user_role_assignments?select=role:roles!inner(role_key)'
+            . '&user_id=eq.' . rawurlencode($userId)
+            . '&expires_at=is.null'
+            . '&limit=1',
+            $headers
+        );
+
+        return strtolower(trim((string)($fallbackRoleResponse['data'][0]['role']['role_key'] ?? '')));
+    }
+}
+
+if (!function_exists('userManagementCreateEmployeeAccount')) {
+    function userManagementCreateEmployeeAccount(
+        string $email,
+        string $fullName,
+        ?string $officeId,
+        string $adminUserId,
+        string $supabaseUrl,
+        array $headers,
+        ?string &$createdUserId = null,
+        ?string &$temporaryPassword = null
+    ): array {
+        $email = strtolower(trim($email));
+        $fullName = trim($fullName);
+        $officeId = trim((string)$officeId);
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return ['ok' => false, 'message' => 'Valid email is required.'];
+        }
+        if ($fullName === '') {
+            return ['ok' => false, 'message' => 'Full name is required for new account.'];
+        }
+
+        [$firstName, $surname] = splitFullName($fullName);
+        $temporaryPassword = 'Temp#' . substr(bin2hex(random_bytes(6)), 0, 10);
+
+        $createAuth = apiRequest(
+            'POST',
+            $supabaseUrl . '/auth/v1/admin/users',
+            $headers,
+            [
+                'email' => $email,
+                'password' => $temporaryPassword,
+                'email_confirm' => true,
+                'user_metadata' => [
+                    'full_name' => $fullName,
+                    'created_by_admin' => $adminUserId,
+                ],
+            ]
+        );
+
+        if (!isSuccessful($createAuth)) {
+            $raw = strtolower((string)($createAuth['raw'] ?? ''));
+            if (str_contains($raw, 'already') || str_contains($raw, 'exists')) {
+                return ['ok' => false, 'message' => 'Email already exists in authentication.'];
+            }
+
+            return ['ok' => false, 'message' => 'Failed to create authentication user.'];
+        }
+
+        $createdUserId = (string)($createAuth['data']['id'] ?? '');
+        if ($createdUserId === '') {
+            return ['ok' => false, 'message' => 'Invalid auth response when creating account.'];
+        }
+
+        $accountResponse = apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/user_accounts',
+            array_merge($headers, ['Prefer: resolution=merge-duplicates,return=minimal']),
+            [[
+                'id' => $createdUserId,
+                'email' => $email,
+                'account_status' => 'active',
+                'email_verified_at' => gmdate('c'),
+                'must_change_password' => true,
+            ]]
+        );
+
+        if (!isSuccessful($accountResponse)) {
+            return ['ok' => false, 'message' => 'Failed to create user account record.'];
+        }
+
+        $personResponse = apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/people',
+            array_merge($headers, ['Prefer: resolution=merge-duplicates,return=minimal']),
+            [[
+                'user_id' => $createdUserId,
+                'first_name' => $firstName,
+                'surname' => $surname,
+                'personal_email' => $email,
+            ]]
+        );
+
+        if (!isSuccessful($personResponse)) {
+            return ['ok' => false, 'message' => 'Account created but people profile creation failed.'];
+        }
+
+        $employeeRole = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/roles?select=id&role_key=eq.employee&limit=1',
+            $headers
+        );
+
+        $employeeRoleId = (string)($employeeRole['data'][0]['id'] ?? '');
+        if ($employeeRoleId !== '') {
+            $assignmentPayload = [
+                'user_id' => $createdUserId,
+                'role_id' => $employeeRoleId,
+                'is_primary' => true,
+                'assigned_by' => $adminUserId !== '' ? $adminUserId : null,
+                'assigned_at' => gmdate('c'),
+            ];
+
+            if ($officeId !== '' && userManagementIsValidUuid($officeId)) {
+                $assignmentPayload['office_id'] = $officeId;
+            }
+
+            apiRequest(
+                'POST',
+                $supabaseUrl . '/rest/v1/user_role_assignments',
+                array_merge($headers, ['Prefer: return=minimal']),
+                [$assignmentPayload]
+            );
+        }
+
+        return ['ok' => true, 'message' => 'Account created successfully.'];
+    }
+}
+
+if (!function_exists('userManagementIsProtectedAdminTarget')) {
+    function userManagementIsProtectedAdminTarget(string $targetUserId, string $adminUserId, string $supabaseUrl, array $headers): bool
+    {
+        if ($targetUserId === '' || $adminUserId === '') {
+            return false;
+        }
+
+        if (strcasecmp($targetUserId, $adminUserId) === 0) {
+            return true;
+        }
+
+        $adminRoleId = userManagementAdminRoleId($supabaseUrl, $headers);
+        if ($adminRoleId === '') {
+            return false;
+        }
+
+        $adminAssignmentsResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/user_role_assignments?select=user_id&role_id=eq.' . $adminRoleId . '&is_primary=eq.true&expires_at=is.null&limit=2000',
+            $headers
+        );
+
+        if (!isSuccessful($adminAssignmentsResponse)) {
+            return false;
+        }
+
+        $adminUserIds = [];
+        foreach ((array)($adminAssignmentsResponse['data'] ?? []) as $assignment) {
+            $assignedUserId = strtolower(trim((string)($assignment['user_id'] ?? '')));
+            if ($assignedUserId !== '') {
+                $adminUserIds[$assignedUserId] = true;
+            }
+        }
+
+        $targetKey = strtolower(trim($targetUserId));
+        if (!isset($adminUserIds[$targetKey])) {
+            return false;
+        }
+
+        return count($adminUserIds) <= 1;
+    }
+}
+
 $action = (string)($_POST['form_action'] ?? '');
 
 if ($action === 'account') {
@@ -41,6 +253,10 @@ if ($action === 'account') {
         $targetUserId = (string)($targetResponse['data'][0]['id'] ?? '');
         if ($targetUserId === '') {
             redirectWithState('error', 'No account found for the provided email.');
+        }
+
+        if (userManagementIsProtectedAdminTarget($targetUserId, $adminUserId, $supabaseUrl, $headers)) {
+            redirectWithState('error', 'Protected admin account cannot be archived/disabled.');
         }
 
         $archiveResponse = apiRequest(
@@ -90,96 +306,21 @@ if ($action === 'account') {
         redirectWithState('error', 'Full name is required for new account.');
     }
 
-    [$firstName, $surname] = splitFullName($fullName);
-    $tempPassword = 'Temp#' . substr(bin2hex(random_bytes(6)), 0, 10);
-
-    $createAuth = apiRequest(
-        'POST',
-        $supabaseUrl . '/auth/v1/admin/users',
+    $newUserId = null;
+    $tempPassword = null;
+    $createAccountResult = userManagementCreateEmployeeAccount(
+        $email,
+        $fullName,
+        $officeId,
+        $adminUserId,
+        $supabaseUrl,
         $headers,
-        [
-            'email' => $email,
-            'password' => $tempPassword,
-            'email_confirm' => true,
-            'user_metadata' => [
-                'full_name' => $fullName,
-                'created_by_admin' => $adminUserId,
-            ],
-        ]
+        $newUserId,
+        $tempPassword
     );
 
-    if (!isSuccessful($createAuth)) {
-        $raw = strtolower((string)$createAuth['raw']);
-        if (str_contains($raw, 'already') || str_contains($raw, 'exists')) {
-            redirectWithState('error', 'Email already exists in authentication.');
-        }
-        redirectWithState('error', 'Failed to create authentication user.');
-    }
-
-    $newUserId = (string)($createAuth['data']['id'] ?? '');
-    if ($newUserId === '') {
-        redirectWithState('error', 'Invalid auth response when creating account.');
-    }
-
-    $accountResponse = apiRequest(
-        'POST',
-        $supabaseUrl . '/rest/v1/user_accounts',
-        array_merge($headers, ['Prefer: resolution=merge-duplicates,return=minimal']),
-        [[
-            'id' => $newUserId,
-            'email' => $email,
-            'account_status' => 'active',
-            'email_verified_at' => gmdate('c'),
-            'must_change_password' => true,
-        ]]
-    );
-
-    if (!isSuccessful($accountResponse)) {
-        redirectWithState('error', 'Failed to create user account record.');
-    }
-
-    $personResponse = apiRequest(
-        'POST',
-        $supabaseUrl . '/rest/v1/people',
-        array_merge($headers, ['Prefer: resolution=merge-duplicates,return=minimal']),
-        [[
-            'user_id' => $newUserId,
-            'first_name' => $firstName,
-            'surname' => $surname,
-            'personal_email' => $email,
-        ]]
-    );
-
-    if (!isSuccessful($personResponse)) {
-        redirectWithState('error', 'Account created but people profile creation failed.');
-    }
-
-    $employeeRole = apiRequest(
-        'GET',
-        $supabaseUrl . '/rest/v1/roles?select=id&role_key=eq.employee&limit=1',
-        $headers
-    );
-
-    $employeeRoleId = (string)($employeeRole['data'][0]['id'] ?? '');
-    if ($employeeRoleId !== '') {
-        $assignmentPayload = [
-            'user_id' => $newUserId,
-            'role_id' => $employeeRoleId,
-            'is_primary' => true,
-            'assigned_by' => $adminUserId !== '' ? $adminUserId : null,
-            'assigned_at' => gmdate('c'),
-        ];
-
-        if ($officeId) {
-            $assignmentPayload['office_id'] = $officeId;
-        }
-
-        apiRequest(
-            'POST',
-            $supabaseUrl . '/rest/v1/user_role_assignments',
-            array_merge($headers, ['Prefer: return=minimal']),
-            [$assignmentPayload]
-        );
+    if (!(bool)($createAccountResult['ok'] ?? false)) {
+        redirectWithState('error', (string)($createAccountResult['message'] ?? 'Failed to create user account.'));
     }
 
     apiRequest(
@@ -206,13 +347,346 @@ if ($action === 'account') {
     redirectWithState('success', 'User account created. Temporary password is generated server-side.');
 }
 
+if ($action === 'onboard_new_hire') {
+    $applicationId = trim((string)(cleanText($_POST['application_id'] ?? null) ?? ''));
+    $email = strtolower(trim((string)(cleanText($_POST['email'] ?? null) ?? '')));
+    $fullName = trim((string)(cleanText($_POST['full_name'] ?? null) ?? ''));
+    $officeId = trim((string)(cleanText($_POST['office_id'] ?? null) ?? ''));
+    $positionTitle = trim((string)(cleanText($_POST['position_title'] ?? null) ?? ''));
+    $divisionName = trim((string)(cleanText($_POST['division_name'] ?? null) ?? ''));
+
+    if (!userManagementIsValidUuid($applicationId)) {
+        redirectWithState('error', 'Invalid new hire application reference.');
+    }
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL) || $fullName === '') {
+        redirectWithState('error', 'New hire email and full name are required.');
+    }
+
+    $hiredCheckResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/applications?select=id,application_status,job:job_postings(office_id,position_id,title),applicant:applicant_profiles(user_id,email,full_name,mobile_no)'
+        . '&id=eq.' . rawurlencode($applicationId)
+        . '&application_status=eq.hired&limit=1',
+        $headers
+    );
+
+    if (!isSuccessful($hiredCheckResponse) || empty((array)($hiredCheckResponse['data'] ?? []))) {
+        redirectWithState('error', 'Selected hire is no longer eligible for onboarding account creation.');
+    }
+
+    $verifiedHireRow = (array)($hiredCheckResponse['data'][0] ?? []);
+    $verifiedApplicant = (array)($verifiedHireRow['applicant'] ?? []);
+    $verifiedJob = (array)($verifiedHireRow['job'] ?? []);
+    $verifiedEmail = strtolower(trim((string)($verifiedApplicant['email'] ?? '')));
+    $verifiedFullName = trim((string)($verifiedApplicant['full_name'] ?? ''));
+    $verifiedApplicantUserId = trim((string)($verifiedApplicant['user_id'] ?? ''));
+    $verifiedOfficeId = trim((string)($verifiedJob['office_id'] ?? ''));
+    $verifiedPositionId = trim((string)($verifiedJob['position_id'] ?? ''));
+    $positionTitle = trim((string)($verifiedJob['title'] ?? $positionTitle));
+
+    if ($verifiedEmail === '' || $verifiedEmail !== $email) {
+        redirectWithState('error', 'Hire email mismatch detected. Refresh the page and try again.');
+    }
+    if ($verifiedFullName !== '') {
+        $fullName = $verifiedFullName;
+    }
+    if (userManagementIsValidUuid($verifiedOfficeId)) {
+        $officeId = $verifiedOfficeId;
+    }
+
+    $employeeRoleResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/roles?select=id&role_key=eq.employee&limit=1',
+        $headers
+    );
+    $employeeRoleId = trim((string)($employeeRoleResponse['data'][0]['id'] ?? ''));
+    if (!userManagementIsValidUuid($employeeRoleId)) {
+        redirectWithState('error', 'Employee role configuration is missing.');
+    }
+
+    $newUserId = null;
+    $temporaryPassword = null;
+    $createdNewAccount = false;
+
+    $targetUserId = '';
+    if (userManagementIsValidUuid($verifiedApplicantUserId)) {
+        $targetUserId = $verifiedApplicantUserId;
+    } else {
+        $existingAccountResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/user_accounts?select=id&email=eq.' . encodeFilter($email) . '&limit=1',
+            $headers
+        );
+
+        if (isSuccessful($existingAccountResponse)) {
+            $targetUserId = trim((string)($existingAccountResponse['data'][0]['id'] ?? ''));
+        }
+    }
+
+    if (userManagementIsValidUuid($targetUserId)) {
+        $existingEmployeeRoleResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/user_role_assignments?select=id&user_id=eq.' . rawurlencode($targetUserId)
+            . '&role_id=eq.' . rawurlencode($employeeRoleId)
+            . '&expires_at=is.null&limit=1',
+            $headers
+        );
+
+        if (!empty((array)($existingEmployeeRoleResponse['data'] ?? []))) {
+            redirectWithState('error', 'This new hire already has an employee account.');
+        }
+
+        $temporaryPassword = 'Temp#' . substr(bin2hex(random_bytes(6)), 0, 10);
+        $authUpdateResponse = apiRequest(
+            'PUT',
+            $supabaseUrl . '/auth/v1/admin/users/' . rawurlencode($targetUserId),
+            $headers,
+            [
+                'email' => $email,
+                'password' => $temporaryPassword,
+                'email_confirm' => true,
+                'user_metadata' => [
+                    'full_name' => $fullName,
+                    'updated_by_admin' => $adminUserId,
+                    'source' => 'new_hire_onboarding',
+                ],
+            ]
+        );
+
+        if (!isSuccessful($authUpdateResponse)) {
+            redirectWithState('error', 'Failed to activate employee login credentials for this hire.');
+        }
+
+        apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/user_accounts',
+            array_merge($headers, ['Prefer: resolution=merge-duplicates,return=minimal']),
+            [[
+                'id' => $targetUserId,
+                'email' => $email,
+                'account_status' => 'active',
+                'email_verified_at' => gmdate('c'),
+                'must_change_password' => true,
+            ]]
+        );
+
+        [$firstName, $surname] = splitFullName($fullName);
+
+        $personResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/people?select=id&user_id=eq.' . rawurlencode($targetUserId) . '&limit=1',
+            $headers
+        );
+        $personId = trim((string)($personResponse['data'][0]['id'] ?? ''));
+        if (!userManagementIsValidUuid($personId)) {
+            $personInsertResponse = apiRequest(
+                'POST',
+                $supabaseUrl . '/rest/v1/people',
+                array_merge($headers, ['Prefer: return=representation']),
+                [[
+                    'user_id' => $targetUserId,
+                    'first_name' => $firstName,
+                    'surname' => $surname,
+                    'personal_email' => $email,
+                    'mobile_no' => cleanText($verifiedApplicant['mobile_no'] ?? null),
+                ]]
+            );
+
+            if (!isSuccessful($personInsertResponse)) {
+                redirectWithState('error', 'Failed to prepare employee profile for this hire.');
+            }
+
+            $personId = trim((string)($personInsertResponse['data'][0]['id'] ?? ''));
+        }
+
+        if (userManagementIsValidUuid($personId) && userManagementIsValidUuid($verifiedOfficeId) && userManagementIsValidUuid($verifiedPositionId)) {
+            $employmentCheckResponse = apiRequest(
+                'GET',
+                $supabaseUrl
+                . '/rest/v1/employment_records?select=id&person_id=eq.' . rawurlencode($personId)
+                . '&is_current=eq.true&limit=1',
+                $headers
+            );
+
+            if (empty((array)($employmentCheckResponse['data'] ?? []))) {
+                apiRequest(
+                    'POST',
+                    $supabaseUrl . '/rest/v1/employment_records',
+                    array_merge($headers, ['Prefer: return=minimal']),
+                    [[
+                        'person_id' => $personId,
+                        'office_id' => $verifiedOfficeId,
+                        'position_id' => $verifiedPositionId,
+                        'hire_date' => gmdate('Y-m-d'),
+                        'employment_status' => 'active',
+                        'is_current' => true,
+                    ]]
+                );
+            }
+        }
+
+        apiRequest(
+            'PATCH',
+            $supabaseUrl . '/rest/v1/user_role_assignments?user_id=eq.' . rawurlencode($targetUserId) . '&is_primary=eq.true',
+            array_merge($headers, ['Prefer: return=minimal']),
+            ['is_primary' => false]
+        );
+
+        apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/user_role_assignments',
+            array_merge($headers, ['Prefer: resolution=merge-duplicates,return=minimal']),
+            [[
+                'user_id' => $targetUserId,
+                'role_id' => $employeeRoleId,
+                'office_id' => userManagementIsValidUuid($officeId) ? $officeId : null,
+                'assigned_by' => $adminUserId !== '' ? $adminUserId : null,
+                'assigned_at' => gmdate('c'),
+                'is_primary' => true,
+                'expires_at' => null,
+            ]]
+        );
+
+        $newUserId = $targetUserId;
+    } else {
+        $createAccountResult = userManagementCreateEmployeeAccount(
+            $email,
+            $fullName,
+            $officeId,
+            $adminUserId,
+            $supabaseUrl,
+            $headers,
+            $newUserId,
+            $temporaryPassword
+        );
+
+        if (!(bool)($createAccountResult['ok'] ?? false)) {
+            redirectWithState('error', (string)($createAccountResult['message'] ?? 'Failed to create new hire account.'));
+        }
+        $createdNewAccount = true;
+    }
+
+    $mailResultStatus = 'skipped';
+    $mailError = null;
+    $emailReady = smtpConfigIsReady($smtpConfig, $mailFrom);
+    if ($emailReady) {
+        $safeFullName = htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8');
+        $safeEmail = htmlspecialchars($email, ENT_QUOTES, 'UTF-8');
+        $safePassword = htmlspecialchars((string)$temporaryPassword, ENT_QUOTES, 'UTF-8');
+        $safePositionTitle = htmlspecialchars($positionTitle !== '' ? $positionTitle : 'Employee', ENT_QUOTES, 'UTF-8');
+        $safeDivisionName = htmlspecialchars($divisionName !== '' ? $divisionName : 'Assigned Division', ENT_QUOTES, 'UTF-8');
+
+        $welcomeHtml = '<p>Dear ' . $safeFullName . ',</p>'
+            . '<p>Welcome to DA-ATI HRIS. Your employee account has been created.</p>'
+            . '<p><strong>Login Credentials</strong><br>'
+            . 'Email: ' . $safeEmail . '<br>'
+            . 'Temporary Password: ' . $safePassword . '</p>'
+            . '<p>Please sign in and change your password immediately.</p>'
+            . '<p>Assigned Position: ' . $safePositionTitle . '<br>'
+            . 'Division: ' . $safeDivisionName . '</p>'
+            . '<p>Welcome aboard!</p>'
+            . '<p>— DA-ATI HRIS Admin</p>';
+
+        $mailResponse = smtpSendTransactionalEmail(
+            $smtpConfig,
+            $mailFrom,
+            $mailFromName,
+            $email,
+            $fullName,
+            'Welcome to DA-ATI HRIS - Employee Account Created',
+            $welcomeHtml
+        );
+
+        if (isSuccessful($mailResponse)) {
+            $mailResultStatus = 'sent';
+        } else {
+            $mailResultStatus = 'failed';
+            $mailError = trim((string)($mailResponse['raw'] ?? 'SMTP delivery failed'));
+        }
+    }
+
+    if ($adminUserId !== '') {
+        apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/notifications',
+            array_merge($headers, ['Prefer: return=minimal']),
+            [[
+                'recipient_user_id' => $adminUserId,
+                'category' => 'system',
+                'title' => 'New hire account created',
+                'body' => 'Employee account created for ' . $fullName . ' (' . $email . '). Email delivery: ' . $mailResultStatus . '.',
+                'link_url' => '/hris-system/pages/admin/user-management.php',
+            ]]
+        );
+    }
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $adminUserId,
+            'module_name' => 'user_management',
+            'entity_name' => 'user_accounts',
+            'entity_id' => $newUserId,
+            'action_name' => 'onboard_new_hire_account',
+            'old_data' => null,
+            'new_data' => [
+                'application_id' => $applicationId,
+                'email' => $email,
+                'full_name' => $fullName,
+                'position_title' => $positionTitle,
+                'division_name' => $divisionName,
+                'account_created' => $createdNewAccount,
+                'flow' => 'recruitment_add_as_employee_onboarding',
+                'mail_status' => $mailResultStatus,
+                'mail_error' => $mailError,
+            ],
+            'ip_address' => clientIp(),
+        ]]
+    );
+
+    $successMessage = $createdNewAccount
+        ? 'New hire employee account created successfully.'
+        : 'New hire employee account access activated successfully.';
+    if ($mailResultStatus === 'sent') {
+        $successMessage .= ' Welcome email sent.';
+    } elseif ($mailResultStatus === 'failed') {
+        $successMessage .= ' Account created but welcome email failed to send.';
+    } else {
+        $successMessage .= ' Account created but welcome email skipped (SMTP not configured).';
+    }
+
+    redirectWithState('success', $successMessage);
+}
+
 if ($action === 'role') {
     $userId = cleanText($_POST['role_user_id'] ?? null) ?? '';
     $roleId = cleanText($_POST['role_id'] ?? null) ?? '';
+    $officeId = cleanText($_POST['role_office_id'] ?? null) ?? '';
     $effectivityDate = cleanText($_POST['effectivity_date'] ?? null);
 
     if ($userId === '' || $roleId === '') {
         redirectWithState('error', 'User and role are required for assignment.');
+    }
+
+    if ($officeId !== '' && !userManagementIsValidUuid($officeId)) {
+        redirectWithState('error', 'Invalid division selected for role assignment.');
+    }
+
+    $selectedRoleResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/roles?select=role_key&id=eq.' . $roleId . '&limit=1',
+        $headers
+    );
+
+    $selectedRoleKey = strtolower(trim((string)($selectedRoleResponse['data'][0]['role_key'] ?? '')));
+    $assignableRolePolicy = array_flip(userManagementAssignableRolePolicy());
+    if ($selectedRoleKey === '' || !isset($assignableRolePolicy[$selectedRoleKey])) {
+        redirectWithState('error', 'Selected role is not assignable based on current privilege policy.');
     }
 
     $assignedAt = $effectivityDate ? ($effectivityDate . 'T00:00:00Z') : gmdate('c');
@@ -241,6 +715,7 @@ if ($action === 'role') {
                 'assigned_by' => $adminUserId !== '' ? $adminUserId : null,
                 'assigned_at' => $assignedAt,
                 'expires_at' => null,
+                'office_id' => $officeId !== '' ? $officeId : null,
             ]
         );
 
@@ -255,6 +730,7 @@ if ($action === 'role') {
             [[
                 'user_id' => $userId,
                 'role_id' => $roleId,
+                'office_id' => $officeId !== '' ? $officeId : null,
                 'is_primary' => true,
                 'assigned_by' => $adminUserId !== '' ? $adminUserId : null,
                 'assigned_at' => $assignedAt,
@@ -280,6 +756,8 @@ if ($action === 'role') {
             'new_data' => [
                 'target_user_id' => $userId,
                 'role_id' => $roleId,
+                'role_key' => $selectedRoleKey,
+                'office_id' => $officeId !== '' ? $officeId : null,
                 'assigned_at' => $assignedAt,
             ],
             'ip_address' => clientIp(),
@@ -291,7 +769,7 @@ if ($action === 'role') {
 
 if ($action === 'credential') {
     $userId = cleanText($_POST['credential_user_id'] ?? null) ?? '';
-    $credentialAction = (string)($_POST['credential_action'] ?? '');
+    $credentialAction = strtolower((string)($_POST['credential_action'] ?? ''));
     $tempPassword = (string)($_POST['temporary_password'] ?? '');
     $effectiveUntil = cleanText($_POST['effective_until'] ?? null);
     $notes = cleanText($_POST['credential_notes'] ?? null);
@@ -300,16 +778,51 @@ if ($action === 'credential') {
         redirectWithState('error', 'User and credential action are required.');
     }
 
+    $targetAccountResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/user_accounts?select=id,email,people(first_name,surname)&id=eq.' . rawurlencode($userId) . '&limit=1',
+        $headers
+    );
+
+    $targetAccount = isSuccessful($targetAccountResponse) ? (array)($targetAccountResponse['data'][0] ?? []) : [];
+    if (empty($targetAccount)) {
+        redirectWithState('error', 'Target user account was not found.');
+    }
+
+    $targetEmail = strtolower(trim((string)($targetAccount['email'] ?? '')));
+    $targetFirstName = trim((string)($targetAccount['people']['first_name'] ?? ''));
+    $targetSurname = trim((string)($targetAccount['people']['surname'] ?? ''));
+    $targetDisplayName = trim($targetFirstName . ' ' . $targetSurname);
+    if ($targetDisplayName === '') {
+        $targetDisplayName = $targetEmail !== '' ? $targetEmail : 'User';
+    }
+
+    $targetRoleKey = userManagementPrimaryRoleKey($userId, $supabaseUrl, $headers);
+
+    $mailResultStatus = 'not_applicable';
+    $mailError = null;
+
     if ($credentialAction === 'reset_password') {
+        if (!in_array($targetRoleKey, ['employee', 'staff'], true)) {
+            redirectWithState('error', 'Password reset is currently allowed for Employee and Staff accounts only.');
+        }
+
         if (strlen($tempPassword) < 8) {
             redirectWithState('error', 'Temporary password must be at least 8 characters.');
+        }
+
+        if (!filter_var($targetEmail, FILTER_VALIDATE_EMAIL)) {
+            redirectWithState('error', 'Target account has no valid email for reset notification.');
         }
 
         $resetResponse = apiRequest(
             'PUT',
             $supabaseUrl . '/auth/v1/admin/users/' . $userId,
             $headers,
-            ['password' => $tempPassword]
+            [
+                'password' => $tempPassword,
+                'email_confirm' => true,
+            ]
         );
 
         if (!isSuccessful($resetResponse)) {
@@ -327,6 +840,41 @@ if ($action === 'credential') {
                 'account_status' => 'active',
             ]
         );
+
+        if (smtpConfigIsReady($smtpConfig, $mailFrom)) {
+            $safeName = htmlspecialchars($targetDisplayName, ENT_QUOTES, 'UTF-8');
+            $safeEmail = htmlspecialchars($targetEmail, ENT_QUOTES, 'UTF-8');
+            $safePassword = htmlspecialchars($tempPassword, ENT_QUOTES, 'UTF-8');
+
+            $emailBody = '<p>Dear ' . $safeName . ',</p>'
+                . '<p>Your DA-ATI HRIS password has been reset by an administrator.</p>'
+                . '<p><strong>Temporary Login Credentials</strong><br>'
+                . 'Email: ' . $safeEmail . '<br>'
+                . 'Temporary Password: ' . $safePassword . '</p>'
+                . '<p>Please log in and change your password immediately.</p>'
+                . '<p>If you did not request this, contact HRIS support right away.</p>'
+                . '<p>— DA-ATI HRIS Admin</p>';
+
+            $mailResponse = smtpSendTransactionalEmail(
+                $smtpConfig,
+                $mailFrom,
+                $mailFromName,
+                $targetEmail,
+                $targetDisplayName,
+                'DA-ATI HRIS Password Reset (Temporary Password)',
+                $emailBody
+            );
+
+            if (isSuccessful($mailResponse)) {
+                $mailResultStatus = 'sent';
+            } else {
+                $mailResultStatus = 'failed';
+                $mailError = trim((string)($mailResponse['raw'] ?? 'SMTP delivery failed'));
+            }
+        } else {
+            $mailResultStatus = 'skipped';
+            $mailError = 'SMTP not configured';
+        }
     } elseif ($credentialAction === 'unlock_account') {
         apiRequest(
             'PATCH',
@@ -339,6 +887,10 @@ if ($action === 'credential') {
             ]
         );
     } elseif ($credentialAction === 'disable_login') {
+        if (userManagementIsProtectedAdminTarget($userId, $adminUserId, $supabaseUrl, $headers)) {
+            redirectWithState('error', 'Protected admin account cannot be archived/disabled.');
+        }
+
         $lockUntil = null;
         if ($effectiveUntil) {
             $lockUntil = $effectiveUntil . 'T23:59:59Z';
@@ -369,12 +921,29 @@ if ($action === 'credential') {
             'action_name' => $credentialAction,
             'old_data' => null,
             'new_data' => [
+                'target_email' => $targetEmail !== '' ? $targetEmail : null,
+                'target_role_key' => $targetRoleKey !== '' ? $targetRoleKey : null,
                 'effective_until' => $effectiveUntil,
                 'notes' => $notes,
+                'mail_status' => $mailResultStatus,
+                'mail_error' => $mailError,
             ],
             'ip_address' => clientIp(),
         ]]
     );
+
+    if ($credentialAction === 'reset_password') {
+        $successMessage = 'Password reset applied successfully.';
+        if ($mailResultStatus === 'sent') {
+            $successMessage .= ' Temporary password email sent.';
+        } elseif ($mailResultStatus === 'failed') {
+            $successMessage .= ' Password reset applied, but email failed to send.';
+        } elseif ($mailResultStatus === 'skipped') {
+            $successMessage .= ' Password reset applied, but email was skipped (SMTP not configured).';
+        }
+
+        redirectWithState('success', $successMessage);
+    }
 
     redirectWithState('success', 'Credential action applied successfully.');
 }
@@ -394,7 +963,7 @@ if ($action === 'add_position') {
         redirectWithState('error', 'Position code must be 2-20 chars using uppercase letters, numbers, dash, or underscore.');
     }
 
-    $allowedClassifications = ['regular', 'coterminous', 'contractual', 'casual', 'job_order'];
+    $allowedClassifications = array_keys(userManagementEmploymentClassificationPolicy());
     if (!in_array($employmentClassification, $allowedClassifications, true)) {
         redirectWithState('error', 'Invalid employment classification selected.');
     }
@@ -462,7 +1031,7 @@ if ($action === 'add_department') {
     $organizationId = cleanText($_POST['organization_id'] ?? null) ?? '';
     $officeName = cleanText($_POST['office_name'] ?? null) ?? '';
     $officeCode = strtoupper((string)(cleanText($_POST['office_code'] ?? null) ?? ''));
-    $officeType = strtolower((string)(cleanText($_POST['office_type'] ?? null) ?? 'unit'));
+    $officeType = 'division';
 
     if ($officeName === '' || $officeCode === '') {
         redirectWithState('error', 'Division name and code are required.');
@@ -470,11 +1039,6 @@ if ($action === 'add_department') {
 
     if (!userManagementIsValidCode($officeCode)) {
         redirectWithState('error', 'Division code must be 2-20 chars using uppercase letters, numbers, dash, or underscore.');
-    }
-
-    $allowedOfficeTypes = ['central', 'regional', 'provincial', 'division', 'unit'];
-    if (!in_array($officeType, $allowedOfficeTypes, true)) {
-        redirectWithState('error', 'Invalid office type selected.');
     }
 
     if ($organizationId === '') {

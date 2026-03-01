@@ -59,6 +59,7 @@
                 Assign Role
             </button>
         </header>
+        <p class="px-4 pt-3 text-xs text-slate-500">Assignable roles are policy-scoped (Admin, Staff, Employee, Applicant) to keep support-ticket routing and role access aligned.</p>
         <div class="max-h-72 overflow-auto">
             <table class="w-full text-sm">
                 <thead class="bg-slate-50 text-slate-600 sticky top-0">
@@ -117,6 +118,72 @@
             </table>
         </div>
     </article>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-800">New Hires Without Employee Accounts</h2>
+        <p class="text-sm text-slate-500 mt-1">Creates employee accounts from hired applicants using their application email, sends welcome credentials, and logs onboarding activity.</p>
+    </header>
+
+    <div class="px-6 pb-6 pt-4 overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600">
+                <tr>
+                    <th class="text-left px-4 py-3">Name</th>
+                    <th class="text-left px-4 py-3">Email</th>
+                    <th class="text-left px-4 py-3">Position</th>
+                    <th class="text-left px-4 py-3">Division</th>
+                    <th class="text-left px-4 py-3">Hired At</th>
+                    <th class="text-left px-4 py-3">Application Ref</th>
+                    <th class="text-left px-4 py-3">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                <?php if (empty($newHireCandidates)): ?>
+                    <tr>
+                        <td class="px-4 py-3 text-slate-500" colspan="7">No new hires pending employee account creation.</td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($newHireCandidates as $candidate): ?>
+                        <?php
+                        $candidateName = (string)($candidate['full_name'] ?? '-');
+                        $candidateEmail = (string)($candidate['email'] ?? '');
+                        $candidatePosition = (string)($candidate['position_title'] ?? '-');
+                        $candidateDivision = (string)($candidate['division_name'] ?? '-');
+                        $candidateHiredAt = (string)($candidate['hired_at'] ?? '-');
+                        $candidateRef = (string)($candidate['application_ref_no'] ?? '-');
+                        $candidateApplicationId = (string)($candidate['application_id'] ?? '');
+                        $candidateOfficeId = (string)($candidate['office_id'] ?? '');
+                        ?>
+                        <tr>
+                            <td class="px-4 py-3 font-medium text-slate-800"><?= htmlspecialchars($candidateName, ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-700"><?= htmlspecialchars($candidateEmail, ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-700"><?= htmlspecialchars($candidatePosition, ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-700"><?= htmlspecialchars($candidateDivision, ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-700"><?= htmlspecialchars($candidateHiredAt, ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-700"><?= htmlspecialchars($candidateRef, ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3">
+                                <form action="user-management.php" method="POST" class="inline">
+                                    <input type="hidden" name="form_action" value="onboard_new_hire">
+                                    <input type="hidden" name="application_id" value="<?= htmlspecialchars($candidateApplicationId, ENT_QUOTES, 'UTF-8') ?>">
+                                    <input type="hidden" name="email" value="<?= htmlspecialchars($candidateEmail, ENT_QUOTES, 'UTF-8') ?>">
+                                    <input type="hidden" name="full_name" value="<?= htmlspecialchars($candidateName, ENT_QUOTES, 'UTF-8') ?>">
+                                    <input type="hidden" name="office_id" value="<?= htmlspecialchars($candidateOfficeId, ENT_QUOTES, 'UTF-8') ?>">
+                                    <input type="hidden" name="position_title" value="<?= htmlspecialchars($candidatePosition, ENT_QUOTES, 'UTF-8') ?>">
+                                    <input type="hidden" name="division_name" value="<?= htmlspecialchars($candidateDivision, ENT_QUOTES, 'UTF-8') ?>">
+                                    <button type="submit" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm">
+                                        <span class="material-symbols-outlined text-[15px]">person_add</span>
+                                        Create Account
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
 </section>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
@@ -313,11 +380,9 @@
                 <div>
                     <label class="text-slate-600">Employment Classification</label>
                     <select name="employment_classification" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
-                        <option value="regular">Regular</option>
-                        <option value="coterminous">Coterminous</option>
-                        <option value="contractual">Contractual</option>
-                        <option value="casual">Casual</option>
-                        <option value="job_order">Job Order</option>
+                        <?php foreach ((array)($employmentClassificationOptions ?? []) as $classificationValue => $classificationLabel): ?>
+                            <option value="<?= htmlspecialchars((string)$classificationValue, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$classificationLabel, ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
                 <div>
@@ -348,14 +413,7 @@
             <form action="user-management.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <input type="hidden" name="form_action" value="add_department">
                 <div class="md:col-span-2">
-                    <label class="text-slate-600">Office Type</label>
-                    <select name="office_type" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
-                        <option value="unit">Unit</option>
-                        <option value="division">Division</option>
-                        <option value="provincial">Provincial</option>
-                        <option value="regional">Regional</option>
-                        <option value="central">Central</option>
-                    </select>
+                    <p class="text-xs text-slate-500">Office type is fixed to <strong>Division</strong> for central-office-only deployment.</p>
                 </div>
                 <div class="md:col-span-2">
                     <label class="text-slate-600">Division Name</label>
@@ -382,7 +440,7 @@
                 <h3 class="text-lg font-semibold text-slate-800">Assign Role</h3>
                 <button type="button" data-modal-close="roleModal" class="text-slate-500 hover:text-slate-700">✕</button>
             </div>
-            <form id="roleForm" action="user-management.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <form id="roleForm" action="user-management.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
                 <input type="hidden" name="form_action" value="role">
                 <div>
                     <label class="text-slate-600">User</label>
@@ -397,7 +455,8 @@
                                 $displayName = (string)($user['email'] ?? 'Unknown User');
                             }
                             ?>
-                            <option value="<?= htmlspecialchars((string)($user['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($displayName . ' (' . (string)($user['email'] ?? '') . ')', ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php $userOfficeId = (string)($userOfficeMap[(string)($user['id'] ?? '')] ?? ''); ?>
+                            <option value="<?= htmlspecialchars((string)($user['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-office-id="<?= htmlspecialchars($userOfficeId, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($displayName . ' (' . (string)($user['email'] ?? '') . ')', ENT_QUOTES, 'UTF-8') ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -413,10 +472,19 @@
                     </select>
                 </div>
                 <div>
+                    <label class="text-slate-600">Division</label>
+                    <select id="roleOfficeSelect" name="role_office_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                        <option value="">Select division</option>
+                        <?php foreach ($offices as $office): ?>
+                            <option value="<?= htmlspecialchars((string)($office['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($office['office_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div>
                     <label class="text-slate-600">Effectivity Date</label>
                     <input type="date" name="effectivity_date" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
                 </div>
-                <div class="md:col-span-3 flex justify-end gap-3 mt-2">
+                <div class="md:col-span-4 flex justify-end gap-3 mt-2">
                     <button type="button" data-modal-close="roleModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button>
                     <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Assign Role</button>
                 </div>
@@ -459,6 +527,7 @@
                         <option value="unlock_account">Unlock Account</option>
                         <option value="disable_login">Disable Login Access</option>
                     </select>
+                    <p class="mt-1 text-xs text-slate-500">Reset Password is limited to Employee and Staff accounts. The temporary password is emailed with change-password instructions.</p>
                 </div>
                 <div>
                     <label class="text-slate-600">Temporary Password (if reset)</label>

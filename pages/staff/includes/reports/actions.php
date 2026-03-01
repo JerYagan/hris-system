@@ -147,6 +147,78 @@ if (!function_exists('staffReportBuildDataset')) {
         $personDepartmentById = (array)($context['person_department_by_id'] ?? []);
         $officeNameById = (array)($context['office_name_by_id'] ?? []);
 
+        $staffReportPolicyHasNoLateMode = static function (mixed $value) use (&$staffReportPolicyHasNoLateMode): bool {
+            if (is_array($value)) {
+                foreach ($value as $nestedKey => $nestedValue) {
+                    $normalizedKey = strtolower(trim((string)$nestedKey));
+                    if (in_array($normalizedKey, ['late_policy_mode', 'late_policy', 'policy_mode', 'mode'], true) && $staffReportPolicyHasNoLateMode($nestedValue)) {
+                        return true;
+                    }
+
+                    if ($staffReportPolicyHasNoLateMode($nestedValue)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            $raw = strtolower(trim((string)$value));
+            if ($raw === '') {
+                return false;
+            }
+
+            if (in_array($raw, ['no_late', 'no-late', 'no late'], true)) {
+                return true;
+            }
+
+            if (str_contains($raw, 'no_late') || str_contains($raw, 'no-late') || str_contains($raw, 'no late')) {
+                return true;
+            }
+
+            if (str_starts_with($raw, '{') || str_starts_with($raw, '[')) {
+                $decoded = json_decode((string)$value, true);
+                if (is_array($decoded)) {
+                    return $staffReportPolicyHasNoLateMode($decoded);
+                }
+            }
+
+            return false;
+        };
+
+        $noLatePolicyApproved = false;
+        $latePolicyModeResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/system_settings?select=setting_value&setting_key=eq.' . rawurlencode('timekeeping.late_policy_mode') . '&limit=1',
+            $headers
+        );
+        $latePolicySettingResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/system_settings?select=setting_value&setting_key=eq.' . rawurlencode('timekeeping.late_policy') . '&limit=1',
+            $headers
+        );
+        $holidayPolicyResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/system_settings?select=setting_value&setting_key=eq.' . rawurlencode('timekeeping.holiday_payroll_policy') . '&limit=1',
+            $headers
+        );
+        $policyCandidates = [];
+        if (isSuccessful($latePolicyModeResponse) && !empty((array)($latePolicyModeResponse['data'] ?? []))) {
+            $policyCandidates[] = $latePolicyModeResponse['data'][0]['setting_value'] ?? null;
+        }
+        if (isSuccessful($latePolicySettingResponse) && !empty((array)($latePolicySettingResponse['data'] ?? []))) {
+            $policyCandidates[] = $latePolicySettingResponse['data'][0]['setting_value'] ?? null;
+        }
+        if (isSuccessful($holidayPolicyResponse) && !empty((array)($holidayPolicyResponse['data'] ?? []))) {
+            $policyCandidates[] = $holidayPolicyResponse['data'][0]['setting_value'] ?? null;
+        }
+        foreach ($policyCandidates as $candidate) {
+            if ($staffReportPolicyHasNoLateMode($candidate)) {
+                $noLatePolicyApproved = true;
+                break;
+            }
+        }
+
         $personInFilter = sanitizeUuidListForInFilter($scopedPersonIds);
         $personFilter = $personInFilter !== ''
             ? '&person_id=in.' . rawurlencode('(' . $personInFilter . ')')
@@ -168,7 +240,9 @@ if (!function_exists('staffReportBuildDataset')) {
                 throw new RuntimeException('Failed to fetch attendance data.');
             }
 
-            $columns = ['Employee', 'Attendance Date', 'Status', 'Late Minutes', 'Hours Worked', 'Source'];
+            $columns = $noLatePolicyApproved
+                ? ['Employee', 'Attendance Date', 'Status', 'Hours Worked', 'Source']
+                : ['Employee', 'Attendance Date', 'Status', 'Late Minutes', 'Hours Worked', 'Source'];
             $rows = [];
             foreach ((array)($response['data'] ?? []) as $item) {
                 $personId = cleanText($item['person_id'] ?? null) ?? '';
@@ -182,10 +256,26 @@ if (!function_exists('staffReportBuildDataset')) {
                     . (string)(cleanText($item['person']['surname'] ?? null) ?? '')
                 );
 
+                $baseStatus = strtolower(trim((string)(cleanText($item['attendance_status'] ?? null) ?? '-')));
+                $statusLabel = $noLatePolicyApproved && $baseStatus === 'late'
+                    ? 'present'
+                    : (string)(cleanText($item['attendance_status'] ?? null) ?? '-');
+
+                if ($noLatePolicyApproved) {
+                    $rows[] = [
+                        $employeeName !== '' ? $employeeName : 'Unknown Employee',
+                        (string)(cleanText($item['attendance_date'] ?? null) ?? '-'),
+                        $statusLabel,
+                        (string)($item['hours_worked'] ?? '0'),
+                        (string)(cleanText($item['source'] ?? null) ?? '-'),
+                    ];
+                    continue;
+                }
+
                 $rows[] = [
                     $employeeName !== '' ? $employeeName : 'Unknown Employee',
                     (string)(cleanText($item['attendance_date'] ?? null) ?? '-'),
-                    (string)(cleanText($item['attendance_status'] ?? null) ?? '-'),
+                    $statusLabel,
                     (string)($item['late_minutes'] ?? '0'),
                     (string)($item['hours_worked'] ?? '0'),
                     (string)(cleanText($item['source'] ?? null) ?? '-'),
@@ -646,7 +736,7 @@ $department = cleanText($_POST['department_filter'] ?? null) ?? 'all';
 $customStartDate = cleanText($_POST['custom_start_date'] ?? null);
 $customEndDate = cleanText($_POST['custom_end_date'] ?? null);
 
-$allowedTypes = ['attendance', 'payroll', 'performance', 'documents', 'recruitment', 'training_completion', 'hired_applicants'];
+$allowedTypes = ['attendance', 'payroll', 'recruitment'];
 if (!in_array($reportType, $allowedTypes, true)) {
     redirectWithState('error', 'Invalid report type selected.');
 }

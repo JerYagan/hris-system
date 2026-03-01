@@ -374,7 +374,7 @@ foreach ($applicationRows as $application) {
         $screeningQueueRows[] = $rowPayload;
     }
 
-    if ($statusRaw === 'hired') {
+    if ($statusRaw === 'hired' && !$isAlreadyEmployee) {
         $hiredApplicantRows[] = $rowPayload;
     }
 }

@@ -139,6 +139,78 @@ if (!function_exists('reportBuildDataset')) {
         $personDepartmentById = (array)($departmentContext['person_department_by_id'] ?? []);
         $officeNameById = (array)($departmentContext['office_name_by_id'] ?? []);
 
+        $reportPolicyHasNoLateMode = static function (mixed $value) use (&$reportPolicyHasNoLateMode): bool {
+            if (is_array($value)) {
+                foreach ($value as $nestedKey => $nestedValue) {
+                    $normalizedKey = strtolower(trim((string)$nestedKey));
+                    if (in_array($normalizedKey, ['late_policy_mode', 'late_policy', 'policy_mode', 'mode'], true) && $reportPolicyHasNoLateMode($nestedValue)) {
+                        return true;
+                    }
+
+                    if ($reportPolicyHasNoLateMode($nestedValue)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            $raw = strtolower(trim((string)$value));
+            if ($raw === '') {
+                return false;
+            }
+
+            if (in_array($raw, ['no_late', 'no-late', 'no late'], true)) {
+                return true;
+            }
+
+            if (str_contains($raw, 'no_late') || str_contains($raw, 'no-late') || str_contains($raw, 'no late')) {
+                return true;
+            }
+
+            if (str_starts_with($raw, '{') || str_starts_with($raw, '[')) {
+                $decoded = json_decode((string)$value, true);
+                if (is_array($decoded)) {
+                    return $reportPolicyHasNoLateMode($decoded);
+                }
+            }
+
+            return false;
+        };
+
+        $noLatePolicyApproved = false;
+        $latePolicyModeResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/system_settings?select=setting_value&setting_key=eq.' . rawurlencode('timekeeping.late_policy_mode') . '&limit=1',
+            $headers
+        );
+        $latePolicySettingResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/system_settings?select=setting_value&setting_key=eq.' . rawurlencode('timekeeping.late_policy') . '&limit=1',
+            $headers
+        );
+        $holidayPolicyResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/system_settings?select=setting_value&setting_key=eq.' . rawurlencode('timekeeping.holiday_payroll_policy') . '&limit=1',
+            $headers
+        );
+        $policyCandidates = [];
+        if (isSuccessful($latePolicyModeResponse) && !empty((array)($latePolicyModeResponse['data'] ?? []))) {
+            $policyCandidates[] = $latePolicyModeResponse['data'][0]['setting_value'] ?? null;
+        }
+        if (isSuccessful($latePolicySettingResponse) && !empty((array)($latePolicySettingResponse['data'] ?? []))) {
+            $policyCandidates[] = $latePolicySettingResponse['data'][0]['setting_value'] ?? null;
+        }
+        if (isSuccessful($holidayPolicyResponse) && !empty((array)($holidayPolicyResponse['data'] ?? []))) {
+            $policyCandidates[] = $holidayPolicyResponse['data'][0]['setting_value'] ?? null;
+        }
+        foreach ($policyCandidates as $candidate) {
+            if ($reportPolicyHasNoLateMode($candidate)) {
+                $noLatePolicyApproved = true;
+                break;
+            }
+        }
+
         if ($reportType === 'attendance') {
             $response = apiRequest(
                 'GET',
@@ -150,7 +222,9 @@ if (!function_exists('reportBuildDataset')) {
                 throw new RuntimeException('Failed to fetch attendance data.');
             }
 
-            $columns = ['Employee', 'Attendance Date', 'Status', 'Late Minutes', 'Hours Worked', 'Source'];
+            $columns = $noLatePolicyApproved
+                ? ['Employee', 'Attendance Date', 'Status', 'Hours Worked', 'Source']
+                : ['Employee', 'Attendance Date', 'Status', 'Late Minutes', 'Hours Worked', 'Source'];
             $rows = [];
             foreach ((array)$response['data'] as $item) {
                 $personId = (string)($item['person_id'] ?? '');
@@ -159,13 +233,54 @@ if (!function_exists('reportBuildDataset')) {
                 }
 
                 $employeeName = trim(((string)($item['person']['first_name'] ?? '')) . ' ' . ((string)($item['person']['surname'] ?? '')));
+                $baseStatus = strtolower(trim((string)($item['attendance_status'] ?? '-')));
+                $statusLabel = $noLatePolicyApproved && $baseStatus === 'late' ? 'present' : (string)($item['attendance_status'] ?? '-');
+
+                if ($noLatePolicyApproved) {
+                    $rows[] = [
+                        $employeeName !== '' ? $employeeName : 'Unknown Employee',
+                        (string)($item['attendance_date'] ?? '-'),
+                        $statusLabel,
+                        (string)($item['hours_worked'] ?? '0'),
+                        (string)($item['source'] ?? '-'),
+                    ];
+                    continue;
+                }
+
                 $rows[] = [
                     $employeeName !== '' ? $employeeName : 'Unknown Employee',
                     (string)($item['attendance_date'] ?? '-'),
-                    (string)($item['attendance_status'] ?? '-'),
+                    $statusLabel,
                     (string)($item['late_minutes'] ?? '0'),
                     (string)($item['hours_worked'] ?? '0'),
                     (string)($item['source'] ?? '-'),
+                ];
+            }
+
+            return [$columns, $rows];
+        }
+
+        if ($reportType === 'audit_logs') {
+            $response = apiRequest(
+                'GET',
+                $supabaseUrl . '/rest/v1/activity_logs?select=created_at,module_name,action_name,entity_name,ip_address,actor:user_accounts(email)&created_at=gte.' . $startDateTime . '&created_at=lte.' . $endDateTime . '&order=created_at.desc&limit=5000',
+                $headers
+            );
+
+            if (!isSuccessful($response)) {
+                throw new RuntimeException('Failed to fetch audit log data.');
+            }
+
+            $columns = ['Timestamp', 'Module', 'Action', 'Entity', 'Actor', 'IP Address'];
+            $rows = [];
+            foreach ((array)$response['data'] as $item) {
+                $rows[] = [
+                    (string)($item['created_at'] ?? '-'),
+                    (string)($item['module_name'] ?? '-'),
+                    (string)($item['action_name'] ?? '-'),
+                    (string)($item['entity_name'] ?? '-'),
+                    (string)($item['actor']['email'] ?? '-'),
+                    (string)($item['ip_address'] ?? '-'),
                 ];
             }
 
@@ -415,7 +530,7 @@ if ($action === 'export_report') {
     $customStartDate = cleanText($_POST['custom_start_date'] ?? null);
     $customEndDate = cleanText($_POST['custom_end_date'] ?? null);
 
-    $allowedTypes = ['attendance', 'payroll', 'performance', 'documents', 'recruitment'];
+    $allowedTypes = ['attendance', 'payroll', 'performance', 'documents', 'recruitment', 'audit_logs'];
     if (!in_array($reportType, $allowedTypes, true)) {
         redirectWithState('error', 'Invalid report type selected.');
     }

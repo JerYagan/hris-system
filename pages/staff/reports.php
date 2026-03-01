@@ -8,9 +8,9 @@ if (!headers_sent()) {
     header('Pragma: no-cache');
 }
 
-$pageTitle = 'Reports | Staff';
+$pageTitle = 'REPORTS and Analytics | Staff';
 $activePage = 'reports.php';
-$breadcrumbs = ['Reports'];
+$breadcrumbs = ['REPORTS and Analytics'];
 
 $state = cleanText($_GET['state'] ?? null);
 $message = cleanText($_GET['message'] ?? null);
@@ -19,7 +19,7 @@ ob_start();
 ?>
 
 <div class="mb-6">
-    <h1 class="text-2xl font-bold text-gray-800">Reports and Analytics</h1>
+    <h1 class="text-2xl font-bold text-gray-800">REPORTS and Analytics</h1>
     <p class="text-sm text-gray-500">Review operational HR insights for timekeeping, payroll, and recruitment, then export reports from the latest organization-wide records.</p>
 </div>
 
@@ -229,12 +229,14 @@ $employeeStatusPill = static function (string $status): string {
                     <td class="px-4 py-3"><?= htmlspecialchars(number_format($attendanceCompliancePrevious, 1), ENT_QUOTES, 'UTF-8') ?>%</td>
                     <td class="px-4 py-3"><span class="<?= htmlspecialchars($percentDeltaClass($attendanceVariance), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(($attendanceVariance >= 0 ? '+' : '') . number_format($attendanceVariance, 1), ENT_QUOTES, 'UTF-8') ?>%</span></td>
                 </tr>
-                <tr>
-                    <td class="px-4 py-3">Late Incidents</td>
-                    <td class="px-4 py-3"><?= htmlspecialchars((string)$attendanceCurrent['late'], ENT_QUOTES, 'UTF-8') ?></td>
-                    <td class="px-4 py-3"><?= htmlspecialchars((string)$attendancePrevious['late'], ENT_QUOTES, 'UTF-8') ?></td>
-                    <td class="px-4 py-3"><span class="<?= htmlspecialchars($percentDeltaClass((float)(-$lateVariance)), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(($lateVariance >= 0 ? '+' : '') . (string)$lateVariance, ENT_QUOTES, 'UTF-8') ?></span></td>
-                </tr>
+                <?php if (!(bool)($noLatePolicyApproved ?? false)): ?>
+                    <tr>
+                        <td class="px-4 py-3">Late Incidents</td>
+                        <td class="px-4 py-3"><?= htmlspecialchars((string)$attendanceCurrent['late'], ENT_QUOTES, 'UTF-8') ?></td>
+                        <td class="px-4 py-3"><?= htmlspecialchars((string)$attendancePrevious['late'], ENT_QUOTES, 'UTF-8') ?></td>
+                        <td class="px-4 py-3"><span class="<?= htmlspecialchars($percentDeltaClass((float)(-$lateVariance)), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(($lateVariance >= 0 ? '+' : '') . (string)$lateVariance, ENT_QUOTES, 'UTF-8') ?></span></td>
+                    </tr>
+                <?php endif; ?>
                 <tr>
                     <td class="px-4 py-3">Total Gross Payroll</td>
                     <td class="px-4 py-3"><?= htmlspecialchars($money((float)$payrollCurrent['gross']), ENT_QUOTES, 'UTF-8') ?></td>
@@ -544,11 +546,7 @@ $employeeStatusPill = static function (string $status): string {
             <select name="report_type" class="w-full mt-1 border rounded-md px-3 py-2" required>
                 <option value="attendance">Attendance</option>
                 <option value="payroll">Payroll</option>
-                <option value="performance">Performance</option>
-                <option value="documents">Documents</option>
                 <option value="recruitment">Recruitment</option>
-                <option value="training_completion">Training Completion</option>
-                <option value="hired_applicants">Hired Applicants</option>
             </select>
         </div>
         <div>

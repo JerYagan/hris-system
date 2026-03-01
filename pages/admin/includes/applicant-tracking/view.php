@@ -17,7 +17,13 @@ $pipelineApplications = [];
 $hiredApplications = [];
 foreach ((array)$applications as $applicationRow) {
     $statusKey = strtolower(trim((string)($applicationRow['application_status'] ?? 'submitted')));
+    $applicantUserId = strtolower(trim((string)($applicationRow['applicant']['user_id'] ?? '')));
+    $isAlreadyEmployee = $applicantUserId !== '' && !empty($hasCurrentEmploymentByUserId[$applicantUserId]);
+
     if ($statusKey === 'hired') {
+        if ($isAlreadyEmployee) {
+            continue;
+        }
         $hiredApplications[] = $applicationRow;
     } else {
         $pipelineApplications[] = $applicationRow;

@@ -5864,6 +5864,7 @@
     const accountEmailInput = document.getElementById('accountEmailInput');
     const accountFullNameInput = document.getElementById('accountFullNameInput');
     const roleUserSelect = document.getElementById('roleUserSelect');
+    const roleOfficeSelect = document.getElementById('roleOfficeSelect');
     const credentialUserSelect = document.getElementById('credentialUserSelect');
     const modalElements = document.querySelectorAll('[data-modal]');
     const modalOpenButtons = document.querySelectorAll('[data-modal-open]');
@@ -5931,6 +5932,18 @@
         openModal('roleModal');
       });
     });
+
+    if (roleUserSelect && roleOfficeSelect) {
+      roleUserSelect.addEventListener('change', () => {
+        const selectedOption = roleUserSelect.options[roleUserSelect.selectedIndex] || null;
+        const officeId = selectedOption ? (selectedOption.getAttribute('data-office-id') || '').trim() : '';
+
+        if (officeId !== '') {
+          roleOfficeSelect.value = officeId;
+          roleOfficeSelect.dispatchEvent(new Event('change'));
+        }
+      });
+    }
 
     document.querySelectorAll('[data-fill-credential]').forEach((button) => {
       button.addEventListener('click', () => {

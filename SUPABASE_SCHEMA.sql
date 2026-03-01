@@ -842,7 +842,7 @@ create table if not exists public.generated_reports (
   status text not null default 'queued',
   generated_at timestamptz,
   created_at timestamptz not null default now(),
-  check (report_type in ('attendance','payroll','performance','documents','recruitment')),
+  check (report_type in ('attendance','payroll','performance','documents','recruitment','audit_logs')),
   check (file_format in ('pdf','csv','xlsx')),
   check (status in ('queued','processing','ready','failed'))
 );

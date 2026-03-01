@@ -53,6 +53,150 @@ if (!function_exists('staffRecruitmentSplitName')) {
     }
 }
 
+if (!function_exists('staffRecruitmentEnsureEmployeeAccount')) {
+    function staffRecruitmentEnsureEmployeeAccount(
+        string $supabaseUrl,
+        array $headers,
+        string $applicantUserId,
+        string $applicantProfileId,
+        string $email,
+        string $fullName,
+        string $actorUserId
+    ): array {
+        $normalizedEmail = strtolower(trim($email));
+        if (!filter_var($normalizedEmail, FILTER_VALIDATE_EMAIL)) {
+            return [
+                'ok' => false,
+                'message' => 'Applicant email is invalid for account creation.',
+            ];
+        }
+
+        $resolvedUserId = isValidUuid($applicantUserId) ? $applicantUserId : '';
+        if ($resolvedUserId !== '') {
+            $existingAccountResponse = apiRequest(
+                'GET',
+                $supabaseUrl . '/rest/v1/user_accounts?select=id&id=eq.' . rawurlencode($resolvedUserId) . '&limit=1',
+                $headers
+            );
+
+            if (!isSuccessful($existingAccountResponse) || empty((array)($existingAccountResponse['data'] ?? []))) {
+                $resolvedUserId = '';
+            }
+        }
+
+        $tempPassword = 'Temp#' . substr(bin2hex(random_bytes(6)), 0, 10);
+        $isNewAccount = false;
+
+        if ($resolvedUserId === '') {
+            $createAuth = apiRequest(
+                'POST',
+                $supabaseUrl . '/auth/v1/admin/users',
+                $headers,
+                [
+                    'email' => $normalizedEmail,
+                    'password' => $tempPassword,
+                    'email_confirm' => true,
+                    'user_metadata' => [
+                        'full_name' => $fullName,
+                        'created_by_admin' => $actorUserId,
+                    ],
+                ]
+            );
+
+            if (!isSuccessful($createAuth)) {
+                $raw = strtolower((string)($createAuth['raw'] ?? ''));
+                if (str_contains($raw, 'already') || str_contains($raw, 'exists')) {
+                    return [
+                        'ok' => false,
+                        'message' => 'Applicant email already exists in authentication but is not linked. Resolve account linkage first.',
+                    ];
+                }
+
+                return [
+                    'ok' => false,
+                    'message' => 'Failed to create authentication account for hired applicant.',
+                ];
+            }
+
+            $resolvedUserId = (string)($createAuth['data']['id'] ?? '');
+            if (!isValidUuid($resolvedUserId)) {
+                return [
+                    'ok' => false,
+                    'message' => 'Invalid auth response while creating applicant employee account.',
+                ];
+            }
+
+            $createAccount = apiRequest(
+                'POST',
+                $supabaseUrl . '/rest/v1/user_accounts',
+                array_merge($headers, ['Prefer: resolution=merge-duplicates,return=minimal']),
+                [[
+                    'id' => $resolvedUserId,
+                    'email' => $normalizedEmail,
+                    'account_status' => 'active',
+                    'email_verified_at' => gmdate('c'),
+                    'must_change_password' => true,
+                ]]
+            );
+
+            if (!isSuccessful($createAccount)) {
+                return [
+                    'ok' => false,
+                    'message' => 'Failed to create user account row for hired applicant.',
+                ];
+            }
+
+            if (isValidUuid($applicantProfileId)) {
+                apiRequest(
+                    'PATCH',
+                    $supabaseUrl . '/rest/v1/applicant_profiles?id=eq.' . rawurlencode($applicantProfileId),
+                    array_merge($headers, ['Prefer: return=minimal']),
+                    [
+                        'user_id' => $resolvedUserId,
+                        'email' => $normalizedEmail,
+                    ]
+                );
+            }
+
+            $isNewAccount = true;
+        } else {
+            $resetAuth = apiRequest(
+                'PUT',
+                $supabaseUrl . '/auth/v1/admin/users/' . rawurlencode($resolvedUserId),
+                $headers,
+                ['password' => $tempPassword]
+            );
+
+            if (!isSuccessful($resetAuth)) {
+                return [
+                    'ok' => false,
+                    'message' => 'Failed to reset hired applicant credentials for onboarding email.',
+                ];
+            }
+
+            apiRequest(
+                'PATCH',
+                $supabaseUrl . '/rest/v1/user_accounts?id=eq.' . rawurlencode($resolvedUserId),
+                array_merge($headers, ['Prefer: return=minimal']),
+                [
+                    'email' => $normalizedEmail,
+                    'account_status' => 'active',
+                    'failed_login_count' => 0,
+                    'lockout_until' => null,
+                    'must_change_password' => true,
+                ]
+            );
+        }
+
+        return [
+            'ok' => true,
+            'user_id' => $resolvedUserId,
+            'temporary_password' => $tempPassword,
+            'is_new_account' => $isNewAccount,
+        ];
+    }
+}
+
 if (!function_exists('staffRecruitmentDecisionMap')) {
     function staffRecruitmentDecisionMap(string $decision): ?array
     {
@@ -507,7 +651,7 @@ if ($action === 'add_hired_applicant_as_employee') {
     $applicationResponse = apiRequest(
         'GET',
         $supabaseUrl
-        . '/rest/v1/applications?select=id,application_status,job_posting_id,applicant:applicant_profiles(full_name,email,user_id),job:job_postings(id,office_id,position_id,title)'
+        . '/rest/v1/applications?select=id,application_status,job_posting_id,applicant:applicant_profiles(id,full_name,email,user_id,mobile_no,current_address),job:job_postings(id,office_id,position_id,title)'
         . '&id=eq.' . rawurlencode($applicationId)
         . '&limit=1',
         $headers
@@ -536,9 +680,29 @@ if ($action === 'add_hired_applicant_as_employee') {
     }
 
     $applicantRow = is_array($applicationRow['applicant'] ?? null) ? (array)$applicationRow['applicant'] : [];
+    $applicantProfileId = cleanText($applicantRow['id'] ?? null) ?? '';
     $applicantUserId = cleanText($applicantRow['user_id'] ?? null) ?? '';
     $fullName = cleanText($applicantRow['full_name'] ?? null) ?? 'Applicant User';
     $email = cleanText($applicantRow['email'] ?? null);
+    $mobileNo = cleanText($applicantRow['mobile_no'] ?? null);
+
+    $ensureAccount = staffRecruitmentEnsureEmployeeAccount(
+        $supabaseUrl,
+        $headers,
+        $applicantUserId,
+        $applicantProfileId,
+        (string)$email,
+        $fullName,
+        (string)$staffUserId
+    );
+
+    if (!(bool)($ensureAccount['ok'] ?? false)) {
+        redirectWithState('error', (string)($ensureAccount['message'] ?? 'Unable to provision employee account.'));
+    }
+
+    $applicantUserId = (string)($ensureAccount['user_id'] ?? '');
+    $temporaryPassword = (string)($ensureAccount['temporary_password'] ?? '');
+    $isNewAccount = (bool)($ensureAccount['is_new_account'] ?? false);
 
     if (!isValidUuid($applicantUserId)) {
         redirectWithState('error', 'Applicant account is invalid for employee creation.');
@@ -547,7 +711,7 @@ if ($action === 'add_hired_applicant_as_employee') {
     $personResponse = apiRequest(
         'GET',
         $supabaseUrl
-        . '/rest/v1/people?select=id,user_id,surname,first_name'
+        . '/rest/v1/people?select=id,user_id,surname,first_name,personal_email,mobile_no'
         . '&user_id=eq.' . rawurlencode($applicantUserId)
         . '&limit=1',
         $headers
@@ -570,6 +734,7 @@ if ($action === 'add_hired_applicant_as_employee') {
                 'surname' => (string)($nameParts['surname'] ?? 'User'),
                 'first_name' => (string)($nameParts['first_name'] ?? 'Applicant'),
                 'personal_email' => $email,
+                'mobile_no' => $mobileNo,
             ]]
         );
 
@@ -580,6 +745,24 @@ if ($action === 'add_hired_applicant_as_employee') {
         $personId = cleanText($insertPeopleResponse['data'][0]['id'] ?? null) ?? '';
         if (!isValidUuid($personId)) {
             redirectWithState('error', 'Created person record is invalid.');
+        }
+    } else {
+        $existingPersonEmail = cleanText($personRow['personal_email'] ?? null) ?? '';
+        $existingPersonMobile = cleanText($personRow['mobile_no'] ?? null) ?? '';
+        $peoplePatch = [];
+        if ($existingPersonEmail === '' && $email !== null && $email !== '') {
+            $peoplePatch['personal_email'] = $email;
+        }
+        if ($existingPersonMobile === '' && $mobileNo !== null && $mobileNo !== '') {
+            $peoplePatch['mobile_no'] = $mobileNo;
+        }
+        if (!empty($peoplePatch)) {
+            apiRequest(
+                'PATCH',
+                $supabaseUrl . '/rest/v1/people?id=eq.' . rawurlencode($personId),
+                array_merge($headers, ['Prefer: return=minimal']),
+                $peoplePatch
+            );
         }
     }
 
@@ -626,6 +809,13 @@ if ($action === 'add_hired_applicant_as_employee') {
     $employeeRoleId = is_array($employeeRoleRow) ? (cleanText($employeeRoleRow['id'] ?? null) ?? '') : '';
 
     if (isValidUuid($employeeRoleId)) {
+        apiRequest(
+            'PATCH',
+            $supabaseUrl . '/rest/v1/user_role_assignments?user_id=eq.' . rawurlencode($applicantUserId) . '&is_primary=eq.true',
+            array_merge($headers, ['Prefer: return=minimal']),
+            ['is_primary' => false]
+        );
+
         $roleAssignmentCheckResponse = apiRequest(
             'GET',
             $supabaseUrl
@@ -637,7 +827,23 @@ if ($action === 'add_hired_applicant_as_employee') {
         );
 
         $existingRoleAssignment = isSuccessful($roleAssignmentCheckResponse) ? ($roleAssignmentCheckResponse['data'][0] ?? null) : null;
-        if (!is_array($existingRoleAssignment)) {
+        if (is_array($existingRoleAssignment)) {
+            $assignmentId = cleanText($existingRoleAssignment['id'] ?? null) ?? '';
+            if (isValidUuid($assignmentId)) {
+                apiRequest(
+                    'PATCH',
+                    $supabaseUrl . '/rest/v1/user_role_assignments?id=eq.' . rawurlencode($assignmentId),
+                    array_merge($headers, ['Prefer: return=minimal']),
+                    [
+                        'office_id' => $officeId,
+                        'is_primary' => true,
+                        'assigned_by' => isValidUuid((string)$staffUserId) ? $staffUserId : null,
+                        'assigned_at' => gmdate('c'),
+                        'expires_at' => null,
+                    ]
+                );
+            }
+        } else {
             apiRequest(
                 'POST',
                 $supabaseUrl . '/rest/v1/user_role_assignments',
@@ -647,10 +853,55 @@ if ($action === 'add_hired_applicant_as_employee') {
                     'role_id' => $employeeRoleId,
                     'office_id' => $officeId,
                     'assigned_by' => isValidUuid((string)$staffUserId) ? $staffUserId : null,
-                    'is_primary' => false,
+                    'assigned_at' => gmdate('c'),
+                    'is_primary' => true,
                 ]]
             );
         }
+    }
+
+    $smtpConfig = [
+        'host' => cleanText($_ENV['SMTP_HOST'] ?? ($_SERVER['SMTP_HOST'] ?? null)) ?? '',
+        'port' => (int)(cleanText($_ENV['SMTP_PORT'] ?? ($_SERVER['SMTP_PORT'] ?? null)) ?? '587'),
+        'username' => cleanText($_ENV['SMTP_USERNAME'] ?? ($_SERVER['SMTP_USERNAME'] ?? null)) ?? '',
+        'password' => (string)($_ENV['SMTP_PASSWORD'] ?? ($_SERVER['SMTP_PASSWORD'] ?? '')),
+        'encryption' => strtolower((string)(cleanText($_ENV['SMTP_ENCRYPTION'] ?? ($_SERVER['SMTP_ENCRYPTION'] ?? null)) ?? 'tls')),
+        'auth' => (string)(cleanText($_ENV['SMTP_AUTH'] ?? ($_SERVER['SMTP_AUTH'] ?? null)) ?? '1'),
+    ];
+    $mailFrom = cleanText($_ENV['MAIL_FROM'] ?? ($_SERVER['MAIL_FROM'] ?? null)) ?? '';
+    $mailFromName = cleanText($_ENV['MAIL_FROM_NAME'] ?? ($_SERVER['MAIL_FROM_NAME'] ?? null)) ?? 'DA HRIS';
+    $resolvedMail = resolveSmtpMailConfig($supabaseUrl, $headers, $smtpConfig, $mailFrom, $mailFromName);
+    $smtpConfig = (array)($resolvedMail['smtp'] ?? $smtpConfig);
+    $mailFrom = (string)($resolvedMail['from'] ?? $mailFrom);
+    $mailFromName = (string)($resolvedMail['from_name'] ?? $mailFromName);
+
+    $welcomeEmailStatus = 'skipped';
+    if (smtpConfigIsReady($smtpConfig, $mailFrom) && $email !== null && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $safeName = htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8');
+        $safeEmail = htmlspecialchars((string)$email, ENT_QUOTES, 'UTF-8');
+        $safePassword = htmlspecialchars($temporaryPassword, ENT_QUOTES, 'UTF-8');
+        $safePosting = htmlspecialchars($postingTitle, ENT_QUOTES, 'UTF-8');
+
+        $welcomeHtml = '<p>Hello ' . $safeName . ',</p>'
+            . '<p>Welcome to DA-ATI HRIS. Your employee access is now active.</p>'
+            . '<p><strong>Account Credentials</strong><br>'
+            . 'Email: ' . $safeEmail . '<br>'
+            . 'Temporary Password: ' . $safePassword . '</p>'
+            . '<p>Please sign in and change your password immediately.</p>'
+            . '<p>Hiring Source: ' . $safePosting . '</p>'
+            . '<p>— DA-ATI HRIS</p>';
+
+        $welcomeMailResponse = smtpSendTransactionalEmail(
+            $smtpConfig,
+            $mailFrom,
+            $mailFromName,
+            (string)$email,
+            $fullName,
+            'Welcome to DA-ATI HRIS - Employee Account Credentials',
+            $welcomeHtml
+        );
+
+        $welcomeEmailStatus = isSuccessful($welcomeMailResponse) ? 'sent' : 'failed';
     }
 
     staffRecruitmentNotify(
@@ -660,6 +911,41 @@ if ($action === 'add_hired_applicant_as_employee') {
         'Employment Profile Created',
         'You have been added as an employee from your hired application for ' . $postingTitle . '.'
     );
+
+    $adminAssignmentsResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/user_role_assignments?select=user_id,role:roles!inner(role_key)'
+        . '&role.role_key=eq.admin'
+        . '&is_primary=eq.true'
+        . '&expires_at=is.null'
+        . '&limit=2000',
+        $headers
+    );
+
+    $adminRecipientIds = [];
+    if (isSuccessful($adminAssignmentsResponse)) {
+        foreach ((array)($adminAssignmentsResponse['data'] ?? []) as $assignmentRow) {
+            $recipientUserId = cleanText($assignmentRow['user_id'] ?? null) ?? '';
+            if (isValidUuid($recipientUserId)) {
+                $adminRecipientIds[strtolower($recipientUserId)] = $recipientUserId;
+            }
+        }
+    }
+
+    if (empty($adminRecipientIds) && isValidUuid((string)$staffUserId)) {
+        $adminRecipientIds[strtolower((string)$staffUserId)] = (string)$staffUserId;
+    }
+
+    foreach (array_values($adminRecipientIds) as $recipientUserId) {
+        staffRecruitmentNotify(
+            $headers,
+            $supabaseUrl,
+            (string)$recipientUserId,
+            'Employee account onboarding completed',
+            'Hired applicant ' . $fullName . ' was added as employee. Credentials email: ' . $welcomeEmailStatus . '.'
+        );
+    }
 
     apiRequest(
         'POST',
@@ -675,8 +961,11 @@ if ($action === 'add_hired_applicant_as_employee') {
             'new_data' => [
                 'application_id' => $applicationId,
                 'person_id' => $personId,
+                'user_id' => $applicantUserId,
                 'office_id' => $officeId,
                 'position_id' => $positionId,
+                'new_account_created' => $isNewAccount,
+                'welcome_email_status' => $welcomeEmailStatus,
             ],
             'ip_address' => clientIp(),
         ]]

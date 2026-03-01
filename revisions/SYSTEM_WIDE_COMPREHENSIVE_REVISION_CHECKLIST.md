@@ -605,15 +605,15 @@ Rules applied while consolidating:
 ## 10) Reports and Analytics Module
 
 ### Admin
-- [ ] Rename/report labels to `REPORTS and Analytics`.
-- [ ] Remove late-incidents output where no-late policy is approved.
-- [ ] Include audit logs and cross-module KPI reports.
+- [x] Rename/report labels to `REPORTS and Analytics`.
+- [x] Remove late-incidents output where no-late policy is approved.
+- [x] Include audit logs and cross-module KPI reports.
 
 ### Staff
-- [ ] Keep operational report generation aligned to allowed scope.
+- [x] Keep operational report generation aligned to allowed scope.
 
 ### Employee
-- [ ] Keep personal-report visibility only.
+- [x] Keep personal-report visibility only.
 
 ---
 
@@ -629,6 +629,7 @@ Rules applied while consolidating:
 - [ ] Fix notification entry/action that routes to payroll category open flow (open action error).
 
 ### Employee
+- [ ] Newly added employees shouldn't have any notifications by default, but they should receive notifications for any new announcements or any notifications related to their employee record (e.g., profile updates, training enrollments, etc.) after they are added to the system AS EMPLOYEE. The notification when they were applicant should not be there when they become an employee, and they should only receive notifications that are relevant to their employee role and record after they are added as an employee in the system.
 - [ ] Add richer training notification details (provider, venue, mode).
 - [ ] Add hover/quick-view interaction and auto-read behavior when opened (if approved UX standard).
 
@@ -699,12 +700,15 @@ Fatal error: Uncaught Error: Call to undefined function isValidUuid() in D:\xamp
 ## 14) User Management Module
 
 ### Admin
-- [ ] Prevent disabling protected admin account.
-- [ ] Keep employment classification options aligned to policy.
-- [ ] Auto-populate Division on user selection.
-- [ ] Remove Office Type when deployment is central-office-only.
-- [ ] Keep role assignment/support-ticket routing aligned with privileges.
-- [ ] Add an account creation flow for new employees that includes the option to create a user account for them, with the necessary fields and options for setting up their account, such as username, password, role assignment, and any other relevant information. This will help streamline the onboarding process for new employees and ensure that they have the necessary access to the system from the start of their employment. Make sure to filter it to only show new hires that do not have an existing user account to avoid confusion and ensure that the admin can easily identify which new hires require account creation. See recruitment module for the the necessary flow.
+- [x] Add a reset password flow for employees and staff, allowing the admin to reset the password for an employee or staff member when needed. Keep this simple for now, the admin can set a temporary password for the employee or staff member, and the system will send an email to the user with the temporary password and instructions to change their password upon their next login. This will help ensure that the admin can assist employees and staff members in regaining access to their accounts when they forget their passwords or encounter any login issues, while also maintaining security by requiring users to change their temporary passwords after they log in.
+- [x] Hired applicants (who are already added as an employee) should be listed under new hires without employee accounts, and there should be an action to create an employee account for them. When the admin clicks the action to create an employee account for a hired applicant, it should trigger the flow of adding them as an employee in the recruitment module, which will then create an employee account for them in the system. This will help ensure that all hired applicants are properly onboarded into the system with their employee accounts created, allowing them to access the necessary features and information as employees from the start of their employment. Additionally, make sure that when creating an employee account for a hired applicant, it uses the email they provided in their application to ensure that they receive the necessary information and credentials to access the system.
+- [x] Verify the flow of Add as Employee in Recruitment module to ensure that when a new hire is added as an employee, it properly creates an employee account for them in the system and that the necessary information is captured and reflected in their profile. This includes verifying that the employee account is created with the correct role and permissions, and that the relevant details from the recruitment process are transferred to the employee profile accurately. Additionally, ensure that any notifications or communications related to the creation of the employee account are triggered appropriately, such as sending a welcome email to the new hire with their account credentials and notifying the admin of the successful account creation.
+- [x] Create a table for new hires without employee accounts. This table should list all new hires who do not yet have an employee account in the system, along with relevant information such as their name, position, department. Creating an account should email the new hire with their account credentials and a welcome message, and it should also trigger a notification to the admin confirming that the account has been created successfully. The email they used in their application should be used for the account creation to ensure that they receive the necessary information to access the system. This will help ensure a smooth onboarding process for new employees and allow them to access the system with ease from the start of their employment.
+- [x] Prevent disabling protected admin account.
+- [x] Keep employment classification options aligned to policy.
+- [x] Auto-populate Division on user selection.
+- [x] Remove Office Type when deployment is central-office-only.
+- [x] Keep role assignment/support-ticket routing aligned with privileges.
 - [ ] Enforce max 2 active admins.
 
 ---
@@ -748,6 +752,7 @@ Fatal error: Uncaught Error: Call to undefined function isValidUuid() in D:\xamp
 
 ### Admin
 - [ ] Route/resolve support tickets and forward to staff when needed.
+- [ ] Make sure that the support module complies with the employees' requests and inquiries, and that the admin can effectively manage and resolve support tickets in a timely manner. This includes ensuring that the support request flow for profile change requests is properly implemented, allowing employees to submit their requests with the necessary attachments, and that the admin can review and take appropriate action on these requests. Additionally, ensure that the inquiry/support submission flow for applicants is functioning correctly, allowing them to submit their inquiries or support requests and that the admin can effectively manage and respond to these submissions as well.
 
 ---
 

@@ -3,9 +3,9 @@ require_once __DIR__ . '/includes/report-analytics/bootstrap.php';
 require_once __DIR__ . '/includes/report-analytics/actions.php';
 require_once __DIR__ . '/includes/report-analytics/data.php';
 
-$pageTitle = 'Report and Analytics | Admin';
+$pageTitle = 'REPORTS and Analytics | Admin';
 $activePage = 'report-analytics.php';
-$breadcrumbs = ['Report and Analytics'];
+$breadcrumbs = ['REPORTS and Analytics'];
 
 $state = cleanText($_GET['state'] ?? null);
 $message = cleanText($_GET['message'] ?? null);

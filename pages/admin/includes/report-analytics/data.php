@@ -30,11 +30,57 @@ $payrollResponse = apiRequest(
     $headers
 );
 
+$documentsResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/documents?select=id,document_status,updated_at&order=updated_at.desc&limit=5000',
+    $headers
+);
+
+$performanceResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/performance_evaluations?select=id,status,updated_at&order=updated_at.desc&limit=5000',
+    $headers
+);
+
+$applicationsResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/applications?select=id,application_status,submitted_at&order=submitted_at.desc&limit=5000',
+    $headers
+);
+
+$auditLogsResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/activity_logs?select=id,module_name,action_name,created_at&order=created_at.desc&limit=2000',
+    $headers
+);
+
+$latePolicyModeResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/system_settings?select=setting_value&setting_key=eq.' . rawurlencode('timekeeping.late_policy_mode') . '&limit=1',
+    $headers
+);
+
+$latePolicySettingResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/system_settings?select=setting_value&setting_key=eq.' . rawurlencode('timekeeping.late_policy') . '&limit=1',
+    $headers
+);
+
+$holidayPolicyResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/system_settings?select=setting_value&setting_key=eq.' . rawurlencode('timekeeping.holiday_payroll_policy') . '&limit=1',
+    $headers
+);
+
 $employmentRecords = isSuccessful($employmentResponse) ? $employmentResponse['data'] : [];
 $people = isSuccessful($peopleResponse) ? $peopleResponse['data'] : [];
 $offices = isSuccessful($officesResponse) ? $officesResponse['data'] : [];
 $attendanceLogs = isSuccessful($attendanceResponse) ? $attendanceResponse['data'] : [];
 $payrollItems = isSuccessful($payrollResponse) ? $payrollResponse['data'] : [];
+$documents = isSuccessful($documentsResponse) ? $documentsResponse['data'] : [];
+$performanceEvaluations = isSuccessful($performanceResponse) ? $performanceResponse['data'] : [];
+$applications = isSuccessful($applicationsResponse) ? $applicationsResponse['data'] : [];
+$auditLogs = isSuccessful($auditLogsResponse) ? $auditLogsResponse['data'] : [];
 
 $dataLoadError = null;
 if (!isSuccessful($employmentResponse)) {
@@ -51,6 +97,18 @@ if (!isSuccessful($attendanceResponse)) {
 }
 if (!isSuccessful($payrollResponse)) {
     $dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Payroll query failed (HTTP ' . (int)($payrollResponse['status'] ?? 0) . ').');
+}
+if (!isSuccessful($documentsResponse)) {
+    $dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Documents query failed (HTTP ' . (int)($documentsResponse['status'] ?? 0) . ').');
+}
+if (!isSuccessful($performanceResponse)) {
+    $dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Performance query failed (HTTP ' . (int)($performanceResponse['status'] ?? 0) . ').');
+}
+if (!isSuccessful($applicationsResponse)) {
+    $dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Applications query failed (HTTP ' . (int)($applicationsResponse['status'] ?? 0) . ').');
+}
+if (!isSuccessful($auditLogsResponse)) {
+    $dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Audit log query failed (HTTP ' . (int)($auditLogsResponse['status'] ?? 0) . ').');
 }
 
 $currentEmploymentByPerson = [];
@@ -206,6 +264,112 @@ foreach ($payrollItems as $item) {
         $payrollPrevious['net'] += $net;
     }
 }
+
+$reportsPolicyHasNoLateMode = static function (mixed $value) use (&$reportsPolicyHasNoLateMode): bool {
+    if (is_array($value)) {
+        foreach ($value as $nestedKey => $nestedValue) {
+            $normalizedKey = strtolower(trim((string)$nestedKey));
+            if (in_array($normalizedKey, ['late_policy_mode', 'late_policy', 'policy_mode', 'mode'], true) && $reportsPolicyHasNoLateMode($nestedValue)) {
+                return true;
+            }
+
+            if ($reportsPolicyHasNoLateMode($nestedValue)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    $raw = strtolower(trim((string)$value));
+    if ($raw === '') {
+        return false;
+    }
+
+    if (in_array($raw, ['no_late', 'no-late', 'no late'], true)) {
+        return true;
+    }
+
+    if (str_contains($raw, 'no_late') || str_contains($raw, 'no-late') || str_contains($raw, 'no late')) {
+        return true;
+    }
+
+    if (str_starts_with($raw, '{') || str_starts_with($raw, '[')) {
+        $decoded = json_decode((string)$value, true);
+        if (is_array($decoded)) {
+            return $reportsPolicyHasNoLateMode($decoded);
+        }
+    }
+
+    return false;
+};
+
+$noLatePolicyApproved = false;
+$policyCandidates = [];
+if (isSuccessful($latePolicyModeResponse) && !empty((array)($latePolicyModeResponse['data'] ?? []))) {
+    $policyCandidates[] = $latePolicyModeResponse['data'][0]['setting_value'] ?? null;
+}
+if (isSuccessful($latePolicySettingResponse) && !empty((array)($latePolicySettingResponse['data'] ?? []))) {
+    $policyCandidates[] = $latePolicySettingResponse['data'][0]['setting_value'] ?? null;
+}
+if (isSuccessful($holidayPolicyResponse) && !empty((array)($holidayPolicyResponse['data'] ?? []))) {
+    $policyCandidates[] = $holidayPolicyResponse['data'][0]['setting_value'] ?? null;
+}
+foreach ($policyCandidates as $candidate) {
+    if ($reportsPolicyHasNoLateMode($candidate)) {
+        $noLatePolicyApproved = true;
+        break;
+    }
+}
+
+$documentPendingCount = 0;
+foreach ($documents as $documentRaw) {
+    $status = strtolower(trim((string)($documentRaw['document_status'] ?? '')));
+    if (in_array($status, ['pending', 'submitted', 'for_review', 'needs_revision'], true)) {
+        $documentPendingCount++;
+    }
+}
+
+$performanceCompletedCount = 0;
+foreach ($performanceEvaluations as $evaluationRaw) {
+    $status = strtolower(trim((string)($evaluationRaw['status'] ?? '')));
+    if (in_array($status, ['completed', 'approved', 'published', 'finalized'], true)) {
+        $performanceCompletedCount++;
+    }
+}
+
+$recruitmentSubmittedCount = 0;
+$recruitmentHiredCount = 0;
+foreach ($applications as $applicationRaw) {
+    $status = strtolower(trim((string)($applicationRaw['application_status'] ?? '')));
+    if ($status === 'submitted') {
+        $recruitmentSubmittedCount++;
+    }
+    if ($status === 'hired') {
+        $recruitmentHiredCount++;
+    }
+}
+
+$auditLogsLast30Days = 0;
+$auditWindowStartTs = strtotime('-30 days');
+foreach ($auditLogs as $auditLogRaw) {
+    $createdAt = (string)($auditLogRaw['created_at'] ?? '');
+    $createdTs = $createdAt !== '' ? strtotime($createdAt) : false;
+    if ($createdTs !== false && $createdTs >= $auditWindowStartTs) {
+        $auditLogsLast30Days++;
+    }
+}
+
+$crossModuleKpis = [
+    'attendance_logs' => count($attendanceLogs),
+    'payroll_items' => count($payrollItems),
+    'recruitment_submitted' => $recruitmentSubmittedCount,
+    'recruitment_hired' => $recruitmentHiredCount,
+    'documents_total' => count($documents),
+    'documents_pending' => $documentPendingCount,
+    'performance_completed' => $performanceCompletedCount,
+    'audit_logs_30_days' => $auditLogsLast30Days,
+];
 
 $departmentsForFilter = array_values($officeNameById);
 sort($departmentsForFilter);
