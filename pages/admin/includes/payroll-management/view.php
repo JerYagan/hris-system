@@ -506,7 +506,7 @@ $setupStatusPill = static function (string $status): array {
                 </div>
             </header>
 
-            <form id="generatePayrollBatchForm" action="payroll-management.php" method="POST" class="p-6 text-sm space-y-4">
+            <form id="generatePayrollPeriodPickerForm" action="payroll-management.php" method="POST" class="p-6 text-sm space-y-4">
                 <input type="hidden" name="form_action" value="generate_payroll_batch">
                 <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div class="md:col-span-2">
@@ -642,7 +642,7 @@ $setupStatusPill = static function (string $status): array {
                                     <p class="text-slate-500 text-xs">No staff-submitted adjustments</p>
                                 <?php endif; ?>
                             </td>
-                            <td class="px-4 py-3"><span class="inline-flex items-center justify-center min-w-[95px] px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
+                            <td class="px-4 py-3"><span class="inline-flex items-center justify-center text-center min-w-[95px] px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td class="px-4 py-3">
                                 <div class="flex items-center gap-2">
                                     <button
@@ -786,8 +786,6 @@ $setupStatusPill = static function (string $status): array {
                 <tr>
                     <th class="text-left px-4 py-3">Employee</th>
                     <th class="text-left px-4 py-3">Cutoff</th>
-                    <th class="text-left px-4 py-3">Earnings Breakdown</th>
-                    <th class="text-left px-4 py-3">Deduction Breakdown</th>
                     <th class="text-left px-4 py-3">Net Pay</th>
                     <th class="text-left px-4 py-3">Status</th>
                     <th class="text-left px-4 py-3">Action</th>
@@ -796,39 +794,48 @@ $setupStatusPill = static function (string $status): array {
             <tbody class="divide-y divide-slate-100">
                 <?php if (empty($payslipTableRows)): ?>
                     <tr>
-                        <td class="px-4 py-3 text-slate-500" colspan="7">No payroll items found.</td>
+                        <td class="px-4 py-3 text-slate-500" colspan="5">No payroll items found.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($payslipTableRows as $row): ?>
                         <?php
                         [$statusLabel, $statusClass] = $payslipStatusPill((string)$row['status']);
                         $searchText = strtolower(trim((string)$row['employee_name'] . ' ' . (string)$row['period_label'] . ' ' . (string)$row['payslip_no']));
+                        $breakdownPayload = [
+                            'employee_name' => (string)($row['employee_name'] ?? '-'),
+                            'period_label' => (string)($row['period_label'] ?? '-'),
+                            'payslip_no' => (string)($row['payslip_no'] ?? '-'),
+                            'status_label' => $statusLabel,
+                            'basic_pay' => (float)($row['basic_pay'] ?? 0),
+                            'cto_pay' => (float)($row['cto_pay'] ?? 0),
+                            'allowances_total' => (float)($row['allowances_total'] ?? 0),
+                            'gross_pay' => (float)($row['gross_pay'] ?? 0),
+                            'statutory_deductions' => (float)($row['statutory_deductions'] ?? 0),
+                            'timekeeping_deductions' => (float)($row['timekeeping_deductions'] ?? 0),
+                            'adjustment_deductions' => (float)($row['adjustment_deductions'] ?? 0),
+                            'adjustment_earnings' => (float)($row['adjustment_earnings'] ?? 0),
+                            'absent_days' => (int)($row['absent_days'] ?? 0),
+                            'late_minutes' => (int)($row['late_minutes'] ?? 0),
+                            'undertime_hours' => (float)($row['undertime_hours'] ?? 0),
+                            'deductions_total' => (float)($row['deductions_total'] ?? 0),
+                            'net_pay' => (float)($row['net_pay'] ?? 0),
+                        ];
+                        $breakdownPayloadJson = htmlspecialchars((string)json_encode($breakdownPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8');
                         ?>
                         <tr class="hover:bg-slate-100 transition-colors" data-payroll-payslip-search="<?= htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8') ?>" data-payroll-payslip-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>">
                             <td class="px-4 py-3"><?= htmlspecialchars((string)$row['employee_name'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)$row['period_label'], ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3 text-xs text-slate-700 leading-5">
-                                <p>Basic: <?= htmlspecialchars($currency((float)($row['basic_pay'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></p>
-                                <p>CTO: <?= htmlspecialchars($currency((float)($row['cto_pay'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></p>
-                                <p>Allowances: <?= htmlspecialchars($currency((float)($row['allowances_total'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></p>
-                                <p class="font-medium text-slate-800">Gross: <?= htmlspecialchars($currency((float)$row['gross_pay']), ENT_QUOTES, 'UTF-8') ?></p>
-                            </td>
-                            <td class="px-4 py-3 text-xs text-slate-700 leading-5">
-                                <p>Statutory: <?= htmlspecialchars($currency((float)($row['statutory_deductions'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></p>
-                                <p>Timekeeping: <?= htmlspecialchars($currency((float)($row['timekeeping_deductions'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></p>
-                                <p>Adj. Deduction: <?= htmlspecialchars($currency((float)($row['adjustment_deductions'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></p>
-                                <p>Adj. Earning: <?= htmlspecialchars($currency((float)($row['adjustment_earnings'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></p>
-                                <p class="text-[11px] text-slate-500">Absent: <?= (int)($row['absent_days'] ?? 0) ?>, Late: <?= (int)($row['late_minutes'] ?? 0) ?> min, Undertime: <?= number_format((float)($row['undertime_hours'] ?? 0), 2) ?> h</p>
-                                <p class="font-medium text-slate-800">Total: <?= htmlspecialchars($currency((float)$row['deductions_total']), ENT_QUOTES, 'UTF-8') ?></p>
-                            </td>
                             <td class="px-4 py-3"><?= htmlspecialchars($currency((float)$row['net_pay']), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><span class="inline-flex items-center justify-center min-w-[95px] px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td class="px-4 py-3">
-                                <?php if (!empty($row['pdf_storage_path'])): ?>
-                                    <a href="<?= htmlspecialchars((string)$row['pdf_storage_path'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm"><span class="material-symbols-outlined text-[15px]">description</span>View Payslip</a>
-                                <?php else: ?>
-                                    <span class="px-2.5 py-1.5 text-xs rounded-md border border-slate-200 text-slate-400 bg-slate-50">Not Uploaded</span>
-                                <?php endif; ?>
+                                <div class="inline-flex items-center gap-2">
+                                    <button type="button" data-open-admin-payslip-breakdown data-payload="<?= $breakdownPayloadJson ?>" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 shadow-sm"><span class="material-symbols-outlined text-[15px]">receipt_long</span>View Breakdown</button>
+                                    <?php if (!empty($row['pdf_storage_path'])): ?>
+                                        <a href="<?= htmlspecialchars((string)$row['pdf_storage_path'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm"><span class="material-symbols-outlined text-[15px]">description</span>View Payslip</a>
+                                    <?php else: ?>
+                                        <span class="px-2.5 py-1.5 text-xs rounded-md border border-slate-200 text-slate-400 bg-slate-50">Not Uploaded</span>
+                                    <?php endif; ?>
+                                </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -837,6 +844,73 @@ $setupStatusPill = static function (string $status): array {
         </table>
     </div>
 </section>
+
+<div id="adminPayslipBreakdownModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-slate-900/60" data-modal-close="adminPayslipBreakdownModal"></div>
+    <div class="relative min-h-full flex items-start sm:items-center justify-center p-4 sm:p-6 overflow-y-auto">
+        <div class="w-full max-w-4xl max-h-[92vh] overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-slate-800">Payslip Breakdown</h3>
+                <button type="button" data-modal-close="adminPayslipBreakdownModal" class="text-slate-500 hover:text-slate-700">✕</button>
+            </div>
+
+            <div class="p-6 space-y-4 text-sm">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div>
+                        <p class="text-slate-500 text-xs uppercase">Employee</p>
+                        <p id="adminPayslipBreakdownEmployee" class="font-medium text-slate-800 mt-1">-</p>
+                    </div>
+                    <div>
+                        <p class="text-slate-500 text-xs uppercase">Period</p>
+                        <p id="adminPayslipBreakdownPeriod" class="font-medium text-slate-800 mt-1">-</p>
+                    </div>
+                    <div>
+                        <p class="text-slate-500 text-xs uppercase">Payslip No.</p>
+                        <p id="adminPayslipBreakdownNo" class="font-medium text-slate-800 mt-1">-</p>
+                    </div>
+                    <div>
+                        <p class="text-slate-500 text-xs uppercase">Status</p>
+                        <p id="adminPayslipBreakdownStatus" class="font-medium text-slate-800 mt-1">-</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="rounded-xl border border-slate-200 overflow-hidden">
+                        <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 font-medium text-slate-700">Earnings</div>
+                        <div id="adminPayslipBreakdownEarnings" class="divide-y divide-slate-100"></div>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 overflow-hidden">
+                        <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 font-medium text-slate-700">Deductions</div>
+                        <div id="adminPayslipBreakdownDeductions" class="divide-y divide-slate-100"></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <article class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                        <p class="text-xs text-slate-500">Gross Pay</p>
+                        <p id="adminPayslipBreakdownGross" class="text-base font-semibold text-slate-800 mt-1">₱0.00</p>
+                    </article>
+                    <article class="rounded-lg border border-slate-200 bg-rose-50 px-4 py-3">
+                        <p class="text-xs text-rose-700">Total Deductions</p>
+                        <p id="adminPayslipBreakdownTotalDeductions" class="text-base font-semibold text-rose-700 mt-1">₱0.00</p>
+                    </article>
+                    <article class="rounded-lg border border-slate-200 bg-emerald-50 px-4 py-3">
+                        <p class="text-xs text-emerald-700">Net Pay</p>
+                        <p id="adminPayslipBreakdownNet" class="text-base font-semibold text-emerald-700 mt-1">₱0.00</p>
+                    </article>
+                </div>
+
+                <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                    <p id="adminPayslipBreakdownAttendance" class="text-xs text-slate-600">Attendance impact: -</p>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 border-t border-slate-200 flex justify-end">
+                <button type="button" data-modal-close="adminPayslipBreakdownModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div id="releasePayslipsModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-slate-900/60" data-modal-close="releasePayslipsModal"></div>
@@ -890,6 +964,12 @@ $setupStatusPill = static function (string $status): array {
             </div>
         </div>
 
+        <div>
+            <label class="text-slate-700 font-medium">Release Reason</label>
+            <textarea name="release_reason" rows="3" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="State the reason for releasing and sending this payroll batch." required></textarea>
+            <p class="text-xs text-slate-500 mt-1">Required for immutable audit logs of send attempts/results.</p>
+        </div>
+
         <div class="rounded-lg border border-slate-200 bg-white px-4 py-3">
             <p id="releasePayslipRunHint" class="text-xs text-slate-600">Select a payroll batch to review release details before sending payslips.</p>
             <p id="releasePayslipRunMeta" class="text-sm text-slate-800 mt-1">No payroll batch selected.</p>
@@ -908,14 +988,14 @@ $setupStatusPill = static function (string $status): array {
 
 <div id="generatePayrollSummaryModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-slate-900/60" data-modal-close="generatePayrollSummaryModal"></div>
-    <div class="relative min-h-full flex items-center justify-center p-4">
-        <div class="w-full max-w-4xl bg-white rounded-2xl border border-slate-200 shadow-xl">
+    <div class="relative min-h-full flex items-start sm:items-center justify-center p-4 sm:p-6 overflow-y-auto">
+        <div class="w-full max-w-4xl max-h-[92vh] overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl">
             <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
                 <h3 class="text-lg font-semibold text-slate-800">Confirm Payroll Batch Generation</h3>
                 <button type="button" data-modal-close="generatePayrollSummaryModal" class="text-slate-500 hover:text-slate-700">✕</button>
             </div>
 
-            <form action="payroll-management.php" method="POST" class="p-6 space-y-4 text-sm">
+            <form id="generatePayrollSummaryForm" action="payroll-management.php" method="POST" class="p-6 space-y-4 text-sm">
                 <input type="hidden" name="form_action" value="generate_payroll_batch">
                 <input type="hidden" id="generatePayrollPeriodIdConfirm" name="payroll_period_id" value="">
 
@@ -1022,7 +1102,7 @@ $setupStatusPill = static function (string $status): array {
                 </div>
                 <div class="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
                     <p class="text-xs uppercase tracking-wide text-slate-500">Payroll Computation Breakdown</p>
-                    <p class="text-xs text-slate-600 mt-1">Includes salary setup components, timekeeping deductions, and adjustment impact per employee.</p>
+                    <p class="text-xs text-slate-600 mt-1">Includes salary setup components, leave-card aligned deductions (late/undertime), and adjustment impact per employee.</p>
                     <div class="mt-3 grid grid-cols-1 md:grid-cols-4 gap-3">
                         <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
                             <p class="text-xs text-slate-500">Employees</p>
@@ -1048,10 +1128,11 @@ $setupStatusPill = static function (string $status): array {
                                     <th class="text-left px-3 py-2">Employee</th>
                                     <th class="text-right px-3 py-2">Basic Pay</th>
                                     <th class="text-right px-3 py-2">Allowances</th>
-                                    <th class="text-right px-3 py-2">CTO Pay</th>
+                                    <th class="text-right px-3 py-2">CTO Leave UT w/ Pay</th>
                                     <th class="text-right px-3 py-2">Statutory</th>
                                     <th class="text-right px-3 py-2">Timekeeping</th>
-                                    <th class="text-right px-3 py-2">Attendance (A/L/U)</th>
+                                    <th class="text-right px-3 py-2">Late/Undertime</th>
+                                    <th class="text-left px-3 py-2">Remarks</th>
                                     <th class="text-right px-3 py-2">Adj +/-</th>
                                     <th class="text-right px-3 py-2">Gross</th>
                                     <th class="text-right px-3 py-2">Net</th>
@@ -1059,7 +1140,7 @@ $setupStatusPill = static function (string $status): array {
                             </thead>
                             <tbody id="payrollBatchBreakdownBody" class="divide-y divide-slate-100">
                                 <tr id="payrollBatchBreakdownEmptyRow">
-                                    <td class="px-3 py-3 text-slate-500" colspan="10">No computation breakdown available for this batch.</td>
+                                    <td class="px-3 py-3 text-slate-500" colspan="11">No computation breakdown available for this batch.</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -1122,7 +1203,7 @@ $setupStatusPill = static function (string $status): array {
                 </div>
                 <div class="md:col-span-2">
                     <label class="text-slate-600">Notes</label>
-                    <textarea name="notes" rows="3" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Add review notes or exception details."></textarea>
+                    <textarea name="notes" rows="3" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="State the reason for approve/cancel decision." required></textarea>
                 </div>
                 <div class="md:col-span-2 flex justify-end gap-3 mt-2">
                     <button type="button" data-modal-close="reviewPayrollBatchModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button>

@@ -199,6 +199,10 @@ foreach ($courseRecords as $courseRecord) {
     $statusRaw = $courseDbToVirtual($statusDb);
     $statusLabel = ucwords(str_replace('_', ' ', $statusRaw));
 
+    if ($statusRaw === 'draft') {
+        continue;
+    }
+
     $formattedStartDate = $formatTrainingDate($startDate);
     $formattedEndDate = $formatTrainingDate($endDate);
     $dateLabel = $formattedStartDate !== '' ? $formattedStartDate : ($formattedEndDate !== '' ? $formattedEndDate : '-');

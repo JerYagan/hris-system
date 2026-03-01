@@ -14,11 +14,14 @@ ob_start();
 $escape = static function (mixed $value): string {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 };
+
+$trainingHistoryPreviewRows = array_slice($trainingHistoryRows ?? [], 0, 3);
+$hasMoreTrainingHistory = count($trainingHistoryRows ?? []) > 3;
 ?>
 
 <div class="mb-6">
   <h1 class="text-2xl font-bold">Learning and Development</h1>
-  <p class="text-sm text-gray-500">View available training programs, enroll, and track your completion records.</p>
+  <p class="text-sm text-gray-500">View trainings in one workspace and switch between available programs and your enrollments.</p>
 </div>
 
 <?php if (!empty($message)): ?>
@@ -36,7 +39,7 @@ $escape = static function (mixed $value): string {
 
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 text-sm">
   <article class="bg-white border rounded-lg p-4">
-    <p class="text-gray-500">Available Trainings</p>
+    <p class="text-gray-500">Assigned Trainings</p>
     <p class="text-2xl font-semibold mt-1"><?= (int)($learningSummary['available_count'] ?? 0) ?></p>
   </article>
   <article class="bg-white border rounded-lg p-4">
@@ -75,36 +78,47 @@ $escape = static function (mixed $value): string {
 
   <section class="bg-white border rounded-lg p-5">
     <div class="mb-4">
-      <h2 class="text-lg font-semibold">Certificates</h2>
-      <p class="text-sm text-gray-500">Certificate links for attended trainings.</p>
+      <h2 class="text-lg font-semibold">Training History</h2>
+      <p class="text-sm text-gray-500">Recent outcomes from your enrolled trainings.</p>
     </div>
 
     <ul class="space-y-3 text-sm">
-      <?php if (empty($certificateAlerts)): ?>
-        <li class="rounded-lg border border-dashed border-gray-300 px-4 py-3 text-gray-500">No certificates available yet.</li>
+      <?php if (empty($trainingHistoryPreviewRows)): ?>
+        <li class="rounded-lg border border-dashed border-gray-300 px-4 py-3 text-gray-500">No training history available yet.</li>
       <?php else: ?>
-        <?php foreach ($certificateAlerts as $certificate): ?>
+        <?php foreach ($trainingHistoryPreviewRows as $history): ?>
           <li class="rounded-lg border px-4 py-3 flex items-center justify-between gap-3">
             <div>
-              <p class="font-medium"><?= $escape($certificate['title'] ?? 'Training') ?></p>
-              <p class="text-xs text-gray-500 mt-1"><?= $escape($certificate['meta'] ?? '-') ?></p>
+              <p class="font-medium"><?= $escape($history['title'] ?? 'Training') ?></p>
+              <p class="text-xs text-gray-500 mt-1"><?= $escape(($history['date_label'] ?? '-') . ' · ' . ($history['provider'] ?? '-')) ?></p>
             </div>
-            <?php if (!empty($certificate['certificate_url'])): ?>
-              <a href="<?= $escape((string)$certificate['certificate_url']) ?>" target="_blank" rel="noopener noreferrer" class="text-xs text-blue-600 hover:underline">View</a>
-            <?php else: ?>
-              <span class="text-xs text-gray-400">Pending</span>
-            <?php endif; ?>
+            <span class="inline-flex min-w-[96px] justify-center px-2 py-1 text-xs rounded-full <?= $escape((string)($history['status_class'] ?? 'bg-gray-100 text-gray-700')) ?>">
+              <?= $escape((string)($history['status_label'] ?? 'Enrolled')) ?>
+            </span>
           </li>
         <?php endforeach; ?>
+        <?php if ($hasMoreTrainingHistory): ?>
+          <li>
+            <button id="openTrainingHistoryModal" type="button" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100">Show More</button>
+          </li>
+        <?php endif; ?>
       <?php endif; ?>
     </ul>
   </section>
 </div>
 
-<section class="mb-8">
-  <div class="flex flex-wrap gap-3 items-end mb-3">
+<section class="mb-8 bg-white border rounded-2xl p-4 md:p-6">
+  <div class="mb-5">
+    <div class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1" role="tablist" aria-label="Training views">
+      <button type="button" id="lndViewAvailableTab" data-lnd-tab="available" class="px-3 py-1.5 rounded-md text-sm font-medium bg-white text-gray-900 shadow-sm" aria-selected="true">Available Trainings</button>
+      <button type="button" id="lndViewEnrolledTab" data-lnd-tab="enrolled" class="px-3 py-1.5 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900" aria-selected="false">My Enrollments</button>
+    </div>
+  </div>
+
+<section id="lndTabAvailablePanel" data-lnd-tab-panel="available" class="mb-2">
+  <div class="flex flex-wrap gap-3 items-end mb-4">
     <div class="flex-1 min-w-[220px]">
-      <label class="block text-sm text-gray-600 mb-1">Search Available Trainings</label>
+      <label class="block text-sm text-gray-600 mb-1">Search Assigned Trainings</label>
       <input id="lndAvailableSearch" type="search" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Search title, type, category, provider">
     </div>
     <div class="w-full sm:w-52">
@@ -118,51 +132,75 @@ $escape = static function (mixed $value): string {
     </div>
   </div>
 
-  <div class="bg-white border rounded-lg overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead class="bg-gray-50 text-gray-600">
-        <tr>
-          <th class="px-4 py-3 text-left">Title</th>
-          <th class="px-4 py-3 text-left">Type</th>
-          <th class="px-4 py-3 text-left">Category</th>
-          <th class="px-4 py-3 text-left">Date</th>
-          <th class="px-4 py-3 text-left">Provider</th>
-          <th class="px-4 py-3 text-left">Action</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y">
-        <?php if (empty($availableTrainingRows)): ?>
-          <tr><td colspan="6" class="px-4 py-3 text-gray-500">No available trainings found.</td></tr>
-        <?php else: ?>
-          <?php foreach ($availableTrainingRows as $training): ?>
-            <tr data-lnd-available-row data-search="<?= $escape((string)($training['search_text'] ?? '')) ?>" data-status="<?= $escape((string)($training['status_raw'] ?? '')) ?>">
-              <td class="px-4 py-3"><?= $escape((string)($training['title'] ?? '-')) ?></td>
-              <td class="px-4 py-3"><?= $escape((string)($training['training_type'] ?? '-')) ?></td>
-              <td class="px-4 py-3"><?= $escape((string)($training['training_category'] ?? '-')) ?></td>
-              <td class="px-4 py-3"><?= $escape((string)($training['date_label'] ?? '-')) ?></td>
-              <td class="px-4 py-3"><?= $escape((string)($training['provider'] ?? '-')) ?></td>
-              <td class="px-4 py-3">
-                <?php if (!empty($training['is_enrolled'])): ?>
-                  <span class="inline-flex min-w-[96px] justify-center px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">Enrolled</span>
-                <?php else: ?>
-                  <form method="post" action="learning-and-development.php" class="inline-flex">
-                    <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken ?? '') ?>">
-                    <input type="hidden" name="action" value="enroll_training">
-                    <input type="hidden" name="program_id" value="<?= $escape((string)($training['program_id'] ?? '')) ?>">
-                    <button type="submit" class="inline-flex min-w-[96px] justify-center bg-daGreen text-white px-3 py-1.5 rounded text-xs">Enroll</button>
-                  </form>
-                <?php endif; ?>
-              </td>
-            </tr>
-          <?php endforeach; ?>
-        <?php endif; ?>
-      </tbody>
-    </table>
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" id="lndAvailableCardsContainer">
+    <?php if (empty($availableTrainingRows)): ?>
+      <article class="bg-gray-50 border border-dashed border-gray-300 rounded-xl p-5 text-sm text-gray-500">No available trainings found.</article>
+    <?php else: ?>
+      <?php foreach ($availableTrainingRows as $training): ?>
+        <article
+          data-lnd-available-card
+          data-lnd-training-card
+          data-search="<?= $escape((string)($training['search_text'] ?? '')) ?>"
+          data-status="<?= $escape((string)($training['status_raw'] ?? '')) ?>"
+          data-title="<?= $escape((string)($training['title'] ?? '-')) ?>"
+          data-provider="<?= $escape((string)($training['provider'] ?? '-')) ?>"
+          data-type="<?= $escape((string)($training['training_type'] ?? '-')) ?>"
+          data-category="<?= $escape((string)($training['training_category'] ?? '-')) ?>"
+          data-schedule="<?= $escape((string)($training['date_label'] ?? '-')) ?>"
+          data-program-status="<?= $escape((string)($training['status_raw'] ?? '-')) ?>"
+          data-enrollment-status="Admin Enrolled"
+          data-attendance="Pending"
+          tabindex="0"
+          role="button"
+          aria-label="View training details"
+          class="bg-gray-50 border border-gray-200 rounded-xl p-5 shadow-sm cursor-pointer transition duration-200 hover:border-blue-200 hover:shadow-md hover:-translate-y-0.5"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <h3 class="text-sm font-semibold text-gray-900 leading-snug"><?= $escape((string)($training['title'] ?? '-')) ?></h3>
+          </div>
+          <p class="text-xs text-gray-500 mt-1"><?= $escape((string)($training['provider'] ?? '-')) ?></p>
+
+          <dl class="mt-4 space-y-2 text-xs text-gray-600">
+            <div class="flex items-center justify-between gap-3">
+              <dt class="text-gray-500">Type</dt>
+              <dd class="font-medium text-gray-700 text-right"><?= $escape((string)($training['training_type'] ?? '-')) ?></dd>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <dt class="text-gray-500">Category</dt>
+              <dd class="font-medium text-gray-700 text-right"><?= $escape((string)($training['training_category'] ?? '-')) ?></dd>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <dt class="text-gray-500">Schedule</dt>
+              <dd class="font-medium text-gray-700 text-right"><?= $escape((string)($training['date_label'] ?? '-')) ?></dd>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <dt class="text-gray-500">Program Status</dt>
+              <dd class="font-medium text-gray-700 text-right capitalize"><?= $escape((string)($training['status_raw'] ?? '-')) ?></dd>
+            </div>
+          </dl>
+
+          <div class="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between gap-2">
+            <span class="text-xs text-gray-500">Enrollment is managed by Admin.</span>
+            <button type="button" data-lnd-view-details class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100">View Details</button>
+          </div>
+        </article>
+      <?php endforeach; ?>
+    <?php endif; ?>
+  </div>
+
+  <div id="lndAvailableFilterEmpty" class="hidden bg-gray-50 border border-dashed border-gray-300 rounded-xl p-5 text-sm text-gray-500">No assigned trainings match your search/filter criteria.</div>
+
+  <div class="px-1 pt-4 flex items-center justify-between gap-3 text-xs text-gray-600">
+    <p id="lndAvailablePageInfo">Page 1 of 1</p>
+    <div class="flex items-center gap-2">
+      <button id="lndAvailablePrevPage" type="button" class="px-2.5 py-1.5 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>Previous</button>
+      <button id="lndAvailableNextPage" type="button" class="px-2.5 py-1.5 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>Next</button>
+    </div>
   </div>
 </section>
 
-<section>
-  <div class="flex flex-wrap gap-3 items-end mb-3">
+<section id="lndTabEnrolledPanel" data-lnd-tab-panel="enrolled" class="hidden">
+  <div class="flex flex-wrap gap-3 items-end mb-4">
     <div class="flex-1 min-w-[220px]">
       <label class="block text-sm text-gray-600 mb-1">Search My Trainings</label>
       <input id="lndTakenSearch" type="search" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Search title, status, attendance">
@@ -179,55 +217,172 @@ $escape = static function (mixed $value): string {
     </div>
   </div>
 
-  <div class="bg-white border rounded-lg overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead class="bg-gray-50 text-gray-600">
-        <tr>
-          <th class="px-4 py-3 text-left">Training Title</th>
-          <th class="px-4 py-3 text-left">Type</th>
-          <th class="px-4 py-3 text-left">Category</th>
-          <th class="px-4 py-3 text-left">Date</th>
-          <th class="px-4 py-3 text-left">Provider</th>
-          <th class="px-4 py-3 text-left">Location Status</th>
-          <th class="px-4 py-3 text-left">Enrollment</th>
-          <th class="px-4 py-3 text-left">Certificate</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y">
-        <?php if (empty($takenTrainingRows)): ?>
-          <tr><td colspan="8" class="px-4 py-3 text-gray-500">No enrolled trainings yet.</td></tr>
-        <?php else: ?>
-          <?php foreach ($takenTrainingRows as $training): ?>
-            <tr data-lnd-taken-row data-search="<?= $escape((string)($training['search_text'] ?? '')) ?>" data-status="<?= $escape((string)($training['enrollment_status_raw'] ?? '')) ?>">
-              <td class="px-4 py-3"><?= $escape((string)($training['title'] ?? '-')) ?></td>
-              <td class="px-4 py-3"><?= $escape((string)($training['training_type'] ?? '-')) ?></td>
-              <td class="px-4 py-3"><?= $escape((string)($training['training_category'] ?? '-')) ?></td>
-              <td class="px-4 py-3"><?= $escape((string)($training['date_label'] ?? '-')) ?></td>
-              <td class="px-4 py-3"><?= $escape((string)($training['provider'] ?? '-')) ?></td>
-              <td class="px-4 py-3">
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" id="lndTakenCardsContainer">
+    <?php if (empty($takenTrainingRows)): ?>
+      <article class="bg-gray-50 border border-dashed border-gray-300 rounded-xl p-5 text-sm text-gray-500">No enrolled trainings yet.</article>
+    <?php else: ?>
+      <?php foreach ($takenTrainingRows as $training): ?>
+        <article
+          data-lnd-taken-card
+          data-lnd-training-card
+          data-search="<?= $escape((string)($training['search_text'] ?? '')) ?>"
+          data-status="<?= $escape((string)($training['enrollment_status_raw'] ?? '')) ?>"
+          data-title="<?= $escape((string)($training['title'] ?? '-')) ?>"
+          data-provider="<?= $escape((string)($training['provider'] ?? '-')) ?>"
+          data-type="<?= $escape((string)($training['training_type'] ?? '-')) ?>"
+          data-category="<?= $escape((string)($training['training_category'] ?? '-')) ?>"
+          data-schedule="<?= $escape((string)($training['date_label'] ?? '-')) ?>"
+          data-program-status="<?= $escape((string)($training['enrollment_status_label'] ?? 'Enrolled')) ?>"
+          data-enrollment-status="<?= $escape((string)($training['enrollment_status_label'] ?? 'Enrolled')) ?>"
+          data-attendance="<?= $escape((string)($training['attendance_label'] ?? 'Pending')) ?>"
+          tabindex="0"
+          role="button"
+          aria-label="View training details"
+          class="bg-gray-50 border border-gray-200 rounded-xl p-5 shadow-sm cursor-pointer transition duration-200 hover:border-blue-200 hover:shadow-md hover:-translate-y-0.5"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <h3 class="text-sm font-semibold text-gray-900 leading-snug"><?= $escape((string)($training['title'] ?? '-')) ?></h3>
+            <span class="inline-flex min-w-[96px] justify-center px-2 py-1 text-xs rounded-full <?= $escape((string)($training['enrollment_status_class'] ?? 'bg-gray-100 text-gray-700')) ?>">
+              <?= $escape((string)($training['enrollment_status_label'] ?? 'Enrolled')) ?>
+            </span>
+          </div>
+          <p class="text-xs text-gray-500 mt-1"><?= $escape((string)($training['provider'] ?? '-')) ?></p>
+
+          <dl class="mt-4 space-y-2 text-xs text-gray-600">
+            <div class="flex items-center justify-between gap-3">
+              <dt class="text-gray-500">Type</dt>
+              <dd class="font-medium text-gray-700 text-right"><?= $escape((string)($training['training_type'] ?? '-')) ?></dd>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <dt class="text-gray-500">Category</dt>
+              <dd class="font-medium text-gray-700 text-right"><?= $escape((string)($training['training_category'] ?? '-')) ?></dd>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <dt class="text-gray-500">Schedule</dt>
+              <dd class="font-medium text-gray-700 text-right"><?= $escape((string)($training['date_label'] ?? '-')) ?></dd>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <dt class="text-gray-500">Attendance</dt>
+              <dd>
                 <span class="inline-flex min-w-[96px] justify-center px-2 py-1 text-xs rounded-full <?= $escape((string)($training['attendance_class'] ?? 'bg-gray-100 text-gray-700')) ?>">
                   <?= $escape((string)($training['attendance_label'] ?? 'Pending')) ?>
                 </span>
-              </td>
-              <td class="px-4 py-3">
-                <span class="inline-flex min-w-[96px] justify-center px-2 py-1 text-xs rounded-full <?= $escape((string)($training['enrollment_status_class'] ?? 'bg-gray-100 text-gray-700')) ?>">
-                  <?= $escape((string)($training['enrollment_status_label'] ?? 'Enrolled')) ?>
-                </span>
-              </td>
-              <td class="px-4 py-3">
-                <?php if (!empty($training['certificate_url'])): ?>
-                  <a href="<?= $escape((string)$training['certificate_url']) ?>" target="_blank" rel="noopener noreferrer" class="text-xs text-blue-600 hover:underline">View Certificate</a>
-                <?php else: ?>
-                  <span class="text-xs text-gray-400">Not available</span>
-                <?php endif; ?>
-              </td>
-            </tr>
-          <?php endforeach; ?>
-        <?php endif; ?>
-      </tbody>
-    </table>
+              </dd>
+            </div>
+          </dl>
+
+          <div class="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between gap-2">
+            <span class="text-xs text-gray-500">Track your attendance and completion status.</span>
+            <button type="button" data-lnd-view-details class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100">View Details</button>
+          </div>
+        </article>
+      <?php endforeach; ?>
+    <?php endif; ?>
+  </div>
+
+  <div id="lndTakenFilterEmpty" class="hidden bg-gray-50 border border-dashed border-gray-300 rounded-xl p-5 text-sm text-gray-500">No enrolled trainings match your search/filter criteria.</div>
+
+  <div class="px-1 pt-4 flex items-center justify-between gap-3 text-xs text-gray-600">
+    <p id="lndTakenPageInfo">Page 1 of 1</p>
+    <div class="flex items-center gap-2">
+      <button id="lndTakenPrevPage" type="button" class="px-2.5 py-1.5 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>Previous</button>
+      <button id="lndTakenNextPage" type="button" class="px-2.5 py-1.5 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>Next</button>
+    </div>
   </div>
 </section>
+</section>
+
+<div id="trainingHistoryModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+  <div class="absolute inset-0 bg-gray-900/60" data-training-history-modal-close></div>
+  <div class="relative min-h-full flex items-center justify-center p-4">
+    <div class="w-full max-w-2xl bg-white rounded-2xl border border-gray-200 shadow-xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-200 flex items-center justify-between gap-3">
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900">Training History</h3>
+          <p class="text-xs text-gray-500 mt-0.5">Full record of your completed and enrolled trainings.</p>
+        </div>
+        <button type="button" data-training-history-modal-close class="text-gray-500 hover:text-gray-700">✕</button>
+      </div>
+
+      <div class="p-5 text-sm max-h-[70vh] overflow-y-auto">
+        <ul class="space-y-3">
+          <?php if (empty($trainingHistoryRows)): ?>
+            <li class="rounded-lg border border-dashed border-gray-300 px-4 py-3 text-gray-500">No training history available yet.</li>
+          <?php else: ?>
+            <?php foreach ($trainingHistoryRows as $history): ?>
+              <li class="rounded-lg border px-4 py-3 flex items-center justify-between gap-3">
+                <div>
+                  <p class="font-medium"><?= $escape($history['title'] ?? 'Training') ?></p>
+                  <p class="text-xs text-gray-500 mt-1"><?= $escape(($history['date_label'] ?? '-') . ' · ' . ($history['provider'] ?? '-')) ?></p>
+                </div>
+                <span class="inline-flex min-w-[96px] justify-center px-2 py-1 text-xs rounded-full <?= $escape((string)($history['status_class'] ?? 'bg-gray-100 text-gray-700')) ?>">
+                  <?= $escape((string)($history['status_label'] ?? 'Enrolled')) ?>
+                </span>
+              </li>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </ul>
+      </div>
+
+      <div class="px-5 py-4 border-t border-gray-200 flex items-center justify-end gap-3">
+        <button type="button" data-training-history-modal-close class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="lndTrainingDetailsModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+  <div class="absolute inset-0 bg-gray-900/60" data-lnd-modal-close></div>
+  <div class="relative min-h-full flex items-center justify-center p-4">
+    <div class="w-full max-w-xl bg-white rounded-2xl border border-gray-200 shadow-xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-200 flex items-center justify-between gap-3">
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900">Training Details</h3>
+          <p class="text-xs text-gray-500 mt-0.5">Review complete training information.</p>
+        </div>
+        <button type="button" data-lnd-modal-close class="text-gray-500 hover:text-gray-700">✕</button>
+      </div>
+
+      <div class="p-5 text-sm space-y-4">
+        <div>
+          <p id="lndDetailsTitle" class="text-base font-semibold text-gray-900">-</p>
+          <p id="lndDetailsProvider" class="text-xs text-gray-500 mt-1">-</p>
+        </div>
+
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <dt class="text-gray-500">Type</dt>
+            <dd id="lndDetailsType" class="text-gray-800 font-medium mt-1">-</dd>
+          </div>
+          <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <dt class="text-gray-500">Category</dt>
+            <dd id="lndDetailsCategory" class="text-gray-800 font-medium mt-1">-</dd>
+          </div>
+          <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <dt class="text-gray-500">Schedule</dt>
+            <dd id="lndDetailsSchedule" class="text-gray-800 font-medium mt-1">-</dd>
+          </div>
+          <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <dt class="text-gray-500">Program Status</dt>
+            <dd id="lndDetailsProgramStatus" class="text-gray-800 font-medium mt-1">-</dd>
+          </div>
+          <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <dt class="text-gray-500">Enrollment</dt>
+            <dd id="lndDetailsEnrollment" class="text-gray-800 font-medium mt-1">-</dd>
+          </div>
+          <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <dt class="text-gray-500">Attendance</dt>
+            <dd id="lndDetailsAttendance" class="text-gray-800 font-medium mt-1">-</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="px-5 py-4 border-t border-gray-200 flex items-center justify-end gap-3">
+        <button type="button" data-lnd-modal-close class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <?php
 $content = ob_get_clean();

@@ -118,6 +118,7 @@ $adjustmentRequests = isSuccessful($adjustmentsResponse) ? (array)$adjustmentsRe
 $leaveRequests = isSuccessful($leaveRequestsResponse) ? (array)$leaveRequestsResponse['data'] : [];
 $ctoRequests = [];
 $obRequests = [];
+$leaveCtoRequests = [];
 $holidayRows = isSuccessful($holidaysResponse) ? (array)$holidaysResponse['data'] : [];
 $historyEntries = [];
 $staffRecommendationRows = [];
@@ -254,6 +255,52 @@ foreach ($leaveRequests as $leaveRowRaw) {
         'status' => ucfirst(str_replace('_', ' ', strtolower((string)($leaveRow['status'] ?? 'pending')))),
     ];
 }
+
+foreach ($leaveRequests as $leaveRaw) {
+    $leave = (array)$leaveRaw;
+    $statusRaw = strtolower((string)($leave['status'] ?? 'pending'));
+    $leaveTypeName = trim((string)($leave['leave_type']['leave_name'] ?? 'Unassigned'));
+    $isCtoLeave = stripos($leaveTypeName, 'cto') !== false;
+    $employeeName = $buildEmployeeName((array)($leave['person'] ?? []));
+
+    $leaveCtoRequests[] = [
+        'id' => (string)($leave['id'] ?? ''),
+        'request_source' => 'leave_requests',
+        'request_type_label' => $isCtoLeave ? 'CTO' : 'Leave',
+        'employee_name' => $employeeName,
+        'leave_type' => $leaveTypeName,
+        'date_label' => (string)($leave['date_from'] ?? '') . ' - ' . (string)($leave['date_to'] ?? ''),
+        'window' => '',
+        'hours_requested' => null,
+        'reason' => (string)($leave['reason'] ?? '-'),
+        'status_raw' => $statusRaw,
+        'status_label' => ucfirst(str_replace('_', ' ', $statusRaw)),
+    ];
+}
+
+foreach ($ctoRequests as $request) {
+    $statusRaw = strtolower((string)($request['status'] ?? 'pending'));
+
+    $leaveCtoRequests[] = [
+        'id' => (string)($request['id'] ?? ''),
+        'request_source' => 'overtime_requests',
+        'request_type_label' => 'CTO (Legacy)',
+        'employee_name' => (string)($request['employee_name'] ?? 'Unknown Employee'),
+        'leave_type' => 'CTO',
+        'date_label' => (string)($request['overtime_date'] ?? ''),
+        'window' => trim((string)($request['start_time'] ?? '')) . ' - ' . trim((string)($request['end_time'] ?? '')),
+        'hours_requested' => (float)($request['hours_requested'] ?? 0),
+        'reason' => (string)($request['reason'] ?? '-'),
+        'status_raw' => $statusRaw,
+        'status_label' => ucfirst(str_replace('_', ' ', $statusRaw)),
+    ];
+}
+
+usort($leaveCtoRequests, static function (array $left, array $right): int {
+    $leftTs = strtotime((string)($left['date_label'] ?? '')) ?: 0;
+    $rightTs = strtotime((string)($right['date_label'] ?? '')) ?: 0;
+    return $rightTs <=> $leftTs;
+});
 
 foreach ($adjustmentRequests as $adjustmentRowRaw) {
     $adjustmentRow = (array)$adjustmentRowRaw;

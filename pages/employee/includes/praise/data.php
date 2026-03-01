@@ -181,7 +181,7 @@ if (isSuccessful($nominationResponse)) {
 $trainingResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/training_enrollments?select=id,enrollment_status,score,updated_at,program:training_programs(title,start_date,end_date,mode,status)'
+    . '/rest/v1/training_enrollments?select=id,enrollment_status,updated_at,program:training_programs(title,start_date,end_date,mode,status)'
     . '&person_id=eq.' . rawurlencode((string)$employeePersonId)
     . '&order=updated_at.desc&limit=50',
     $headers
@@ -201,7 +201,12 @@ if (isSuccessful($trainingResponse)) {
             'mode' => (string)($program['mode'] ?? ''),
             'program_status' => strtolower((string)($program['status'] ?? 'planned')),
             'enrollment_status' => $enrollmentStatus,
-            'score' => cleanText($training['score'] ?? null),
+            'attendance_status' => match ($enrollmentStatus) {
+                'completed' => 'present',
+                'failed' => 'absent',
+                'dropped' => 'dropped',
+                default => 'enrolled',
+            },
             'updated_at' => (string)($training['updated_at'] ?? ''),
         ];
 

@@ -491,7 +491,7 @@ Rules applied while consolidating:
 - [x] Add official business request flow (time out/in behavior with approval path).
 - [x] Add CTO request validation and filing rules (date range and payroll cut-off constraints) under CTO-only policy.
 
-## Across all users in Timekeeping Module
+### Across all users in Timekeeping Module
 - [x] Some parts of the employee are still not using sweetalert and flatpickr, make sure to use it across the entire module for consistency and better user experience.
 - [x] Normalize the naming scheme of the sections. e.g. Attendance Records, Leave Requests, Time Adjustments, Official Business Requests, etc. to ensure consistency and clarity across the module.
 - [x] Ensure that the search and filter functionality is implemented across all tables in the module, and that it uses SweetAlert2 for a consistent and user-friendly experience when filtering records or searching for specific entries and Flatpickr for date inputs to enhance usability and visual appeal.
@@ -512,7 +512,6 @@ Rules applied while consolidating:
 
 ---
 
-## 9) Payroll Module
 ### Admin
 - [x] Audit the entire module and make sure that the salary adjustment is reflected. There are some sections and parts of admin that doesn't take the adjustment into account such as "View Employee Payslips" section, Approve Payroll Batches section, the modal there shows Adj +/- but it doesn't reflect the adjustment, and also in the payroll batch details when you click the batch, it also doesn't reflect the adjustment. Make sure that the salary adjustment is properly reflected in all relevant sections of the admin side of the payroll module, including the "View Employee Payslips" section, Approve Payroll Batches section, and the payroll batch details. This will ensure that the admin has accurate and up-to-date information on employee compensation and payroll computations, allowing them to make informed decisions when reviewing and approving payroll batches.
 - [x] Audit the staff as well for this issue.
@@ -546,7 +545,6 @@ Rules applied while consolidating:
 - [x] Enforce payroll handoff flow: staff submit batch for admin approval; admin final decision reflects back to staff queue/history with timestamp and notification.
 - [x] Add a recommendation column in the staff payroll queue/history to show the staff's recommendation for each payroll batch, and ensure that this recommendation is visible to the admin when reviewing the payroll batch for final approval. This will provide additional context for the admin's decision-making process and help ensure that staff input is considered in the payroll approval workflow.
 
-## 9) Payroll Module
 ### Staff
 - [x] Staff should be able to have a final review before generating payslips to employee, just copy the Review Payroll Batch modal from the admin side and apply it to the staff side as a final review before generating payslips for employees.
 - [x] After creating salary adjustment, it doesn't show in the table in the Recommend Salary Adjustment section in the staff payroll module, and it also doesn't show in the admin side for review and approval.
@@ -566,17 +564,38 @@ Rules applied while consolidating:
 - [x] Ensure payslip view/history access is stable.
 - [x] Ensure deduction breakdown visibility (e.g., SSS/Pag-IBIG and other deductions) is clear in payslip UI and PDF.
 
-
 ### Cross users Payroll module revision:
-- [ ] Validate payroll computation accuracy against approved policies (salary grade rules, absences/leave/timekeeping deductions, and period-based calculations).
-- [ ] Validate payroll inputs traceability: each payroll run can be traced to attendance, compensation setup, adjustments, and deduction sources.
-- [ ] Enforce payroll batch final approval controls with mandatory reason capture and immutable audit logs for compute/export/send/approve/reject actions.
-- [ ] Ensure secure payslip delivery workflow (approved templates, access-safe payload handling) and log every send attempt/result.
-- [ ] Remove/replace overtime filing references across payroll screens, exports, and labels; standardize wording to CTO-only policy with leave-style approval flow.
-- [ ] Standardize payroll section naming across roles (module title, table headers, buttons, status labels) for consistent UX.
-- [ ] Ensure admin payroll breakdown UI is clear and complete (earnings, deductions, net pay) and consistent with export/PDF output.
-- [ ] Ensure employee payslip UI is clear and user-friendly, with visible deduction breakdown and stable view/history access.
-- [ ] Execute pre-deployment payroll QA checklist (cross-role flow tests, policy conformance checks, and audit-log verification) based on revisions folder requirements.
+- [x] Actions design in Employee view is still ugly. Make it a dropdown and improve its design
+- [x] Change Actions design in Employee view to match the staff's design for consistency.
+- [x] Remove reason in confirming payroll batch generation since it's a routine task, but still keep the audit logs for tracking changes made to the payroll batches.
+- [x] Remove staff recommendation column in Generate Payslip in the Staff view
+- [x] In the View Employee Payslips section in the Admin view, add an action to view the payslip breakdown instead of displaying them in the table itself. This will allow the admin to view the payslip breakdown in a more organized and detailed way, rather than having all the information displayed in the table which can be overwhelming and difficult to read. The action can open a modal or a separate page that shows the breakdown of the payslip for each employee, including the details of their earnings, deductions, and net pay, along with any relevant information such as the payroll period and any adjustments made. This will improve the user experience for the admin and make it easier for them to review and understand the payslip information for each employee.
+- [x] Email sending and PDF Payslip generation only worked once and is not working anymore, make sure that the email sending functionality for payroll is working properly, with the system able to send payslip emails to employees based on the payroll data and the email templates configured in the system. This includes verifying that the email sending process is triggered correctly when generating payslips and that the emails are being sent to the correct recipients with the appropriate content and attachments. Additionally, ensure that the PDF generation for payroll is functioning correctly, with the generated payslip document being accurate and well-formatted based on the payroll data, and that it is properly attached to the employee's profile for record-keeping and easy access. This will ensure that employees receive their payslips via email with the correct information and that they can access their payslip documents easily from their profile.
+- [x] PDF are still not being generated when generating payslip, make sure that the PDF generation for payroll is functioning correctly, with the generated payslip document being accurate and well-formatted based on the payroll data, and that it is properly attached to the employee's profile for record-keeping and easy access. Additionally, ensure that the PDF is included in the emails sent to employees when sending payslips via email, allowing employees to have a copy of their payslip in their email for easy reference and record-keeping.
+
+- [x] Emails are not being sent, make sure that the email sending functionality for payroll is working properly, with the system able to send payslip emails to employees based on the payroll data and the email templates configured in the system. This includes verifying that the email sending process is triggered correctly when generating payslips and that the emails are being sent to the correct recipients with the appropriate content and attachments.
+
+- [x] In admin Confirm Payroll Batch Generation modal is too big vertically and doesn't fit the screen properly, especially for users with smaller screens. Adjust the modal layout to ensure it is responsive and fits well on different screen sizes, providing a better user experience for all users when confirming payroll batch generation. Remove the Generation Reason field or at least make it optional. Add a SweetAlert confirmation after the admin clicks the confirm button in the Confirm Payroll Batch Generation modal to confirm their action and capture a reason for audit logs.
+- [x] In Admin and staff, some of the reasons for the actions are mandatory, but there are some actions that doesn't require a reason. Make sure to review all the actions in the payroll module and determine which ones should require a reason for audit logs and which ones don't, and implement the reason capture accordingly to ensure consistency and proper audit logging in the payroll module.
+
+- [x] In applicant side, change the CTO fields to match the leave card fields in the leave card example uploaded (excel).
+- [x] Change the Admin and Staff side as well to match the leave card fields in the leave card example uploaded (excel). This is to ensure consistency across all modules and to align with the approved decision to convert the overtime filing to a CTO-only process with a leave-style approval flow. The fields should reflect the necessary information for
+- [x] Ensure that the payroll module is fully aligned with the approved decision to convert the overtime filing to a CTO-only process with a leave-style approval flow, and that all references to overtime filing are removed or replaced in the UI, workflow, and documentation of the payroll module. This includes updating any relevant sections, labels, buttons, and instructions to reflect the new CTO-only process and ensuring that the payroll computation and approval workflow are adjusted accordingly to accommodate this change.
+
+- [x] Do a QA pass if the CTO-only process with a leave-style approval flow is properly implemented and functioning correctly in the timekeeping payroll module in the employee side, including the submission of CTO requests, the review and recommendation by staff, and the final approval by admin. This includes verifying that the workflow follows the approved process, that the status changes and visibility align with the workflow, and that any relevant information is accurately reflected in the payroll computation and payslip generation based on the CTO requests and approvals.
+
+- [x] Combine the CTO and leave requests table in the admin like in the staff side
+
+- [x] The PDF generation for payroll is not working properly, there's no payslip document being generated and attached to the employee's profile when generating payslip, the employee should be able to view and download their payslip from their profile, and it should also be attached in the emails sent to employees when sending payslips via email. Make sure that the PDF generation for payroll is functioning correctly, with the generated payslip document being accurate and well-formatted based on the payroll data, and that it is properly attached to the employee's profile for record-keeping and easy access. Additionally, ensure that the PDF is included in the emails sent to employees when sending payslips via email, allowing employees to have a copy of their payslip in their email for easy reference and record-keeping.
+
+- [x] Standardize payroll section naming across roles (module title, table headers, buttons, status labels) for consistent UX.
+- [x] Ensure admin payroll breakdown UI is clear and complete (earnings, deductions, net pay) and consistent with export/PDF output.
+- [x] Ensure employee payslip UI is clear and user-friendly, with visible deduction breakdown and stable view/history access.
+- [x] Execute pre-deployment payroll QA checklist (cross-role flow tests, policy conformance checks, and audit-log verification) based on revisions folder requirements.
+- [x] Validate payroll computation accuracy against approved policies (salary grade rules, absences/leave/timekeeping deductions, and period-based calculations).
+- [x] Validate payroll inputs traceability: each payroll run can be traced to attendance, compensation setup, adjustments, and deduction sources.
+- [x] Enforce payroll batch final approval controls with mandatory reason capture and immutable audit logs for compute/export/send/approve/reject actions.
+- [x] Ensure secure payslip delivery workflow (approved templates, access-safe payload handling) and log every send attempt/result.
 - [x] Ensure that when generating payslip, it also generates the payslip document (PDF) and attaches it to the employee's profile for record-keeping and easy access. This will allow employees to easily view and download their payslips from their profile, and it will also help ensure that all payroll records are properly stored and organized within the system. Also if possible, attach the PDF in the emails sent to employees when sending payslips via email, so that employees can have a copy of their payslip in their email for easy reference and record-keeping.
 - [x] Ensure to follow the Localized JS Performance optimization (FRONTEND_LOCALIZED_JS_PERFORMANCE_GUIDE.md)
 - [x] Enforce staff -> admin payroll handoff flow end-to-end (prepare/submit, admin final decision, reflected status/history for staff).
@@ -629,30 +648,64 @@ Rules applied while consolidating:
 ## 13) Learning and Development Module
 
 ### Admin
-- [ ] Add new training creation with advance notifications.
-- [ ] Keep one attendance log per employee per training.
-- [ ] Add history view.
+- [x] Organize the list a bit better and add a checkbox to each employees to enroll them to a training, basically the admin can add multiple employees to a training at once instead of having to add them one by one, and also add a search functionality to the employee selection in the add employee to training modal to make it easier for the admin to find and select employees to add to a training, especially when there are a large number of employees in the system.
+- [x] Remove the (Optional) wording
+- [x] Scope it only to employees, don't include staff and admin in the employee selection when adding employees to a training.
+- [x] Update the markdown after
+- [x] It says no active employees are available, why is that? I have employees in the system but it doesn't show them in the add employee to training modal. Make sure that the employee selection in the add employee to training modal shows all active employees in the system, regardless of their current training status or availability. Also I can't enter a text inside the search bar, seems like it disabled. Make sure that the search functionality in the add employee to training modal is working properly, allowing the admin to enter text and search for employees based on their name or other relevant criteria.
+- [x] Don't restrict the adding of employees in a training to those who are only available. Admin can add employees to the employees who are currently undertaking another training program. Also add a search functionality to the employee selection in the add employee to training modal to make it easier for the admin to find and select employees to add to a training, especially when there are a large number of employees in the system. This will improve the user experience for the admin and make it more efficient for them to manage employee enrollments for trainings.
+- [x] Admin should be able to enroll employees to a training, and the employee should receive a notification about the enrollment. This will allow the admin to easily manage employee enrollments for trainings and ensure that employees are informed about their training assignments in a timely manner.
+- [x] issue: 
+Fatal error: Uncaught Error: Call to undefined function isValidUuid() in D:\xampp\htdocs\hris-system\pages\admin\includes\learning-and-development\actions.php:341 Stack trace: #0 D:\xampp\htdocs\hris-system\pages\admin\learning-and-development.php(3): require_once() #1 {main} thrown in D:\xampp\htdocs\hris-system\pages\admin\includes\learning-and-development\actions.php on line 341
+- [x] Use flatpickr for date inputs in training creation and management for better UX and consistency across the module.
+- [x] Use sweetalert for all confirmations and notifications in the module to enhance user experience and maintain consistency across the system.
+- [x] Migrate from the single mega JS to a localized JS approach for better performance and maintainability.
+- [x] Limit the tables to 10 entries with pagination, search, and filters.
+- [x] Add new training creation with advance notifications.
+- [x] Add history view.
+- [x] Move `Reports and Analytics` section to top of module.
+- [x] Remove draft functionality from admin view.
+- [x] In add new training table, remove venue and participants columns this is because there's a lot of columns in the table and it doesn't fit smaller screens.
+- [x] Move reports and analytics to the top of the page for better visibility and accessibility.
+- [x] Keep one attendance log per employee per training.
 
 ### Staff
-- [ ] Finalize naming/content decision: `Courses` vs `Training`.
-- [ ] Clarify if draft courses are needed and who owns draft creation.
-- [ ] Hide draft courses in staff views unless explicitly required by approved workflow.
+- [x] Remove staff functionality to enroll employees to a training, this should be only done by the admin to ensure proper management and control over employee enrollments for trainings. This will help maintain the integrity of the training management process and ensure that enrollments are handled in a consistent and organized manner by the admin.
+- [x] Remove draft functionality from staff view including the Draft stat card, make sure that the cards are aligned properly after removing the draft stat card.
+- [x] Finalize naming/content decision: `Courses` vs `Training`.
+- [x] Remove draft functionality from staff view.
+- [x] Hide draft courses in staff views unless explicitly required by approved workflow.
 
 ### Employee
-- [ ] Merge/streamline `Available Trainings` and `My Enrollments` behavior per approved flow.
-- [ ] Add certificate view/download for completed trainings.
+- [x] Limit the training history to show only 3 entries and add a show more button to view the complete training history in a modal. This will help improve the user experience by preventing the training history section from becoming too long and overwhelming for employees, while still allowing them to access their complete training history if they choose to do so.
+- [x] Remove Certificates section and related functionality.
+- [x] Add a training history section
+- [x] can you make the scrollbar of the overall employee view more slick and modern? The current scrollbar is the default one provided by the browser, which can look a bit outdated and may not fit well with the overall design of the system. By customizing the scrollbar to have a more sleek and modern design, it can enhance the user experience for employees when navigating through their learning and development options and information. Consider using a CSS library or custom styles to create a scrollbar that matches the design aesthetic of the system while also providing smooth scrolling functionality for employees when browsing through their trainings and enrollments.
+- [x] Improve the cards UI, remove the staff enrolled badge. Use the photo as a reference, and instead of "View Updates", it should be view details which opens a modal with the details of the training. Add a hover effect on the cards to indicate that they are clickable and will show more details about the training when clicked.
+- [x] Greatly improve its UI further, put this section inside a white container along with the tab navigation, and add some padding to the container to make it look better and more organized. The current design looks a bit cluttered and overwhelming for employees, especially when there are multiple trainings listed. By putting it inside a white container and adding some padding, it will create a clearer separation between the training section and the rest of the page, making it easier for employees to focus on their learning and development options. Additionally, consider using a card-based design for each training listing to further enhance the visual appeal and user experience when browsing through available trainings and managing enrollments.
+- [x] make it a card-based design for better visibility and user experience, and ensure that the training details and actions are clearly displayed in the card layout for employees to easily understand and interact with their training options and enrollments. Take inspiration from Udemy, Coursera, or LinkedIn Learning for the card-based design and layout of the training listings to enhance the user experience and make it more visually appealing for employees when browsing and managing their trainings.
+- [x] Improve overall UI of the Employee L&D view to make it more user-friendly and visually appealing, ensuring that the design is consistent with the rest of the system and provides a positive user experience for employees when interacting with their learning and development options and information.
+- [x] Combine `Available Trainings` and `My Enrollments` into a single view with tabs or filters to switch between available trainings and enrolled trainings, and ensure that the behavior of the combined view is consistent with the approved workflow for training enrollment and attendance.
+- [x] Replace training completion snapshot score output with attendance status.
+- [x] Limit table entries to 10 with pagination, search, and filters.
+- [x] Merge/streamline `Available Trainings` and `My Enrollments` behavior per approved flow.
+- [x] Add certificate view/download for completed trainings.
+
+### Cross users Learning and Development module revision:
+- [x] Double check if all the revisions for the L&D are listed here and if they are properly implemented, especially the ones that affect the flow across users (Admin creating training -> Staff enrolling -> Employee attending/completing training). Make sure that the flow is consistent with the approved workflow and that any relevant information is accurately reflected in the respective views for each user role. See revisions folder for the list of revision from other markdowns related to L&D module.
 
 ---
 
 ## 14) User Management Module
 
 ### Admin
-- [ ] Enforce max 2 active admins.
 - [ ] Prevent disabling protected admin account.
 - [ ] Keep employment classification options aligned to policy.
 - [ ] Auto-populate Division on user selection.
 - [ ] Remove Office Type when deployment is central-office-only.
 - [ ] Keep role assignment/support-ticket routing aligned with privileges.
+- [ ] Add an account creation flow for new employees that includes the option to create a user account for them, with the necessary fields and options for setting up their account, such as username, password, role assignment, and any other relevant information. This will help streamline the onboarding process for new employees and ensure that they have the necessary access to the system from the start of their employment. Make sure to filter it to only show new hires that do not have an existing user account to avoid confusion and ensure that the admin can easily identify which new hires require account creation. See recruitment module for the the necessary flow.
+- [ ] Enforce max 2 active admins.
 
 ---
 

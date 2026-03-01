@@ -471,6 +471,16 @@ export const initStatusChangeConfirmations = () => {
       text: 'This updates the employee employment status record.',
       confirmButtonText: 'Update status',
     },
+    create_training: {
+      title: 'Create this training schedule?',
+      text: 'This will save the training and send related notifications based on enrollment flow.',
+      confirmButtonText: 'Create training',
+    },
+    update_training_attendance: {
+      title: 'Save attendance update?',
+      text: 'This will update the employee attendance status for the selected training.',
+      confirmButtonText: 'Save attendance',
+    },
   };
 
   document.querySelectorAll('form').forEach((form) => {

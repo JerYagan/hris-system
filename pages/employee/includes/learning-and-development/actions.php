@@ -13,9 +13,11 @@ if (!isValidCsrfToken(cleanText($_POST['csrf_token'] ?? null))) {
 }
 
 $action = strtolower((string)cleanText($_POST['action'] ?? ''));
-if ($action !== 'enroll_training') {
-    redirectWithState('error', 'Unsupported learning and development action.', 'learning-and-development.php');
+if ($action === 'enroll_training') {
+    redirectWithState('error', 'Training enrollment is managed by staff. Please contact HR staff for enrollment.', 'learning-and-development.php');
 }
+
+redirectWithState('error', 'Unsupported learning and development action.', 'learning-and-development.php');
 
 $programId = cleanText($_POST['program_id'] ?? null);
 if ($programId === null || !isValidUuid($programId)) {

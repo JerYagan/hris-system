@@ -39,7 +39,7 @@ Scope:
 1. Collect approved timekeeping records for the payroll period:
    - attendance logs
    - approved leave requests
-   - approved overtime requests
+   - approved CTO leave-with-pay requests
    - approved time adjustments
 2. Compute attendance summary per employee:
    - days present
@@ -49,7 +49,7 @@ Scope:
 3. Convert timekeeping summary into payroll-impact values:
    - absence deduction
    - lateness/undertime deduction
-   - overtime earnings
+   - CTO leave-with-pay earnings
 4. Store computed components as payroll inputs (item-level components or adjustments) before final run approval.
 
 ## Phase B: Payroll Computation
@@ -97,7 +97,7 @@ For each employee and period:
   - base pay per cycle
   - allowances per cycle
 - Timekeeping Earnings:
-  - approved overtime amount
+   - approved CTO leave UT w/ pay amount
 - Statutory/Fixed Deductions:
   - tax
   - government deductions
@@ -109,7 +109,7 @@ For each employee and period:
 
 Net Pay Formula:
 
-`net_pay = (base_pay + allowances + overtime_earnings + other_earnings) - (tax + government + other_deductions + absence_deduction + late_undertime_deduction + unpaid_leave_deduction)`
+`net_pay = (base_pay + allowances + cto_leave_earnings + other_earnings) - (tax + government + other_deductions + absence_deduction + late_undertime_deduction + unpaid_leave_deduction)`
 
 Implementation note:
 - Absence and lateness deductions must be traceable to underlying timekeeping records for auditability.
@@ -137,7 +137,7 @@ Guardrails:
 ## 6) Required Approval Rules
 
 1. Timekeeping approval dependency:
-   - only approved leave/overtime/adjustment records are included in payroll computation.
+   - only approved leave/CTO/time-adjustment records are included in payroll computation.
 2. HR approval dependency:
    - release and employee visibility require HR-approved payroll run.
 3. Dual-control recommendation:
@@ -153,7 +153,7 @@ Timekeeping sources:
 - `attendance_logs`
 - `leave_requests`
 - `time_adjustment_requests`
-- `overtime_requests`
+- `overtime_requests` (legacy storage for CTO leave-with-pay entries)
 - `leave_types`
 
 Payroll core:
@@ -244,6 +244,6 @@ Notification payload should include:
 6. Run UAT with scenarios:
    - perfect attendance,
    - with absences,
-   - with overtime,
+   - with CTO leave-with-pay entries,
    - with manual adjustment,
    - re-open and re-approve cycle.

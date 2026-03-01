@@ -531,10 +531,16 @@
 
             if (breakdownBody) {
                 if (!rows.length) {
-                    breakdownBody.innerHTML = '<tr id="generatePayslipBreakdownEmptyRow"><td class="px-3 py-3 text-slate-500" colspan="10">No computation breakdown available for this batch.</td></tr>';
+                    breakdownBody.innerHTML = '<tr id="generatePayslipBreakdownEmptyRow"><td class="px-3 py-3 text-slate-500" colspan="11">No computation breakdown available for this batch.</td></tr>';
                 } else {
                     breakdownBody.innerHTML = rows.map((row) => {
                         const adjustmentNet = (Number(row.adjustment_earnings) || 0) - (Number(row.adjustment_deductions) || 0);
+                        const lateMinutes = Number(row.late_minutes) || 0;
+                        const undertimeHours = Number(row.undertime_hours) || 0;
+                        const absentDays = Number(row.absent_days) || 0;
+                        const leaveCardRemarks = absentDays > 0
+                            ? `Absence impact: ${absentDays} day(s)`
+                            : 'No absence impact';
                         return `
                             <tr>
                                 <td class="px-3 py-2 text-slate-700">${escapeText(row.employee_name || '-')}</td>
@@ -543,7 +549,8 @@
                                 <td class="px-3 py-2 text-right text-slate-700">${currencyFormatter.format(Number(row.cto_pay) || 0)}</td>
                                 <td class="px-3 py-2 text-right text-slate-700">${currencyFormatter.format(Number(row.statutory_deductions) || 0)}</td>
                                 <td class="px-3 py-2 text-right text-slate-700">${currencyFormatter.format(Number(row.timekeeping_deductions) || 0)}</td>
-                                <td class="px-3 py-2 text-right text-slate-700">${Number(row.absent_days) || 0}/${Number(row.late_minutes) || 0}/${Number(row.undertime_hours) || 0}</td>
+                                <td class="px-3 py-2 text-right text-slate-700">${lateMinutes} min / ${undertimeHours.toFixed(2)} hr</td>
+                                <td class="px-3 py-2 text-left text-slate-700">${escapeText(leaveCardRemarks)}</td>
                                 <td class="px-3 py-2 text-right text-slate-700">${currencyFormatter.format(adjustmentNet)}</td>
                                 <td class="px-3 py-2 text-right text-slate-700">${currencyFormatter.format(Number(row.gross_pay) || 0)}</td>
                                 <td class="px-3 py-2 text-right text-slate-800 font-medium">${currencyFormatter.format(Number(row.net_pay) || 0)}</td>

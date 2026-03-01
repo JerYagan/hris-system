@@ -180,10 +180,16 @@ const initPayrollBatchReviewModal = () => {
     }
 
     if (!rows.length) {
-      breakdownBody.innerHTML = '<tr id="payrollBatchBreakdownEmptyRow"><td class="px-3 py-3 text-slate-500" colspan="10">No computation breakdown available for this batch.</td></tr>';
+      breakdownBody.innerHTML = '<tr id="payrollBatchBreakdownEmptyRow"><td class="px-3 py-3 text-slate-500" colspan="11">No computation breakdown available for this batch.</td></tr>';
     } else {
       breakdownBody.innerHTML = rows.map((row) => {
         const adjustmentNet = (Number(row.adjustment_earnings) || 0) - (Number(row.adjustment_deductions) || 0);
+        const lateMinutes = Number(row.late_minutes) || 0;
+        const undertimeHours = Number(row.undertime_hours) || 0;
+        const absentDays = Number(row.absent_days) || 0;
+        const leaveCardRemarks = absentDays > 0
+          ? `Absence impact: ${absentDays} day(s)`
+          : 'No absence impact';
         return `
           <tr>
             <td class="px-3 py-2 text-slate-700">${escapeText(row.employee_name || '-')}</td>
@@ -192,7 +198,8 @@ const initPayrollBatchReviewModal = () => {
             <td class="px-3 py-2 text-right text-slate-700">${formatCurrency(Number(row.cto_pay) || 0)}</td>
             <td class="px-3 py-2 text-right text-slate-700">${formatCurrency(Number(row.statutory_deductions) || 0)}</td>
             <td class="px-3 py-2 text-right text-slate-700">${formatCurrency(Number(row.timekeeping_deductions) || 0)}</td>
-            <td class="px-3 py-2 text-right text-slate-700">${Number(row.absent_days) || 0}/${Number(row.late_minutes) || 0}/${Number(row.undertime_hours) || 0}</td>
+            <td class="px-3 py-2 text-right text-slate-700">${lateMinutes} min / ${undertimeHours.toFixed(2)} hr</td>
+            <td class="px-3 py-2 text-left text-slate-700">${escapeText(leaveCardRemarks)}</td>
             <td class="px-3 py-2 text-right text-slate-700">${formatCurrency(adjustmentNet)}</td>
             <td class="px-3 py-2 text-right text-slate-700">${formatCurrency(Number(row.gross_pay) || 0)}</td>
             <td class="px-3 py-2 text-right text-slate-800 font-medium">${formatCurrency(Number(row.net_pay) || 0)}</td>
@@ -292,6 +299,7 @@ const initPayrollGenerationSummary = () => {
   const previewContent = document.getElementById('generatePayrollPreviewContent');
   const confirmButton = document.getElementById('generatePayrollConfirmButton');
   const periodHint = document.getElementById('generatePayrollPeriodHint');
+  const generateForm = document.getElementById('generatePayrollSummaryForm');
 
   if (!openButton || !periodSelect) {
     return;
@@ -362,6 +370,45 @@ const initPayrollGenerationSummary = () => {
     openModal('generatePayrollSummaryModal');
   });
 
+  if (generateForm) {
+    generateForm.addEventListener('submit', async (event) => {
+      if (generateForm.dataset.confirmed === '1') {
+        return;
+      }
+
+      event.preventDefault();
+
+      const periodLabel = (periodConfirmLabel?.value || '').trim();
+      let confirmed = false;
+
+      if (window.Swal && typeof window.Swal.fire === 'function') {
+        const result = await window.Swal.fire({
+          title: 'Confirm payroll batch generation?',
+          text: periodLabel !== '' ? `Period: ${periodLabel}` : 'Proceed with payroll batch generation.',
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: 'Yes, generate',
+          cancelButtonText: 'Cancel',
+          reverseButtons: true,
+          focusCancel: true,
+        });
+
+        confirmed = Boolean(result?.isConfirmed);
+      } else {
+        confirmed = window.confirm(periodLabel !== ''
+          ? `Generate payroll batch for ${periodLabel}?`
+          : 'Generate payroll batch now?');
+      }
+
+      if (!confirmed) {
+        return;
+      }
+
+      generateForm.dataset.confirmed = '1';
+      generateForm.submit();
+    });
+  }
+
   render();
 };
 
@@ -398,6 +445,94 @@ const initReleaseBatchMeta = () => {
 
   select.addEventListener('change', render);
   render();
+};
+
+const initAdminPayslipBreakdownModal = () => {
+  const employeeField = document.getElementById('adminPayslipBreakdownEmployee');
+  const periodField = document.getElementById('adminPayslipBreakdownPeriod');
+  const noField = document.getElementById('adminPayslipBreakdownNo');
+  const statusField = document.getElementById('adminPayslipBreakdownStatus');
+  const earningsContainer = document.getElementById('adminPayslipBreakdownEarnings');
+  const deductionsContainer = document.getElementById('adminPayslipBreakdownDeductions');
+  const grossField = document.getElementById('adminPayslipBreakdownGross');
+  const totalDeductionsField = document.getElementById('adminPayslipBreakdownTotalDeductions');
+  const netField = document.getElementById('adminPayslipBreakdownNet');
+  const attendanceField = document.getElementById('adminPayslipBreakdownAttendance');
+
+  if (!employeeField || !periodField || !noField || !statusField || !earningsContainer || !deductionsContainer || !grossField || !totalDeductionsField || !netField || !attendanceField) {
+    return;
+  }
+
+  const escapeText = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+  const renderRows = (container, rows) => {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      container.innerHTML = '<div class="px-4 py-3 text-slate-500 text-xs">No data available.</div>';
+      return;
+    }
+
+    container.innerHTML = rows.map((row) => {
+      const label = escapeText(String(row.label || 'Entry'));
+      const amount = Number(row.amount) || 0;
+
+      return `
+        <div class="px-4 py-3 flex items-center justify-between gap-2 text-xs">
+          <span class="text-slate-600">${label}</span>
+          <span class="text-slate-800 font-medium">${formatCurrency(amount)}</span>
+        </div>
+      `;
+    }).join('');
+  };
+
+  document.querySelectorAll('[data-open-admin-payslip-breakdown]').forEach((button) => {
+    button.addEventListener('click', () => {
+      let payload = {};
+      try {
+        payload = JSON.parse(button.getAttribute('data-payload') || '{}');
+      } catch (_error) {
+        payload = {};
+      }
+
+      const basicPay = Number(payload.basic_pay) || 0;
+      const ctoPay = Number(payload.cto_pay) || 0;
+      const allowancesTotal = Number(payload.allowances_total) || 0;
+      const adjustmentEarnings = Number(payload.adjustment_earnings) || 0;
+
+      const statutoryDeductions = Number(payload.statutory_deductions) || 0;
+      const timekeepingDeductions = Number(payload.timekeeping_deductions) || 0;
+      const adjustmentDeductions = Number(payload.adjustment_deductions) || 0;
+
+      employeeField.textContent = String(payload.employee_name || '-');
+      periodField.textContent = String(payload.period_label || '-');
+      noField.textContent = String(payload.payslip_no || '-');
+      statusField.textContent = String(payload.status_label || '-');
+
+      renderRows(earningsContainer, [
+        { label: 'Basic Pay', amount: basicPay },
+        { label: 'CTO Leave UT w/ Pay', amount: ctoPay },
+        { label: 'Allowances', amount: allowancesTotal },
+        { label: 'Approved Adjustment Earnings', amount: adjustmentEarnings },
+      ]);
+
+      renderRows(deductionsContainer, [
+        { label: 'Statutory / Government Contributions (SSS/Pag-IBIG/PhilHealth)', amount: statutoryDeductions },
+        { label: 'Timekeeping Deductions', amount: timekeepingDeductions },
+        { label: 'Approved Adjustment Deductions', amount: adjustmentDeductions },
+      ]);
+
+      grossField.textContent = formatCurrency(Number(payload.gross_pay) || 0);
+      totalDeductionsField.textContent = formatCurrency(Number(payload.deductions_total) || 0);
+      netField.textContent = formatCurrency(Number(payload.net_pay) || 0);
+      attendanceField.textContent = `Attendance impact: Absent ${Number(payload.absent_days) || 0} day(s), Late ${Number(payload.late_minutes) || 0} minute(s), Undertime ${(Number(payload.undertime_hours) || 0).toFixed(2)} hour(s)`;
+
+      openModal('adminPayslipBreakdownModal');
+    });
+  });
 };
 
 const initSalarySetupLogsPagination = () => {
@@ -591,5 +726,6 @@ export default function initAdminPayrollManagementPage() {
   initPayrollBatchReviewModal();
   initPayrollGenerationSummary();
   initReleaseBatchMeta();
+  initAdminPayslipBreakdownModal();
   initPayrollDatePickers().catch(console.error);
 }

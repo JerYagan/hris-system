@@ -32,9 +32,9 @@ $formatDate = static function (?string $value): string {
 $statusPill = static function (string $status): array {
     $key = strtolower(trim($status));
     return match ($key) {
-        'approved', 'completed', 'open' => [ucwords(str_replace('_', ' ', $key)), 'bg-approved text-green-800'],
-        'pending', 'submitted', 'ongoing' => [ucwords(str_replace('_', ' ', $key)), 'bg-pending text-yellow-800'],
-        'rejected', 'failed', 'cancelled' => [ucwords(str_replace('_', ' ', $key)), 'bg-rejected text-red-800'],
+    'approved', 'completed', 'open', 'present' => [ucwords(str_replace('_', ' ', $key)), 'bg-approved text-green-800'],
+    'pending', 'submitted', 'ongoing', 'enrolled' => [ucwords(str_replace('_', ' ', $key)), 'bg-pending text-yellow-800'],
+    'rejected', 'failed', 'cancelled', 'absent', 'dropped' => [ucwords(str_replace('_', ' ', $key)), 'bg-rejected text-red-800'],
         default => [ucwords(str_replace('_', ' ', ($key !== '' ? $key : 'draft'))), 'bg-gray-200 text-gray-700'],
     };
 };
@@ -273,7 +273,7 @@ $statusPill = static function (string $status): array {
           <th class="text-left py-3">Schedule</th>
           <th class="text-left py-3">Mode</th>
           <th class="text-left py-3">Enrollment Status</th>
-          <th class="text-left py-3">Score</th>
+          <th class="text-left py-3">Attendance Status</th>
         </tr>
       </thead>
       <tbody>
@@ -282,12 +282,13 @@ $statusPill = static function (string $status): array {
         <?php else: ?>
           <?php foreach ($employeeTrainingCompletions as $training): ?>
             <?php [$statusLabel, $statusClass] = $statusPill((string)($training['enrollment_status'] ?? 'enrolled')); ?>
+            <?php [$attendanceLabel, $attendanceClass] = $statusPill((string)($training['attendance_status'] ?? 'enrolled')); ?>
             <tr class="border-b">
               <td class="py-3"><?= $escape((string)($training['program_title'] ?? 'Training Program')) ?></td>
               <td class="py-3"><?= $escape($formatDate($training['start_date'] ?? '')) ?> - <?= $escape($formatDate($training['end_date'] ?? '')) ?></td>
               <td class="py-3"><?= $escape(ucfirst((string)($training['mode'] ?? '-'))) ?></td>
               <td class="py-3"><span class="px-3 py-1 rounded-full <?= $escape($statusClass) ?>"><?= $escape($statusLabel) ?></span></td>
-              <td class="py-3"><?= $escape((string)($training['score'] ?? '-')) ?></td>
+              <td class="py-3"><span class="px-3 py-1 rounded-full <?= $escape($attendanceClass) ?>"><?= $escape($attendanceLabel) ?></span></td>
             </tr>
           <?php endforeach; ?>
         <?php endif; ?>

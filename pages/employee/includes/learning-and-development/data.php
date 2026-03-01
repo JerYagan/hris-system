@@ -14,7 +14,7 @@ $learningSummary = [
 $availableTrainingRows = [];
 $takenTrainingRows = [];
 $upcomingTrainingAlerts = [];
-$certificateAlerts = [];
+$trainingHistoryRows = [];
 
 if (!(bool)($employeeContextResolved ?? false)) {
     $dataLoadError = (string)($employeeContextError ?? 'Employee context could not be resolved.');
@@ -143,6 +143,8 @@ foreach ($enrollmentRows as $enrollmentRaw) {
     $trainingType = (string)($program['training_type'] ?? '-');
     $trainingCategory = (string)($program['training_category'] ?? '-');
     $provider = (string)($program['provider'] ?? '-');
+    $venue = (string)($program['venue'] ?? '-');
+    $mode = (string)($program['mode'] ?? '-');
     $startDate = cleanText($program['start_date'] ?? null);
     $endDate = cleanText($program['end_date'] ?? null);
     $certificateUrl = cleanText($enrollment['certificate_url'] ?? null);
@@ -163,13 +165,29 @@ foreach ($enrollmentRows as $enrollmentRaw) {
         'training_category' => $trainingCategory,
         'date_label' => $formatDateLabel($startDate, $endDate),
         'provider' => $provider,
+        'venue' => $venue,
+        'mode' => $mode,
         'attendance_label' => $attendanceLabel,
         'attendance_class' => $attendanceClass,
         'enrollment_status_raw' => $statusRaw,
         'enrollment_status_label' => $enrollmentLabel,
         'enrollment_status_class' => $enrollmentClass,
-        'certificate_url' => $certificateUrl,
-        'search_text' => strtolower(trim($title . ' ' . $trainingType . ' ' . $trainingCategory . ' ' . $provider . ' ' . $attendanceLabel . ' ' . $enrollmentLabel)),
+        'search_text' => strtolower(trim($title . ' ' . $trainingType . ' ' . $trainingCategory . ' ' . $provider . ' ' . $venue . ' ' . $mode . ' ' . $attendanceLabel . ' ' . $enrollmentLabel)),
+    ];
+
+    $statusMeta = [];
+    $statusMeta[] = $enrollmentLabel;
+    if ($statusRaw === 'completed' && $certificateUrl !== null && $certificateUrl !== '') {
+        $statusMeta[] = 'Certificate Issued';
+    }
+
+    $trainingHistoryRows[] = [
+        'title' => $title,
+        'date_label' => $formatDateLabel($startDate, $endDate),
+        'provider' => $provider,
+        'status_label' => $enrollmentLabel,
+        'status_class' => $enrollmentClass,
+        'meta' => implode(' · ', $statusMeta),
     ];
 
     $learningSummary['enrolled_count']++;
@@ -180,17 +198,10 @@ foreach ($enrollmentRows as $enrollmentRaw) {
     if ($startDate !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate) === 1 && $startDate >= $todayDate && $statusRaw === 'enrolled') {
         $upcomingTrainingAlerts[] = [
             'title' => $title,
-            'meta' => $formatDateLabel($startDate, $endDate) . ' · ' . $provider,
+            'meta' => $formatDateLabel($startDate, $endDate) . ' · ' . $provider . ' · ' . $venue . ' · ' . ucfirst($mode),
         ];
     }
 
-    if ($statusRaw === 'completed') {
-        $certificateAlerts[] = [
-            'title' => $title,
-            'meta' => 'Completion recorded',
-            'certificate_url' => $certificateUrl,
-        ];
-    }
 }
 
 foreach ($programRows as $programRaw) {
@@ -221,8 +232,10 @@ foreach ($programRows as $programRaw) {
 
     $isEnrolled = isset($enrolledProgramIds[$programId]);
     if (!$isEnrolled) {
-        $learningSummary['available_count']++;
+        continue;
     }
+
+    $learningSummary['available_count']++;
 
     $availableTrainingRows[] = [
         'program_id' => $programId,
@@ -242,4 +255,3 @@ usort($takenTrainingRows, static function (array $left, array $right): int {
 });
 
 $upcomingTrainingAlerts = array_slice($upcomingTrainingAlerts, 0, 3);
-$certificateAlerts = array_slice($certificateAlerts, 0, 5);

@@ -52,17 +52,13 @@ ob_start();
         <h2 class="text-lg font-semibold text-slate-800">Reports and Analytics</h2>
         <p class="text-sm text-slate-500 mt-1">Training effectiveness indicators and completion metrics for your office scope.</p>
     </header>
-    <div class="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 text-sm">
+    <div class="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 text-sm">
         <article class="rounded-xl border border-slate-200 p-4 bg-slate-50">
-            <p class="text-xs uppercase tracking-wide text-slate-500">Total Courses</p>
+            <p class="text-xs uppercase tracking-wide text-slate-500">Total Trainings</p>
             <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)($courseCounts['total'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
         </article>
-        <article class="rounded-xl border border-slate-200 p-4 bg-amber-50">
-            <p class="text-xs uppercase tracking-wide text-amber-700">Draft Courses</p>
-            <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)($courseCounts['draft'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
-        </article>
         <article class="rounded-xl border border-slate-200 p-4 bg-emerald-50">
-            <p class="text-xs uppercase tracking-wide text-emerald-700">Published Courses</p>
+            <p class="text-xs uppercase tracking-wide text-emerald-700">Published Trainings</p>
             <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)($courseCounts['published'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
         </article>
         <article class="rounded-xl border border-slate-200 p-4 bg-slate-50">
@@ -76,7 +72,7 @@ ob_start();
     <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
         <div>
             <h2 class="text-lg font-semibold text-slate-800">Training Schedule</h2>
-            <p class="text-sm text-slate-500 mt-1">Create and manage training schedules using status-safe course transitions.</p>
+            <p class="text-sm text-slate-500 mt-1">View admin-created training schedules and manage attendance updates within office scope.</p>
         </div>
     </header>
 
@@ -183,7 +179,7 @@ ob_start();
     <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
         <div>
             <h2 class="text-lg font-semibold text-slate-800">Employee Training Records</h2>
-            <p class="text-sm text-slate-500 mt-1">Review enrollment requests and monitor employee-linked training history and outcomes.</p>
+            <p class="text-sm text-slate-500 mt-1">Monitor employee-linked training history and update attendance outcomes.</p>
         </div>
     </header>
 
@@ -208,8 +204,8 @@ ob_start();
             <thead class="bg-slate-50 text-slate-600">
                 <tr>
                     <th class="text-left px-4 py-3">Employee Name</th>
-                    <th class="text-left px-4 py-3">Course Title</th>
-                    <th class="text-left px-4 py-3">Course Category</th>
+                    <th class="text-left px-4 py-3">Training Title</th>
+                    <th class="text-left px-4 py-3">Training Category</th>
                     <th class="text-left px-4 py-3">Schedule</th>
                     <th class="text-left px-4 py-3">Provider</th>
                     <th class="text-left px-4 py-3">Location</th>
@@ -281,12 +277,12 @@ ob_start();
     <div class="relative min-h-full flex items-center justify-center p-4">
         <div class="w-full max-w-3xl bg-white rounded-2xl border border-slate-200 shadow-xl">
             <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-slate-800">Course Details</h3>
+                <h3 class="text-lg font-semibold text-slate-800">Training Details</h3>
                 <button type="button" data-modal-close="staffLearningCourseViewModal" class="text-slate-500 hover:text-slate-700">✕</button>
             </div>
             <div class="p-6 text-sm space-y-4">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <p><span class="text-slate-500">Course:</span> <span id="staffLearningCourseViewTitle" class="font-medium text-slate-800"></span></p>
+                    <p><span class="text-slate-500">Training:</span> <span id="staffLearningCourseViewTitle" class="font-medium text-slate-800"></span></p>
                     <p><span class="text-slate-500">Status:</span> <span id="staffLearningCourseViewStatus" class="font-medium text-slate-800"></span></p>
                     <p><span class="text-slate-500">Provider:</span> <span id="staffLearningCourseViewProvider" class="font-medium text-slate-800"></span></p>
                     <p><span class="text-slate-500">Type:</span> <span id="staffLearningCourseViewType" class="font-medium text-slate-800"></span></p>
@@ -341,7 +337,6 @@ ob_start();
                     <div>
                         <label class="text-slate-600">Initial Status</label>
                         <select name="course_status" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
-                            <option value="draft">Draft</option>
                             <option value="published">Published</option>
                             <option value="archived">Archived</option>
                         </select>
@@ -441,53 +436,6 @@ ob_start();
     </div>
 </div>
 
-<div id="staffLearningEnrollmentCreateModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
-    <div class="absolute inset-0 bg-slate-900/60" data-modal-close="staffLearningEnrollmentCreateModal"></div>
-    <div class="relative min-h-full flex items-center justify-center p-4">
-        <div class="w-full max-w-2xl bg-white rounded-2xl border border-slate-200 shadow-xl">
-            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-slate-800">Create Enrollment</h3>
-                <button type="button" data-modal-close="staffLearningEnrollmentCreateModal" class="text-slate-500 hover:text-slate-700">✕</button>
-            </div>
-            <form id="staffLearningEnrollmentCreateForm" action="learning-development.php" method="POST" class="p-6 space-y-4 text-sm">
-                <input type="hidden" name="form_action" value="create_learning_enrollment">
-                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars((string)$csrfToken, ENT_QUOTES, 'UTF-8') ?>">
-
-                <div>
-                    <label class="text-slate-600">Course (Published)</label>
-                    <select name="course_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" <?= empty($enrollableCourseOptions) ? 'disabled' : '' ?> required>
-                        <option value="">Select course</option>
-                        <?php foreach ($enrollableCourseOptions as $courseOption): ?>
-                            <option value="<?= htmlspecialchars((string)$courseOption['id'], ENT_QUOTES, 'UTF-8') ?>">
-                                <?= htmlspecialchars((string)$courseOption['title'], ENT_QUOTES, 'UTF-8') ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <?php if (empty($enrollableCourseOptions)): ?>
-                        <p class="text-xs text-amber-700 mt-1">No published courses are available for enrollment.</p>
-                    <?php endif; ?>
-                </div>
-
-                <div>
-                    <label class="text-slate-600">Employee</label>
-                    <select name="person_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" <?= empty($employeeOptions) ? 'disabled' : '' ?> required>
-                        <option value="">Select employee</option>
-                        <?php foreach ($employeeOptions as $employeeOption): ?>
-                            <option value="<?= htmlspecialchars((string)$employeeOption['person_id'], ENT_QUOTES, 'UTF-8') ?>">
-                                <?= htmlspecialchars((string)$employeeOption['name'], ENT_QUOTES, 'UTF-8') ?> - <?= htmlspecialchars((string)$employeeOption['department'], ENT_QUOTES, 'UTF-8') ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div class="flex justify-end gap-3 mt-2">
-                    <button type="button" data-modal-close="staffLearningEnrollmentCreateModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button>
-                    <button type="submit" id="staffLearningEnrollmentCreateSubmit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800" <?= empty($enrollableCourseOptions) || empty($employeeOptions) ? 'disabled' : '' ?>>Create Enrollment</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 <?php endif; ?>
 
 <script src="../../assets/js/staff/learning-development/index.js" defer></script>

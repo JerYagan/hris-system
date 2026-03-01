@@ -76,9 +76,7 @@ $trainingAttendanceToDb = static function (string $status): string {
 $formAction = cleanText($_POST['form_action'] ?? null) ?? '';
 
 if ($formAction === 'create_learning_course') {
-    if (!$isManager) {
-        redirectWithState('error', 'Only HR officers and supervisors can create courses.', 'learning-development.php');
-    }
+    redirectWithState('error', 'Training creation is managed by Admin. Use admin Learning and Development to create trainings.', 'learning-development.php');
 
     $courseTitle = cleanText($_POST['course_title'] ?? null) ?? '';
     $courseDescription = cleanText($_POST['course_description'] ?? null) ?? '';
@@ -162,9 +160,7 @@ if ($formAction === 'create_learning_course') {
 }
 
 if ($formAction === 'update_course_status') {
-    if (!$isManager) {
-        redirectWithState('error', 'Only HR officers and supervisors can update course status.', 'learning-development.php');
-    }
+    redirectWithState('error', 'Training status updates are managed by Admin.', 'learning-development.php');
 
     $courseId = cleanText($_POST['course_id'] ?? null) ?? '';
     $newStatus = strtolower(cleanText($_POST['new_status'] ?? null) ?? '');
@@ -227,111 +223,7 @@ if ($formAction === 'update_course_status') {
 }
 
 if ($formAction === 'create_learning_enrollment') {
-    if (!$isManager) {
-        redirectWithState('error', 'Only HR officers and supervisors can create enrollments.', 'learning-development.php');
-    }
-
-    $courseId = cleanText($_POST['course_id'] ?? null) ?? '';
-    $personId = cleanText($_POST['person_id'] ?? null) ?? '';
-
-    if (!isValidUuid($courseId) || !isValidUuid($personId)) {
-        redirectWithState('error', 'Invalid enrollment request.', 'learning-development.php');
-    }
-
-    $courseResponse = apiRequest(
-        'GET',
-        $supabaseUrl
-            . '/rest/v1/training_programs?select=id,title,status'
-            . '&id=eq.' . rawurlencode($courseId)
-            . '&limit=1',
-        $headers
-    );
-
-    if (!isSuccessful($courseResponse) || empty((array)($courseResponse['data'] ?? []))) {
-        redirectWithState('error', 'Course not found.', 'learning-development.php');
-    }
-
-    $course = (array)$courseResponse['data'][0];
-    $courseTitle = cleanText($course['title'] ?? null) ?? 'Selected Course';
-    $courseStatusVirtual = $courseDbToVirtual((string)(cleanText($course['status'] ?? null) ?? 'planned'));
-    if ($courseStatusVirtual !== 'published') {
-        redirectWithState('error', 'Only published courses can accept new enrollments.', 'learning-development.php');
-    }
-
-    $employmentFilter = (!$isAdminScope && isValidUuid((string)$staffOfficeId))
-        ? '&office_id=eq.' . rawurlencode((string)$staffOfficeId)
-        : '';
-    $employmentResponse = apiRequest(
-        'GET',
-        $supabaseUrl
-            . '/rest/v1/employment_records?select=person_id,is_current'
-            . '&person_id=eq.' . rawurlencode($personId)
-            . '&is_current=eq.true'
-            . $employmentFilter
-            . '&limit=1',
-        $headers
-    );
-
-    if (!isSuccessful($employmentResponse) || empty((array)($employmentResponse['data'] ?? []))) {
-        redirectWithState('error', 'Employee is not available in your office scope.', 'learning-development.php');
-    }
-
-    $existingEnrollmentResponse = apiRequest(
-        'GET',
-        $supabaseUrl
-            . '/rest/v1/training_enrollments?select=id,enrollment_status'
-            . '&program_id=eq.' . rawurlencode($courseId)
-            . '&person_id=eq.' . rawurlencode($personId)
-            . '&enrollment_status=in.(enrolled,completed)'
-            . '&limit=1',
-        $headers
-    );
-
-    if (!isSuccessful($existingEnrollmentResponse)) {
-        redirectWithState('error', 'Unable to validate existing enrollment records.', 'learning-development.php');
-    }
-
-    if (!empty((array)($existingEnrollmentResponse['data'] ?? []))) {
-        redirectWithState('error', 'Employee already has an active enrollment for this course.', 'learning-development.php');
-    }
-
-    $createResponse = apiRequest(
-        'POST',
-        $supabaseUrl . '/rest/v1/training_enrollments',
-        array_merge($headers, ['Prefer: return=representation']),
-        [[
-            'program_id' => $courseId,
-            'person_id' => $personId,
-            'enrollment_status' => 'enrolled',
-        ]]
-    );
-
-    if (!isSuccessful($createResponse)) {
-        redirectWithState('error', 'Unable to create enrollment record. Ensure learning enrollment table is available.', 'learning-development.php');
-    }
-
-    $enrollmentId = cleanText($createResponse['data'][0]['id'] ?? null);
-    apiRequest(
-        'POST',
-        $supabaseUrl . '/rest/v1/activity_logs',
-        array_merge($headers, ['Prefer: return=minimal']),
-        [[
-            'actor_user_id' => isValidUuid((string)$staffUserId) ? $staffUserId : null,
-            'module_name' => 'learning_development',
-            'entity_name' => 'learning_enrollments',
-            'entity_id' => $enrollmentId,
-            'action_name' => 'create_learning_enrollment',
-            'new_data' => [
-                'course_id' => $courseId,
-                'course_title' => $courseTitle,
-                'person_id' => $personId,
-                'status' => 'pending',
-            ],
-            'ip_address' => clientIp(),
-        ]]
-    );
-
-    redirectWithState('success', 'Enrollment created successfully.', 'learning-development.php');
+    redirectWithState('error', 'Employee enrollment is now managed by Admin Learning and Development.', 'learning-development.php');
 }
 
 if ($formAction === 'update_training_attendance') {

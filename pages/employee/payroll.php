@@ -44,7 +44,7 @@ $payslipStatusMeta = static function (string $status): array {
 ?>
 
 <div class="mb-6">
-  <h1 class="text-2xl font-bold">My Payslip</h1>
+  <h1 class="text-2xl font-bold">My Payroll</h1>
   <p class="text-sm text-gray-500">Review payroll history, deduction breakdown, and released payslip files.</p>
 </div>
 
@@ -83,7 +83,7 @@ $payslipStatusMeta = static function (string $status): array {
 
 <div class="bg-white rounded-lg shadow border">
   <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-6 py-4 border-b">
-    <h2 class="text-lg font-bold">My Payslip <span class="text-daGreen">History</span></h2>
+    <h2 class="text-lg font-bold">Payroll <span class="text-daGreen">History</span></h2>
 
     <div class="w-full md:w-52">
       <label class="text-xs text-gray-500">Filter by year</label>
@@ -107,7 +107,7 @@ $payslipStatusMeta = static function (string $status): array {
           <tr>
             <th class="px-6 py-3 text-left">Pay Period</th>
             <th class="px-6 py-3 text-left">Gross Pay</th>
-            <th class="px-6 py-3 text-left">Deductions</th>
+            <th class="px-6 py-3 text-left">Deduction Breakdown</th>
             <th class="px-6 py-3 text-left">Net Pay</th>
             <th class="px-6 py-3 text-left">Status</th>
             <th class="px-6 py-3 text-right">Actions</th>
@@ -118,6 +118,7 @@ $payslipStatusMeta = static function (string $status): array {
             <?php
               [$statusLabel, $statusClass] = $payslipStatusMeta((string)($row['status'] ?? 'pending'));
               $hasPdf = !empty($row['pdf_storage_path']) && !empty($row['payslip_id']);
+              $deductionPreviewRows = array_slice((array)($row['deductions'] ?? []), 0, 2);
               $detailPayload = [
                 'period_label' => (string)($row['period_label'] ?? '-'),
                 'payslip_no' => (string)($row['payslip_no'] ?? '-'),
@@ -134,18 +135,48 @@ $payslipStatusMeta = static function (string $status): array {
             <tr class="hover:bg-gray-50" data-payroll-row data-year="<?= $escape((string)($row['period_year'] ?? '')) ?>">
               <td class="px-6 py-4"><?= $escape((string)($row['period_label'] ?? '-')) ?></td>
               <td class="px-6 py-4"><?= $escape($formatCurrency((float)($row['gross_pay'] ?? 0))) ?></td>
-              <td class="px-6 py-4"><?= $escape($formatCurrency((float)($row['deductions_total'] ?? 0))) ?></td>
+              <td class="px-6 py-4">
+                <p class="font-medium text-red-600"><?= $escape($formatCurrency((float)($row['deductions_total'] ?? 0))) ?></p>
+                <?php if (!empty($deductionPreviewRows)): ?>
+                  <?php foreach ($deductionPreviewRows as $preview): ?>
+                    <p class="text-xs text-gray-500 mt-1"><?= $escape((string)($preview['description'] ?? 'Deduction')) ?></p>
+                  <?php endforeach; ?>
+                <?php endif; ?>
+              </td>
               <td class="px-6 py-4 font-medium"><?= $escape($formatCurrency((float)($row['net_pay'] ?? 0))) ?></td>
               <td class="px-6 py-4"><span class="px-2 py-1 text-xs rounded-full <?= $escape($statusClass) ?>"><?= $escape($statusLabel) ?></span></td>
               <td class="px-6 py-4 text-right">
-                <div class="inline-flex items-center gap-2">
-                  <button type="button" data-open-payslip-detail data-payload="<?= $detailPayloadJson ?>" class="text-blue-600 hover:underline text-sm">View Breakdown</button>
-                  <?php if ($hasPdf): ?>
-                    <a href="view-payslip.php?payslip_id=<?= $escape((string)$row['payslip_id']) ?>" target="_blank" rel="noopener" class="text-blue-600 hover:underline text-sm">View PDF</a>
-                    <a href="download-payslip.php?payslip_id=<?= $escape((string)$row['payslip_id']) ?>" class="text-gray-700 hover:underline text-sm">Download</a>
-                  <?php else: ?>
-                    <span class="text-gray-400 text-sm">No PDF</span>
-                  <?php endif; ?>
+                <div class="relative inline-block text-left">
+                  <details class="group">
+                    <summary class="list-none inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 cursor-pointer">
+                      <span class="material-symbols-outlined text-[14px]">more_horiz</span>
+                      Actions
+                      <span class="material-symbols-outlined text-[14px]">expand_more</span>
+                    </summary>
+
+                    <div class="absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden z-20 text-left">
+                      <button type="button" data-open-payslip-detail data-payload="<?= $detailPayloadJson ?>" class="w-full px-3 py-2.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[14px]">receipt_long</span>
+                        View Breakdown
+                      </button>
+
+                      <?php if ($hasPdf): ?>
+                        <a href="view-payslip.php?payslip_id=<?= $escape((string)$row['payslip_id']) ?>" target="_blank" rel="noopener" class="w-full px-3 py-2.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 border-t border-slate-100">
+                          <span class="material-symbols-outlined text-[14px]">picture_as_pdf</span>
+                          View PDF
+                        </a>
+                        <a href="download-payslip.php?payslip_id=<?= $escape((string)$row['payslip_id']) ?>" class="w-full px-3 py-2.5 text-xs text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 border-t border-slate-100">
+                          <span class="material-symbols-outlined text-[14px]">download</span>
+                          Download
+                        </a>
+                      <?php else: ?>
+                        <span class="w-full px-3 py-2.5 text-xs text-slate-400 flex items-center gap-2 border-t border-slate-100 bg-slate-50">
+                          <span class="material-symbols-outlined text-[14px]">picture_as_pdf</span>
+                          No PDF
+                        </span>
+                      <?php endif; ?>
+                    </div>
+                  </details>
                 </div>
               </td>
             </tr>

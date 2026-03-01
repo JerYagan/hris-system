@@ -560,16 +560,16 @@
           learningScheduleStatusFilter?.addEventListener('change', () => {
             const selected = (learningScheduleStatusFilter.value || '').trim();
             if (!selected) {
-              dataTable.column(7).search('').draw();
+              dataTable.column(5).search('').draw();
               return;
             }
 
             const escaped = selected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const exactSearch = `^${escaped}$`;
             try {
-              dataTable.column(7).search(exactSearch, { regex: true, smart: false }).draw();
+              dataTable.column(5).search(exactSearch, { regex: true, smart: false }).draw();
             } catch (_error) {
-              dataTable.column(7).search(exactSearch, true, false).draw();
+              dataTable.column(5).search(exactSearch, true, false).draw();
             }
           });
         }
@@ -595,6 +595,31 @@
               dataTable.column(3).search(exactSearch, { regex: true, smart: false }).draw();
             } catch (_error) {
               dataTable.column(3).search(exactSearch, true, false).draw();
+            }
+          });
+        }
+
+        if (table.id === 'learningHistoryTable') {
+          const learningHistorySearch = document.getElementById('learningHistorySearch');
+          const learningHistoryActionFilter = document.getElementById('learningHistoryActionFilter');
+
+          learningHistorySearch?.addEventListener('input', () => {
+            dataTable.search((learningHistorySearch.value || '').trim()).draw();
+          });
+
+          learningHistoryActionFilter?.addEventListener('change', () => {
+            const selected = (learningHistoryActionFilter.value || '').trim();
+            if (!selected) {
+              dataTable.column(1).search('').draw();
+              return;
+            }
+
+            const escaped = selected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const exactSearch = `^${escaped}$`;
+            try {
+              dataTable.column(1).search(exactSearch, { regex: true, smart: false }).draw();
+            } catch (_error) {
+              dataTable.column(1).search(exactSearch, true, false).draw();
             }
           });
         }

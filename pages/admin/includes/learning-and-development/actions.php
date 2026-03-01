@@ -20,6 +20,20 @@ if (!function_exists('smtpSendTransactionalEmail')) {
     }
 }
 
+if (!function_exists('isValidUuid')) {
+    function isValidUuid(?string $value): bool
+    {
+        if ($value === null) {
+            return false;
+        }
+
+        return (bool)preg_match(
+            '/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/',
+            trim($value)
+        );
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     return;
 }
@@ -86,7 +100,7 @@ if ($action === 'create_training') {
         'start_date' => $scheduleDate,
         'end_date' => $scheduleDate,
         'mode' => $mode,
-        'status' => 'planned',
+        'status' => 'open',
     ];
 
     $programPayloadBase = [
@@ -96,7 +110,7 @@ if ($action === 'create_training') {
         'start_date' => $scheduleDate,
         'end_date' => $scheduleDate,
         'mode' => $mode,
-        'status' => 'planned',
+        'status' => 'open',
     ];
 
     $insertResponse = apiRequest(
@@ -319,6 +333,62 @@ if ($action === 'create_training') {
         }
     }
 
+    $advanceNotificationsQueued = 0;
+    $advanceNotificationsFailed = 0;
+
+    $roleAssignmentResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/user_role_assignments?select=user_id,role:roles(role_key)&expires_at=is.null&limit=5000',
+        $headers
+    );
+
+    $staffRecipientUserIds = [];
+    if (isSuccessful($roleAssignmentResponse)) {
+        foreach ((array)($roleAssignmentResponse['data'] ?? []) as $assignmentRaw) {
+            $assignment = (array)$assignmentRaw;
+            $roleKey = strtolower((string)($assignment['role']['role_key'] ?? ''));
+            if (!in_array($roleKey, ['staff', 'hr_officer', 'supervisor'], true)) {
+                continue;
+            }
+
+            $recipientUserId = cleanText($assignment['user_id'] ?? null) ?? '';
+            if ($recipientUserId === '' || !isValidUuid($recipientUserId)) {
+                continue;
+            }
+
+            $staffRecipientUserIds[$recipientUserId] = $recipientUserId;
+        }
+    }
+
+    if (!empty($staffRecipientUserIds)) {
+        $scheduleDateLabel = date('M d, Y', strtotime($scheduleDate));
+        $scheduleTimeLabel = date('h:i A', strtotime('1970-01-01 ' . $scheduleTime));
+        $advanceNotificationRows = [];
+
+        foreach (array_values($staffRecipientUserIds) as $recipientUserId) {
+            $advanceNotificationRows[] = [
+                'recipient_user_id' => $recipientUserId,
+                'category' => 'learning_and_development',
+                'title' => 'New Training Schedule Created',
+                'body' => $title . ' scheduled on ' . $scheduleDateLabel . ' at ' . $scheduleTimeLabel . ' (' . ucfirst($mode) . ') by ' . $provider . '. Enrollment is managed by Admin; please monitor attendance updates in Staff L&D.',
+                'link_url' => '/hris-system/pages/staff/learning-development.php',
+            ];
+        }
+
+        $advanceNotificationResponse = apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/notifications',
+            array_merge($headers, ['Prefer: return=minimal']),
+            $advanceNotificationRows
+        );
+
+        if (isSuccessful($advanceNotificationResponse)) {
+            $advanceNotificationsQueued = count($advanceNotificationRows);
+        } else {
+            $advanceNotificationsFailed = count($advanceNotificationRows);
+        }
+    }
+
     apiRequest(
         'POST',
         $supabaseUrl . '/rest/v1/activity_logs',
@@ -339,6 +409,8 @@ if ($action === 'create_training') {
                 'venue' => $venue,
                 'mode' => $mode,
                 'participants_count' => count($participantIdsList),
+                'advance_notifications_queued' => $advanceNotificationsQueued,
+                'advance_notifications_failed' => $advanceNotificationsFailed,
                 'in_app_notifications_queued' => $notificationsQueued,
                 'in_app_notifications_failed' => $notificationsFailed,
                 'emails_sent' => $emailsSent,
@@ -350,13 +422,19 @@ if ($action === 'create_training') {
     );
 
     if (empty($participantIdsList)) {
-        $successMessage = 'Training saved. No participants were selected.';
+        $successMessage = 'Training saved.';
     } else {
         $successMessage = 'Training saved and participants enrolled.';
         $successMessage .= ' In-app notifications queued: ' . $notificationsQueued . '.';
         if ($notificationsFailed > 0) {
             $successMessage .= ' Notification queue failures: ' . $notificationsFailed . '.';
         }
+    }
+    if ($advanceNotificationsQueued > 0) {
+        $successMessage .= ' Advance notifications queued: ' . $advanceNotificationsQueued . '.';
+    }
+    if ($advanceNotificationsFailed > 0) {
+        $successMessage .= ' Advance notification queue failures: ' . $advanceNotificationsFailed . '.';
     }
     if (!$emailReady && !empty($participantIdsList)) {
         $successMessage .= ' Email notifications were skipped because mail settings are incomplete.';

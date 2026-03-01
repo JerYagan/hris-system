@@ -247,97 +247,65 @@ $formatTime = static function (?string $raw): string {
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800">Leave Requests</h2>
-        <p class="text-sm text-slate-500 mt-1">Leave requests remain defaulted to pending and rejected entries are locked.</p>
+        <h2 class="text-lg font-semibold text-slate-800">Leave/CTO Requests</h2>
+        <p class="text-sm text-slate-500 mt-1">Unified admin queue for leave-style approvals, including CTO requests.</p>
     </header>
     <div class="p-6 overflow-x-auto">
-        <table id="leaveRequestsTable" class="w-full text-sm">
+        <table id="leaveCtoRequestsTable" class="w-full text-sm">
             <thead class="bg-slate-50 text-slate-600">
                 <tr>
                     <th class="text-left px-4 py-3">Employee</th>
+                    <th class="text-left px-4 py-3">Request Type</th>
                     <th class="text-left px-4 py-3">Leave Type</th>
-                    <th class="text-left px-4 py-3">Date Range</th>
+                    <th class="text-left px-4 py-3">Date/Range</th>
+                    <th class="text-left px-4 py-3">Window/Hours</th>
                     <th class="text-left px-4 py-3">Reason</th>
                     <th class="text-left px-4 py-3">Status</th>
                     <th class="text-left px-4 py-3">Action</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
-                <?php if (empty($leaveRequests)): ?>
-                    <tr><td class="px-4 py-3 text-slate-500" colspan="6">No leave requests found.</td></tr>
+                <?php if (empty($leaveCtoRequests)): ?>
+                    <tr><td class="px-4 py-3 text-slate-500" colspan="8">No leave/CTO requests found.</td></tr>
                 <?php else: ?>
-                    <?php foreach ($leaveRequests as $leave): ?>
+                    <?php foreach ($leaveCtoRequests as $entry): ?>
                         <?php
-                        $statusRaw = strtolower((string)($leave['status'] ?? 'pending'));
+                        $statusRaw = strtolower((string)($entry['status_raw'] ?? 'pending'));
                         $locked = in_array($statusRaw, ['approved', 'rejected', 'cancelled'], true);
                         [$statusLabel, $statusClass] = $attendancePill($statusRaw);
-                        $employeeName = trim((string)($leave['person']['first_name'] ?? '') . ' ' . (string)($leave['person']['surname'] ?? ''));
-                        if ($employeeName === '') {
-                            $employeeName = 'Unknown Employee';
+                        $requestSource = (string)($entry['request_source'] ?? 'leave_requests');
+                        $employeeName = (string)($entry['employee_name'] ?? 'Unknown Employee');
+                        $requestTypeLabel = (string)($entry['request_type_label'] ?? 'Leave');
+                        $leaveType = (string)($entry['leave_type'] ?? '-');
+                        $dateLabel = $requestSource === 'leave_requests'
+                            ? str_replace(' - ', ' to ', (string)($entry['date_label'] ?? '-'))
+                            : $formatDate((string)($entry['date_label'] ?? ''));
+                        $windowLabel = '-';
+                        if ($requestSource === 'overtime_requests') {
+                            $windowLabel = htmlspecialchars((string)($entry['window'] ?? '-'), ENT_QUOTES, 'UTF-8')
+                                . ' / '
+                                . htmlspecialchars(number_format((float)($entry['hours_requested'] ?? 0), 2), ENT_QUOTES, 'UTF-8')
+                                . 'h';
                         }
-                        $leaveType = (string)($leave['leave_type']['leave_name'] ?? 'Unassigned');
-                        $dateRange = $formatDate((string)($leave['date_from'] ?? '')) . ' - ' . $formatDate((string)($leave['date_to'] ?? ''));
-                        $reason = (string)($leave['reason'] ?? '-');
                         ?>
                         <tr>
                             <td class="px-4 py-3"><?= htmlspecialchars($employeeName, ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars($requestTypeLabel, ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($leaveType, ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars($dateRange, ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars($reason, ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars($dateLabel, ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= $requestSource === 'overtime_requests' ? $windowLabel : '-' ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($entry['reason'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><span class="inline-flex px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td class="px-4 py-3">
-                                <button type="button" data-leave-review data-leave-request-id="<?= htmlspecialchars((string)($leave['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars($employeeName, ENT_QUOTES, 'UTF-8') ?>" data-current-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>" data-date-range="<?= htmlspecialchars($dateRange, ENT_QUOTES, 'UTF-8') ?>" data-leave-type="<?= htmlspecialchars($leaveType, ENT_QUOTES, 'UTF-8') ?>" data-leave-reason="<?= htmlspecialchars($reason, ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50" <?= $locked ? 'disabled' : '' ?>>
-                                    <span class="material-symbols-outlined text-[15px]">rate_review</span><?= $locked ? 'Locked' : 'Review' ?>
-                                </button>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
-</section>
-
-<section class="bg-white border border-slate-200 rounded-2xl mb-6">
-    <header class="px-6 py-4 border-b border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800">CTO Requests</h2>
-        <p class="text-sm text-slate-500 mt-1">Admin final decision queue for CTO-only process.</p>
-    </header>
-    <div class="p-6 overflow-x-auto">
-        <table id="ctoRequestsTable" class="w-full text-sm">
-            <thead class="bg-slate-50 text-slate-600">
-                <tr>
-                    <th class="text-left px-4 py-3">Employee</th>
-                    <th class="text-left px-4 py-3">Date</th>
-                    <th class="text-left px-4 py-3">Window</th>
-                    <th class="text-left px-4 py-3">Hours</th>
-                    <th class="text-left px-4 py-3">Reason</th>
-                    <th class="text-left px-4 py-3">Status</th>
-                    <th class="text-left px-4 py-3">Action</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-                <?php if (empty($ctoRequests)): ?>
-                    <tr><td class="px-4 py-3 text-slate-500" colspan="7">No CTO requests found.</td></tr>
-                <?php else: ?>
-                    <?php foreach ($ctoRequests as $cto): ?>
-                        <?php
-                        $statusRaw = strtolower((string)($cto['status'] ?? 'pending'));
-                        $locked = in_array($statusRaw, ['approved', 'rejected', 'cancelled'], true);
-                        [$statusLabel, $statusClass] = $attendancePill($statusRaw);
-                        $window = $formatTime((string)($cto['start_time'] ?? '')) . ' - ' . $formatTime((string)($cto['end_time'] ?? ''));
-                        ?>
-                        <tr>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($cto['employee_name'] ?? 'Unknown Employee'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars($formatDate((string)($cto['overtime_date'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars($window, ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars(number_format((float)($cto['hours_requested'] ?? 0), 2), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($cto['reason'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><span class="inline-flex px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
-                            <td class="px-4 py-3">
-                                <button type="button" data-cto-review data-request-id="<?= htmlspecialchars((string)($cto['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars((string)($cto['employee_name'] ?? 'Unknown Employee'), ENT_QUOTES, 'UTF-8') ?>" data-current-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>" data-window="<?= htmlspecialchars($window, ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50" <?= $locked ? 'disabled' : '' ?>>
-                                    <span class="material-symbols-outlined text-[15px]">rate_review</span><?= $locked ? 'Locked' : 'Review' ?>
-                                </button>
+                                <?php if ($requestSource === 'leave_requests'): ?>
+                                    <button type="button" data-leave-review data-leave-request-id="<?= htmlspecialchars((string)($entry['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars($employeeName, ENT_QUOTES, 'UTF-8') ?>" data-current-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>" data-date-range="<?= htmlspecialchars((string)($entry['date_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>" data-leave-type="<?= htmlspecialchars($leaveType, ENT_QUOTES, 'UTF-8') ?>" data-leave-reason="<?= htmlspecialchars((string)($entry['reason'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50" <?= $locked ? 'disabled' : '' ?>>
+                                        <span class="material-symbols-outlined text-[15px]">rate_review</span><?= $locked ? 'Locked' : 'Review' ?>
+                                    </button>
+                                <?php else: ?>
+                                    <button type="button" data-cto-review data-request-id="<?= htmlspecialchars((string)($entry['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars($employeeName, ENT_QUOTES, 'UTF-8') ?>" data-current-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>" data-window="<?= htmlspecialchars((string)($entry['window'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50" <?= $locked ? 'disabled' : '' ?>>
+                                        <span class="material-symbols-outlined text-[15px]">rate_review</span><?= $locked ? 'Locked' : 'Review' ?>
+                                    </button>
+                                <?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>

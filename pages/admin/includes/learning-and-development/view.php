@@ -1,15 +1,99 @@
 <?php if ($state && $message): ?>
-    <?php
-    $alertClass = $state === 'success'
-        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-        : 'border-red-200 bg-red-50 text-red-700';
-    $icon = $state === 'success' ? 'check_circle' : 'error';
-    ?>
-    <div class="mb-6 rounded-lg border px-4 py-3 text-sm flex gap-2 <?= htmlspecialchars($alertClass, ENT_QUOTES, 'UTF-8') ?>">
-        <span class="material-symbols-outlined text-base"><?= htmlspecialchars($icon, ENT_QUOTES, 'UTF-8') ?></span>
-        <span><?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?></span>
-    </div>
+    <div
+        id="learningFlashMessage"
+        class="hidden"
+        data-state="<?= htmlspecialchars((string)$state, ENT_QUOTES, 'UTF-8') ?>"
+        data-message="<?= htmlspecialchars((string)$message, ENT_QUOTES, 'UTF-8') ?>"
+        aria-hidden="true"
+    ></div>
 <?php endif; ?>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-800">Reports and Analytics</h2>
+        <p class="text-sm text-slate-500 mt-1">Review participation metrics and training completion insights.</p>
+    </header>
+
+    <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        <article class="rounded-xl border border-slate-200 p-4 bg-emerald-50">
+            <p class="text-xs uppercase text-emerald-700">Completed Trainings</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$completedTrainings ?></p>
+            <p class="text-xs text-slate-600 mt-1">For current quarter</p>
+        </article>
+        <article class="rounded-xl border border-slate-200 p-4 bg-slate-50">
+            <p class="text-xs uppercase text-slate-600">Average Attendance</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$averageAttendance ?>%</p>
+            <p class="text-xs text-slate-600 mt-1">Across all sessions</p>
+        </article>
+        <article class="rounded-xl border border-slate-200 p-4 bg-amber-50">
+            <p class="text-xs uppercase text-amber-700">Pending Validations</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$pendingValidations ?></p>
+            <p class="text-xs text-slate-600 mt-1">Training records awaiting admin review</p>
+        </article>
+    </div>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-800">Training Activity History</h2>
+        <p class="text-sm text-slate-500 mt-1">Recent admin-side training creation and attendance updates with actor and timestamp.</p>
+    </header>
+
+    <div class="px-6 pb-3 pt-4 flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
+        <div class="w-full md:w-1/2">
+            <label class="text-sm text-slate-600">Search History</label>
+            <input id="learningHistorySearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search by action, actor, target, or details">
+        </div>
+        <div class="w-full md:w-56">
+            <label class="text-sm text-slate-600">Action Filter</label>
+            <select id="learningHistoryActionFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
+                <option value="">All Actions</option>
+                <?php foreach ($historyActionFilters as $actionFilter): ?>
+                    <option value="<?= htmlspecialchars((string)$actionFilter, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$actionFilter, ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+    </div>
+
+    <div class="p-6 overflow-x-auto">
+        <table id="learningHistoryTable" class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600">
+                <tr>
+                    <th class="text-left px-4 py-3">Timestamp</th>
+                    <th class="text-left px-4 py-3">Action</th>
+                    <th class="text-left px-4 py-3">Target</th>
+                    <th class="text-left px-4 py-3">Details</th>
+                    <th class="text-left px-4 py-3">Actor</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                <?php if (empty($historyRows)): ?>
+                    <tr>
+                        <td class="px-4 py-3 text-slate-500" colspan="5">No activity history found for Learning and Development.</td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($historyRows as $row): ?>
+                        <tr data-learning-history-search="<?= htmlspecialchars((string)$row['search_text'], ENT_QUOTES, 'UTF-8') ?>" data-learning-history-action="<?= htmlspecialchars((string)$row['action_label'], ENT_QUOTES, 'UTF-8') ?>">
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['timestamp_label'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['action_label'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['target_label'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['details_label'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['actor_label'], ENT_QUOTES, 'UTF-8') ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="px-6 pb-6 pt-1 flex items-center justify-between gap-3 text-xs text-slate-600">
+        <p id="learningHistoryPageInfo">Page 1 of 1</p>
+        <div class="flex items-center gap-2">
+            <button id="learningHistoryPrevPage" type="button" class="px-2.5 py-1.5 rounded border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>Previous</button>
+            <button id="learningHistoryNextPage" type="button" class="px-2.5 py-1.5 rounded border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>Next</button>
+        </div>
+    </div>
+</section>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
@@ -36,8 +120,6 @@
             <label class="text-sm text-slate-600">Entries</label>
             <select id="learningRecordsPageSize" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
                 <option value="10" selected>10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
             </select>
         </div>
     </div>
@@ -97,7 +179,7 @@
     <div class="px-6 pb-3 pt-4 flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
         <div class="w-full md:w-1/2">
             <label class="text-sm text-slate-600">Search Schedules</label>
-            <input id="learningScheduleSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search by type, category, provider, or venue">
+            <input id="learningScheduleSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search by type, category, provider, or mode">
         </div>
         <div class="w-full md:w-56">
             <label class="text-sm text-slate-600">Status Filter</label>
@@ -112,8 +194,6 @@
             <label class="text-sm text-slate-600">Entries</label>
             <select id="learningSchedulePageSize" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
                 <option value="10" selected>10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
             </select>
         </div>
     </div>
@@ -126,8 +206,6 @@
                     <th class="text-left px-4 py-3">Category</th>
                     <th class="text-left px-4 py-3">Schedule</th>
                     <th class="text-left px-4 py-3">Provider</th>
-                    <th class="text-left px-4 py-3">Venue</th>
-                    <th class="text-left px-4 py-3">Participants</th>
                     <th class="text-left px-4 py-3">Mode</th>
                     <th class="text-left px-4 py-3">Status</th>
                     <th class="text-left px-4 py-3">Action</th>
@@ -136,7 +214,7 @@
             <tbody class="divide-y divide-slate-100">
                 <?php if (empty($trainingScheduleRows)): ?>
                     <tr>
-                        <td class="px-4 py-3 text-slate-500" colspan="9">No training schedules found.</td>
+                        <td class="px-4 py-3 text-slate-500" colspan="7">No training schedules found.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($trainingScheduleRows as $row): ?>
@@ -145,8 +223,6 @@
                             <td class="px-4 py-3"><?= htmlspecialchars((string)$row['training_category'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)$row['date_label'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)$row['provider'], ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['venue'], ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['participants'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)$row['mode'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)$row['status_class'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$row['status_label'], ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td class="px-4 py-3">
@@ -212,8 +288,6 @@
             <label class="text-sm text-slate-600">Entries</label>
             <select id="learningAttendancePageSize" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
                 <option value="10" selected>10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
             </select>
         </div>
     </div>
@@ -258,31 +332,6 @@
     </div>
 </section>
 
-<section class="bg-white border border-slate-200 rounded-2xl">
-    <header class="px-6 py-4 border-b border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800">Reports and Analytics</h2>
-        <p class="text-sm text-slate-500 mt-1">Review participation metrics and training completion insights.</p>
-    </header>
-
-    <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-        <article class="rounded-xl border border-slate-200 p-4 bg-emerald-50">
-            <p class="text-xs uppercase text-emerald-700">Completed Trainings</p>
-            <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$completedTrainings ?></p>
-            <p class="text-xs text-slate-600 mt-1">For current quarter</p>
-        </article>
-        <article class="rounded-xl border border-slate-200 p-4 bg-slate-50">
-            <p class="text-xs uppercase text-slate-600">Average Attendance</p>
-            <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$averageAttendance ?>%</p>
-            <p class="text-xs text-slate-600 mt-1">Across all sessions</p>
-        </article>
-        <article class="rounded-xl border border-slate-200 p-4 bg-amber-50">
-            <p class="text-xs uppercase text-amber-700">Pending Validations</p>
-            <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$pendingValidations ?></p>
-            <p class="text-xs text-slate-600 mt-1">Training records awaiting admin review</p>
-        </article>
-    </div>
-</section>
-
 <div id="learningScheduleModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-slate-900/60" data-modal-close="learningScheduleModal"></div>
     <div class="relative min-h-full flex items-center justify-center p-4">
@@ -304,11 +353,11 @@
                     </div>
                     <div>
                         <label class="text-slate-600">Schedule Date</label>
-                        <input name="schedule_date" type="date" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                        <input id="learningScheduleDateInput" name="schedule_date" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="YYYY-MM-DD" autocomplete="off" required>
                     </div>
                     <div>
                         <label class="text-slate-600">Schedule Time</label>
-                        <input name="schedule_time" type="time" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                        <input id="learningScheduleTimeInput" name="schedule_time" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="HH:MM" autocomplete="off" required>
                     </div>
                     <div>
                         <label class="text-slate-600">Provider</label>
@@ -327,30 +376,39 @@
                         </select>
                     </div>
                     <div class="md:col-span-2">
-                        <label class="text-slate-600">List of Participants</label>
-                        <div class="mt-1 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                            <input id="learningParticipantSearch" type="search" class="w-full md:w-72 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search employee">
-                            <div class="flex items-center gap-2">
-                                <button id="learningParticipantsSelectAll" type="button" class="px-3 py-1.5 text-xs border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50" <?= empty($participantOptions) ? 'disabled' : '' ?>>Select all</button>
-                                <button id="learningParticipantsClearAll" type="button" class="px-3 py-1.5 text-xs border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50" <?= empty($participantOptions) ? 'disabled' : '' ?>>Clear all</button>
-                            </div>
+                        <label class="text-slate-600">Enroll Employees</label>
+                        <input
+                            id="learningParticipantSearchInput"
+                            type="search"
+                            class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"
+                            placeholder="Search employee name or department"
+                        >
+                        <div id="learningParticipantList" class="mt-2 max-h-56 overflow-y-auto rounded-md border border-slate-300 bg-white divide-y divide-slate-100">
+                            <?php foreach ($employeeOptions as $employeeOption): ?>
+                                <label
+                                    data-learning-participant-row
+                                    data-search="<?= htmlspecialchars(strtolower((string)$employeeOption['name'] . ' ' . (string)$employeeOption['department']), ENT_QUOTES, 'UTF-8') ?>"
+                                    class="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 cursor-pointer"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        name="participant_ids[]"
+                                        value="<?= htmlspecialchars((string)$employeeOption['person_id'], ENT_QUOTES, 'UTF-8') ?>"
+                                        class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                                    >
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-medium text-slate-800 truncate"><?= htmlspecialchars((string)$employeeOption['name'], ENT_QUOTES, 'UTF-8') ?></p>
+                                        <p class="text-xs text-slate-500 truncate"><?= htmlspecialchars((string)$employeeOption['department'], ENT_QUOTES, 'UTF-8') ?></p>
+                                    </div>
+                                </label>
+                            <?php endforeach; ?>
                         </div>
-                        <div id="learningParticipantChecklist" class="w-full mt-2 border border-slate-300 rounded-md px-3 py-2 max-h-52 overflow-y-auto bg-white space-y-2">
-                            <?php if (empty($participantOptions)): ?>
-                                <p class="text-sm text-slate-500">No participants available</p>
-                            <?php else: ?>
-                                <?php foreach ($participantOptions as $participant): ?>
-                                    <label class="flex items-start gap-2 text-sm text-slate-700" data-learning-participant-item data-learning-participant-search="<?= htmlspecialchars(strtolower((string)$participant['name'] . ' ' . (string)$participant['department']), ENT_QUOTES, 'UTF-8') ?>">
-                                        <input type="checkbox" name="participant_ids[]" value="<?= htmlspecialchars((string)$participant['person_id'], ENT_QUOTES, 'UTF-8') ?>" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500">
-                                        <span><?= htmlspecialchars((string)$participant['name'] . ' • ' . (string)$participant['department'], ENT_QUOTES, 'UTF-8') ?></span>
-                                    </label>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </div>
-                        <?php if (!empty($participantOptionsNotice)): ?>
-                            <p class="text-xs text-amber-700 mt-1"><?= htmlspecialchars((string)$participantOptionsNotice, ENT_QUOTES, 'UTF-8') ?></p>
+                        <p id="learningParticipantEmptyHint" class="mt-1 text-xs text-amber-700 hidden">No employees match your search.</p>
+                        <?php if (empty($employeeOptions)): ?>
+                            <p class="mt-1 text-xs text-amber-700">No employees are currently available to display. Please verify employee records and refresh.</p>
+                        <?php else: ?>
+                            <p class="mt-1 text-xs text-slate-500">Selected employees will be enrolled immediately and receive in-app notifications. Employees can be enrolled even if they are currently attending other trainings.</p>
                         <?php endif; ?>
-                        <p class="text-xs text-slate-500 mt-1">Participant selection is optional. Selected employees will receive schedule notifications in-app and by email (if mail settings are configured).</p>
                     </div>
                 </div>
                 <div class="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex justify-end gap-3">

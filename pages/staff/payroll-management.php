@@ -34,13 +34,13 @@ ob_start();
 
 <section class="bg-white border rounded-xl mb-6">
     <header class="px-6 py-4 border-b">
-        <h2 class="text-lg font-semibold text-gray-800">Compute Monthly Payroll</h2>
+        <h2 class="text-lg font-semibold text-gray-800">Payroll Computation</h2>
         <p class="text-sm text-gray-500 mt-1">View payroll periods and compute payroll per selected period.</p>
     </header>
 
     <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-3 gap-3">
         <div class="md:col-span-2">
-            <label for="payrollPeriodSearchInput" class="text-sm text-gray-600">Search Requests</label>
+            <label for="payrollPeriodSearchInput" class="text-sm text-gray-600">Search Payroll Periods</label>
             <input id="payrollPeriodSearchInput" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search by period code, date range, or status">
         </div>
         <div>
@@ -123,7 +123,7 @@ ob_start();
 <section class="bg-white border rounded-xl mb-6">
     <header class="px-6 py-4 border-b flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-            <h2 class="text-lg font-semibold text-gray-800">Recommend Salary Adjustment</h2>
+            <h2 class="text-lg font-semibold text-gray-800">Salary Adjustment Recommendations</h2>
             <p class="text-sm text-gray-500 mt-1">Create salary adjustments for employees and submit recommendation to Admin for final approval.</p>
         </div>
         <button type="button" id="openCreateSalaryAdjustmentModal" class="inline-flex items-center gap-1.5 justify-center px-3 py-2 text-xs rounded-md border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100">
@@ -134,7 +134,7 @@ ob_start();
 
     <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-3 gap-3">
         <div class="md:col-span-2">
-            <label for="salaryAdjustmentSearchInput" class="text-sm text-gray-600">Search Requests</label>
+            <label for="salaryAdjustmentSearchInput" class="text-sm text-gray-600">Search Salary Adjustments</label>
             <input id="salaryAdjustmentSearchInput" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search by adjustment code, employee, period, or description">
         </div>
         <div>
@@ -217,13 +217,13 @@ ob_start();
 
 <section class="bg-white border rounded-xl mb-6">
     <header class="px-6 py-4 border-b">
-        <h2 class="text-lg font-semibold text-gray-800">Generate Payslip</h2>
-        <p class="text-sm text-gray-500 mt-1">Generate payslips from approved payroll runs.</p>
+        <h2 class="text-lg font-semibold text-gray-800">Generate Payslips</h2>
+        <p class="text-sm text-gray-500 mt-1">Generate and send payslips from approved payroll runs.</p>
     </header>
 
     <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-3 gap-3">
         <div class="md:col-span-2">
-            <label for="payrollRunSearchInput" class="text-sm text-gray-600">Search Requests</label>
+            <label for="payrollRunSearchInput" class="text-sm text-gray-600">Search Payroll Runs</label>
             <input id="payrollRunSearchInput" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search by run ID, period code, or status">
         </div>
         <div>
@@ -248,7 +248,6 @@ ob_start();
                     <th class="text-left px-4 py-3">Period</th>
                     <th class="text-left px-4 py-3">Employees</th>
                     <th class="text-left px-4 py-3">Gross / Net</th>
-                    <th class="text-left px-4 py-3">Staff Recommendation</th>
                     <th class="text-left px-4 py-3">Salary Adjustments</th>
                     <th class="text-left px-4 py-3">Admin Review</th>
                     <th class="text-left px-4 py-3">Status</th>
@@ -258,7 +257,7 @@ ob_start();
             <tbody class="divide-y">
                 <?php if (empty($payrollRunRows)): ?>
                     <tr>
-                        <td class="px-4 py-3 text-gray-500" colspan="9">No payroll runs found.</td>
+                        <td class="px-4 py-3 text-gray-500" colspan="8">No payroll runs found.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($payrollRunRows as $row): ?>
@@ -272,10 +271,6 @@ ob_start();
                             <td class="px-4 py-3">
                                 <p>₱<?= number_format((float)($row['gross_total'] ?? 0), 2) ?></p>
                                 <p class="text-xs text-gray-500 mt-1">Net: ₱<?= number_format((float)($row['net_total'] ?? 0), 2) ?></p>
-                            </td>
-                            <td class="px-4 py-3">
-                                <p class="text-gray-800"><?= htmlspecialchars((string)($row['staff_recommendation'] ?? 'Recommend approval'), ENT_QUOTES, 'UTF-8') ?></p>
-                                <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars((string)($row['staff_submitted_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
                             </td>
                             <td class="px-4 py-3">
                                 <?php
@@ -319,7 +314,7 @@ ob_start();
                                         <?= !empty($row['can_generate']) ? '' : 'disabled aria-disabled="true"' ?>
                                     >
                                         <span class="material-symbols-outlined text-[14px]">receipt_long</span>
-                                        Generate Payslip
+                                        Generate Payslips
                                     </button>
                                 </div>
                             </td>
@@ -327,7 +322,7 @@ ob_start();
                     <?php endforeach; ?>
                 <?php endif; ?>
                 <tr id="payrollRunFilterEmptyRow" class="hidden">
-                    <td class="px-4 py-3 text-gray-500" colspan="9">No payroll runs match your search/filter criteria.</td>
+                    <td class="px-4 py-3 text-gray-500" colspan="8">No payroll runs match your search/filter criteria.</td>
                 </tr>
             </tbody>
         </table>
@@ -351,7 +346,12 @@ ob_start();
                 <p><span class="text-slate-500">Date Range:</span> <span id="exportPayrollPeriodRange" class="font-medium text-slate-800">-</span></p>
             </div>
 
-            <p class="text-xs text-gray-500">Exports the complete payroll item dataset for the selected period.</p>
+            <p class="text-xs text-gray-500">Exports complete payroll breakdown (earnings, deductions, attendance impact, adjustments, gross/net) for the selected period.</p>
+
+            <div>
+                <label for="exportPayrollReason" class="text-gray-600">Export Reason</label>
+                <textarea id="exportPayrollReason" name="export_reason" rows="3" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Optional: state why this payroll export is being generated."></textarea>
+            </div>
 
             <div class="flex justify-end gap-3">
                 <button type="button" id="exportPayrollCsvModalCancel" class="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
@@ -398,9 +398,9 @@ ob_start();
             </div>
 
             <div>
-                <label for="computePayrollRecommendation" class="text-gray-600">Recommendation for Admin Review</label>
-                <textarea id="computePayrollRecommendation" name="staff_recommendation" rows="3" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Recommend approval"></textarea>
-                <p class="text-xs text-gray-500 mt-1">This recommendation is saved in the staff-to-admin payroll handoff log.</p>
+                <label for="computePayrollRecommendation" class="text-gray-600">Recommendation / Reason for Admin Review</label>
+                <textarea id="computePayrollRecommendation" name="staff_recommendation" rows="3" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="State recommendation and reason for this payroll computation." required></textarea>
+                <p class="text-xs text-gray-500 mt-1">Required and saved in immutable staff-to-admin payroll handoff logs.</p>
             </div>
 
             <div class="flex justify-end gap-3">
@@ -500,7 +500,7 @@ ob_start();
 
                 <div class="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
                     <p class="text-xs uppercase tracking-wide text-slate-500">Payroll Computation Breakdown</p>
-                    <p class="text-xs text-slate-600 mt-1">Includes salary setup components, timekeeping deductions, and adjustment impact per employee.</p>
+                    <p class="text-xs text-slate-600 mt-1">Includes salary setup components, leave-card aligned deductions (late/undertime), and adjustment impact per employee.</p>
                     <div class="mt-3 grid grid-cols-1 md:grid-cols-4 gap-3">
                         <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
                             <p class="text-xs text-slate-500">Employees</p>
@@ -526,10 +526,11 @@ ob_start();
                                     <th class="text-left px-3 py-2">Employee</th>
                                     <th class="text-right px-3 py-2">Basic Pay</th>
                                     <th class="text-right px-3 py-2">Allowances</th>
-                                    <th class="text-right px-3 py-2">CTO Pay</th>
+                                    <th class="text-right px-3 py-2">CTO Leave UT w/ Pay</th>
                                     <th class="text-right px-3 py-2">Statutory</th>
                                     <th class="text-right px-3 py-2">Timekeeping</th>
-                                    <th class="text-right px-3 py-2">Attendance (A/L/U)</th>
+                                    <th class="text-right px-3 py-2">Late/Undertime</th>
+                                    <th class="text-left px-3 py-2">Remarks</th>
                                     <th class="text-right px-3 py-2">Adj +/-</th>
                                     <th class="text-right px-3 py-2">Gross</th>
                                     <th class="text-right px-3 py-2">Net</th>
@@ -537,7 +538,7 @@ ob_start();
                             </thead>
                             <tbody id="generatePayslipBreakdownBody" class="divide-y divide-slate-100">
                                 <tr id="generatePayslipBreakdownEmptyRow">
-                                    <td class="px-3 py-3 text-slate-500" colspan="10">No computation breakdown available for this batch.</td>
+                                    <td class="px-3 py-3 text-slate-500" colspan="11">No computation breakdown available for this batch.</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -584,6 +585,12 @@ ob_start();
                             </tbody>
                         </table>
                     </div>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="text-slate-600">Release Reason</label>
+                    <textarea name="release_reason" rows="3" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="State the reason for generating and sending payslips for this run." required></textarea>
+                    <p class="text-xs text-slate-500 mt-1">Required for per-send-attempt audit logs.</p>
                 </div>
 
                 <div class="md:col-span-2 flex justify-end gap-3 mt-2">

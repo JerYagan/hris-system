@@ -36,8 +36,20 @@ if (!function_exists('payrollSmtpSendEmailWithAttachment')) {
             adminMailEnsureAutoload();
         }
 
+        if ($attachmentPath === '' || !is_file($attachmentPath) || !is_readable($attachmentPath)) {
+            return [
+                'status' => 500,
+                'data' => [],
+                'raw' => 'Payslip attachment file is missing or unreadable.',
+            ];
+        }
+
         if (!class_exists('PHPMailer\\PHPMailer\\PHPMailer')) {
-            return smtpSendTransactionalEmail($smtpConfig, $fromEmail, $fromName, $toEmail, $toName, $subject, $htmlContent);
+            return [
+                'status' => 500,
+                'data' => [],
+                'raw' => 'PHPMailer dependency is not available. Run composer install to enable payslip attachments.',
+            ];
         }
 
         try {
@@ -67,9 +79,7 @@ if (!function_exists('payrollSmtpSendEmailWithAttachment')) {
             $mailer->Body = $htmlContent;
             $mailer->AltBody = trim(strip_tags(str_replace(['<br>', '<br/>', '<br />'], "\n", $htmlContent)));
 
-            if ($attachmentPath !== '' && is_file($attachmentPath)) {
-                $mailer->addAttachment($attachmentPath, $attachmentName !== '' ? $attachmentName : basename($attachmentPath));
-            }
+            $mailer->addAttachment($attachmentPath, $attachmentName !== '' ? $attachmentName : basename($attachmentPath));
 
             $mailer->send();
 
@@ -347,7 +357,7 @@ if (!function_exists('payrollGeneratePayslipDocument')) {
         if (empty($earningsLines)) {
             $earningsLines = [
                 ['label' => 'Basic Pay', 'amount' => $basicPay],
-                ['label' => 'CTO Pay', 'amount' => $ctoPay],
+                ['label' => 'CTO Leave UT w/ Pay', 'amount' => $ctoPay],
                 ['label' => 'Allowances', 'amount' => $allowancesTotal],
             ];
         }
@@ -401,23 +411,21 @@ if (!function_exists('payrollGeneratePayslipDocument')) {
             require_once $autoloadPath;
         }
 
-        if (class_exists('Dompdf\\Dompdf')) {
-            $absolutePath = $exportsDir . '/' . $baseFileName . '.pdf';
-            $dompdfClass = 'Dompdf\\Dompdf';
-            $dompdf = new $dompdfClass();
-            $dompdf->loadHtml($html);
-            $dompdf->setPaper('A4', 'portrait');
-            $dompdf->render();
-            file_put_contents($absolutePath, $dompdf->output());
-
-            return [
-                'absolute_path' => $absolutePath,
-                'storage_path' => '/hris-system/storage/payslips/' . basename($absolutePath),
-            ];
+        if (!class_exists('Dompdf\\Dompdf')) {
+            throw new RuntimeException('Dompdf dependency is not available. Run composer install to enable PDF payslip generation.');
         }
 
-        $absolutePath = $exportsDir . '/' . $baseFileName . '.html';
-        file_put_contents($absolutePath, '<!doctype html><html><head><meta charset="utf-8"><title>Payslip</title></head><body>' . $html . '</body></html>');
+        $absolutePath = $exportsDir . '/' . $baseFileName . '.pdf';
+        $dompdfClass = 'Dompdf\\Dompdf';
+        $dompdf = new $dompdfClass();
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+        file_put_contents($absolutePath, $dompdf->output());
+
+        if (!is_file($absolutePath) || !is_readable($absolutePath)) {
+            throw new RuntimeException('Generated payslip PDF is missing or unreadable after rendering.');
+        }
 
         return [
             'absolute_path' => $absolutePath,
@@ -528,6 +536,11 @@ if (!function_exists('payrollEnsureUpcomingPeriods')) {
 $action = (string)($_POST['form_action'] ?? '');
 
 if ($action === 'generate_payroll_batch') {
+    $actionReason = cleanText($_POST['action_reason'] ?? null) ?? '';
+    if (trim($actionReason) === '') {
+        $actionReason = 'Routine payroll batch generation';
+    }
+
     if (!isValidUuid($adminUserId)) {
         redirectWithState('error', 'Current admin account is invalid for payroll batch generation.');
     }
@@ -915,6 +928,7 @@ if ($action === 'generate_payroll_batch') {
                 'payroll_period_id' => $periodId,
                 'generated_items' => $generatedCount,
                 'skipped_employees' => $skippedEmployees,
+                'reason' => $actionReason,
                 'source_inputs' => [
                     'attendance_log_count' => $attendanceLogCount,
                     'compensation_rows_count' => count($latestCompensationByPerson),
@@ -1631,6 +1645,10 @@ if ($action === 'review_payroll_batch') {
         redirectWithState('error', 'Invalid payroll batch decision selected.');
     }
 
+    if (trim((string)$notes) === '') {
+        redirectWithState('error', 'Decision reason is required for final payroll batch approval/rejection.');
+    }
+
     $runResponse = apiRequest(
         'GET',
         $supabaseUrl . '/rest/v1/payroll_runs?select=id,run_status,payroll_period_id&id=eq.' . $runId . '&limit=1',
@@ -1939,9 +1957,14 @@ if ($action === 'release_payslips') {
     $runId = cleanText($_POST['payroll_run_id'] ?? null) ?? '';
     $recipientGroup = cleanText($_POST['recipient_group'] ?? null) ?? 'all_active';
     $deliveryMode = cleanText($_POST['delivery_mode'] ?? null) ?? 'immediate';
+    $releaseReason = cleanText($_POST['release_reason'] ?? null) ?? '';
 
     if (!isValidUuid($runId)) {
         redirectWithState('error', 'Please select a valid payroll batch to release.');
+    }
+
+    if (trim($releaseReason) === '') {
+        redirectWithState('error', 'Release reason is required for payroll send audit logging.');
     }
 
     if (!in_array($recipientGroup, ['all_active'], true)) {
@@ -2299,7 +2322,7 @@ if ($action === 'release_payslips') {
                 'net_pay' => (float)($adjustedFigures['net_pay'] ?? 0),
                 'earnings_lines' => [
                     ['label' => 'Basic Pay', 'amount' => (float)($item['basic_pay'] ?? 0)],
-                    ['label' => 'CTO Pay', 'amount' => (float)($item['overtime_pay'] ?? 0)],
+                    ['label' => 'CTO Leave UT w/ Pay', 'amount' => (float)($item['overtime_pay'] ?? 0)],
                     ['label' => 'Allowances', 'amount' => (float)($item['allowances_total'] ?? 0)],
                     ['label' => 'Approved Adjustment Earnings', 'amount' => $adjustmentEarnings],
                 ],
@@ -2321,12 +2344,17 @@ if ($action === 'release_payslips') {
 
             $storagePath = cleanText($document['storage_path'] ?? null);
             if ($storagePath) {
-                apiRequest(
+                $patchPdfPathResponse = apiRequest(
                     'PATCH',
                     $supabaseUrl . '/rest/v1/payslips?id=eq.' . $payslipId,
                     array_merge($headers, ['Prefer: return=minimal']),
                     ['pdf_storage_path' => $storagePath]
                 );
+
+                if (!isSuccessful($patchPdfPathResponse)) {
+                    throw new RuntimeException('Failed to save generated payslip PDF path to payslip record.');
+                }
+
                 $existingPayslips[$payrollItemId]['pdf_storage_path'] = $storagePath;
             } else {
                 $documentGenerationFailed++;
@@ -2513,6 +2541,7 @@ if ($action === 'release_payslips') {
                         'payroll_item_id' => $payrollItemId,
                         'payslip_no' => $payslipNo,
                         'delivery_mode' => $deliveryMode,
+                        'release_reason' => $releaseReason,
                         'recipient_masked' => $maskedRecipient,
                         'status' => 'sent',
                         'smtp_encryption' => $smtpEncryption,
@@ -2539,6 +2568,7 @@ if ($action === 'release_payslips') {
                         'payroll_item_id' => $payrollItemId,
                         'payslip_no' => $payslipNo,
                         'delivery_mode' => $deliveryMode,
+                        'release_reason' => $releaseReason,
                         'recipient_masked' => $maskedRecipient,
                         'status' => 'failed',
                         'smtp_encryption' => $smtpEncryption,
@@ -2585,6 +2615,7 @@ if ($action === 'release_payslips') {
                 'payroll_run_id' => $runId,
                 'recipient_group' => $recipientGroup,
                 'delivery_mode' => $deliveryMode,
+                'release_reason' => $releaseReason,
                 'released_count' => count($items),
                 'email_attempted' => $emailsAttempted,
                 'email_sent' => $emailsSent,

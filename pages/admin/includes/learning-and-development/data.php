@@ -28,25 +28,49 @@ $enrollmentsResponse = apiRequest(
 
 $officesResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/offices?select=office_name&is_active=eq.true&order=office_name.asc&limit=300',
+    $supabaseUrl . '/rest/v1/offices?select=id,office_name&is_active=eq.true&order=office_name.asc&limit=300',
     $headers
 );
 
-$participantOptionsResponse = apiRequest(
+$employmentResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/employment_records?select=person_id,employment_status,person:people!employment_records_person_id_fkey(id,first_name,surname,user_id,personal_email),office:offices(office_name)&is_current=eq.true&employment_status=eq.active&limit=2000',
+    $supabaseUrl . '/rest/v1/employment_records?select=person_id,office_id,is_current,employment_status,person:people(user_id,first_name,middle_name,surname)&is_current=eq.true&employment_status=eq.active&limit=5000',
+    $headers
+);
+
+if (!isSuccessful($employmentResponse) || empty((array)($employmentResponse['data'] ?? []))) {
+    $employmentResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/employment_records?select=person_id,office_id,is_current,employment_status,person:people(user_id,first_name,middle_name,surname)&limit=5000',
+        $headers
+    );
+}
+
+$peopleResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/people?select=id,user_id,first_name,middle_name,surname&limit=5000',
+    $headers
+);
+
+$roleAssignmentsResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/user_role_assignments?select=user_id,role:roles(role_key)&expires_at=is.null&limit=5000',
+    $headers
+);
+
+$historyResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/activity_logs?select=id,action_name,entity_name,entity_id,new_data,old_data,created_at,actor:user_accounts(email)&module_name=eq.learning_and_development&order=created_at.desc&limit=500',
     $headers
 );
 
 $programs = isSuccessful($programsResponse) ? (array)($programsResponse['data'] ?? []) : [];
 $enrollments = isSuccessful($enrollmentsResponse) ? (array)($enrollmentsResponse['data'] ?? []) : [];
 $offices = isSuccessful($officesResponse) ? (array)($officesResponse['data'] ?? []) : [];
-$participantRecords = isSuccessful($participantOptionsResponse) ? (array)($participantOptionsResponse['data'] ?? []) : [];
-
-$participantOptionsNotice = null;
-if (empty($participantRecords)) {
-    $participantOptionsNotice = 'No active current employees found for participants. Update employment records first, then reopen this modal.';
-}
+$employmentRows = isSuccessful($employmentResponse) ? (array)($employmentResponse['data'] ?? []) : [];
+$peopleRows = isSuccessful($peopleResponse) ? (array)($peopleResponse['data'] ?? []) : [];
+$roleAssignmentsRows = isSuccessful($roleAssignmentsResponse) ? (array)($roleAssignmentsResponse['data'] ?? []) : [];
+$historyRecords = isSuccessful($historyResponse) ? (array)($historyResponse['data'] ?? []) : [];
 
 if (!function_exists('learningStatusPill')) {
     function learningStatusPill(string $status): array
@@ -150,7 +174,10 @@ foreach ($programs as $program) {
     $provider = (string)($program['provider'] ?? 'Unassigned');
     $venue = (string)($program['venue'] ?? '-');
     $mode = ucfirst((string)($program['mode'] ?? '-'));
-    $statusRaw = (string)($program['status'] ?? 'planned');
+    $statusRaw = strtolower((string)($program['status'] ?? 'open'));
+    if ($statusRaw === 'planned') {
+        $statusRaw = 'open';
+    }
     [$statusLabel, $statusClass] = learningStatusPill($statusRaw);
     $programCode = (string)($program['program_code'] ?? '-');
     $endDate = (string)($program['end_date'] ?? '');
@@ -209,30 +236,144 @@ foreach ($programs as $program) {
 ksort($departmentOptions);
 $departmentOptions = array_values($departmentOptions);
 
-$participantOptions = [];
-foreach ($participantRecords as $record) {
-    $personId = (string)($record['person_id'] ?? '');
-    if ($personId === '' || isset($participantOptions[$personId])) {
+$officeNameById = [];
+foreach ($offices as $office) {
+    $officeId = cleanText($office['id'] ?? null) ?? '';
+    if ($officeId === '') {
         continue;
     }
 
-    $firstName = (string)($record['person']['first_name'] ?? '');
-    $surname = (string)($record['person']['surname'] ?? '');
-    $fullName = trim($firstName . ' ' . $surname);
-    if ($fullName === '') {
-        $fullName = 'Employee';
+    $officeNameById[$officeId] = cleanText($office['office_name'] ?? null) ?? 'Unassigned Office';
+}
+
+$roleKeysByUserId = [];
+foreach ($roleAssignmentsRows as $roleAssignmentRow) {
+    $userId = cleanText($roleAssignmentRow['user_id'] ?? null) ?? '';
+    if ($userId === '' || !isValidUuid($userId)) {
+        continue;
     }
 
-    $participantOptions[$personId] = [
+    $roleRelation = $roleAssignmentRow['role'] ?? null;
+    $roleRows = [];
+
+    if (is_array($roleRelation)) {
+        if (array_is_list($roleRelation)) {
+            $roleRows = $roleRelation;
+        } else {
+            $roleRows = [$roleRelation];
+        }
+    }
+
+    foreach ($roleRows as $roleRow) {
+        $roleKey = strtolower((string)(cleanText((is_array($roleRow) ? ($roleRow['role_key'] ?? null) : null)) ?? ''));
+        if ($roleKey === '') {
+            continue;
+        }
+
+        $roleKeysByUserId[$userId][$roleKey] = true;
+    }
+}
+
+$canFilterByRoles = !empty($roleKeysByUserId);
+
+$isEmployeeUser = static function (string $userId) use ($roleKeysByUserId, $canFilterByRoles): bool {
+    if (!$canFilterByRoles || $userId === '' || !isValidUuid($userId)) {
+        return true;
+    }
+
+    $roleKeys = array_keys($roleKeysByUserId[$userId] ?? []);
+    if (empty($roleKeys)) {
+        return true;
+    }
+
+    if (in_array('admin', $roleKeys, true) || in_array('staff', $roleKeys, true)) {
+        return false;
+    }
+
+    return in_array('employee', $roleKeys, true);
+};
+
+$employeeByPersonId = [];
+$employeeOptions = [];
+foreach ($employmentRows as $employmentRow) {
+    $personId = cleanText($employmentRow['person_id'] ?? null) ?? '';
+    if ($personId === '' || !isValidUuid($personId)) {
+        continue;
+    }
+
+    $person = (array)($employmentRow['person'] ?? []);
+    $userId = cleanText($person['user_id'] ?? null) ?? '';
+    if (!$isEmployeeUser($userId)) {
+        continue;
+    }
+
+    $employeeName = trim(
+        (string)(cleanText($person['first_name'] ?? null) ?? '') . ' '
+        . (string)(cleanText($person['middle_name'] ?? null) ?? '') . ' '
+        . (string)(cleanText($person['surname'] ?? null) ?? '')
+    );
+    if ($employeeName === '') {
+        $employeeName = 'Unknown Employee';
+    }
+
+    $officeId = cleanText($employmentRow['office_id'] ?? null) ?? '';
+    $department = $officeNameById[$officeId] ?? 'Unassigned Office';
+    $isCurrent = filter_var($employmentRow['is_current'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+    if (isset($employeeByPersonId[$personId])) {
+        $existingIsCurrent = (bool)($employeeByPersonId[$personId]['is_current'] ?? false);
+        if ($existingIsCurrent || !$isCurrent) {
+            continue;
+        }
+    }
+
+    $employeeByPersonId[$personId] = [
         'person_id' => $personId,
-        'name' => $fullName,
-        'department' => (string)($record['office']['office_name'] ?? 'Unassigned Office'),
-        'email' => (string)($record['person']['personal_email'] ?? ''),
+        'name' => $employeeName,
+        'department' => $department,
+        'is_current' => $isCurrent,
     ];
 }
 
-$participantOptions = array_values($participantOptions);
-usort($participantOptions, static function (array $left, array $right): int {
+if (empty($employeeByPersonId)) {
+    foreach ($peopleRows as $personRow) {
+        $personId = cleanText($personRow['id'] ?? null) ?? '';
+        if ($personId === '' || !isValidUuid($personId)) {
+            continue;
+        }
+
+        $userId = cleanText($personRow['user_id'] ?? null) ?? '';
+        if (!$isEmployeeUser($userId)) {
+            continue;
+        }
+
+        $employeeName = trim(
+            (string)(cleanText($personRow['first_name'] ?? null) ?? '') . ' '
+            . (string)(cleanText($personRow['middle_name'] ?? null) ?? '') . ' '
+            . (string)(cleanText($personRow['surname'] ?? null) ?? '')
+        );
+        if ($employeeName === '') {
+            $employeeName = 'Unknown Employee';
+        }
+
+        $employeeByPersonId[$personId] = [
+            'person_id' => $personId,
+            'name' => $employeeName,
+            'department' => 'Unassigned Office',
+            'is_current' => true,
+        ];
+    }
+}
+
+foreach ($employeeByPersonId as $employeeRow) {
+    $employeeOptions[] = [
+        'person_id' => (string)$employeeRow['person_id'],
+        'name' => (string)$employeeRow['name'],
+        'department' => (string)$employeeRow['department'],
+    ];
+}
+
+usort($employeeOptions, static function (array $left, array $right): int {
     return strcmp((string)$left['name'], (string)$right['name']);
 });
 
@@ -315,3 +456,74 @@ usort($trainingRecordRows, static function (array $left, array $right): int {
 $averageAttendance = $totalAttendanceBase > 0
     ? (int)round(($completedTrainings / $totalAttendanceBase) * 100)
     : 0;
+
+$historyRows = [];
+$historyActionFilters = [];
+
+foreach ($historyRecords as $historyRecordRaw) {
+    $historyRecord = (array)$historyRecordRaw;
+    $actionName = strtolower((string)($historyRecord['action_name'] ?? ''));
+    $createdAt = (string)($historyRecord['created_at'] ?? '');
+    $newData = is_array($historyRecord['new_data'] ?? null) ? (array)$historyRecord['new_data'] : [];
+    $oldData = is_array($historyRecord['old_data'] ?? null) ? (array)$historyRecord['old_data'] : [];
+
+    $actionLabel = match ($actionName) {
+        'create_training' => 'Training Created',
+        'update_attendance_status' => 'Attendance Updated',
+        default => ucwords(str_replace('_', ' ', $actionName !== '' ? $actionName : 'updated')),
+    };
+
+    $targetLabel = 'Learning and Development';
+    $detailsLabel = '-';
+
+    if ($actionName === 'create_training') {
+        $trainingType = trim((string)($newData['training_type'] ?? ''));
+        $trainingCategory = trim((string)($newData['training_category'] ?? ''));
+        $provider = trim((string)($newData['provider'] ?? ''));
+        $schedule = trim((string)($newData['schedule'] ?? ''));
+        $advanceQueued = (int)($newData['advance_notifications_queued'] ?? 0);
+
+        $targetLabel = trim($trainingType . ($trainingCategory !== '' ? ' - ' . $trainingCategory : ''));
+        if ($targetLabel === '') {
+            $targetLabel = trim((string)($newData['program_code'] ?? 'New Training'));
+        }
+
+        $detailParts = [];
+        if ($schedule !== '') {
+            $detailParts[] = 'Schedule: ' . $schedule;
+        }
+        if ($provider !== '') {
+            $detailParts[] = 'Provider: ' . $provider;
+        }
+        $detailParts[] = 'Advance notifications queued: ' . $advanceQueued;
+        $detailsLabel = implode(' · ', $detailParts);
+    } elseif ($actionName === 'update_attendance_status') {
+        $oldStatus = ucfirst(strtolower((string)($oldData['enrollment_status'] ?? 'enrolled')));
+        $newStatus = ucfirst(strtolower((string)($newData['enrollment_status'] ?? 'enrolled')));
+        $targetLabel = 'Training Enrollment';
+        $detailsLabel = 'Status changed from ' . $oldStatus . ' to ' . $newStatus;
+    }
+
+    $timestampLabel = $createdAt !== ''
+        ? date('M d, Y h:i A', strtotime($createdAt))
+        : '-';
+
+    $actorLabel = trim((string)($historyRecord['actor']['email'] ?? ''));
+    if ($actorLabel === '') {
+        $actorLabel = 'System';
+    }
+
+    $historyActionFilters[$actionLabel] = true;
+
+    $historyRows[] = [
+        'timestamp_label' => $timestampLabel,
+        'action_label' => $actionLabel,
+        'target_label' => $targetLabel,
+        'details_label' => $detailsLabel,
+        'actor_label' => $actorLabel,
+        'search_text' => strtolower(trim($timestampLabel . ' ' . $actionLabel . ' ' . $targetLabel . ' ' . $detailsLabel . ' ' . $actorLabel)),
+    ];
+}
+
+$historyActionFilters = array_keys($historyActionFilters);
+sort($historyActionFilters);
