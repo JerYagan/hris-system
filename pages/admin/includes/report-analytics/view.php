@@ -152,8 +152,134 @@ $employeeStatusPill = static function (string $status): string {
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
+                <tr id="reportEmployeesFilterEmpty" class="hidden">
+                    <td class="px-4 py-3 text-slate-500" colspan="5">No employee records match your search/filter criteria.</td>
+                </tr>
             </tbody>
         </table>
+
+        <div id="reportEmployeesPagination" class="mt-4 flex items-center justify-between gap-3 text-sm text-slate-600">
+            <p id="reportEmployeesPaginationInfo">Showing 0 to 0 of 0 entries</p>
+            <div class="flex items-center gap-2">
+                <button type="button" id="reportEmployeesPrev" class="px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50">Previous</button>
+                <span id="reportEmployeesPageLabel">Page 1 of 1</span>
+                <button type="button" id="reportEmployeesNext" class="px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50">Next</button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-800">Employee Demographics by Division</h2>
+        <p class="text-sm text-slate-500 mt-1">Detailed demographic distribution of active employees per division.</p>
+    </header>
+
+    <div class="px-6 pt-4">
+        <label class="text-sm text-slate-600" for="reportDemographicsSearch">Search</label>
+        <input id="reportDemographicsSearch" type="search" class="w-full md:w-1/2 mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search division, totals, gender counts, or average age">
+    </div>
+
+    <div class="p-6 overflow-x-auto">
+        <table id="reportDemographicsTable" class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600">
+                <tr>
+                    <th class="text-left px-4 py-3">Division</th>
+                    <th class="text-left px-4 py-3">Total</th>
+                    <th class="text-left px-4 py-3">Male</th>
+                    <th class="text-left px-4 py-3">Female</th>
+                    <th class="text-left px-4 py-3">Unspecified</th>
+                    <th class="text-left px-4 py-3">Average Age</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                <?php if (empty($demographicsByDivisionRows)): ?>
+                    <tr>
+                        <td class="px-4 py-3 text-slate-500" colspan="6">No demographic rows available.</td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($demographicsByDivisionRows as $row): ?>
+                        <tr data-report-demographics-search="<?= htmlspecialchars((string)$row['search_text'], ENT_QUOTES, 'UTF-8') ?>">
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['division'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['total'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['male'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['female'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['unspecified'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars(number_format((float)$row['average_age'], 1), ENT_QUOTES, 'UTF-8') ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+                <tr id="reportDemographicsFilterEmpty" class="hidden">
+                    <td class="px-4 py-3 text-slate-500" colspan="6">No demographic rows match your search.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div id="reportDemographicsPagination" class="mt-4 flex items-center justify-between gap-3 text-sm text-slate-600">
+            <p id="reportDemographicsPaginationInfo">Showing 0 to 0 of 0 entries</p>
+            <div class="flex items-center gap-2">
+                <button type="button" id="reportDemographicsPrev" class="px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50">Previous</button>
+                <span id="reportDemographicsPageLabel">Page 1 of 1</span>
+                <button type="button" id="reportDemographicsNext" class="px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50">Next</button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-800">Turnover and Training Effectiveness by Division</h2>
+        <p class="text-sm text-slate-500 mt-1">Division-level view of headcount movement and training completion trends.</p>
+    </header>
+
+    <div class="px-6 pt-4">
+        <label class="text-sm text-slate-600" for="reportTurnoverSearch">Search</label>
+        <input id="reportTurnoverSearch" type="search" class="w-full md:w-1/2 mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search division, headcount, turnover, or training rates">
+    </div>
+
+    <div class="p-6 overflow-x-auto">
+        <table id="reportTurnoverTable" class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600">
+                <tr>
+                    <th class="text-left px-4 py-3">Division</th>
+                    <th class="text-left px-4 py-3">Headcount</th>
+                    <th class="text-left px-4 py-3">Hires (365d)</th>
+                    <th class="text-left px-4 py-3">Separations (365d)</th>
+                    <th class="text-left px-4 py-3">Turnover Rate</th>
+                    <th class="text-left px-4 py-3">Training Completion</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                <?php if (empty($turnoverTrainingRows)): ?>
+                    <tr>
+                        <td class="px-4 py-3 text-slate-500" colspan="6">No turnover/training rows available.</td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($turnoverTrainingRows as $row): ?>
+                        <tr data-report-turnover-search="<?= htmlspecialchars((string)$row['search_text'], ENT_QUOTES, 'UTF-8') ?>">
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['division'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['headcount'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['hires_365'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['separations_365'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars(number_format((float)$row['turnover_rate'], 1), ENT_QUOTES, 'UTF-8') ?>%</td>
+                            <td class="px-4 py-3"><?= htmlspecialchars(number_format((float)$row['training_completion_rate'], 1), ENT_QUOTES, 'UTF-8') ?>%</td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+                <tr id="reportTurnoverFilterEmpty" class="hidden">
+                    <td class="px-4 py-3 text-slate-500" colspan="6">No turnover/training rows match your search.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div id="reportTurnoverPagination" class="mt-4 flex items-center justify-between gap-3 text-sm text-slate-600">
+            <p id="reportTurnoverPaginationInfo">Showing 0 to 0 of 0 entries</p>
+            <div class="flex items-center gap-2">
+                <button type="button" id="reportTurnoverPrev" class="px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50">Previous</button>
+                <span id="reportTurnoverPageLabel">Page 1 of 1</span>
+                <button type="button" id="reportTurnoverNext" class="px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50">Next</button>
+            </div>
+        </div>
     </div>
 </section>
 
@@ -241,6 +367,108 @@ $employeeStatusPill = static function (string $status): string {
     </div>
 </section>
 
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-800">Advanced Policy-Based Analytics</h2>
+        <p class="text-sm text-slate-500 mt-1">Admin-focused metrics for demographics, turnover, training effectiveness, and role-based system activity.</p>
+    </header>
+
+    <div class="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 text-sm">
+        <article class="rounded-xl border border-slate-200 p-4 bg-sky-50">
+            <p class="text-xs uppercase tracking-wide text-sky-700">Employee Demographics</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)(($advancedAdminAnalytics['demographics_male'] ?? 0) + ($advancedAdminAnalytics['demographics_female'] ?? 0) + ($advancedAdminAnalytics['demographics_unspecified'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></p>
+            <p class="text-xs text-slate-500 mt-1">Male: <?= htmlspecialchars((string)($advancedAdminAnalytics['demographics_male'] ?? 0), ENT_QUOTES, 'UTF-8') ?> · Female: <?= htmlspecialchars((string)($advancedAdminAnalytics['demographics_female'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
+        </article>
+        <article class="rounded-xl border border-slate-200 p-4 bg-rose-50">
+            <p class="text-xs uppercase tracking-wide text-rose-700">Turnover Rate (12 Months)</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars(number_format((float)($advancedAdminAnalytics['turnover_rate_annual'] ?? 0), 1), ENT_QUOTES, 'UTF-8') ?>%</p>
+            <p class="text-xs text-slate-500 mt-1">Separations: <?= htmlspecialchars((string)($advancedAdminAnalytics['separations_annual'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
+        </article>
+        <article class="rounded-xl border border-slate-200 p-4 bg-emerald-50">
+            <p class="text-xs uppercase tracking-wide text-emerald-700">Training Effectiveness</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars(number_format((float)($advancedAdminAnalytics['training_completion_rate'] ?? 0), 1), ENT_QUOTES, 'UTF-8') ?>%</p>
+            <p class="text-xs text-slate-500 mt-1">Completed: <?= htmlspecialchars((string)($advancedAdminAnalytics['training_completed'] ?? 0), ENT_QUOTES, 'UTF-8') ?> · Failed: <?= htmlspecialchars((string)($advancedAdminAnalytics['training_failed'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
+        </article>
+        <article class="rounded-xl border border-slate-200 p-4 bg-violet-50">
+            <p class="text-xs uppercase tracking-wide text-violet-700">Admin/Staff Activity (30 Days)</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)(($advancedAdminAnalytics['admin_activity_30_days'] ?? 0) + ($advancedAdminAnalytics['staff_activity_30_days'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></p>
+            <p class="text-xs text-slate-500 mt-1">Admin: <?= htmlspecialchars((string)($advancedAdminAnalytics['admin_activity_30_days'] ?? 0), ENT_QUOTES, 'UTF-8') ?> · Staff: <?= htmlspecialchars((string)($advancedAdminAnalytics['staff_activity_30_days'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
+        </article>
+    </div>
+
+    <div class="px-6 pb-6 overflow-x-auto">
+        <div class="pb-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+            <div class="md:col-span-2">
+                <label class="text-sm text-slate-600" for="reportActivitiesSearch">Search Activity</label>
+                <input id="reportActivitiesSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Search date, module, action, role, or actor email">
+            </div>
+            <div>
+                <label class="text-sm text-slate-600" for="reportActivitiesRoleFilter">Role</label>
+                <select id="reportActivitiesRoleFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                    <option value="">All Roles</option>
+                    <?php foreach ($activityRoleFilters as $roleName): ?>
+                        <option value="<?= htmlspecialchars((string)$roleName, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$roleName, ENT_QUOTES, 'UTF-8') ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div>
+                <label class="text-sm text-slate-600" for="reportActivitiesModuleFilter">Module</label>
+                <select id="reportActivitiesModuleFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                    <option value="">All Modules</option>
+                    <?php foreach ($activityModuleFilters as $moduleName): ?>
+                        <option value="<?= htmlspecialchars((string)$moduleName, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$moduleName, ENT_QUOTES, 'UTF-8') ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        </div>
+
+        <table id="reportActivitiesTable" class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600">
+                <tr>
+                    <th class="text-left px-4 py-3">Timestamp</th>
+                    <th class="text-left px-4 py-3">Module</th>
+                    <th class="text-left px-4 py-3">Action</th>
+                    <th class="text-left px-4 py-3">Role</th>
+                    <th class="text-left px-4 py-3">Actor</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                <?php if (empty($activityLogRows)): ?>
+                    <tr>
+                        <td class="px-4 py-3 text-slate-500" colspan="5">No activity rows available for the selected policy window.</td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($activityLogRows as $activityRow): ?>
+                        <tr
+                            data-report-activities-search="<?= htmlspecialchars((string)$activityRow['search_text'], ENT_QUOTES, 'UTF-8') ?>"
+                            data-report-activities-role="<?= htmlspecialchars((string)$activityRow['role_label'], ENT_QUOTES, 'UTF-8') ?>"
+                            data-report-activities-module="<?= htmlspecialchars((string)$activityRow['module_label'], ENT_QUOTES, 'UTF-8') ?>"
+                        >
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($activityRow['created_at'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($activityRow['module_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($activityRow['action_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($activityRow['role_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($activityRow['actor_email'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+                <tr id="reportActivitiesFilterEmpty" class="hidden">
+                    <td class="px-4 py-3 text-slate-500" colspan="5">No activity rows match your search/filter criteria.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div id="reportActivitiesPagination" class="mt-4 flex items-center justify-between gap-3 text-sm text-slate-600">
+            <p id="reportActivitiesPaginationInfo">Showing 0 to 0 of 0 entries</p>
+            <div class="flex items-center gap-2">
+                <button type="button" id="reportActivitiesPrev" class="px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50">Previous</button>
+                <span id="reportActivitiesPageLabel">Page 1 of 1</span>
+                <button type="button" id="reportActivitiesNext" class="px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50">Next</button>
+            </div>
+        </div>
+    </div>
+</section>
+
 <section class="bg-white border border-slate-200 rounded-2xl">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Export Reports</h2>
@@ -258,6 +486,10 @@ $employeeStatusPill = static function (string $status): string {
                 <option value="documents">Documents</option>
                 <option value="recruitment">Recruitment</option>
                 <option value="audit_logs">Audit Logs</option>
+                <option value="employee_demographics">Employee Demographics</option>
+                <option value="turnover_rates">Turnover Rates</option>
+                <option value="training_effectiveness">Training Effectiveness</option>
+                <option value="activity_summary">Admin and Staff Activity Summary</option>
             </select>
         </div>
         <div>

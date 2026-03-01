@@ -4,7 +4,7 @@ $recruitmentPages = ['recruitment.php', 'applicants.php', 'applicant-tracking.ph
 $isRecruitmentSection = in_array($activePage, $recruitmentPages, true);
 $documentPages = ['document-management.php'];
 $isDocumentSection = in_array($activePage, $documentPages, true);
-$praisePages = ['praise.php', 'praise-employee-evaluation.php', 'praise-awards-recognition.php', 'praise-reports-analytics.php'];
+$praisePages = ['praise.php', 'praise-employee-evaluation.php', 'praise-awards-recognition.php'];
 $isPraiseSection = in_array($activePage, $praisePages, true);
 ?>
 
@@ -90,7 +90,7 @@ $isPraiseSection = in_array($activePage, $praisePages, true);
                 </a>
                 <a href="report-analytics.php" class="admin-nav-link <?= $activePage === 'report-analytics.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
                     <span class="admin-nav-icon material-symbols-outlined text-[18px]">analytics</span>
-                    <span class="admin-link-label">Report and Analytics</span>
+                    <span class="admin-link-label">Reports and Analytics</span>
                 </a>
             </div>
         </div>
@@ -113,10 +113,6 @@ $isPraiseSection = in_array($activePage, $praisePages, true);
                     <a href="praise-awards-recognition.php" class="admin-nav-link ml-7 <?= $activePage === 'praise-awards-recognition.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
                         <span class="admin-nav-icon material-symbols-outlined text-[18px]">workspace_premium</span>
                         <span class="admin-link-label text-[13px]">Awards and Recognition</span>
-                    </a>
-                    <a href="praise-reports-analytics.php" class="admin-nav-link ml-7 <?= $activePage === 'praise-reports-analytics.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
-                        <span class="admin-nav-icon material-symbols-outlined text-[18px]">monitoring</span>
-                        <span class="admin-link-label text-[13px]">PRAISE Reports</span>
                     </a>
                 </div>
                 <a href="learning-and-development.php" class="admin-nav-link <?= $activePage === 'learning-and-development.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">

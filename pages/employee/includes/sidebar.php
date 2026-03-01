@@ -149,13 +149,13 @@
         </a>
 
         <a href="personal-reports.php"
-           title="Personal Reports"
+           title="My reports"
            class="flex items-center gap-3 px-4 py-2 rounded-lg
            <?= $activePage === 'personal-reports.php'
                 ? 'bg-green-100 font-medium'
                 : 'hover:bg-gray-100' ?>">
           <span class="material-icons text-base">assessment</span>
-          <span class="sidebar-label">Personal Reports</span>
+          <span class="sidebar-label">My reports</span>
         </a>
       </div>
     </div>

@@ -49,7 +49,7 @@ $breadcrumbs = $breadcrumbs ?? ['Dashboard'];
                     </a>
                     <a href="reports.php" class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
                         <span class="material-icons text-sm">assessment</span>
-                        Reports
+                        Reports and Analytics
                     </a>
 
                     <div class="my-1 border-t"></div>

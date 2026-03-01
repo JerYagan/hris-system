@@ -1,0 +1,16 @@
+# Local/editor temporary files
+*.tmp
+*.temp
+*.bak
+*.orig
+*.swp
+*.swo
+*~
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Local patch/export artifacts
+*.patch
+*.diff

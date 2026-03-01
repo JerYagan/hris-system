@@ -3,9 +3,9 @@ require_once __DIR__ . '/includes/personal-reports/bootstrap.php';
 require_once __DIR__ . '/includes/personal-reports/actions.php';
 require_once __DIR__ . '/includes/personal-reports/data.php';
 
-$pageTitle = 'Personal Reports | DA HRIS';
+$pageTitle = 'My reports | DA HRIS';
 $activePage = 'personal-reports.php';
-$breadcrumbs = ['Personal Reports'];
+$breadcrumbs = ['My reports'];
 $pageScripts = $pageScripts ?? [];
 $pageScripts[] = '/hris-system/assets/js/employee/personal-reports/index.js';
 
@@ -40,8 +40,8 @@ $statusPill = static function (string $status): array {
 ?>
 
 <div class="mb-6">
-  <h1 class="text-2xl font-bold">Personal Reports</h1>
-  <p class="text-sm text-gray-500">View your generated reports and request new exports.</p>
+  <h1 class="text-2xl font-bold">My reports</h1>
+  <p class="text-sm text-gray-500">View your personal report history and request new exports.</p>
 </div>
 
 <?php if (!empty($message)): ?>
@@ -113,8 +113,27 @@ $statusPill = static function (string $status): array {
     </div>
   </div>
 
+  <div class="bg-white border rounded-lg p-4 mb-4">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+      <div class="md:col-span-2">
+        <label class="block text-gray-600 mb-1" for="employeeGeneratedReportsSearch">Search</label>
+        <input id="employeeGeneratedReportsSearch" type="search" class="w-full border rounded-lg px-3 py-2" placeholder="Search report type, format, status, or output">
+      </div>
+      <div>
+        <label class="block text-gray-600 mb-1" for="employeeGeneratedReportsStatusFilter">Status</label>
+        <select id="employeeGeneratedReportsStatusFilter" class="w-full border rounded-lg px-3 py-2">
+          <option value="">All Statuses</option>
+          <option value="queued">Queued</option>
+          <option value="processing">Processing</option>
+          <option value="ready">Ready</option>
+          <option value="failed">Failed</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
   <div class="bg-white border rounded-lg overflow-x-auto">
-    <table class="w-full text-sm">
+    <table id="employeeGeneratedReportsTable" class="w-full text-sm">
       <thead class="bg-gray-50 text-gray-600">
         <tr>
           <th class="px-4 py-3 text-left">Report Type</th>
@@ -131,7 +150,11 @@ $statusPill = static function (string $status): array {
         <?php else: ?>
           <?php foreach ($generatedReportRows as $report): ?>
             <?php [$statusLabel, $statusClass] = $statusPill((string)($report['status'] ?? 'queued')); ?>
-            <tr>
+            <tr
+              data-generated-report-row="1"
+              data-generated-report-search="<?= $escape(strtolower(trim((string)($report['report_type'] ?? ''))) . ' ' . strtolower(trim((string)($report['file_format'] ?? ''))). ' ' . strtolower(trim((string)($report['status'] ?? ''))) . ' ' . strtolower(trim((string)($report['storage_path'] ?? '')))) ?>"
+              data-generated-report-status="<?= $escape(strtolower(trim((string)($report['status'] ?? 'queued')))) ?>"
+            >
               <td class="px-4 py-3"><?= $escape(ucfirst((string)($report['report_type'] ?? 'report'))) ?></td>
               <td class="px-4 py-3 uppercase"><?= $escape((string)($report['file_format'] ?? 'pdf')) ?></td>
               <td class="px-4 py-3"><?= $escape($formatDate($report['created_at'] ?? null)) ?></td>
@@ -146,9 +169,21 @@ $statusPill = static function (string $status): array {
               </td>
             </tr>
           <?php endforeach; ?>
+          <tr id="employeeGeneratedReportsEmpty" class="hidden">
+            <td class="px-4 py-3 text-gray-500" colspan="6">No generated report rows match your search/filter criteria.</td>
+          </tr>
         <?php endif; ?>
       </tbody>
     </table>
+
+    <div id="employeeGeneratedReportsPagination" class="px-4 py-3 border-t flex items-center justify-between gap-3 text-sm text-gray-600">
+      <p id="employeeGeneratedReportsPaginationInfo">Showing 0 to 0 of 0 entries</p>
+      <div class="flex items-center gap-2">
+        <button type="button" id="employeeGeneratedReportsPrev" class="px-3 py-1.5 border rounded-md hover:bg-gray-50 disabled:opacity-50">Previous</button>
+        <span id="employeeGeneratedReportsPageLabel">Page 1 of 1</span>
+        <button type="button" id="employeeGeneratedReportsNext" class="px-3 py-1.5 border rounded-md hover:bg-gray-50 disabled:opacity-50">Next</button>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -228,7 +263,7 @@ $statusPill = static function (string $status): array {
   <div class="flex justify-between items-center mb-3">
     <div>
       <h2 class="text-lg font-semibold">Performance Summary Report</h2>
-      <p class="text-sm text-gray-500">PRAISE evaluations and performance ratings.</p>
+      <p class="text-sm text-gray-500">Performance evaluations and ratings.</p>
     </div>
   </div>
 

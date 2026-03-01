@@ -605,7 +605,9 @@ Rules applied while consolidating:
 ## 10) Reports and Analytics Module
 
 ### Admin
-- [x] Rename/report labels to `REPORTS and Analytics`.
+- [x] Add more report types and analytics based on admin needs and approved policies, such as employee demographics, turnover rates, training effectiveness, etc. and admin and staff activities throughout the system.
+- [x] Rename employee Reports and Analytics module to "My reports"
+- [x] Rename/report labels to `Reports and Analytics`.
 - [x] Remove late-incidents output where no-late policy is approved.
 - [x] Include audit logs and cross-module KPI reports.
 
@@ -614,6 +616,11 @@ Rules applied while consolidating:
 
 ### Employee
 - [x] Keep personal-report visibility only.
+
+### Cross users in Reports and Analytics module revision:
+- [x] Remove any PRAISE Related reports and analytics since the PRAISE module is removed as per the approved decision to remove the PRAISE module from the system. This includes any reports, analytics, or data related to the PRAISE module that may still be present in the Reports and Analytics module, and ensuring that they are properly removed or hidden from all user roles to avoid confusion and maintain consistency with the approved decision.
+- [x] Name the module "Reports and Analytics" across all users, verify in the sidebar and topnav as well as the page title
+- [x] Limit the table to 10 entries with pagination, search, and filters for better usability and performance when viewing reports and analytics data in the module.
 
 ---
 
@@ -632,6 +639,9 @@ Rules applied while consolidating:
 - [ ] Newly added employees shouldn't have any notifications by default, but they should receive notifications for any new announcements or any notifications related to their employee record (e.g., profile updates, training enrollments, etc.) after they are added to the system AS EMPLOYEE. The notification when they were applicant should not be there when they become an employee, and they should only receive notifications that are relevant to their employee role and record after they are added as an employee in the system.
 - [ ] Add richer training notification details (provider, venue, mode).
 - [ ] Add hover/quick-view interaction and auto-read behavior when opened (if approved UX standard).
+
+### Cross users in Notifications module revision:
+ - [ ] Add a modal for notifications (topnav) in all users, when opening a notification it should open a modal that shows the details of the notification, it'll also mark the notifications as read. This will improve the user experience by providing a more visually appealing interface for viewing notifications and allowing users to easily manage their notifications without having to navigate away from the current page. The modal should also include any relevant information related to the notification, such as links or attachments, to provide users with all the necessary context when viewing their notifications.
 
 ---
 

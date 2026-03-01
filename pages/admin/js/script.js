@@ -1341,6 +1341,34 @@
     const reportEmployeesSearch = document.getElementById('reportEmployeesSearch');
     const reportEmployeesDepartmentFilter = document.getElementById('reportEmployeesDepartmentFilter');
     const reportEmployeesStatusFilter = document.getElementById('reportEmployeesStatusFilter');
+    const reportEmployeesFilterEmpty = document.getElementById('reportEmployeesFilterEmpty');
+    const reportEmployeesPrev = document.getElementById('reportEmployeesPrev');
+    const reportEmployeesNext = document.getElementById('reportEmployeesNext');
+    const reportEmployeesPageLabel = document.getElementById('reportEmployeesPageLabel');
+    const reportEmployeesPaginationInfo = document.getElementById('reportEmployeesPaginationInfo');
+    const reportDemographicsTable = document.getElementById('reportDemographicsTable');
+    const reportDemographicsSearch = document.getElementById('reportDemographicsSearch');
+    const reportDemographicsFilterEmpty = document.getElementById('reportDemographicsFilterEmpty');
+    const reportDemographicsPrev = document.getElementById('reportDemographicsPrev');
+    const reportDemographicsNext = document.getElementById('reportDemographicsNext');
+    const reportDemographicsPageLabel = document.getElementById('reportDemographicsPageLabel');
+    const reportDemographicsPaginationInfo = document.getElementById('reportDemographicsPaginationInfo');
+    const reportTurnoverTable = document.getElementById('reportTurnoverTable');
+    const reportTurnoverSearch = document.getElementById('reportTurnoverSearch');
+    const reportTurnoverFilterEmpty = document.getElementById('reportTurnoverFilterEmpty');
+    const reportTurnoverPrev = document.getElementById('reportTurnoverPrev');
+    const reportTurnoverNext = document.getElementById('reportTurnoverNext');
+    const reportTurnoverPageLabel = document.getElementById('reportTurnoverPageLabel');
+    const reportTurnoverPaginationInfo = document.getElementById('reportTurnoverPaginationInfo');
+    const reportActivitiesTable = document.getElementById('reportActivitiesTable');
+    const reportActivitiesSearch = document.getElementById('reportActivitiesSearch');
+    const reportActivitiesRoleFilter = document.getElementById('reportActivitiesRoleFilter');
+    const reportActivitiesModuleFilter = document.getElementById('reportActivitiesModuleFilter');
+    const reportActivitiesFilterEmpty = document.getElementById('reportActivitiesFilterEmpty');
+    const reportActivitiesPrev = document.getElementById('reportActivitiesPrev');
+    const reportActivitiesNext = document.getElementById('reportActivitiesNext');
+    const reportActivitiesPageLabel = document.getElementById('reportActivitiesPageLabel');
+    const reportActivitiesPaginationInfo = document.getElementById('reportActivitiesPaginationInfo');
     const reportCoverageSelect = document.getElementById('reportCoverageSelect');
     const reportCustomDateRange = document.getElementById('reportCustomDateRange');
     const reportCustomStartDate = document.getElementById('reportCustomStartDate');
@@ -1358,16 +1386,22 @@
       && reportEmployeesSearch
       && reportEmployeesDepartmentFilter
       && reportEmployeesStatusFilter
+      && reportEmployeesPrev
+      && reportEmployeesNext
+      && reportEmployeesPageLabel
+      && reportEmployeesPaginationInfo
       && reportEmployeesTable.dataset.datatableInitialized !== 'true'
     ) {
+      const reportPageSize = 20;
       const reportEmployeeRows = Array.from(reportEmployeesTable.querySelectorAll('tbody tr')).filter((row) => !row.querySelector('td[colspan]'));
+      let reportCurrentPage = 1;
 
       const applyPlainReportEmployeesFilter = () => {
         const searchText = (reportEmployeesSearch.value || '').trim().toLowerCase();
         const selectedDepartment = (reportEmployeesDepartmentFilter.value || '').trim().toLowerCase();
         const selectedStatus = (reportEmployeesStatusFilter.value || '').trim().toLowerCase();
 
-        reportEmployeeRows.forEach((row) => {
+        const filteredRows = reportEmployeeRows.filter((row) => {
           const rowSearch = (row.getAttribute('data-report-employee-search') || '').toLowerCase();
           const rowDepartment = (row.getAttribute('data-report-employee-department') || '').toLowerCase();
           const rowStatus = (row.getAttribute('data-report-employee-status') || '').toLowerCase();
@@ -1376,13 +1410,279 @@
           const matchesDepartment = !selectedDepartment || rowDepartment === selectedDepartment;
           const matchesStatus = !selectedStatus || rowStatus === selectedStatus;
 
-          row.classList.toggle('hidden', !(matchesSearch && matchesDepartment && matchesStatus));
+          return matchesSearch && matchesDepartment && matchesStatus;
         });
+
+        const totalRows = filteredRows.length;
+        const totalPages = Math.max(1, Math.ceil(totalRows / reportPageSize));
+        if (reportCurrentPage > totalPages) {
+          reportCurrentPage = totalPages;
+        }
+        if (reportCurrentPage < 1) {
+          reportCurrentPage = 1;
+        }
+
+        const startIndex = totalRows === 0 ? 0 : (reportCurrentPage - 1) * reportPageSize;
+        const endIndex = totalRows === 0 ? 0 : Math.min(startIndex + reportPageSize, totalRows);
+        const visibleRows = new Set(filteredRows.slice(startIndex, endIndex));
+
+        reportEmployeeRows.forEach((row) => {
+          row.classList.toggle('hidden', !visibleRows.has(row));
+        });
+
+        if (reportEmployeesFilterEmpty) {
+          reportEmployeesFilterEmpty.classList.toggle('hidden', totalRows !== 0);
+        }
+
+        if (totalRows === 0) {
+          reportEmployeesPaginationInfo.textContent = 'Showing 0 to 0 of 0 entries';
+        } else {
+          reportEmployeesPaginationInfo.textContent = `Showing ${startIndex + 1} to ${endIndex} of ${totalRows} entries`;
+        }
+        reportEmployeesPageLabel.textContent = `Page ${totalRows === 0 ? 1 : reportCurrentPage} of ${totalRows === 0 ? 1 : totalPages}`;
+        reportEmployeesPrev.disabled = totalRows === 0 || reportCurrentPage <= 1;
+        reportEmployeesNext.disabled = totalRows === 0 || reportCurrentPage >= totalPages;
       };
 
-      reportEmployeesSearch.addEventListener('input', applyPlainReportEmployeesFilter);
-      reportEmployeesDepartmentFilter.addEventListener('change', applyPlainReportEmployeesFilter);
-      reportEmployeesStatusFilter.addEventListener('change', applyPlainReportEmployeesFilter);
+      reportEmployeesSearch.addEventListener('input', () => {
+        reportCurrentPage = 1;
+        applyPlainReportEmployeesFilter();
+      });
+      reportEmployeesDepartmentFilter.addEventListener('change', () => {
+        reportCurrentPage = 1;
+        applyPlainReportEmployeesFilter();
+      });
+      reportEmployeesStatusFilter.addEventListener('change', () => {
+        reportCurrentPage = 1;
+        applyPlainReportEmployeesFilter();
+      });
+      reportEmployeesPrev.addEventListener('click', () => {
+        if (reportCurrentPage > 1) {
+          reportCurrentPage -= 1;
+          applyPlainReportEmployeesFilter();
+        }
+      });
+      reportEmployeesNext.addEventListener('click', () => {
+        reportCurrentPage += 1;
+        applyPlainReportEmployeesFilter();
+      });
+
+      applyPlainReportEmployeesFilter();
+      reportEmployeesTable.dataset.datatableInitialized = 'true';
+    }
+
+    if (
+      reportDemographicsTable
+      && reportDemographicsSearch
+      && reportDemographicsPrev
+      && reportDemographicsNext
+      && reportDemographicsPageLabel
+      && reportDemographicsPaginationInfo
+      && reportDemographicsTable.dataset.datatableInitialized !== 'true'
+    ) {
+      const reportPageSize = 20;
+      const rows = Array.from(reportDemographicsTable.querySelectorAll('tbody tr')).filter((row) => !row.querySelector('td[colspan]'));
+      let currentPage = 1;
+
+      const applyDemographicsFilter = () => {
+        const searchText = (reportDemographicsSearch.value || '').trim().toLowerCase();
+        const filteredRows = rows.filter((row) => {
+          const rowSearch = (row.getAttribute('data-report-demographics-search') || '').toLowerCase();
+          return !searchText || rowSearch.includes(searchText);
+        });
+
+        const totalRows = filteredRows.length;
+        const totalPages = Math.max(1, Math.ceil(totalRows / reportPageSize));
+        if (currentPage > totalPages) {
+          currentPage = totalPages;
+        }
+
+        const startIndex = totalRows === 0 ? 0 : (currentPage - 1) * reportPageSize;
+        const endIndex = totalRows === 0 ? 0 : Math.min(startIndex + reportPageSize, totalRows);
+        const visibleRows = new Set(filteredRows.slice(startIndex, endIndex));
+
+        rows.forEach((row) => {
+          row.classList.toggle('hidden', !visibleRows.has(row));
+        });
+
+        if (reportDemographicsFilterEmpty) {
+          reportDemographicsFilterEmpty.classList.toggle('hidden', totalRows !== 0);
+        }
+
+        reportDemographicsPaginationInfo.textContent = totalRows === 0
+          ? 'Showing 0 to 0 of 0 entries'
+          : `Showing ${startIndex + 1} to ${endIndex} of ${totalRows} entries`;
+        reportDemographicsPageLabel.textContent = `Page ${totalRows === 0 ? 1 : currentPage} of ${totalRows === 0 ? 1 : totalPages}`;
+        reportDemographicsPrev.disabled = totalRows === 0 || currentPage <= 1;
+        reportDemographicsNext.disabled = totalRows === 0 || currentPage >= totalPages;
+      };
+
+      reportDemographicsSearch.addEventListener('input', () => {
+        currentPage = 1;
+        applyDemographicsFilter();
+      });
+      reportDemographicsPrev.addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage -= 1;
+          applyDemographicsFilter();
+        }
+      });
+      reportDemographicsNext.addEventListener('click', () => {
+        currentPage += 1;
+        applyDemographicsFilter();
+      });
+
+      applyDemographicsFilter();
+      reportDemographicsTable.dataset.datatableInitialized = 'true';
+    }
+
+    if (
+      reportTurnoverTable
+      && reportTurnoverSearch
+      && reportTurnoverPrev
+      && reportTurnoverNext
+      && reportTurnoverPageLabel
+      && reportTurnoverPaginationInfo
+      && reportTurnoverTable.dataset.datatableInitialized !== 'true'
+    ) {
+      const reportPageSize = 20;
+      const rows = Array.from(reportTurnoverTable.querySelectorAll('tbody tr')).filter((row) => !row.querySelector('td[colspan]'));
+      let currentPage = 1;
+
+      const applyTurnoverFilter = () => {
+        const searchText = (reportTurnoverSearch.value || '').trim().toLowerCase();
+        const filteredRows = rows.filter((row) => {
+          const rowSearch = (row.getAttribute('data-report-turnover-search') || '').toLowerCase();
+          return !searchText || rowSearch.includes(searchText);
+        });
+
+        const totalRows = filteredRows.length;
+        const totalPages = Math.max(1, Math.ceil(totalRows / reportPageSize));
+        if (currentPage > totalPages) {
+          currentPage = totalPages;
+        }
+
+        const startIndex = totalRows === 0 ? 0 : (currentPage - 1) * reportPageSize;
+        const endIndex = totalRows === 0 ? 0 : Math.min(startIndex + reportPageSize, totalRows);
+        const visibleRows = new Set(filteredRows.slice(startIndex, endIndex));
+
+        rows.forEach((row) => {
+          row.classList.toggle('hidden', !visibleRows.has(row));
+        });
+
+        if (reportTurnoverFilterEmpty) {
+          reportTurnoverFilterEmpty.classList.toggle('hidden', totalRows !== 0);
+        }
+
+        reportTurnoverPaginationInfo.textContent = totalRows === 0
+          ? 'Showing 0 to 0 of 0 entries'
+          : `Showing ${startIndex + 1} to ${endIndex} of ${totalRows} entries`;
+        reportTurnoverPageLabel.textContent = `Page ${totalRows === 0 ? 1 : currentPage} of ${totalRows === 0 ? 1 : totalPages}`;
+        reportTurnoverPrev.disabled = totalRows === 0 || currentPage <= 1;
+        reportTurnoverNext.disabled = totalRows === 0 || currentPage >= totalPages;
+      };
+
+      reportTurnoverSearch.addEventListener('input', () => {
+        currentPage = 1;
+        applyTurnoverFilter();
+      });
+      reportTurnoverPrev.addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage -= 1;
+          applyTurnoverFilter();
+        }
+      });
+      reportTurnoverNext.addEventListener('click', () => {
+        currentPage += 1;
+        applyTurnoverFilter();
+      });
+
+      applyTurnoverFilter();
+      reportTurnoverTable.dataset.datatableInitialized = 'true';
+    }
+
+    if (
+      reportActivitiesTable
+      && reportActivitiesSearch
+      && reportActivitiesRoleFilter
+      && reportActivitiesModuleFilter
+      && reportActivitiesPrev
+      && reportActivitiesNext
+      && reportActivitiesPageLabel
+      && reportActivitiesPaginationInfo
+      && reportActivitiesTable.dataset.datatableInitialized !== 'true'
+    ) {
+      const reportPageSize = 20;
+      const rows = Array.from(reportActivitiesTable.querySelectorAll('tbody tr')).filter((row) => !row.querySelector('td[colspan]'));
+      let currentPage = 1;
+
+      const applyActivitiesFilter = () => {
+        const searchText = (reportActivitiesSearch.value || '').trim().toLowerCase();
+        const selectedRole = (reportActivitiesRoleFilter.value || '').trim().toLowerCase();
+        const selectedModule = (reportActivitiesModuleFilter.value || '').trim().toLowerCase();
+
+        const filteredRows = rows.filter((row) => {
+          const rowSearch = (row.getAttribute('data-report-activities-search') || '').toLowerCase();
+          const rowRole = (row.getAttribute('data-report-activities-role') || '').toLowerCase();
+          const rowModule = (row.getAttribute('data-report-activities-module') || '').toLowerCase();
+
+          const matchesSearch = !searchText || rowSearch.includes(searchText);
+          const matchesRole = !selectedRole || rowRole === selectedRole;
+          const matchesModule = !selectedModule || rowModule === selectedModule;
+          return matchesSearch && matchesRole && matchesModule;
+        });
+
+        const totalRows = filteredRows.length;
+        const totalPages = Math.max(1, Math.ceil(totalRows / reportPageSize));
+        if (currentPage > totalPages) {
+          currentPage = totalPages;
+        }
+
+        const startIndex = totalRows === 0 ? 0 : (currentPage - 1) * reportPageSize;
+        const endIndex = totalRows === 0 ? 0 : Math.min(startIndex + reportPageSize, totalRows);
+        const visibleRows = new Set(filteredRows.slice(startIndex, endIndex));
+
+        rows.forEach((row) => {
+          row.classList.toggle('hidden', !visibleRows.has(row));
+        });
+
+        if (reportActivitiesFilterEmpty) {
+          reportActivitiesFilterEmpty.classList.toggle('hidden', totalRows !== 0);
+        }
+
+        reportActivitiesPaginationInfo.textContent = totalRows === 0
+          ? 'Showing 0 to 0 of 0 entries'
+          : `Showing ${startIndex + 1} to ${endIndex} of ${totalRows} entries`;
+        reportActivitiesPageLabel.textContent = `Page ${totalRows === 0 ? 1 : currentPage} of ${totalRows === 0 ? 1 : totalPages}`;
+        reportActivitiesPrev.disabled = totalRows === 0 || currentPage <= 1;
+        reportActivitiesNext.disabled = totalRows === 0 || currentPage >= totalPages;
+      };
+
+      reportActivitiesSearch.addEventListener('input', () => {
+        currentPage = 1;
+        applyActivitiesFilter();
+      });
+      reportActivitiesRoleFilter.addEventListener('change', () => {
+        currentPage = 1;
+        applyActivitiesFilter();
+      });
+      reportActivitiesModuleFilter.addEventListener('change', () => {
+        currentPage = 1;
+        applyActivitiesFilter();
+      });
+      reportActivitiesPrev.addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage -= 1;
+          applyActivitiesFilter();
+        }
+      });
+      reportActivitiesNext.addEventListener('click', () => {
+        currentPage += 1;
+        applyActivitiesFilter();
+      });
+
+      applyActivitiesFilter();
+      reportActivitiesTable.dataset.datatableInitialized = 'true';
     }
 
     if (reportCoverageSelect && reportCustomDateRange && reportCustomStartDate && reportCustomEndDate) {

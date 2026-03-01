@@ -397,6 +397,277 @@ if (!function_exists('reportBuildDataset')) {
             return [$columns, $rows];
         }
 
+        if ($reportType === 'employee_demographics') {
+            $employmentResponse = apiRequest(
+                'GET',
+                $supabaseUrl . '/rest/v1/employment_records?select=person_id,office_id,is_current&is_current=eq.true&limit=10000',
+                $headers
+            );
+            $peopleResponse = apiRequest(
+                'GET',
+                $supabaseUrl . '/rest/v1/people?select=id,sex_at_birth,date_of_birth&limit=10000',
+                $headers
+            );
+
+            if (!isSuccessful($employmentResponse) || !isSuccessful($peopleResponse)) {
+                throw new RuntimeException('Failed to fetch employee demographics data.');
+            }
+
+            $peopleById = [];
+            foreach ((array)$peopleResponse['data'] as $person) {
+                $personId = (string)($person['id'] ?? '');
+                if ($personId !== '') {
+                    $peopleById[$personId] = (array)$person;
+                }
+            }
+
+            $bucket = [];
+            foreach ((array)$employmentResponse['data'] as $employment) {
+                $personId = (string)($employment['person_id'] ?? '');
+                $officeId = (string)($employment['office_id'] ?? '');
+                $division = (string)($officeNameById[$officeId] ?? 'Unassigned Division');
+                if (!reportDepartmentMatches($department, $division)) {
+                    continue;
+                }
+
+                if (!isset($bucket[$division])) {
+                    $bucket[$division] = [
+                        'total' => 0,
+                        'male' => 0,
+                        'female' => 0,
+                        'unspecified' => 0,
+                        'age_sum' => 0.0,
+                        'age_count' => 0,
+                    ];
+                }
+
+                $bucket[$division]['total']++;
+
+                $sex = strtolower(trim((string)($peopleById[$personId]['sex_at_birth'] ?? '')));
+                if ($sex === 'male') {
+                    $bucket[$division]['male']++;
+                } elseif ($sex === 'female') {
+                    $bucket[$division]['female']++;
+                } else {
+                    $bucket[$division]['unspecified']++;
+                }
+
+                $dob = (string)($peopleById[$personId]['date_of_birth'] ?? '');
+                $dobTs = $dob !== '' ? strtotime($dob) : false;
+                if ($dobTs !== false) {
+                    $age = floor((time() - $dobTs) / (365.25 * 24 * 60 * 60));
+                    if ($age > 0) {
+                        $bucket[$division]['age_sum'] += $age;
+                        $bucket[$division]['age_count']++;
+                    }
+                }
+            }
+
+            ksort($bucket);
+            $columns = ['Division', 'Total Employees', 'Male', 'Female', 'Unspecified', 'Average Age'];
+            $rows = [];
+            foreach ($bucket as $division => $counts) {
+                $averageAge = (int)$counts['age_count'] > 0
+                    ? number_format(((float)$counts['age_sum'] / (int)$counts['age_count']), 1)
+                    : '0.0';
+
+                $rows[] = [
+                    (string)$division,
+                    (string)($counts['total'] ?? 0),
+                    (string)($counts['male'] ?? 0),
+                    (string)($counts['female'] ?? 0),
+                    (string)($counts['unspecified'] ?? 0),
+                    (string)$averageAge,
+                ];
+            }
+
+            return [$columns, $rows];
+        }
+
+        if ($reportType === 'turnover_rates') {
+            $response = apiRequest(
+                'GET',
+                $supabaseUrl . '/rest/v1/employment_records?select=office_id,employment_status,hire_date,separation_date,is_current&limit=10000',
+                $headers
+            );
+
+            if (!isSuccessful($response)) {
+                throw new RuntimeException('Failed to fetch turnover data.');
+            }
+
+            $turnoverByDivision = [];
+            foreach ((array)$response['data'] as $row) {
+                $officeId = (string)($row['office_id'] ?? '');
+                $division = (string)($officeNameById[$officeId] ?? 'Unassigned Division');
+                if (!reportDepartmentMatches($department, $division)) {
+                    continue;
+                }
+
+                if (!isset($turnoverByDivision[$division])) {
+                    $turnoverByDivision[$division] = [
+                        'headcount' => 0,
+                        'hires' => 0,
+                        'separations' => 0,
+                    ];
+                }
+
+                if ((bool)($row['is_current'] ?? false)) {
+                    $turnoverByDivision[$division]['headcount']++;
+                }
+
+                $hireDate = (string)($row['hire_date'] ?? '');
+                if ($hireDate !== '' && $hireDate >= $startDate && $hireDate <= $endDate) {
+                    $turnoverByDivision[$division]['hires']++;
+                }
+
+                $separationDate = (string)($row['separation_date'] ?? '');
+                if ($separationDate !== '' && $separationDate >= $startDate && $separationDate <= $endDate) {
+                    $turnoverByDivision[$division]['separations']++;
+                }
+            }
+
+            ksort($turnoverByDivision);
+            $columns = ['Division', 'Headcount', 'Hires', 'Separations', 'Turnover Rate (%)'];
+            $rows = [];
+            foreach ($turnoverByDivision as $division => $metrics) {
+                $headcount = max(1, (int)($metrics['headcount'] ?? 0));
+                $separations = (int)($metrics['separations'] ?? 0);
+                $turnoverRate = number_format(($separations / $headcount) * 100, 1);
+
+                $rows[] = [
+                    (string)$division,
+                    (string)($metrics['headcount'] ?? 0),
+                    (string)($metrics['hires'] ?? 0),
+                    (string)$separations,
+                    (string)$turnoverRate,
+                ];
+            }
+
+            return [$columns, $rows];
+        }
+
+        if ($reportType === 'training_effectiveness') {
+            $response = apiRequest(
+                'GET',
+                $supabaseUrl . '/rest/v1/training_enrollments?select=*&limit=10000',
+                $headers
+            );
+
+            if (!isSuccessful($response)) {
+                throw new RuntimeException('Failed to fetch training effectiveness data.');
+            }
+
+            $total = 0;
+            $completed = 0;
+            $failed = 0;
+            $dropped = 0;
+            foreach ((array)$response['data'] as $row) {
+                $personId = (string)($row['employee_person_id'] ?? $row['person_id'] ?? $row['participant_person_id'] ?? '');
+                if ($department !== 'all' && $personId !== '' && !reportDepartmentMatches($department, $personDepartmentById[$personId] ?? null)) {
+                    continue;
+                }
+
+                $status = strtolower(trim((string)($row['enrollment_status'] ?? '')));
+                if ($status === '') {
+                    continue;
+                }
+
+                $total++;
+                if ($status === 'completed') {
+                    $completed++;
+                } elseif ($status === 'failed') {
+                    $failed++;
+                } elseif ($status === 'dropped') {
+                    $dropped++;
+                }
+            }
+
+            $completionRate = $total > 0 ? number_format(($completed / $total) * 100, 1) : '0.0';
+            $effectivenessRate = $total > 0 ? number_format((($completed - $failed) / $total) * 100, 1) : '0.0';
+
+            $columns = ['Metric', 'Value'];
+            $rows = [
+                ['Total Enrollments', (string)$total],
+                ['Completed', (string)$completed],
+                ['Failed', (string)$failed],
+                ['Dropped', (string)$dropped],
+                ['Completion Rate (%)', (string)$completionRate],
+                ['Effectiveness Index (%)', (string)$effectivenessRate],
+            ];
+
+            return [$columns, $rows];
+        }
+
+        if ($reportType === 'activity_summary') {
+            $activityResponse = apiRequest(
+                'GET',
+                $supabaseUrl . '/rest/v1/activity_logs?select=actor_user_id,module_name,action_name,created_at&created_at=gte.' . $startDateTime . '&created_at=lte.' . $endDateTime . '&order=created_at.desc&limit=10000',
+                $headers
+            );
+            $roleResponse = apiRequest(
+                'GET',
+                $supabaseUrl . '/rest/v1/user_role_assignments?select=user_id,is_primary,role:roles(role_key)&expires_at=is.null&limit=5000',
+                $headers
+            );
+
+            if (!isSuccessful($activityResponse) || !isSuccessful($roleResponse)) {
+                throw new RuntimeException('Failed to fetch activity summary data.');
+            }
+
+            $roleByUserId = [];
+            foreach ((array)$roleResponse['data'] as $assignment) {
+                $userId = strtolower(trim((string)($assignment['user_id'] ?? '')));
+                if ($userId === '') {
+                    continue;
+                }
+                $roleKey = strtolower(trim((string)($assignment['role']['role_key'] ?? '')));
+                if ($roleKey === '') {
+                    continue;
+                }
+
+                if (!isset($roleByUserId[$userId]) || (bool)($assignment['is_primary'] ?? false)) {
+                    $roleByUserId[$userId] = $roleKey;
+                }
+            }
+
+            $moduleCounts = [];
+            foreach ((array)$activityResponse['data'] as $entry) {
+                $moduleName = trim((string)($entry['module_name'] ?? ''));
+                $moduleKey = $moduleName !== '' ? $moduleName : 'uncategorized';
+                $actorUserId = strtolower(trim((string)($entry['actor_user_id'] ?? '')));
+                $roleKey = (string)($roleByUserId[$actorUserId] ?? '');
+
+                if (!isset($moduleCounts[$moduleKey])) {
+                    $moduleCounts[$moduleKey] = ['admin' => 0, 'staff' => 0, 'total' => 0];
+                }
+
+                if ($roleKey === 'admin') {
+                    $moduleCounts[$moduleKey]['admin']++;
+                } elseif ($roleKey === 'staff') {
+                    $moduleCounts[$moduleKey]['staff']++;
+                }
+
+                $moduleCounts[$moduleKey]['total']++;
+            }
+
+            uasort($moduleCounts, static function (array $left, array $right): int {
+                return (int)$right['total'] <=> (int)$left['total'];
+            });
+
+            $columns = ['Module', 'Admin Activities', 'Staff Activities', 'Total Activities'];
+            $rows = [];
+            foreach ($moduleCounts as $moduleName => $counts) {
+                $rows[] = [
+                    ucwords(str_replace('_', ' ', (string)$moduleName)),
+                    (string)($counts['admin'] ?? 0),
+                    (string)($counts['staff'] ?? 0),
+                    (string)($counts['total'] ?? 0),
+                ];
+            }
+
+            return [$columns, $rows];
+        }
+
         $response = apiRequest(
             'GET',
             $supabaseUrl . '/rest/v1/applications?select=application_ref_no,application_status,submitted_at,job:job_postings(title,office_id),applicant:applicant_profiles(full_name,email)&submitted_at=gte.' . $startDateTime . '&submitted_at=lte.' . $endDateTime . '&order=submitted_at.desc&limit=5000',
@@ -530,7 +801,7 @@ if ($action === 'export_report') {
     $customStartDate = cleanText($_POST['custom_start_date'] ?? null);
     $customEndDate = cleanText($_POST['custom_end_date'] ?? null);
 
-    $allowedTypes = ['attendance', 'payroll', 'performance', 'documents', 'recruitment', 'audit_logs'];
+    $allowedTypes = ['attendance', 'payroll', 'performance', 'documents', 'recruitment', 'audit_logs', 'employee_demographics', 'turnover_rates', 'training_effectiveness', 'activity_summary'];
     if (!in_array($reportType, $allowedTypes, true)) {
         redirectWithState('error', 'Invalid report type selected.');
     }

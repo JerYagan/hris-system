@@ -8,9 +8,9 @@ if (!headers_sent()) {
     header('Pragma: no-cache');
 }
 
-$pageTitle = 'REPORTS and Analytics | Staff';
+$pageTitle = 'Reports and Analytics | Staff';
 $activePage = 'reports.php';
-$breadcrumbs = ['REPORTS and Analytics'];
+$breadcrumbs = ['Reports and Analytics'];
 
 $state = cleanText($_GET['state'] ?? null);
 $message = cleanText($_GET['message'] ?? null);
@@ -19,7 +19,7 @@ ob_start();
 ?>
 
 <div class="mb-6">
-    <h1 class="text-2xl font-bold text-gray-800">REPORTS and Analytics</h1>
+    <h1 class="text-2xl font-bold text-gray-800">Reports and Analytics</h1>
     <p class="text-sm text-gray-500">Review operational HR insights for timekeeping, payroll, and recruitment, then export reports from the latest organization-wide records.</p>
 </div>
 

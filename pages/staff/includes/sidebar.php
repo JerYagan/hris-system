@@ -124,7 +124,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
       <div data-collapse-content="misc" class="space-y-1">
         <a href="reports.php" class="flex items-center gap-3 px-4 py-2 rounded-lg <?= $activePage === 'reports.php' ? 'bg-green-100 font-medium' : 'hover:bg-gray-100' ?>">
           <span class="material-icons text-base">assessment</span>
-          <span class="sidebar-label">Reports</span>
+          <span class="sidebar-label">Reports and Analytics</span>
         </a>
 
         <a href="profile.php" class="flex items-center gap-3 px-4 py-2 rounded-lg <?= $activePage === 'profile.php' ? 'bg-green-100 font-medium' : 'hover:bg-gray-100' ?>">

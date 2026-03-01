@@ -8,7 +8,13 @@ $employmentResponse = apiRequest(
 
 $peopleResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/people?select=id,first_name,surname,middle_name&limit=5000',
+    $supabaseUrl . '/rest/v1/people?select=id,first_name,surname,middle_name,sex_at_birth,date_of_birth,civil_status&limit=5000',
+    $headers
+);
+
+$employmentAllResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/employment_records?select=id,person_id,office_id,employment_status,hire_date,separation_date,is_current&limit=10000',
     $headers
 );
 
@@ -50,7 +56,19 @@ $applicationsResponse = apiRequest(
 
 $auditLogsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/activity_logs?select=id,module_name,action_name,created_at&order=created_at.desc&limit=2000',
+    $supabaseUrl . '/rest/v1/activity_logs?select=id,actor_user_id,module_name,action_name,created_at,actor:user_accounts(email)&order=created_at.desc&limit=2000',
+    $headers
+);
+
+$trainingEnrollmentsResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/training_enrollments?select=*&order=created_at.desc&limit=5000',
+    $headers
+);
+
+$roleAssignmentsResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/user_role_assignments?select=user_id,is_primary,role:roles(role_key)&expires_at=is.null&limit=5000',
     $headers
 );
 
@@ -74,6 +92,7 @@ $holidayPolicyResponse = apiRequest(
 
 $employmentRecords = isSuccessful($employmentResponse) ? $employmentResponse['data'] : [];
 $people = isSuccessful($peopleResponse) ? $peopleResponse['data'] : [];
+$employmentAllRecords = isSuccessful($employmentAllResponse) ? $employmentAllResponse['data'] : [];
 $offices = isSuccessful($officesResponse) ? $officesResponse['data'] : [];
 $attendanceLogs = isSuccessful($attendanceResponse) ? $attendanceResponse['data'] : [];
 $payrollItems = isSuccessful($payrollResponse) ? $payrollResponse['data'] : [];
@@ -81,6 +100,8 @@ $documents = isSuccessful($documentsResponse) ? $documentsResponse['data'] : [];
 $performanceEvaluations = isSuccessful($performanceResponse) ? $performanceResponse['data'] : [];
 $applications = isSuccessful($applicationsResponse) ? $applicationsResponse['data'] : [];
 $auditLogs = isSuccessful($auditLogsResponse) ? $auditLogsResponse['data'] : [];
+$trainingEnrollments = isSuccessful($trainingEnrollmentsResponse) ? $trainingEnrollmentsResponse['data'] : [];
+$roleAssignments = isSuccessful($roleAssignmentsResponse) ? $roleAssignmentsResponse['data'] : [];
 
 $dataLoadError = null;
 if (!isSuccessful($employmentResponse)) {
@@ -88,6 +109,9 @@ if (!isSuccessful($employmentResponse)) {
 }
 if (!isSuccessful($peopleResponse)) {
     $dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'People query failed (HTTP ' . (int)($peopleResponse['status'] ?? 0) . ').');
+}
+if (!isSuccessful($employmentAllResponse)) {
+    $dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Employment history query failed (HTTP ' . (int)($employmentAllResponse['status'] ?? 0) . ').');
 }
 if (!isSuccessful($officesResponse)) {
     $dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Office query failed (HTTP ' . (int)($officesResponse['status'] ?? 0) . ').');
@@ -109,6 +133,12 @@ if (!isSuccessful($applicationsResponse)) {
 }
 if (!isSuccessful($auditLogsResponse)) {
     $dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Audit log query failed (HTTP ' . (int)($auditLogsResponse['status'] ?? 0) . ').');
+}
+if (!isSuccessful($trainingEnrollmentsResponse)) {
+    $dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Training enrollments query failed (HTTP ' . (int)($trainingEnrollmentsResponse['status'] ?? 0) . ').');
+}
+if (!isSuccessful($roleAssignmentsResponse)) {
+    $dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Role assignments query failed (HTTP ' . (int)($roleAssignmentsResponse['status'] ?? 0) . ').');
 }
 
 $currentEmploymentByPerson = [];
@@ -370,6 +400,367 @@ $crossModuleKpis = [
     'performance_completed' => $performanceCompletedCount,
     'audit_logs_30_days' => $auditLogsLast30Days,
 ];
+
+$peopleById = [];
+foreach ($people as $personRow) {
+    $personId = (string)($personRow['id'] ?? '');
+    if ($personId === '') {
+        continue;
+    }
+    $peopleById[$personId] = (array)$personRow;
+}
+
+$demographics = [
+    'male' => 0,
+    'female' => 0,
+    'unspecified' => 0,
+    'average_age' => 0.0,
+    'total' => 0,
+];
+$ageAccumulator = 0.0;
+$ageCount = 0;
+foreach ($uniqueEmploymentRecords as $record) {
+    $personId = (string)($record['person_id'] ?? '');
+    if ($personId === '' || !isset($peopleById[$personId])) {
+        $demographics['unspecified']++;
+        $demographics['total']++;
+        continue;
+    }
+
+    $sexRaw = strtolower(trim((string)($peopleById[$personId]['sex_at_birth'] ?? '')));
+    if ($sexRaw === 'male') {
+        $demographics['male']++;
+    } elseif ($sexRaw === 'female') {
+        $demographics['female']++;
+    } else {
+        $demographics['unspecified']++;
+    }
+
+    $dob = (string)($peopleById[$personId]['date_of_birth'] ?? '');
+    $dobTs = $dob !== '' ? strtotime($dob) : false;
+    if ($dobTs !== false) {
+        $age = floor((time() - $dobTs) / (365.25 * 24 * 60 * 60));
+        if ($age > 0) {
+            $ageAccumulator += $age;
+            $ageCount++;
+        }
+    }
+
+    $demographics['total']++;
+}
+$demographics['average_age'] = $ageCount > 0 ? round($ageAccumulator / $ageCount, 1) : 0.0;
+
+$currentHeadcount = max(1, count($uniqueEmploymentRecords));
+$turnoverWindowStart = strtotime('-365 days');
+$separationCount = 0;
+foreach ($employmentAllRecords as $employmentRow) {
+    $separationDate = (string)($employmentRow['separation_date'] ?? '');
+    $separationTs = $separationDate !== '' ? strtotime($separationDate) : false;
+    if ($separationTs !== false && $separationTs >= $turnoverWindowStart) {
+        $separationCount++;
+    }
+}
+$turnoverRate = round(($separationCount / $currentHeadcount) * 100, 1);
+
+$trainingTotal = 0;
+$trainingCompleted = 0;
+$trainingFailed = 0;
+$trainingDropped = 0;
+foreach ($trainingEnrollments as $enrollmentRow) {
+    $status = strtolower(trim((string)($enrollmentRow['enrollment_status'] ?? '')));
+    if ($status === '') {
+        continue;
+    }
+    $trainingTotal++;
+    if ($status === 'completed') {
+        $trainingCompleted++;
+    } elseif ($status === 'failed') {
+        $trainingFailed++;
+    } elseif ($status === 'dropped') {
+        $trainingDropped++;
+    }
+}
+$trainingCompletionRate = $trainingTotal > 0 ? round(($trainingCompleted / $trainingTotal) * 100, 1) : 0.0;
+
+$roleKeyByUserId = [];
+foreach ($roleAssignments as $assignmentRow) {
+    $userId = strtolower(trim((string)($assignmentRow['user_id'] ?? '')));
+    if ($userId === '') {
+        continue;
+    }
+    $roleKey = strtolower(trim((string)($assignmentRow['role']['role_key'] ?? '')));
+    if ($roleKey === '') {
+        continue;
+    }
+
+    if (!isset($roleKeyByUserId[$userId]) || (bool)($assignmentRow['is_primary'] ?? false)) {
+        $roleKeyByUserId[$userId] = $roleKey;
+    }
+}
+
+$activityByModule = [];
+$adminActivityCount30Days = 0;
+$staffActivityCount30Days = 0;
+foreach ($auditLogs as $auditLogRow) {
+    $createdAt = (string)($auditLogRow['created_at'] ?? '');
+    $createdTs = $createdAt !== '' ? strtotime($createdAt) : false;
+    if ($createdTs === false || $createdTs < $auditWindowStartTs) {
+        continue;
+    }
+
+    $moduleName = trim((string)($auditLogRow['module_name'] ?? ''));
+    $moduleKey = $moduleName !== '' ? $moduleName : 'uncategorized';
+    $actorUserId = strtolower(trim((string)($auditLogRow['actor_user_id'] ?? '')));
+    $roleKey = (string)($roleKeyByUserId[$actorUserId] ?? '');
+
+    if (!isset($activityByModule[$moduleKey])) {
+        $activityByModule[$moduleKey] = ['admin' => 0, 'staff' => 0, 'total' => 0];
+    }
+
+    if ($roleKey === 'admin') {
+        $activityByModule[$moduleKey]['admin']++;
+        $adminActivityCount30Days++;
+    } elseif ($roleKey === 'staff') {
+        $activityByModule[$moduleKey]['staff']++;
+        $staffActivityCount30Days++;
+    }
+
+    $activityByModule[$moduleKey]['total']++;
+}
+
+$activityBreakdownRows = [];
+foreach ($activityByModule as $moduleName => $counts) {
+    $activityBreakdownRows[] = [
+        'module_name' => ucwords(str_replace('_', ' ', (string)$moduleName)),
+        'admin' => (int)($counts['admin'] ?? 0),
+        'staff' => (int)($counts['staff'] ?? 0),
+        'total' => (int)($counts['total'] ?? 0),
+    ];
+}
+usort($activityBreakdownRows, static function (array $left, array $right): int {
+    return (int)$right['total'] <=> (int)$left['total'];
+});
+
+$advancedAdminAnalytics = [
+    'demographics_male' => (int)$demographics['male'],
+    'demographics_female' => (int)$demographics['female'],
+    'demographics_unspecified' => (int)$demographics['unspecified'],
+    'demographics_average_age' => (float)$demographics['average_age'],
+    'turnover_rate_annual' => (float)$turnoverRate,
+    'separations_annual' => (int)$separationCount,
+    'training_completion_rate' => (float)$trainingCompletionRate,
+    'training_completed' => (int)$trainingCompleted,
+    'training_failed' => (int)$trainingFailed,
+    'training_dropped' => (int)$trainingDropped,
+    'admin_activity_30_days' => (int)$adminActivityCount30Days,
+    'staff_activity_30_days' => (int)$staffActivityCount30Days,
+];
+
+$personDepartmentById = [];
+foreach ($uniqueEmploymentRecords as $record) {
+    $personId = (string)($record['person_id'] ?? '');
+    $officeId = (string)($record['office_id'] ?? '');
+    if ($personId === '') {
+        continue;
+    }
+
+    $personDepartmentById[$personId] = (string)($officeNameById[$officeId] ?? 'Unassigned Office');
+}
+
+$demographicsByDivision = [];
+foreach ($uniqueEmploymentRecords as $record) {
+    $personId = (string)($record['person_id'] ?? '');
+    $officeId = (string)($record['office_id'] ?? '');
+    $divisionName = (string)($officeNameById[$officeId] ?? 'Unassigned Office');
+
+    if (!isset($demographicsByDivision[$divisionName])) {
+        $demographicsByDivision[$divisionName] = [
+            'division' => $divisionName,
+            'total' => 0,
+            'male' => 0,
+            'female' => 0,
+            'unspecified' => 0,
+            'age_sum' => 0.0,
+            'age_count' => 0,
+        ];
+    }
+
+    $demographicsByDivision[$divisionName]['total']++;
+
+    $person = (array)($peopleById[$personId] ?? []);
+    $sex = strtolower(trim((string)($person['sex_at_birth'] ?? '')));
+    if ($sex === 'male') {
+        $demographicsByDivision[$divisionName]['male']++;
+    } elseif ($sex === 'female') {
+        $demographicsByDivision[$divisionName]['female']++;
+    } else {
+        $demographicsByDivision[$divisionName]['unspecified']++;
+    }
+
+    $dob = (string)($person['date_of_birth'] ?? '');
+    $dobTs = $dob !== '' ? strtotime($dob) : false;
+    if ($dobTs !== false) {
+        $age = floor((time() - $dobTs) / (365.25 * 24 * 60 * 60));
+        if ($age > 0) {
+            $demographicsByDivision[$divisionName]['age_sum'] += $age;
+            $demographicsByDivision[$divisionName]['age_count']++;
+        }
+    }
+}
+
+$demographicsByDivisionRows = [];
+foreach ($demographicsByDivision as $divisionName => $counts) {
+    $averageAge = (int)$counts['age_count'] > 0
+        ? round(((float)$counts['age_sum'] / (int)$counts['age_count']), 1)
+        : 0.0;
+
+    $demographicsByDivisionRows[] = [
+        'division' => (string)$divisionName,
+        'total' => (int)($counts['total'] ?? 0),
+        'male' => (int)($counts['male'] ?? 0),
+        'female' => (int)($counts['female'] ?? 0),
+        'unspecified' => (int)($counts['unspecified'] ?? 0),
+        'average_age' => $averageAge,
+        'search_text' => strtolower(trim((string)$divisionName . ' ' . (string)($counts['total'] ?? 0) . ' ' . (string)($counts['male'] ?? 0) . ' ' . (string)($counts['female'] ?? 0))),
+    ];
+}
+usort($demographicsByDivisionRows, static function (array $left, array $right): int {
+    return strcmp((string)$left['division'], (string)$right['division']);
+});
+
+$turnoverTrainingByDivision = [];
+foreach ($employmentAllRecords as $employmentRow) {
+    $officeId = (string)($employmentRow['office_id'] ?? '');
+    $divisionName = (string)($officeNameById[$officeId] ?? 'Unassigned Office');
+    if (!isset($turnoverTrainingByDivision[$divisionName])) {
+        $turnoverTrainingByDivision[$divisionName] = [
+            'division' => $divisionName,
+            'headcount' => 0,
+            'hires_365' => 0,
+            'separations_365' => 0,
+            'training_total' => 0,
+            'training_completed' => 0,
+        ];
+    }
+
+    if ((bool)($employmentRow['is_current'] ?? false)) {
+        $turnoverTrainingByDivision[$divisionName]['headcount']++;
+    }
+
+    $hireDate = (string)($employmentRow['hire_date'] ?? '');
+    $hireTs = $hireDate !== '' ? strtotime($hireDate) : false;
+    if ($hireTs !== false && $hireTs >= $turnoverWindowStart) {
+        $turnoverTrainingByDivision[$divisionName]['hires_365']++;
+    }
+
+    $separationDate = (string)($employmentRow['separation_date'] ?? '');
+    $separationTs = $separationDate !== '' ? strtotime($separationDate) : false;
+    if ($separationTs !== false && $separationTs >= $turnoverWindowStart) {
+        $turnoverTrainingByDivision[$divisionName]['separations_365']++;
+    }
+}
+
+foreach ($trainingEnrollments as $enrollmentRow) {
+    $personId = (string)($enrollmentRow['employee_person_id'] ?? $enrollmentRow['person_id'] ?? $enrollmentRow['participant_person_id'] ?? '');
+    $divisionName = (string)($personDepartmentById[$personId] ?? 'Unassigned Office');
+    if (!isset($turnoverTrainingByDivision[$divisionName])) {
+        $turnoverTrainingByDivision[$divisionName] = [
+            'division' => $divisionName,
+            'headcount' => 0,
+            'hires_365' => 0,
+            'separations_365' => 0,
+            'training_total' => 0,
+            'training_completed' => 0,
+        ];
+    }
+
+    $status = strtolower(trim((string)($enrollmentRow['enrollment_status'] ?? '')));
+    if ($status === '') {
+        continue;
+    }
+
+    $turnoverTrainingByDivision[$divisionName]['training_total']++;
+    if ($status === 'completed') {
+        $turnoverTrainingByDivision[$divisionName]['training_completed']++;
+    }
+}
+
+$turnoverTrainingRows = [];
+foreach ($turnoverTrainingByDivision as $divisionRow) {
+    $headcount = max(1, (int)($divisionRow['headcount'] ?? 0));
+    $separations = (int)($divisionRow['separations_365'] ?? 0);
+    $trainingTotalByDivision = (int)($divisionRow['training_total'] ?? 0);
+    $trainingCompletedByDivision = (int)($divisionRow['training_completed'] ?? 0);
+    $turnoverRateByDivision = round(($separations / $headcount) * 100, 1);
+    $trainingRateByDivision = $trainingTotalByDivision > 0
+        ? round(($trainingCompletedByDivision / $trainingTotalByDivision) * 100, 1)
+        : 0.0;
+
+    $turnoverTrainingRows[] = [
+        'division' => (string)($divisionRow['division'] ?? 'Unassigned Office'),
+        'headcount' => (int)($divisionRow['headcount'] ?? 0),
+        'hires_365' => (int)($divisionRow['hires_365'] ?? 0),
+        'separations_365' => $separations,
+        'turnover_rate' => $turnoverRateByDivision,
+        'training_completion_rate' => $trainingRateByDivision,
+        'search_text' => strtolower(trim((string)($divisionRow['division'] ?? '') . ' ' . (string)($divisionRow['headcount'] ?? 0) . ' ' . (string)$turnoverRateByDivision . ' ' . (string)$trainingRateByDivision)),
+    ];
+}
+usort($turnoverTrainingRows, static function (array $left, array $right): int {
+    return strcmp((string)$left['division'], (string)$right['division']);
+});
+
+$activityRoleLabel = static function (string $roleKey): string {
+    $normalized = strtolower(trim($roleKey));
+    if ($normalized === 'admin') {
+        return 'Admin';
+    }
+    if ($normalized === 'staff') {
+        return 'Staff';
+    }
+    if ($normalized === '') {
+        return 'Unknown';
+    }
+
+    return ucwords(str_replace('_', ' ', $normalized));
+};
+
+$activityLogRows = [];
+$activityRoleFilters = [];
+$activityModuleFilters = [];
+foreach ($auditLogs as $auditLogRow) {
+    $createdAtRaw = (string)($auditLogRow['created_at'] ?? '');
+    $createdAtTs = $createdAtRaw !== '' ? strtotime($createdAtRaw) : false;
+    $createdAtLabel = $createdAtTs !== false ? date('M d, Y h:i A', $createdAtTs) : '-';
+    $moduleRaw = trim((string)($auditLogRow['module_name'] ?? ''));
+    $moduleLabel = $moduleRaw !== '' ? ucwords(str_replace('_', ' ', $moduleRaw)) : 'Uncategorized';
+    $actionRaw = trim((string)($auditLogRow['action_name'] ?? ''));
+    $actionLabel = $actionRaw !== '' ? ucwords(str_replace('_', ' ', $actionRaw)) : 'Unknown Action';
+    $actorUserId = strtolower(trim((string)($auditLogRow['actor_user_id'] ?? '')));
+    $roleKey = (string)($roleKeyByUserId[$actorUserId] ?? '');
+    $roleLabel = $activityRoleLabel($roleKey);
+    $actorEmail = trim((string)($auditLogRow['actor']['email'] ?? ''));
+
+    $activityLogRows[] = [
+        'created_at' => $createdAtLabel,
+        'module_label' => $moduleLabel,
+        'module_key' => strtolower($moduleLabel),
+        'action_label' => $actionLabel,
+        'role_label' => $roleLabel,
+        'role_key' => strtolower($roleLabel),
+        'actor_email' => $actorEmail !== '' ? $actorEmail : '-',
+        'search_text' => strtolower(trim($createdAtLabel . ' ' . $moduleLabel . ' ' . $actionLabel . ' ' . $roleLabel . ' ' . $actorEmail)),
+    ];
+
+    $activityRoleFilters[$roleLabel] = true;
+    $activityModuleFilters[$moduleLabel] = true;
+}
+
+$activityRoleFilters = array_keys($activityRoleFilters);
+sort($activityRoleFilters);
+
+$activityModuleFilters = array_keys($activityModuleFilters);
+sort($activityModuleFilters);
 
 $departmentsForFilter = array_values($officeNameById);
 sort($departmentsForFilter);
