@@ -637,11 +637,11 @@ Rules applied while consolidating:
 ## 12) Announcement Module
 
 ### Admin
-- [ ] Add targeted visibility by employee/group/role.
-- [ ] Ensure timezone display consistency for non-admin viewers.
+- [x] Add targeted visibility by employee/group/role.
+- [x] Ensure timezone display consistency for non-admin viewers.
 
 ### Employee
-- [ ] Show only targeted announcements.
+- [x] Show only targeted announcements.
 
 ---
 

@@ -43,13 +43,74 @@
 
         <div>
             <label class="text-slate-600">Audience</label>
-            <select name="audience" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+            <select name="audience" id="announcementAudience" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
                 <option value="all_users">All Active Users</option>
                 <option value="admins">Admins / HR / Supervisors</option>
                 <option value="staff">Staff</option>
                 <option value="employees">Employees</option>
                 <option value="applicants">Applicants</option>
             </select>
+        </div>
+
+        <div>
+            <label class="text-slate-600">Target Type</label>
+            <select name="target_mode" id="announcementTargetMode" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                <option value="audience">Audience-Based</option>
+                <option value="employee">Specific Employee(s)</option>
+                <option value="group">Employee Group (Division/Office)</option>
+                <option value="role">Specific Role(s)</option>
+            </select>
+        </div>
+
+        <div id="announcementTargetEmployeesWrap" class="md:col-span-2 hidden">
+            <label class="text-slate-600">Target Employees</label>
+            <select name="target_employee_ids[]" id="announcementTargetEmployees" multiple size="8" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                <?php foreach ((array)($announcementTargetEmployees ?? []) as $employeeOption): ?>
+                    <?php
+                    $employeeUserId = strtolower(trim((string)($employeeOption['user_id'] ?? '')));
+                    $employeeLabel = trim((string)($employeeOption['label'] ?? 'Employee'));
+                    if ($employeeUserId === '') {
+                        continue;
+                    }
+                    ?>
+                    <option value="<?= htmlspecialchars($employeeUserId, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($employeeLabel, ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
+            </select>
+            <p class="text-xs text-slate-500 mt-1">Hold Ctrl (Windows) or Command (Mac) to select multiple employees.</p>
+        </div>
+
+        <div id="announcementTargetGroupsWrap" class="md:col-span-2 hidden">
+            <label class="text-slate-600">Target Employee Groups</label>
+            <select name="target_group_ids[]" id="announcementTargetGroups" multiple size="8" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                <?php foreach ((array)($announcementTargetGroups ?? []) as $groupOption): ?>
+                    <?php
+                    $groupId = strtolower(trim((string)($groupOption['office_id'] ?? '')));
+                    $groupLabel = trim((string)($groupOption['label'] ?? 'Group'));
+                    if ($groupId === '') {
+                        continue;
+                    }
+                    ?>
+                    <option value="<?= htmlspecialchars($groupId, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($groupLabel, ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
+            </select>
+            <p class="text-xs text-slate-500 mt-1">Select one or more divisions/offices to target all employees within those groups.</p>
+        </div>
+
+        <div id="announcementTargetRolesWrap" class="md:col-span-2 hidden">
+            <label class="text-slate-600">Target Roles</label>
+            <select name="target_role_keys[]" id="announcementTargetRoles" multiple size="8" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                <?php foreach ((array)($announcementTargetRoles ?? []) as $roleOption): ?>
+                    <?php
+                    $roleKey = strtolower(trim((string)($roleOption['role_key'] ?? '')));
+                    $roleLabel = trim((string)($roleOption['label'] ?? 'Role'));
+                    if ($roleKey === '') {
+                        continue;
+                    }
+                    ?>
+                    <option value="<?= htmlspecialchars($roleKey, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($roleLabel, ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
+            </select>
+            <p class="text-xs text-slate-500 mt-1">Use role targeting to send to one or more role groups regardless of office.</p>
         </div>
 
         <div>
@@ -150,6 +211,14 @@
         const previewCategory = document.getElementById('announcementPreviewCategory');
         const previewAudience = document.getElementById('announcementPreviewAudience');
         const previewChannel = document.getElementById('announcementPreviewChannel');
+        const targetModeSelect = document.getElementById('announcementTargetMode');
+        const audienceSelect = document.getElementById('announcementAudience');
+        const targetEmployeesWrap = document.getElementById('announcementTargetEmployeesWrap');
+        const targetGroupsWrap = document.getElementById('announcementTargetGroupsWrap');
+        const targetRolesWrap = document.getElementById('announcementTargetRolesWrap');
+        const targetEmployees = document.getElementById('announcementTargetEmployees');
+        const targetGroups = document.getElementById('announcementTargetGroups');
+        const targetRoles = document.getElementById('announcementTargetRoles');
         const previewLinkWrap = document.getElementById('announcementPreviewLinkWrap');
         const previewLink = document.getElementById('announcementPreviewLink');
         const closeButtons = document.querySelectorAll('[data-announcement-preview-close]');
@@ -178,12 +247,57 @@
                     both: 'In-App + Email',
                     in_app: 'In-App Only',
                     email: 'Email Only'
+                },
+                target_mode: {
+                    audience: 'Audience-Based',
+                    employee: 'Specific Employee(s)',
+                    group: 'Employee Group',
+                    role: 'Specific Role(s)'
                 }
             };
             return map;
         };
 
         const labels = toLabel();
+
+        const setSelectEnabled = (element, enabled) => {
+            if (!element) {
+                return;
+            }
+            element.disabled = !enabled;
+            if (!enabled) {
+                Array.from(element.options || []).forEach((option) => {
+                    option.selected = false;
+                });
+            }
+        };
+
+        const updateTargetMode = () => {
+            const mode = targetModeSelect?.value || 'audience';
+
+            if (targetEmployeesWrap) {
+                targetEmployeesWrap.classList.toggle('hidden', mode !== 'employee');
+            }
+            if (targetGroupsWrap) {
+                targetGroupsWrap.classList.toggle('hidden', mode !== 'group');
+            }
+            if (targetRolesWrap) {
+                targetRolesWrap.classList.toggle('hidden', mode !== 'role');
+            }
+
+            if (audienceSelect) {
+                audienceSelect.disabled = mode !== 'audience';
+            }
+
+            setSelectEnabled(targetEmployees, mode === 'employee');
+            setSelectEnabled(targetGroups, mode === 'group');
+            setSelectEnabled(targetRoles, mode === 'role');
+        };
+
+        updateTargetMode();
+        if (targetModeSelect) {
+            targetModeSelect.addEventListener('change', updateTargetMode);
+        }
 
         const openModal = () => {
             previewModal.classList.remove('hidden');
@@ -200,13 +314,16 @@
             const body = form.querySelector('[name="announcement_body"]')?.value?.trim() || '';
             const category = form.querySelector('[name="announcement_category"]')?.value || 'announcement';
             const audience = form.querySelector('[name="audience"]')?.value || 'all_users';
+            const targetMode = form.querySelector('[name="target_mode"]')?.value || 'audience';
             const channel = form.querySelector('[name="delivery_channel"]')?.value || 'both';
             const link = form.querySelector('[name="link_url"]')?.value?.trim() || '';
 
             previewTitle.textContent = title !== '' ? title : 'Untitled Announcement';
             previewBody.textContent = body !== '' ? body : 'No content provided.';
             previewCategory.textContent = labels.announcement_category[category] || 'Announcement';
-            previewAudience.textContent = labels.audience[audience] || 'All Active Users';
+            previewAudience.textContent = targetMode === 'audience'
+                ? (labels.audience[audience] || 'All Active Users')
+                : (labels.target_mode[targetMode] || 'Targeted');
             previewChannel.textContent = labels.delivery_channel[channel] || 'In-App + Email';
 
             if (link !== '') {

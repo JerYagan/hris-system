@@ -20,6 +20,15 @@ $escape = static function (mixed $value): string {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 };
 
+$formatPstDateTime = static function (?string $dateTime): string {
+  $formatted = formatDateTimeForPhilippines($dateTime, 'M j, Y · g:i A');
+  if ($formatted === '-') {
+    return $formatted;
+  }
+
+  return $formatted . ' PST';
+};
+
 $categoryIcon = static function (string $value): string {
     $key = strtolower(trim($value));
     if (str_contains($key, 'system')) {
@@ -129,13 +138,13 @@ $buildQuery = static function (array $params): string {
           data-notification-title="<?= $escape((string)($notification['title'] ?? 'Notification')) ?>"
           data-notification-body="<?= $escape((string)($notification['body'] ?? '')) ?>"
           data-notification-category="<?= $escape(formatNotificationCategoryLabel($category)) ?>"
-          data-notification-created="<?= $escape(formatDateTimeForPhilippines((string)($notification['created_at'] ?? ''))) ?>"
+          data-notification-created="<?= $escape($formatPstDateTime((string)($notification['created_at'] ?? ''))) ?>"
           data-notification-link="<?= $escape((string)($notification['link_url'] ?? '')) ?>"
           data-notification-is-read="<?= $isRead ? '1' : '0' ?>"
         >
           <p class="font-medium"><?= $escape((string)($notification['title'] ?? 'Notification')) ?></p>
           <p class="text-sm text-gray-600"><?= $escape((string)($notification['body'] ?? '')) ?></p>
-          <p class="text-xs text-gray-500 mt-1"><?= $escape(formatNotificationCategoryLabel($category)) ?> · <?= $escape(formatDateTimeForPhilippines((string)($notification['created_at'] ?? ''))) ?></p>
+          <p class="text-xs text-gray-500 mt-1"><?= $escape(formatNotificationCategoryLabel($category)) ?> · <?= $escape($formatPstDateTime((string)($notification['created_at'] ?? ''))) ?></p>
         </button>
 
         <div class="flex items-center gap-2">

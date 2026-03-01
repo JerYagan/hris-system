@@ -330,6 +330,7 @@ $notificationsResponse = apiRequest(
     $supabaseUrl
     . '/rest/v1/notifications?select=id,title,body,category,created_at,link_url,is_read'
     . '&recipient_user_id=eq.' . rawurlencode((string)$employeeUserId)
+    . '&category=in.(announcement,system,hr,recruitment,payroll)'
     . '&order=created_at.desc&limit=5',
     $headers
 );

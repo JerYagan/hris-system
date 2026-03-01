@@ -24,6 +24,7 @@ $title = trim((string)(cleanText($_POST['announcement_title'] ?? null) ?? ''));
 $body = trim((string)(cleanText($_POST['announcement_body'] ?? null) ?? ''));
 $category = strtolower(trim((string)(cleanText($_POST['announcement_category'] ?? null) ?? 'system')));
 $audience = strtolower(trim((string)(cleanText($_POST['audience'] ?? null) ?? 'all_users')));
+$targetMode = strtolower(trim((string)(cleanText($_POST['target_mode'] ?? null) ?? 'audience')));
 $channel = strtolower(trim((string)(cleanText($_POST['delivery_channel'] ?? null) ?? 'both')));
 $linkUrl = trim((string)(cleanText($_POST['link_url'] ?? null) ?? ''));
 
@@ -39,6 +40,47 @@ if (!in_array($category, $allowedCategories, true)) {
 $allowedAudiences = ['all_users', 'admins', 'staff', 'employees', 'applicants'];
 if (!in_array($audience, $allowedAudiences, true)) {
     redirectWithState('error', 'Invalid audience selected.');
+}
+
+$allowedTargetModes = ['audience', 'employee', 'group', 'role'];
+if (!in_array($targetMode, $allowedTargetModes, true)) {
+    redirectWithState('error', 'Invalid target mode selected.');
+}
+
+$selectedEmployeeIds = [];
+foreach ((array)($_POST['target_employee_ids'] ?? []) as $employeeIdRaw) {
+    $employeeId = strtolower(trim((string)cleanText($employeeIdRaw)));
+    if ($employeeId !== '' && announcementIsValidUuid($employeeId)) {
+        $selectedEmployeeIds[$employeeId] = true;
+    }
+}
+
+$selectedGroupIds = [];
+foreach ((array)($_POST['target_group_ids'] ?? []) as $groupIdRaw) {
+    $groupId = strtolower(trim((string)cleanText($groupIdRaw)));
+    if ($groupId !== '' && announcementIsValidUuid($groupId)) {
+        $selectedGroupIds[$groupId] = true;
+    }
+}
+
+$selectedRoleKeys = [];
+foreach ((array)($_POST['target_role_keys'] ?? []) as $roleKeyRaw) {
+    $roleKey = strtolower(trim((string)cleanText($roleKeyRaw)));
+    if ($roleKey !== '' && preg_match('/^[a-z0-9_]+$/', $roleKey)) {
+        $selectedRoleKeys[$roleKey] = true;
+    }
+}
+
+if ($targetMode === 'employee' && empty($selectedEmployeeIds)) {
+    redirectWithState('error', 'Select at least one employee target.');
+}
+
+if ($targetMode === 'group' && empty($selectedGroupIds)) {
+    redirectWithState('error', 'Select at least one employee group target.');
+}
+
+if ($targetMode === 'role' && empty($selectedRoleKeys)) {
+    redirectWithState('error', 'Select at least one role target.');
 }
 
 $allowedChannels = ['in_app', 'email', 'both'];
@@ -66,8 +108,22 @@ $roleAssignmentsResponse = apiRequest(
     $headers
 );
 
+$peopleResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/people?select=id,user_id&user_id=not.is.null&limit=10000',
+    $headers
+);
+
+$employmentResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/employment_records?select=person_id,office_id&is_current=eq.true&limit=10000',
+    $headers
+);
+
 $accounts = (array)($accountsResponse['data'] ?? []);
 $roleAssignments = isSuccessful($roleAssignmentsResponse) ? (array)($roleAssignmentsResponse['data'] ?? []) : [];
+$peopleRows = isSuccessful($peopleResponse) ? (array)($peopleResponse['data'] ?? []) : [];
+$employmentRows = isSuccessful($employmentResponse) ? (array)($employmentResponse['data'] ?? []) : [];
 
 $roleByUserId = [];
 foreach ($roleAssignments as $assignment) {
@@ -81,6 +137,28 @@ foreach ($roleAssignments as $assignment) {
     }
 }
 
+$personIdByUserId = [];
+foreach ($peopleRows as $personRow) {
+    $person = (array)$personRow;
+    $userId = strtolower(trim((string)($person['user_id'] ?? '')));
+    $personId = strtolower(trim((string)($person['id'] ?? '')));
+    if ($userId === '' || $personId === '') {
+        continue;
+    }
+    $personIdByUserId[$userId] = $personId;
+}
+
+$officeIdByPersonId = [];
+foreach ($employmentRows as $employmentRow) {
+    $employment = (array)$employmentRow;
+    $personId = strtolower(trim((string)($employment['person_id'] ?? '')));
+    $officeId = strtolower(trim((string)($employment['office_id'] ?? '')));
+    if ($personId === '' || $officeId === '') {
+        continue;
+    }
+    $officeIdByPersonId[$personId] = $officeId;
+}
+
 $targetUsers = [];
 foreach ($accounts as $account) {
     $userId = strtolower(trim((string)($account['id'] ?? '')));
@@ -89,20 +167,32 @@ foreach ($accounts as $account) {
     }
 
     $roleKey = (string)($roleByUserId[$userId] ?? '');
-    $matchesAudience = false;
-    if ($audience === 'all_users') {
-        $matchesAudience = true;
-    } elseif ($audience === 'admins') {
-        $matchesAudience = $roleKey === 'admin' || $roleKey === 'hr_officer' || $roleKey === 'supervisor';
-    } elseif ($audience === 'staff') {
-        $matchesAudience = $roleKey === 'staff';
-    } elseif ($audience === 'employees') {
-        $matchesAudience = $roleKey === 'employee';
-    } elseif ($audience === 'applicants') {
-        $matchesAudience = $roleKey === 'applicant';
+    $personId = (string)($personIdByUserId[$userId] ?? '');
+    $officeId = $personId !== '' ? (string)($officeIdByPersonId[$personId] ?? '') : '';
+
+    $isMatched = false;
+
+    if ($targetMode === 'audience') {
+        if ($audience === 'all_users') {
+            $isMatched = true;
+        } elseif ($audience === 'admins') {
+            $isMatched = $roleKey === 'admin' || $roleKey === 'hr_officer' || $roleKey === 'supervisor';
+        } elseif ($audience === 'staff') {
+            $isMatched = $roleKey === 'staff';
+        } elseif ($audience === 'employees') {
+            $isMatched = $roleKey === 'employee';
+        } elseif ($audience === 'applicants') {
+            $isMatched = $roleKey === 'applicant';
+        }
+    } elseif ($targetMode === 'employee') {
+        $isMatched = $roleKey === 'employee' && isset($selectedEmployeeIds[$userId]);
+    } elseif ($targetMode === 'group') {
+        $isMatched = $roleKey === 'employee' && $officeId !== '' && isset($selectedGroupIds[$officeId]);
+    } elseif ($targetMode === 'role') {
+        $isMatched = isset($selectedRoleKeys[$roleKey]);
     }
 
-    if (!$matchesAudience) {
+    if (!$isMatched) {
         continue;
     }
 
@@ -198,6 +288,10 @@ if ($sendEmail) {
 
 $deliverySummary = [
     'audience' => $audience,
+    'target_mode' => $targetMode,
+    'target_employee_count' => count($selectedEmployeeIds),
+    'target_group_count' => count($selectedGroupIds),
+    'target_role_count' => count($selectedRoleKeys),
     'channel' => $channel,
     'targeted_users' => count($targets),
     'in_app_sent' => $inAppSent,

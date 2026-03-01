@@ -14,7 +14,12 @@ $escape = static function (mixed $value): string {
 };
 
 $formatDateTime = static function (?string $dateTime): string {
-  return formatDateTimeForPhilippines($dateTime, 'M j, Y · g:i A');
+  $formatted = formatDateTimeForPhilippines($dateTime, 'M j, Y · g:i A');
+  if ($formatted === '-') {
+    return $formatted;
+  }
+
+  return $formatted . ' PST';
 };
 ?>
 
