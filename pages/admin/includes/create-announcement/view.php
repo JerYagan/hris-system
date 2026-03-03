@@ -24,42 +24,28 @@
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Create Announcement</h2>
-        <p class="text-sm text-slate-500 mt-1">Send announcements to selected user groups through in-app notifications, email, or both.</p>
+        <p class="text-sm text-slate-500 mt-1">Announcements are org-wide broadcast messages. Use the Notifications module for user-level notification actions.</p>
     </header>
 
     <form id="createAnnouncementForm" action="create-announcement.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
         <input type="hidden" name="form_action" value="publish_announcement">
 
         <div>
-            <label class="text-slate-600">Announcement Category</label>
-            <select name="announcement_category" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
-                <option value="announcement">Announcement</option>
-                <option value="system">System</option>
-                <option value="hr">HR</option>
-                <option value="recruitment">Recruitment</option>
-                <option value="payroll">Payroll</option>
-            </select>
+            <label class="text-slate-600">Broadcast Type</label>
+            <input type="hidden" name="announcement_category" value="announcement">
+            <input type="text" value="Announcement (Org-wide Broadcast)" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
         </div>
 
         <div>
             <label class="text-slate-600">Audience</label>
-            <select name="audience" id="announcementAudience" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
-                <option value="all_users">All Active Users</option>
-                <option value="admins">Admins / HR / Supervisors</option>
-                <option value="staff">Staff</option>
-                <option value="employees">Employees</option>
-                <option value="applicants">Applicants</option>
-            </select>
+            <input type="hidden" name="audience" id="announcementAudience" value="all_users">
+            <input type="text" value="All Active Users" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
         </div>
 
         <div>
             <label class="text-slate-600">Target Type</label>
-            <select name="target_mode" id="announcementTargetMode" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
-                <option value="audience">Audience-Based</option>
-                <option value="employee">Specific Employee(s)</option>
-                <option value="group">Employee Group (Division/Office)</option>
-                <option value="role">Specific Role(s)</option>
-            </select>
+            <input type="hidden" name="target_mode" id="announcementTargetMode" value="audience">
+            <input type="text" value="Audience-Based (Org-wide)" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
         </div>
 
         <div id="announcementTargetEmployeesWrap" class="md:col-span-2 hidden">

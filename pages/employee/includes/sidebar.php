@@ -128,16 +128,6 @@
       </button>
 
       <div data-collapse-content="performance" class="space-y-1">
-        <a href="praise.php"
-           title="PRAISE"
-           class="flex items-center gap-3 px-4 py-2 rounded-lg
-           <?= $activePage === 'praise.php'
-                ? 'bg-green-100 font-medium'
-                : 'hover:bg-gray-100' ?>">
-          <span class="material-icons text-base">emoji_events</span>
-          <span class="sidebar-label">PRAISE</span>
-        </a>
-
         <a href="learning-and-development.php"
            title="Learning and Development"
            class="flex items-center gap-3 px-4 py-2 rounded-lg
@@ -197,13 +187,6 @@
            class="flex items-center gap-3 px-4 py-2 rounded-lg <?= $activePage === 'support.php' ? 'bg-green-100 font-medium' : 'hover:bg-gray-100' ?>">
           <span class="material-icons text-base">help_outline</span>
           <span class="sidebar-label">Support</span>
-        </a>
-
-        <a href="settings.php"
-          title="Settings"
-          class="flex items-center gap-3 px-4 py-2 rounded-lg <?= $activePage === 'settings.php' ? 'bg-green-100 font-medium' : 'hover:bg-gray-100' ?>">
-          <span class="material-icons text-base">settings</span>
-          <span class="sidebar-label">Settings</span>
         </a>
 
       </div>

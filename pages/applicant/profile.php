@@ -13,6 +13,10 @@ $uploadedFiles = is_array($uploadedFiles ?? null) ? $uploadedFiles : [];
 $editableSpouseRows = !empty($profileSpouses) ? array_values($profileSpouses) : [[]];
 $editableEducationRows = !empty($profileEducations) ? array_values($profileEducations) : [[]];
 
+$profileNameForInitials = trim((string)($profileData['full_name'] ?? 'Applicant User'));
+$profileNameParts = preg_split('/\s+/', $profileNameForInitials) ?: [];
+$profileInitials = strtoupper(substr((string)($profileNameParts[0] ?? 'A'), 0, 1) . substr((string)($profileNameParts[count($profileNameParts) - 1] ?? 'P'), 0, 1));
+
 $pageTitle = 'Profile | DA HRIS';
 $activePage = 'profile.php';
 $breadcrumbs = $editMode ? ['Profile', 'Edit'] : ['Profile'];
@@ -33,10 +37,22 @@ ob_start();
             </div>
 
             <?php if (!$editMode): ?>
-                <a href="profile.php?edit=true" class="inline-flex items-center gap-1 rounded-md border border-green-700 px-4 py-2 text-sm text-green-700 hover:bg-green-50">
-                    <span class="material-symbols-outlined text-sm">edit</span>
-                    Update Information
-                </a>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" data-modal-open="applicantPasswordRequestModal" class="inline-flex items-center gap-1 rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                        <span class="material-symbols-outlined text-sm">password</span>
+                        Change Password
+                    </button>
+                    <?php if (!empty($passwordChangeStatus['is_pending'])): ?>
+                        <button type="button" data-modal-open="applicantPasswordVerifyModal" class="inline-flex items-center gap-1 rounded-md border border-amber-300 px-4 py-2 text-sm text-amber-800 hover:bg-amber-50">
+                            <span class="material-symbols-outlined text-sm">mark_email_read</span>
+                            Verify Code
+                        </button>
+                    <?php endif; ?>
+                    <a href="profile.php?edit=true" class="inline-flex items-center gap-1 rounded-md border border-green-700 px-4 py-2 text-sm text-green-700 hover:bg-green-50">
+                        <span class="material-symbols-outlined text-sm">edit</span>
+                        Update Information
+                    </a>
+                </div>
             <?php endif; ?>
         </div>
     </div>
@@ -58,30 +74,55 @@ ob_start();
 <?php endif; ?>
 
 <?php if (!$editMode): ?>
-<section class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+<section class="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-2">
     <article class="rounded-xl border bg-white p-5">
-        <p class="text-xs uppercase tracking-wide text-gray-500">Full Name</p>
-        <p class="mt-2 font-semibold text-gray-800"><?= htmlspecialchars((string)($profileData['full_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+        <div class="flex items-start gap-4">
+            <?php if (!empty($profileData['profile_photo_public_url'])): ?>
+                <img src="<?= htmlspecialchars((string)$profileData['profile_photo_public_url'], ENT_QUOTES, 'UTF-8') ?>" alt="Applicant profile photo" class="h-24 w-24 rounded-full border border-slate-200 object-cover">
+            <?php else: ?>
+                <div class="flex h-24 w-24 items-center justify-center rounded-full bg-slate-200 text-2xl font-semibold text-slate-700">
+                    <?= htmlspecialchars($profileInitials, ENT_QUOTES, 'UTF-8') ?>
+                </div>
+            <?php endif; ?>
+
+            <div class="min-w-0 flex-1">
+                <p class="text-xs uppercase tracking-wide text-gray-500">Full Name</p>
+                <p class="mt-1 text-lg font-semibold text-gray-800"><?= htmlspecialchars((string)($profileData['full_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                <p class="mt-3 text-xs uppercase tracking-wide text-gray-500">Email Address</p>
+                <p class="mt-1 break-all font-semibold text-gray-800"><?= htmlspecialchars((string)($profileData['email'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+            </div>
+        </div>
+
+        <form action="profile.php" method="POST" enctype="multipart/form-data" class="mt-5" id="applicantProfilePhotoForm">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="action" value="upload_profile_photo">
+            <input id="applicantProfilePhotoInput" name="profile_photo" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" required>
+
+            <button type="button" data-trigger-file="applicantProfilePhotoInput" class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                <span class="material-symbols-outlined text-[18px]">upload</span>
+                Select and Upload Photo
+            </button>
+            <span id="applicantProfilePhotoFilename" class="mt-2 block text-xs text-slate-500">No file selected.</span>
+            <p class="mt-1 text-xs text-gray-500">Accepted: JPG, PNG, WEBP (max 3MB).</p>
+        </form>
     </article>
 
     <article class="rounded-xl border bg-white p-5">
-        <p class="text-xs uppercase tracking-wide text-gray-500">Email Address</p>
-        <p class="mt-2 font-semibold text-gray-800"><?= htmlspecialchars((string)($profileData['email'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-    </article>
-
-    <article class="rounded-xl border bg-white p-5">
-        <p class="text-xs uppercase tracking-wide text-gray-500">Contact Number</p>
-        <p class="mt-2 font-semibold text-gray-800"><?= htmlspecialchars((string)($profileData['mobile_no'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-    </article>
-
-    <article class="rounded-xl border bg-white p-5">
-        <p class="text-xs uppercase tracking-wide text-gray-500">Address</p>
-        <p class="mt-2 font-semibold text-gray-800"><?= htmlspecialchars((string)($profileData['current_address'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-    </article>
-
-    <article class="rounded-xl border bg-white p-5">
-        <p class="text-xs uppercase tracking-wide text-gray-500">Training Hours Completed</p>
-        <p class="mt-2 font-semibold text-gray-800"><?= htmlspecialchars(number_format((float)($profileData['training_hours_completed'] ?? 0), 2), ENT_QUOTES, 'UTF-8') ?> hour(s)</p>
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-600">Applicant Information</h2>
+        <div class="mt-4 space-y-4">
+            <div>
+                <p class="text-xs uppercase tracking-wide text-gray-500">Contact Number</p>
+                <p class="mt-1 font-semibold text-gray-800"><?= htmlspecialchars((string)($profileData['mobile_no'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+            </div>
+            <div>
+                <p class="text-xs uppercase tracking-wide text-gray-500">Address</p>
+                <p class="mt-1 font-semibold text-gray-800"><?= htmlspecialchars((string)($profileData['current_address'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+            </div>
+            <div>
+                <p class="text-xs uppercase tracking-wide text-gray-500">Training Hours Completed</p>
+                <p class="mt-1 font-semibold text-gray-800"><?= htmlspecialchars(number_format((float)($profileData['training_hours_completed'] ?? 0), 2), ENT_QUOTES, 'UTF-8') ?> hour(s)</p>
+            </div>
+        </div>
     </article>
 </section>
 
@@ -179,6 +220,210 @@ ob_start();
         <?php endif; ?>
     </div>
 </section>
+
+<section class="mb-8 rounded-xl border bg-white">
+    <header class="border-b px-6 py-4">
+        <h2 class="text-lg font-semibold text-gray-800">Login Activity</h2>
+        <p class="mt-1 text-sm text-slate-500">Recent authentication events for your account.</p>
+    </header>
+
+    <form method="GET" action="profile.php" class="px-6 pb-3 pt-4 grid grid-cols-1 gap-3 md:grid-cols-4 md:items-end md:gap-4">
+        <div class="w-full">
+            <label class="text-sm text-slate-600" for="applicantLoginSearch">Search Activity</label>
+            <input id="applicantLoginSearch" name="login_search" value="<?= htmlspecialchars((string)$loginSearchQuery, ENT_QUOTES, 'UTF-8') ?>" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search by event, provider, IP, or device">
+        </div>
+        <div class="w-full">
+            <label class="text-sm text-slate-600" for="applicantLoginEventFilter">Event Type</label>
+            <select id="applicantLoginEventFilter" name="login_event" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
+                <option value="">All Events</option>
+                <?php foreach ((array)$loginEventOptions as $eventOption): ?>
+                    <option value="<?= htmlspecialchars((string)$eventOption, ENT_QUOTES, 'UTF-8') ?>" <?= (string)$loginEventFilter === (string)$eventOption ? 'selected' : '' ?>><?= htmlspecialchars((string)$eventOption, ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="w-full">
+            <label class="text-sm text-slate-600" for="applicantLoginDeviceFilter">Device</label>
+            <select id="applicantLoginDeviceFilter" name="login_device" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
+                <option value="">All Devices</option>
+                <?php foreach ((array)$loginDeviceOptions as $deviceOption): ?>
+                    <option value="<?= htmlspecialchars((string)$deviceOption, ENT_QUOTES, 'UTF-8') ?>" <?= (string)$loginDeviceFilter === (string)$deviceOption ? 'selected' : '' ?>><?= htmlspecialchars((string)$deviceOption, ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="flex gap-2 md:justify-end">
+            <button type="submit" class="mt-6 rounded-md bg-green-700 px-4 py-2 text-sm text-white hover:bg-green-800">Apply</button>
+            <a href="profile.php" class="mt-6 rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Reset</a>
+        </div>
+    </form>
+
+    <div class="p-6 overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600">
+                <tr>
+                    <th class="text-left px-4 py-3">Event</th>
+                    <th class="text-left px-4 py-3">Provider</th>
+                    <th class="text-left px-4 py-3">IP Address</th>
+                    <th class="text-left px-4 py-3">Device</th>
+                    <th class="text-left px-4 py-3">User Agent</th>
+                    <th class="text-left px-4 py-3">Timestamp</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                <?php if (empty($loginHistoryRows)): ?>
+                    <tr><td class="px-4 py-3 text-slate-500" colspan="6">No login activity available.</td></tr>
+                <?php else: ?>
+                    <?php foreach ($loginHistoryRows as $row): ?>
+                        <tr>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['event_label'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['auth_provider'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['ip_address'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['device_label'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['user_agent'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['created_at'], ENT_QUOTES, 'UTF-8') ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+
+        <?php if (($loginTotalPages ?? 1) > 1): ?>
+            <div class="mt-4 flex items-center justify-between text-sm text-slate-600">
+                <p>Showing page <?= (int)($loginPage ?? 1) ?> of <?= (int)($loginTotalPages ?? 1) ?> (<?= (int)($loginHistoryTotal ?? 0) ?> total)</p>
+                <div class="flex items-center gap-2">
+                    <?php $baseQuery = ['login_search' => (string)$loginSearchQuery, 'login_event' => (string)$loginEventFilter, 'login_device' => (string)$loginDeviceFilter]; ?>
+                    <?php if ((int)$loginPage > 1): ?>
+                        <?php $prevQuery = $baseQuery; $prevQuery['login_page'] = (int)$loginPage - 1; ?>
+                        <a class="rounded-md border border-slate-300 px-3 py-1.5 hover:bg-slate-50" href="profile.php?<?= htmlspecialchars(http_build_query($prevQuery), ENT_QUOTES, 'UTF-8') ?>">Previous</a>
+                    <?php endif; ?>
+                    <?php if ((int)$loginPage < (int)$loginTotalPages): ?>
+                        <?php $nextQuery = $baseQuery; $nextQuery['login_page'] = (int)$loginPage + 1; ?>
+                        <a class="rounded-md border border-slate-300 px-3 py-1.5 hover:bg-slate-50" href="profile.php?<?= htmlspecialchars(http_build_query($nextQuery), ENT_QUOTES, 'UTF-8') ?>">Next</a>
+                    <?php endif; ?>
+                </div>
+            </div>
+        <?php endif; ?>
+    </div>
+</section>
+
+<div id="applicantPhotoPreviewModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-slate-900/60" data-close-photo-preview="applicantPhotoPreviewModal"></div>
+    <div class="relative min-h-full flex items-center justify-center p-4">
+        <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
+            <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+                <h3 class="text-base font-semibold text-slate-800">Profile Photo Preview</h3>
+                <button type="button" data-close-photo-preview="applicantPhotoPreviewModal" class="text-slate-500 hover:text-slate-700">✕</button>
+            </div>
+            <div class="p-5">
+                <img id="applicantProfilePhotoPreviewImage" src="" alt="Selected profile preview" class="hidden h-64 w-full rounded-lg border border-slate-200 object-contain">
+                <p id="applicantProfilePhotoPreviewEmpty" class="rounded-lg border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">Choose a file first to preview it.</p>
+                <div class="mt-4 flex justify-end gap-2">
+                    <button type="button" data-close-photo-preview="applicantPhotoPreviewModal" class="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Cancel</button>
+                    <button type="button" id="applicantProfilePhotoConfirmUpload" class="inline-flex items-center gap-2 rounded-md bg-green-700 px-4 py-2 text-sm text-white hover:bg-green-800">
+                        <span class="material-symbols-outlined text-sm">cloud_upload</span>
+                        Confirm and Upload
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="applicantPasswordRequestModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-slate-900/60" data-modal-close="applicantPasswordRequestModal"></div>
+    <div class="relative flex min-h-full items-center justify-center p-4">
+        <div class="w-full max-w-xl rounded-2xl border border-slate-200 bg-white shadow-xl">
+            <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                <h3 class="text-lg font-semibold text-slate-800">Change Password (Email Verification)</h3>
+                <button type="button" data-modal-close="applicantPasswordRequestModal" class="text-slate-500 hover:text-slate-700">✕</button>
+            </div>
+
+            <form action="profile.php" method="POST" class="grid grid-cols-1 gap-4 p-6 text-sm" id="applicantPasswordRequestForm">
+                <input type="hidden" name="action" value="request_password_change_code">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+
+                <div>
+                    <label class="text-slate-600">Current Password</label>
+                    <input type="password" name="current_password" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" required>
+                </div>
+
+                <div>
+                    <label class="text-slate-600">New Password</label>
+                    <input type="password" id="applicantNewPasswordInput" name="new_password" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" required>
+                    <div class="mt-2">
+                        <div class="h-2 w-full rounded-full bg-slate-200">
+                            <div id="applicantPasswordStrengthBar" class="h-2 w-0 rounded-full bg-slate-300 transition-all duration-150"></div>
+                        </div>
+                        <p id="applicantPasswordStrengthText" class="mt-1 text-xs text-slate-500">Strength: Enter a new password</p>
+                    </div>
+                    <p class="mt-1 text-xs text-slate-500">Use at least 10 characters with uppercase, lowercase, number, and special character.</p>
+                </div>
+
+                <div>
+                    <label class="text-slate-600">Confirm New Password</label>
+                    <input type="password" name="confirm_new_password" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" required>
+                </div>
+
+                <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    After sending the verification code, you will immediately proceed to the code verification modal.
+                </div>
+
+                <div class="mt-2 flex justify-end gap-3">
+                    <button type="button" data-modal-close="applicantPasswordRequestModal" class="rounded-md border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-50">Cancel</button>
+                    <button type="submit" class="rounded-md bg-green-700 px-5 py-2 text-white hover:bg-green-800">Send Verification Code</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="applicantPasswordVerifyModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-slate-900/60" data-modal-close="applicantPasswordVerifyModal"></div>
+    <div class="relative flex min-h-full items-center justify-center p-4">
+        <div class="w-full max-w-xl rounded-2xl border border-slate-200 bg-white shadow-xl">
+            <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                <h3 class="text-lg font-semibold text-slate-800">Verify Email Code</h3>
+                <button type="button" data-modal-close="applicantPasswordVerifyModal" class="text-slate-500 hover:text-slate-700">✕</button>
+            </div>
+
+            <form action="profile.php" method="POST" class="grid grid-cols-1 gap-4 p-6 text-sm">
+                <input type="hidden" name="action" value="confirm_password_change_code">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+
+                <?php if (!empty($passwordChangeStatus['is_pending'])): ?>
+                    <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        Verification code sent to <strong><?= htmlspecialchars((string)$passwordChangeStatus['email'], ENT_QUOTES, 'UTF-8') ?></strong>. Expires at <?= htmlspecialchars((string)$passwordChangeStatus['expires_at'], ENT_QUOTES, 'UTF-8') ?>.
+                    </div>
+                <?php else: ?>
+                    <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                        No pending verification code was found. Send a new code first.
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($passwordChangeStatus['is_pending']) && ($state ?? '') === 'error' && !empty($message)): ?>
+                    <div class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                        <?= htmlspecialchars((string)$message, ENT_QUOTES, 'UTF-8') ?>
+                    </div>
+                <?php endif; ?>
+
+                <div>
+                    <label class="text-slate-600">Verification Code</label>
+                    <input type="text" name="verification_code" maxlength="6" pattern="[0-9]{6}" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Enter 6-digit code" required>
+                </div>
+
+                <div class="mt-2 flex justify-between gap-3">
+                    <button type="submit" name="action" value="cancel_password_change_code" class="rounded-md border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-50">Cancel Pending Request</button>
+                    <button type="submit" class="rounded-md bg-green-700 px-5 py-2 text-white hover:bg-green-800">Verify and Change Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script id="applicantPasswordFlowData" type="application/json"><?= htmlspecialchars(json_encode([
+    'has_pending_code' => !empty($passwordChangeStatus['is_pending']),
+    'state' => (string)($state ?? ''),
+    'message' => (string)($message ?? ''),
+], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?></script>
 
 <?php else: ?>
 <form action="profile.php?edit=true" method="POST" class="space-y-6">
@@ -356,6 +601,178 @@ ob_start();
     </section>
 </form>
 <?php endif; ?>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const openButtons = document.querySelectorAll('[data-modal-open]');
+        const closeButtons = document.querySelectorAll('[data-modal-close]');
+
+        openButtons.forEach(function (button) {
+            button.addEventListener('click', function () {
+                const targetId = button.getAttribute('data-modal-open');
+                if (!targetId) {
+                    return;
+                }
+
+                const modal = document.getElementById(targetId);
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    modal.setAttribute('aria-hidden', 'false');
+                }
+            });
+        });
+
+        closeButtons.forEach(function (button) {
+            button.addEventListener('click', function () {
+                const targetId = button.getAttribute('data-modal-close');
+                if (!targetId) {
+                    return;
+                }
+
+                const modal = document.getElementById(targetId);
+                if (modal) {
+                    modal.classList.add('hidden');
+                    modal.setAttribute('aria-hidden', 'true');
+                }
+            });
+        });
+
+        const applicantProfilePhotoForm = document.getElementById('applicantProfilePhotoForm');
+        const applicantProfilePhotoInput = document.getElementById('applicantProfilePhotoInput');
+        const applicantProfilePhotoFilename = document.getElementById('applicantProfilePhotoFilename');
+        const photoPreviewImage = document.getElementById('applicantProfilePhotoPreviewImage');
+        const photoPreviewEmpty = document.getElementById('applicantProfilePhotoPreviewEmpty');
+        const photoPreviewModal = document.getElementById('applicantPhotoPreviewModal');
+        const applicantProfilePhotoConfirmUpload = document.getElementById('applicantProfilePhotoConfirmUpload');
+        document.querySelectorAll('[data-trigger-file="applicantProfilePhotoInput"]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                if (applicantProfilePhotoInput instanceof HTMLInputElement) {
+                    applicantProfilePhotoInput.click();
+                }
+            });
+        });
+        if (applicantProfilePhotoInput instanceof HTMLInputElement && applicantProfilePhotoFilename) {
+            applicantProfilePhotoInput.addEventListener('change', function () {
+                const file = applicantProfilePhotoInput.files && applicantProfilePhotoInput.files[0] ? applicantProfilePhotoInput.files[0] : null;
+                applicantProfilePhotoFilename.textContent = file ? file.name : 'No file selected.';
+
+                if (!photoPreviewImage || !photoPreviewEmpty) {
+                    return;
+                }
+
+                if (!file) {
+                    photoPreviewImage.classList.add('hidden');
+                    photoPreviewImage.removeAttribute('src');
+                    photoPreviewEmpty.classList.remove('hidden');
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = function () {
+                    photoPreviewImage.src = String(reader.result || '');
+                    photoPreviewImage.classList.remove('hidden');
+                    photoPreviewEmpty.classList.add('hidden');
+                    if (photoPreviewModal) {
+                        photoPreviewModal.classList.remove('hidden');
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        if (applicantProfilePhotoConfirmUpload instanceof HTMLButtonElement) {
+            applicantProfilePhotoConfirmUpload.addEventListener('click', function () {
+                if (!(applicantProfilePhotoInput instanceof HTMLInputElement) || !applicantProfilePhotoInput.files || applicantProfilePhotoInput.files.length === 0) {
+                    return;
+                }
+
+                if (applicantProfilePhotoForm instanceof HTMLFormElement) {
+                    applicantProfilePhotoForm.submit();
+                }
+            });
+        }
+
+        document.querySelectorAll('[data-close-photo-preview="applicantPhotoPreviewModal"]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                if (photoPreviewModal) {
+                    photoPreviewModal.classList.add('hidden');
+                }
+            });
+        });
+
+        const passwordInput = document.getElementById('applicantNewPasswordInput');
+        const strengthBar = document.getElementById('applicantPasswordStrengthBar');
+        const strengthText = document.getElementById('applicantPasswordStrengthText');
+
+        const scorePassword = function (value) {
+            let score = 0;
+            if (value.length >= 10) score += 1;
+            if (/[A-Z]/.test(value)) score += 1;
+            if (/[a-z]/.test(value)) score += 1;
+            if (/\d/.test(value)) score += 1;
+            if (/[^a-zA-Z0-9]/.test(value)) score += 1;
+            return score;
+        };
+
+        const applyStrengthUi = function (score) {
+            if (!strengthBar || !strengthText) {
+                return;
+            }
+
+            const widths = ['0%', '20%', '40%', '60%', '80%', '100%'];
+            const labels = [
+                'Strength: Enter a new password',
+                'Strength: Very Weak',
+                'Strength: Weak',
+                'Strength: Fair',
+                'Strength: Good',
+                'Strength: Strong',
+            ];
+            const classes = ['bg-slate-300', 'bg-red-500', 'bg-orange-500', 'bg-amber-500', 'bg-lime-500', 'bg-emerald-600'];
+
+            strengthBar.style.width = widths[score] || '0%';
+            strengthBar.classList.remove('bg-slate-300', 'bg-red-500', 'bg-orange-500', 'bg-amber-500', 'bg-lime-500', 'bg-emerald-600');
+            strengthBar.classList.add(classes[score] || 'bg-slate-300');
+            strengthText.textContent = labels[score] || labels[0];
+        };
+
+        if (passwordInput) {
+            applyStrengthUi(0);
+            passwordInput.addEventListener('input', function () {
+                const value = passwordInput.value || '';
+                const score = value.length === 0 ? 0 : scorePassword(value);
+                applyStrengthUi(score);
+            });
+        }
+
+        const passwordFlowDataNode = document.getElementById('applicantPasswordFlowData');
+        let passwordFlowData = { has_pending_code: false, state: '', message: '' };
+        if (passwordFlowDataNode && passwordFlowDataNode.textContent) {
+            try {
+                passwordFlowData = JSON.parse(passwordFlowDataNode.textContent);
+            } catch (_error) {
+                passwordFlowData = { has_pending_code: false, state: '', message: '' };
+            }
+        }
+
+        const requestModal = document.getElementById('applicantPasswordRequestModal');
+        const verifyModal = document.getElementById('applicantPasswordVerifyModal');
+        const hasPendingCode = Boolean(passwordFlowData.has_pending_code);
+        const responseState = String(passwordFlowData.state || '');
+        const responseMessage = String(passwordFlowData.message || '');
+        const lowerMessage = responseMessage.toLowerCase();
+        const shouldAutoOpenVerify = hasPendingCode && (
+            (responseState === 'success' && lowerMessage.includes('verification code sent'))
+            || responseState === 'error'
+        );
+
+        if (shouldAutoOpenVerify && verifyModal) {
+            requestModal?.classList.add('hidden');
+            verifyModal.classList.remove('hidden');
+            verifyModal.setAttribute('aria-hidden', 'false');
+        }
+    });
+</script>
 
 <?php if ($editMode): ?>
 <script>

@@ -1,5 +1,7 @@
 <?php
 
+require_once dirname(__DIR__, 3) . '/admin/includes/notifications/email.php';
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     return;
 }
@@ -10,8 +12,238 @@ if (!isValidCsrfToken($_POST['csrf_token'] ?? null)) {
     redirectWithState('error', 'Invalid request token. Please refresh and try again.');
 }
 
-if (!in_array($action, ['update_staff_profile', 'upload_profile_photo'], true)) {
+if (!in_array($action, ['update_staff_profile', 'upload_profile_photo', 'request_password_change_code', 'confirm_password_change_code', 'cancel_password_change_code'], true)) {
     redirectWithState('error', 'Unknown profile action.');
+}
+
+$verifyCurrentPassword = static function (string $email, string $currentPassword) use ($supabaseUrl): bool {
+    loadEnvFile(dirname(__DIR__, 4) . '/.env');
+    $anonKey = trim((string)($_ENV['SUPABASE_ANON_KEY'] ?? $_SERVER['SUPABASE_ANON_KEY'] ?? ''));
+    if ($anonKey === '' || trim($email) === '' || $currentPassword === '') {
+        return false;
+    }
+
+    $ch = curl_init($supabaseUrl . '/auth/v1/token?grant_type=password');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'apikey: ' . $anonKey,
+        'Content-Type: application/json',
+    ]);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+        'email' => $email,
+        'password' => $currentPassword,
+    ]));
+
+    curl_exec($ch);
+    $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    return $status >= 200 && $status < 300;
+};
+
+$validateStrongPassword = static function (string $password): ?string {
+    if (strlen($password) < 10) {
+        return 'New password must be at least 10 characters.';
+    }
+    if (!preg_match('/[A-Z]/', $password)) {
+        return 'New password must include at least one uppercase letter.';
+    }
+    if (!preg_match('/[a-z]/', $password)) {
+        return 'New password must include at least one lowercase letter.';
+    }
+    if (!preg_match('/\d/', $password)) {
+        return 'New password must include at least one number.';
+    }
+    if (!preg_match('/[^a-zA-Z0-9]/', $password)) {
+        return 'New password must include at least one special character.';
+    }
+
+    return null;
+};
+
+if ($action === 'request_password_change_code') {
+    $currentPassword = (string)($_POST['current_password'] ?? '');
+    $newPassword = (string)($_POST['new_password'] ?? '');
+    $confirmPassword = (string)($_POST['confirm_new_password'] ?? '');
+
+    if ($currentPassword === '' || $newPassword === '' || $confirmPassword === '') {
+        redirectWithState('error', 'Current, new, and confirm password fields are required.');
+    }
+
+    if ($newPassword !== $confirmPassword) {
+        redirectWithState('error', 'New password and confirmation do not match.');
+    }
+
+    if ($newPassword === $currentPassword) {
+        redirectWithState('error', 'New password must be different from the current password.');
+    }
+
+    $strengthError = $validateStrongPassword($newPassword);
+    if ($strengthError !== null) {
+        redirectWithState('error', $strengthError);
+    }
+
+    $accountLookup = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/user_accounts?select=id,email&id=eq.' . rawurlencode($staffUserId) . '&limit=1',
+        $headers
+    );
+    $accountRow = isSuccessful($accountLookup) ? (array)($accountLookup['data'][0] ?? []) : [];
+    $email = strtolower(trim((string)($accountRow['email'] ?? '')));
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        redirectWithState('error', 'A valid account email is required for password verification.');
+    }
+
+    if (!$verifyCurrentPassword($email, $currentPassword)) {
+        redirectWithState('error', 'Current password is incorrect.');
+    }
+
+    $smtpConfig = [
+        'host' => (string)($_ENV['SMTP_HOST'] ?? ($_SERVER['SMTP_HOST'] ?? '')),
+        'port' => (int)($_ENV['SMTP_PORT'] ?? ($_SERVER['SMTP_PORT'] ?? 587)),
+        'username' => (string)($_ENV['SMTP_USERNAME'] ?? ($_SERVER['SMTP_USERNAME'] ?? '')),
+        'password' => (string)($_ENV['SMTP_PASSWORD'] ?? ($_SERVER['SMTP_PASSWORD'] ?? '')),
+        'encryption' => (string)($_ENV['SMTP_ENCRYPTION'] ?? ($_SERVER['SMTP_ENCRYPTION'] ?? 'tls')),
+        'auth' => (string)($_ENV['SMTP_AUTH'] ?? ($_SERVER['SMTP_AUTH'] ?? '1')),
+    ];
+    $mailFrom = (string)($_ENV['MAIL_FROM'] ?? ($_SERVER['MAIL_FROM'] ?? ''));
+    $mailFromName = (string)($_ENV['MAIL_FROM_NAME'] ?? ($_SERVER['MAIL_FROM_NAME'] ?? 'DA-ATI HRIS'));
+
+    $resolvedMail = resolveSmtpMailConfig($supabaseUrl, $headers, $smtpConfig, $mailFrom, $mailFromName);
+    $smtpConfig = (array)($resolvedMail['smtp'] ?? $smtpConfig);
+    $mailFrom = (string)($resolvedMail['from'] ?? $mailFrom);
+    $mailFromName = (string)($resolvedMail['from_name'] ?? $mailFromName);
+
+    if (!smtpConfigIsReady($smtpConfig, $mailFrom)) {
+        redirectWithState('error', 'Email verification is required but SMTP is not configured.');
+    }
+
+    $verificationCode = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+    $expiresAt = time() + (10 * 60);
+
+    $_SESSION['staff_profile_password_change'] = [
+        'code_hash' => hash('sha256', $verificationCode),
+        'new_password' => $newPassword,
+        'email' => $email,
+        'expires_at' => $expiresAt,
+        'attempts' => 0,
+    ];
+
+    $safeEmail = htmlspecialchars($email, ENT_QUOTES, 'UTF-8');
+    $safeCode = htmlspecialchars($verificationCode, ENT_QUOTES, 'UTF-8');
+    $safeExpiry = htmlspecialchars(date('M d, Y h:i A', $expiresAt), ENT_QUOTES, 'UTF-8');
+    $emailBody = '<p>Your DA-ATI HRIS password change verification code is:</p>'
+        . '<p style="font-size:24px;font-weight:700;letter-spacing:2px;">' . $safeCode . '</p>'
+        . '<p>This code expires on <strong>' . $safeExpiry . '</strong> (server time).</p>'
+        . '<p>If you did not request a password change for ' . $safeEmail . ', ignore this email and contact support.</p>';
+
+    $mailResponse = smtpSendTransactionalEmail(
+        $smtpConfig,
+        $mailFrom,
+        $mailFromName,
+        $email,
+        $email,
+        'DA-ATI HRIS Password Change Verification Code',
+        $emailBody
+    );
+
+    if (!isSuccessful($mailResponse)) {
+        unset($_SESSION['staff_profile_password_change']);
+        redirectWithState('error', 'Unable to send verification code email. Please try again.');
+    }
+
+    redirectWithState('success', 'Verification code sent to your email. Enter the code to complete password change.');
+}
+
+if ($action === 'cancel_password_change_code') {
+    unset($_SESSION['staff_profile_password_change']);
+    redirectWithState('success', 'Pending password change verification was cancelled.');
+}
+
+if ($action === 'confirm_password_change_code') {
+    $enteredCode = trim((string)($_POST['verification_code'] ?? ''));
+    $pending = (array)($_SESSION['staff_profile_password_change'] ?? []);
+
+    if ($enteredCode === '' || !preg_match('/^[0-9]{6}$/', $enteredCode)) {
+        redirectWithState('error', 'Enter a valid 6-digit verification code.');
+    }
+
+    if (empty($pending)) {
+        redirectWithState('error', 'No pending password change request. Request a new verification code.');
+    }
+
+    $expiresAt = (int)($pending['expires_at'] ?? 0);
+    if ($expiresAt <= time()) {
+        unset($_SESSION['staff_profile_password_change']);
+        redirectWithState('error', 'Verification code expired. Request a new code.');
+    }
+
+    $attempts = (int)($pending['attempts'] ?? 0);
+    $expectedHash = (string)($pending['code_hash'] ?? '');
+    if ($expectedHash === '' || !hash_equals($expectedHash, hash('sha256', $enteredCode))) {
+        $attempts++;
+        if ($attempts >= 5) {
+            unset($_SESSION['staff_profile_password_change']);
+            redirectWithState('error', 'Too many invalid verification attempts. Request a new code.');
+        }
+
+        $pending['attempts'] = $attempts;
+        $_SESSION['staff_profile_password_change'] = $pending;
+        redirectWithState('error', 'Invalid verification code.');
+    }
+
+    $newPassword = (string)($pending['new_password'] ?? '');
+    if ($newPassword === '') {
+        unset($_SESSION['staff_profile_password_change']);
+        redirectWithState('error', 'Pending password payload is invalid. Request a new code.');
+    }
+
+    $resetResponse = apiRequest(
+        'PUT',
+        $supabaseUrl . '/auth/v1/admin/users/' . rawurlencode($staffUserId),
+        $headers,
+        [
+            'password' => $newPassword,
+            'email_confirm' => true,
+        ]
+    );
+
+    if (!isSuccessful($resetResponse)) {
+        redirectWithState('error', 'Failed to update password. Please try again.');
+    }
+
+    apiRequest(
+        'PATCH',
+        $supabaseUrl . '/rest/v1/user_accounts?id=eq.' . rawurlencode($staffUserId),
+        array_merge($headers, ['Prefer: return=minimal']),
+        [
+            'must_change_password' => false,
+            'failed_login_count' => 0,
+            'lockout_until' => null,
+            'updated_at' => gmdate('c'),
+        ]
+    );
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $staffUserId,
+            'module_name' => 'profile',
+            'entity_name' => 'user_accounts',
+            'entity_id' => $staffUserId,
+            'action_name' => 'change_password_with_email_verification',
+            'old_data' => null,
+            'new_data' => ['password_changed' => true],
+            'ip_address' => clientIp(),
+        ]]
+    );
+
+    unset($_SESSION['staff_profile_password_change']);
+    redirectWithState('success', 'Password changed successfully.');
 }
 
 if ($action === 'upload_profile_photo') {

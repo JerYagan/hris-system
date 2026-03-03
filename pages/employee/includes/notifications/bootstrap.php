@@ -26,3 +26,4 @@ $employeeOfficeName = cleanText($employeeContext['office_name'] ?? null);
 $employeePositionId = cleanText($employeeContext['position_id'] ?? null);
 $employeePositionTitle = cleanText($employeeContext['position_title'] ?? null);
 $employeeEmploymentStatus = cleanText($employeeContext['employment_status'] ?? null);
+$employeeRoleAssignedAt = cleanText($employeeContext['employee_role_assigned_at'] ?? null);

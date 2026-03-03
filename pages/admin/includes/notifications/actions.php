@@ -24,6 +24,44 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     return;
 }
 
+$isAsyncRequest = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest'
+    || isset($_POST['async']);
+
+$respondNotificationAction = static function (bool $ok, string $message, array $payload = []) use ($isAsyncRequest): never {
+    if ($isAsyncRequest) {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+
+        echo json_encode(array_merge([
+            'ok' => $ok,
+            'message' => $message,
+        ], $payload), JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    redirectWithState($ok ? 'success' : 'error', $message);
+};
+
+$loadUnreadCount = static function () use ($supabaseUrl, $headers, $adminUserId): int {
+    $response = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/notifications?select=id'
+        . '&recipient_user_id=eq.' . rawurlencode($adminUserId)
+        . '&is_read=eq.false'
+        . '&category=neq.announcement'
+        . '&limit=500',
+        $headers
+    );
+
+    if (!isSuccessful($response)) {
+        return 0;
+    }
+
+    return count((array)($response['data'] ?? []));
+};
+
 if (!function_exists('isValidUuid')) {
     function isValidUuid(string $value): bool
     {
@@ -52,7 +90,7 @@ $action = (string)($_POST['form_action'] ?? '');
 if ($action === 'mark_notification_read') {
     $notificationId = cleanText($_POST['notification_id'] ?? null) ?? '';
     if (!isValidUuid($notificationId)) {
-        redirectWithState('error', 'Invalid notification selected.');
+        $respondNotificationAction(false, 'Invalid notification selected.', []);
     }
 
     $notificationResponse = apiRequest(
@@ -63,11 +101,14 @@ if ($action === 'mark_notification_read') {
 
     $notificationRow = $notificationResponse['data'][0] ?? null;
     if (!is_array($notificationRow)) {
-        redirectWithState('error', 'Notification record not found.');
+        $respondNotificationAction(false, 'Notification record not found.', []);
     }
 
     if ((bool)($notificationRow['is_read'] ?? false) === true) {
-        redirectWithState('success', 'Notification already marked as read.');
+        $respondNotificationAction(true, 'Notification already marked as read.', [
+            'notification_id' => $notificationId,
+            'unread_count' => $loadUnreadCount(),
+        ]);
     }
 
     $patchResponse = apiRequest(
@@ -81,7 +122,7 @@ if ($action === 'mark_notification_read') {
     );
 
     if (!isSuccessful($patchResponse)) {
-        redirectWithState('error', 'Failed to mark notification as read.');
+        $respondNotificationAction(false, 'Failed to mark notification as read.', []);
     }
 
     apiRequest(
@@ -100,7 +141,10 @@ if ($action === 'mark_notification_read') {
         ]]
     );
 
-    redirectWithState('success', 'Notification marked as read.');
+    $respondNotificationAction(true, 'Notification marked as read.', [
+        'notification_id' => $notificationId,
+        'unread_count' => $loadUnreadCount(),
+    ]);
 }
 
 if ($action === 'mark_all_notifications_read') {
@@ -111,7 +155,7 @@ if ($action === 'mark_all_notifications_read') {
     );
 
     if (!isSuccessful($unreadResponse)) {
-        redirectWithState('error', 'Failed to load unread notifications.');
+        $respondNotificationAction(false, 'Failed to load unread notifications.', []);
     }
 
     $ids = [];
@@ -124,12 +168,15 @@ if ($action === 'mark_all_notifications_read') {
     }
 
     if (empty($ids)) {
-        redirectWithState('success', 'No unread notifications found.');
+        $respondNotificationAction(true, 'No unread notifications found.', [
+            'affected_count' => 0,
+            'unread_count' => 0,
+        ]);
     }
 
     $inFilter = formatInFilterList($ids);
     if ($inFilter === '') {
-        redirectWithState('error', 'Unable to mark notifications as read.');
+        $respondNotificationAction(false, 'Unable to mark notifications as read.', []);
     }
 
     $patchResponse = apiRequest(
@@ -143,7 +190,7 @@ if ($action === 'mark_all_notifications_read') {
     );
 
     if (!isSuccessful($patchResponse)) {
-        redirectWithState('error', 'Failed to mark all notifications as read.');
+        $respondNotificationAction(false, 'Failed to mark all notifications as read.', []);
     }
 
     apiRequest(
@@ -162,7 +209,10 @@ if ($action === 'mark_all_notifications_read') {
         ]]
     );
 
-    redirectWithState('success', 'Marked ' . count($ids) . ' notification(s) as read.');
+    $respondNotificationAction(true, 'Marked ' . count($ids) . ' notification(s) as read.', [
+        'affected_count' => count($ids),
+        'unread_count' => 0,
+    ]);
 }
 
 if ($action === 'send_test_notification_email') {
@@ -220,4 +270,4 @@ if ($action === 'send_test_notification_email') {
     redirectWithState('success', 'Test email sent via SMTP to ' . $recipientEmail . '.');
 }
 
-redirectWithState('error', 'Unknown notification action.');
+$respondNotificationAction(false, 'Unknown notification action.', []);

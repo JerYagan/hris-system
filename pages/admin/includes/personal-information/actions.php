@@ -1411,6 +1411,11 @@ if ($action === 'review_profile_recommendation') {
 
     $employeeName = trim((string)($personRow['first_name'] ?? '') . ' ' . (string)($personRow['surname'] ?? ''));
     $decisionVerb = $decision === 'approve' ? 'approved' : 'rejected';
+    try {
+        $decisionTimestampPst = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('M d, Y h:i A') . ' PST';
+    } catch (Throwable $exception) {
+        $decisionTimestampPst = gmdate('M d, Y h:i A') . ' UTC';
+    }
     if ($adminUserId !== '' && isValidUuid($adminUserId)) {
         apiRequest(
             'POST',
@@ -1436,7 +1441,7 @@ if ($action === 'review_profile_recommendation') {
                 'recipient_user_id' => $staffUserId,
                 'category' => 'employee_profile',
                 'title' => 'Recommendation ' . ucfirst($decisionVerb),
-                'body' => 'Your employee profile recommendation for ' . ($employeeName !== '' ? $employeeName : 'an employee') . ' was ' . $decisionVerb . ($remarks !== '' ? (': ' . $remarks) : '.') ,
+                'body' => 'Your employee profile recommendation for ' . ($employeeName !== '' ? $employeeName : 'an employee') . ' was ' . $decisionVerb . ' by Admin on ' . $decisionTimestampPst . '.' . ($remarks !== '' ? (' Remarks: ' . $remarks) : ''),
                 'link_url' => '/hris-system/pages/staff/personal-information.php',
             ]]
         );
@@ -1461,6 +1466,167 @@ if ($action === 'review_profile_recommendation') {
     redirectWithState('success', $decision === 'approve'
         ? 'Staff recommendation approved and applied successfully.'
         : 'Staff recommendation rejected successfully.');
+}
+
+if ($action === 'review_spouse_request') {
+    $requestLogId = (string)(cleanText($_POST['request_log_id'] ?? null) ?? '');
+    $personId = (string)(cleanText($_POST['person_id'] ?? null) ?? '');
+    $decision = strtolower((string)(cleanText($_POST['decision'] ?? null) ?? ''));
+    $remarks = trim((string)(cleanText($_POST['remarks'] ?? null) ?? ''));
+
+    if (!isValidUuid($requestLogId) || !isValidUuid($personId)) {
+        redirectWithState('error', 'Invalid spouse request reference selected for review.');
+    }
+
+    if (!in_array($decision, ['approve', 'reject'], true)) {
+        redirectWithState('error', 'Select a valid spouse request decision.');
+    }
+
+    if ($decision === 'reject' && $remarks === '') {
+        redirectWithState('error', 'Rejection remarks are required for spouse requests.');
+    }
+
+    $requestResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/activity_logs?select=id,actor_user_id,entity_id,new_data,created_at'
+        . '&module_name=eq.employee'
+        . '&entity_name=eq.person_family_spouses_request'
+        . '&action_name=eq.submit_spouse_addition_request'
+        . '&id=eq.' . $requestLogId
+        . '&entity_id=eq.' . $personId
+        . '&limit=1',
+        $headers
+    );
+
+    $requestRow = $requestResponse['data'][0] ?? null;
+    if (!is_array($requestRow)) {
+        redirectWithState('error', 'Spouse request record was not found.');
+    }
+
+    $existingDecisionResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/activity_logs?select=id,new_data'
+        . '&module_name=eq.personal_information'
+        . '&entity_name=eq.person_family_spouses_request'
+        . '&action_name=in.(approve_spouse_addition_request,reject_spouse_addition_request)'
+        . '&entity_id=eq.' . $personId
+        . '&order=created_at.desc&limit=200',
+        $headers
+    );
+
+    if (isSuccessful($existingDecisionResponse)) {
+        foreach ((array)($existingDecisionResponse['data'] ?? []) as $decisionRowRaw) {
+            $decisionRow = (array)$decisionRowRaw;
+            $decisionData = is_array($decisionRow['new_data'] ?? null) ? (array)$decisionRow['new_data'] : [];
+            if ((string)($decisionData['request_log_id'] ?? '') === $requestLogId) {
+                redirectWithState('error', 'This spouse request has already been reviewed.');
+            }
+        }
+    }
+
+    $personResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/people?select=id,user_id,first_name,surname&id=eq.' . $personId . '&limit=1',
+        $headers
+    );
+
+    $personRow = $personResponse['data'][0] ?? null;
+    if (!is_array($personRow)) {
+        redirectWithState('error', 'Employee profile no longer exists.');
+    }
+
+    $requestData = is_array($requestRow['new_data'] ?? null) ? (array)$requestRow['new_data'] : [];
+
+    if ($decision === 'approve') {
+        $spouseSurname = trim((string)($requestData['spouse_surname'] ?? ''));
+        $spouseFirstName = trim((string)($requestData['spouse_first_name'] ?? ''));
+        if ($spouseSurname === '' || $spouseFirstName === '') {
+            redirectWithState('error', 'Requested spouse entry is missing required name fields.');
+        }
+
+        $sequenceResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/person_family_spouses?select=sequence_no&person_id=eq.' . $personId . '&order=sequence_no.desc&limit=1',
+            $headers
+        );
+
+        $nextSequenceNo = 1;
+        if (isSuccessful($sequenceResponse) && !empty((array)($sequenceResponse['data'] ?? []))) {
+            $currentMax = (int)($sequenceResponse['data'][0]['sequence_no'] ?? 0);
+            $nextSequenceNo = max(1, $currentMax + 1);
+        }
+
+        $spouseInsertResponse = apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/person_family_spouses',
+            array_merge($headers, ['Prefer: return=minimal']),
+            [[
+                'person_id' => $personId,
+                'surname' => $spouseSurname,
+                'first_name' => $spouseFirstName,
+                'middle_name' => trim((string)($requestData['spouse_middle_name'] ?? '')) ?: null,
+                'extension_name' => trim((string)($requestData['spouse_name_extension'] ?? '')) ?: null,
+                'occupation' => trim((string)($requestData['spouse_occupation'] ?? '')) ?: null,
+                'employer_business_name' => trim((string)($requestData['spouse_employer_business_name'] ?? '')) ?: null,
+                'business_address' => trim((string)($requestData['spouse_business_address'] ?? '')) ?: null,
+                'telephone_no' => trim((string)($requestData['spouse_telephone_no'] ?? '')) ?: null,
+                'sequence_no' => $nextSequenceNo,
+            ]]
+        );
+
+        if (!isSuccessful($spouseInsertResponse)) {
+            redirectWithState('error', 'Failed to apply approved spouse entry request.');
+        }
+    }
+
+    $decisionStatus = $decision === 'approve' ? 'approved' : 'rejected';
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $adminUserId !== '' ? $adminUserId : null,
+            'module_name' => 'personal_information',
+            'entity_name' => 'person_family_spouses_request',
+            'entity_id' => $personId,
+            'action_name' => $decision === 'approve'
+                ? 'approve_spouse_addition_request'
+                : 'reject_spouse_addition_request',
+            'old_data' => [
+                'request_log_id' => $requestLogId,
+                'submitted_at' => $requestRow['created_at'] ?? null,
+            ],
+            'new_data' => [
+                'request_log_id' => $requestLogId,
+                'status' => $decisionStatus,
+                'remarks' => $remarks !== '' ? $remarks : null,
+            ],
+            'ip_address' => clientIp(),
+        ]]
+    );
+
+    $employeeUserId = (string)($personRow['user_id'] ?? '');
+    $employeeName = trim((string)($personRow['first_name'] ?? '') . ' ' . (string)($personRow['surname'] ?? ''));
+    if ($employeeUserId !== '' && isValidUuid($employeeUserId)) {
+        apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/notifications',
+            array_merge($headers, ['Prefer: return=minimal']),
+            [[
+                'recipient_user_id' => $employeeUserId,
+                'category' => 'personal_information',
+                'title' => 'Spouse entry request ' . ucfirst($decisionStatus),
+                'body' => 'Your spouse entry request was ' . $decisionStatus . ' by Admin.' . ($remarks !== '' ? (' Remarks: ' . $remarks) : ''),
+                'link_url' => '/hris-system/pages/employee/personal-information.php',
+            ]]
+        );
+    }
+
+    redirectWithState('success', $decision === 'approve'
+        ? ('Spouse entry request approved for ' . ($employeeName !== '' ? $employeeName : 'employee') . '.')
+        : ('Spouse entry request rejected for ' . ($employeeName !== '' ? $employeeName : 'employee') . '.'));
 }
 
 if ($action === 'assign_department_position') {

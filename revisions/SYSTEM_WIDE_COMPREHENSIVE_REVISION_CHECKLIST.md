@@ -89,23 +89,28 @@ Rules applied while consolidating:
 ## 2) Dashboard Module
 
 ### Admin
-- [ ] Add `Pending Document for Verification` card.
-- [ ] Convert plantilla chart to donut chart.
-- [ ] Add “today” context in absence-related display.
-- [ ] Remove redundant helper text (`You have X pending...`) when already covered by cards/notifications.
-- [ ] Fix profile photo persistence issue (uploads disappear).
-- [ ] Limit table entries to 10 and add pagination.
+- [x] Limit View Notifications table to 10 entries with search, pagination and filters
+- [x] Add `Pending Document for Verification` card.
+- [x] Convert plantilla chart to donut chart.
+- [x] Add “today” context in absence-related display.
+- [x] Remove redundant helper text (`You have X pending...`) when already covered by cards/notifications.
+- [x] Fix profile photo persistence issue (uploads disappear).
+- [x] Limit table entries to 10 and add pagination.
 
 ### Staff
-- [ ] Keep dashboard scoped to operational summary + announcements only.
+- [x] Limit table entries to 10 and add pagination. Specificy pending approvals and verify if it actually displays the pending approvals from different modules, change "Role notifications" into "Notifications" and make it a 2 column section with Announcements. 
+- [x] Keep dashboard scoped to operational summary + announcements only.
+- [x] Staff Dashboard should show pending approvals and notifications relevant to their role (e.g., pending leave requests, payroll runs, etc.). The dashboard should provide quick access to the specific actions and information that staff need to manage their tasks and responsibilities effectively.
 
 ### Employee
 - [ ] Replace leave-status card behavior with leave-credit/leave-card aligned display (SL/VL/CTO view).
 - [ ] Add leave-card access integration (secured external/internal source as approved).
 
 ### Applicant
-- [ ] Improve card visual hierarchy/color coding for readability (without hardcoding non-design-system tokens).
-- [ ] In Dashboard, the Application Progress section is defaulted into "Application Submitted" even though the applicant has not actually applied to any job yet. This can be confusing for applicants who have just created their account and are seeing this section without having taken any action. It would be better to either hide this section until the applicant has submitted an application or change the default status to something like "No Applications Yet" to provide clearer context.
+- [x] The application progress UI is broken (See photo). Also add a space between the latest updates section and (quick actions application help column)
+- [x] Replace application progress section UI like the on in the photo (horizontal timeline)
+- [x] Improve card visual hierarchy/color coding for readability (without hardcoding non-design-system tokens).
+- [x] In Dashboard, the Application Progress section is defaulted into "Application Submitted" even though the applicant has not actually applied to any job yet. This can be confusing for applicants who have just created their account and are seeing this section without having taken any action. It would be better to either hide this section until the applicant has submitted an application or change the default status to something like "No Applications Yet" to provide clearer context.
 
 ---
 
@@ -627,21 +632,22 @@ Rules applied while consolidating:
 ## 11) Notifications Module
 
 ### Admin
-- [ ] Keep announcements and notifications clearly distinct (announcements are org-wide broadcast type).
-- [ ] Rename `Recent Announcements` to `Recent Notifications` where requested and contextually correct.
-- [ ] Add audit trail/logging especially those triggered by Admin actions, to ensure accountability and traceability of communication within the system.
+- [x] Reduce the message column space to allow more space for the actions column and to improve readability of the messages in the notifications table.
+- [x] Keep announcements and notifications clearly distinct (announcements are org-wide broadcast type).
+- [x] Rename `Recent Announcements` to `Recent Notifications` where requested and contextually correct.
+- [x] Add audit trail/logging especially those triggered by Admin actions, to ensure accountability and traceability of communication within the system.
 
 ### Staff
-- [ ] Ensure staff receives final Admin decision notifications on forwarded records with PST timestamp.
-- [ ] Fix notification entry/action that routes to payroll category open flow (open action error).
+- [x] Ensure staff receives final Admin decision notifications on forwarded records with PST timestamp.
+- [x] Fix notification entry/action that routes to payroll category open flow (open action error).
 
 ### Employee
-- [ ] Newly added employees shouldn't have any notifications by default, but they should receive notifications for any new announcements or any notifications related to their employee record (e.g., profile updates, training enrollments, etc.) after they are added to the system AS EMPLOYEE. The notification when they were applicant should not be there when they become an employee, and they should only receive notifications that are relevant to their employee role and record after they are added as an employee in the system.
-- [ ] Add richer training notification details (provider, venue, mode).
-- [ ] Add hover/quick-view interaction and auto-read behavior when opened (if approved UX standard).
+- [x] Newly added employees shouldn't have any notifications by default, but they should receive notifications for any new announcements or any notifications related to their employee record (e.g., profile updates, training enrollments, etc.) after they are added to the system AS EMPLOYEE. The notification when they were applicant should not be there when they become an employee, and they should only receive notifications that are relevant to their employee role and record after they are added as an employee in the system.
+- [x] Add richer training notification details (provider, venue, mode).
+- [x] Add hover/quick-view interaction and auto-read behavior when opened (if approved UX standard).
 
 ### Cross users in Notifications module revision:
- - [ ] Add a modal for notifications (topnav) in all users, when opening a notification it should open a modal that shows the details of the notification, it'll also mark the notifications as read. This will improve the user experience by providing a more visually appealing interface for viewing notifications and allowing users to easily manage their notifications without having to navigate away from the current page. The modal should also include any relevant information related to the notification, such as links or attachments, to provide users with all the necessary context when viewing their notifications.
+- [x] Add a modal for notifications (topnav) in all users, when opening a notification it should open a modal that shows the details of the notification, it'll also mark the notifications as read. This will improve the user experience by providing a more visually appealing interface for viewing notifications and allowing users to easily manage their notifications without having to navigate away from the current page. The modal should also include any relevant information related to the notification, such as links or attachments, to provide users with all the necessary context when viewing their notifications.
 
 ---
 
@@ -726,50 +732,75 @@ Fatal error: Uncaught Error: Call to undefined function isValidUuid() in D:\xamp
 ## 15) My Profile Module
 
 ### Admin
-- [ ] Add password change feature.
-- [ ] Clarify active verification/recovery method (email or phone).
+- [x] Also add a strength meter for the new password field in the change password flow to provide users with feedback on the strength of their new password and encourage them to create stronger passwords for better security. The strength meter can be based on common password strength criteria such as length, use of uppercase and lowercase letters, numbers, and special characters, and it can provide visual feedback (e.g., color-coded indicators) to help users understand the strength of their new password as they create it.
+- [x] After sending verification, it should automatically proceed to another modal in which the user can enter the verification code they received in their email, and after entering the code and submitting it, it should verify the code and show a success message if the code is correct or an error message if the code is incorrect. This will provide a smoother and more seamless experience for users when verifying their email addresses, as they won't have to navigate to a separate page or section to enter the verification code. Instead, they can complete the verification process within the same flow, making it more convenient and user-friendly. 
+- [x] Add an upload profile picture, make sure that the picture persists and don't use the default file picker
+- [x] Clarify active verification/recovery method (should be email).
+- [x] Add a change password flow, allowing the user to change their password securely with proper validation and feedback. This will enhance the security of user accounts and provide users with the ability to manage their own account credentials effectively within the system. Make sure that the change password flow includes necessary validations such as current password verification, new password strength requirements, and confirmation of the new password to ensure a secure and user-friendly experience for staff members when changing their passwords. There should be some kind of email code verification or confirmation step to ensure that the password change request is legitimate and authorized by the user, adding an extra layer of security to the password change process.
+- [x] limit the login activity entries to 10 with pagination and filters, make sure it displays the IP Address and the device used for each login activity entry for better tracking and security monitoring of user login activities.
 
 ### Staff
-- [ ] Ensure profile update flow and upload controls are consistent.
-- [ ] Place `Choose File` control inside upload action pattern consistently in profile forms.
+- [x] Change the default file picker to a custom upload control for better UX and consistency with the rest of the system, and ensure that the uploaded profile picture persists and is properly displayed in the staff's profile. This will enhance the user experience for staff members when updating their profile picture and ensure that their profile information is accurately reflected in the system.
+- [x] Ensure profile update flow and upload controls are consistent.
+- [x] Place `Choose File` control inside upload action pattern consistently in profile forms.
+- [x] Add a change password flow, allowing the user to change their password securely with proper validation and feedback. Same as the one in Admin.
 
 ### Employee
-- [ ] Fix the employee profile picture upload issue where the uploaded picture does not persist and disappears after some time.
+- [x] Add a change password flow, allowing the user to change their password securely with proper validation and feedback. Same as the one in Admin.
+- [x] Verify if Requesting additional spouse entry flow exists and is working properly, allowing employees to request the addition of an additional spouse entry in their profile when needed. This flow should include a form for employees to submit their request with the necessary information and documentation, and it should trigger a notification to the admin for review and approval of the request. Once approved, the additional spouse entry should be added to the employee's profile with the relevant details and information provided in the request. This will help ensure that employees can accurately maintain their personal information in their profiles and that any necessary updates or additions can be made through a proper request and approval process.
+- [x] Change the upload profile picture flow, same as the one in staff and admin.
 
 ### Applicant
-- [ ] Keep profile update capability aligned with account scope.
-- [ ] Add an upload profile picture feature with validation and preview in the applicant profile section. The profile picture should be displayed in the applicant's profile and included in the applicant profile preview for staff review.
+- [x] Keep profile update capability aligned with account scope.
+- [x] Change the upload profile picture flow, same as the one in staff and admin.
+- [x] Add a change password flow, allowing the user to change their password securely with proper validation and feedback. Same as the one in Admin.
+
+### Cross users in My Profile module revision:
+- [x] Make the profile picture uploading more streamlined. Only have 1 button for file selection and upload instead of having a separate file picker and upload button. After selecting the file, it should open up a modal with a preview of the selected picture and a confirm button to upload the picture. This will provide a more seamless and user-friendly experience for users when updating their profile picture, as they can easily select and confirm their new profile picture in one flow without having to navigate through multiple steps or buttons. Additionally, ensure that the uploaded profile picture persists and is properly displayed across all pages and modules in the system for better personalization and user experience.
+- [x] Make sure that the uploaded profile picture reflects in the top navigation across all pages and modules for better personalization and user experience.
+- [x] Standardize the profile picture upload flow across all user roles, ensuring that the upload control is consistent and that the uploaded picture persists properly in the system. Including the UI and modal preview. of the selected picture.
+- [x] Verify if all the users has the change password flow and that it's working properly, allowing users to change their passwords securely with proper validation and feedback.
+- [x] Limit the login activity entries to 10 with pagination and filters for all user roles.
 
 ---
 
 ## 16) Settings Module
 
 ### Admin
-- [ ] Configure SMTP, notification controls, backup/restore, and access/audit log settings.
+- [x] Verify if configure SMTP, notification controls, backup/restore, and access/audit log settings exists in admin.
 
 ### Employee
-- [ ] Keep personal settings options scoped and working.
+- [x] Remove settings module for employee.
 
 ---
 
 ## 17) Support Module
 
 ### Employee
-- [ ] Add support request flow for profile change requests (name/marital status/etc.) with attachments.
+- [x] Add support request flow for profile change requests (name/marital status/etc.) with attachments.
 
 ### Applicant
-- [ ] Add inquiry/support submission flow.
+- [x] Add inquiry/support submission flow.
 
 ### Admin
-- [ ] Route/resolve support tickets and forward to staff when needed.
-- [ ] Make sure that the support module complies with the employees' requests and inquiries, and that the admin can effectively manage and resolve support tickets in a timely manner. This includes ensuring that the support request flow for profile change requests is properly implemented, allowing employees to submit their requests with the necessary attachments, and that the admin can review and take appropriate action on these requests. Additionally, ensure that the inquiry/support submission flow for applicants is functioning correctly, allowing them to submit their inquiries or support requests and that the admin can effectively manage and respond to these submissions as well.
+- [x] Route/resolve support tickets and forward to staff when needed.
+- [x] Make sure that the support module complies with the employees' requests and inquiries, and that the admin can effectively manage and resolve support tickets in a timely manner. This includes ensuring that the support request flow for profile change requests is properly implemented, allowing employees to submit their requests with the necessary attachments, and that the admin can review and take appropriate action on these requests. Additionally, ensure that the inquiry/support submission flow for applicants is functioning correctly, allowing them to submit their inquiries or support requests and that the admin can effectively manage and respond to these submissions as well.
+
+### Cross user in Support module revision:
+- [x] Do another QA pass and make sure it uses sweetalert for confirmations and notifications, the tables are limited to 10 entries with pagination, search, and filters, and that the overall user experience of the support module is smooth and consistent across all user roles when submitting and managing support requests or inquiries through the system. This will help ensure that the support module is fully functional and provides a positive user experience for all users when seeking assistance or submitting inquiries through the system.
+- [x] Do a QA pass on the support module to ensure that all functionalities are working as intended and that the user experience is smooth for all users when interacting with the support module. This includes testing the support request flow for profile change requests for employees, the inquiry/support submission flow for applicants, and the admin's ability to route and resolve support tickets effectively. Additionally, verify that any notifications or communications related to support requests are triggered appropriately and that the overall workflow of the support module is consistent with the approved processes and policies. This QA pass will help ensure that the support module is fully functional and provides a positive user experience for all users when seeking assistance or submitting inquiries through the system.
+- [x] Remove priority levels in support tickets to simplify the support request process for users and to allow the admin to focus on addressing support tickets based on their content and urgency rather than
+- [x] Staff should be able to view and manage support tickets that are forwarded to them by the admin, allowing them to assist in resolving support requests or inquiries when needed. This will help ensure that support tickets are addressed in a timely manner and that users receive the necessary assistance for their issues or requests. Staff should also be able to communicate with the admin and the user regarding the support ticket, providing updates or requesting additional information as needed to effectively resolve the ticket.
+- [x] Don't use the default file picker for uploading attachments in the support request flow, instead implement a custom upload control that allows users to easily select and upload their attachments with a preview of the selected files before submitting their support requests.
+- [x] Can you add more categories in the support module in employee side? This will allow users to categorize their support requests or inquiries more effectively, making it easier for the admin to route and manage the support tickets based on the category. Consider adding categories such as "Technical Issues", "Account Management", "Payroll and Benefits", "Training and Development", etc., to provide users with more specific options when submitting their support requests or inquiries, and to help the admin prioritize and address the tickets more efficiently based on the nature of the issue or request.
+- [x] Make sure that the support module is properly implemented and functional for all users. This includes verifying that the support request flow for profile change requests is working correctly for employees, allowing them to submit their requests with attachments and that the admin can review and resolve these requests effectively. Additionally, ensure that the inquiry/support submission flow for applicants is functioning properly, allowing them to submit their inquiries or support requests and that the admin can manage and respond to these submissions in a timely manner. Overall, the support module should provide a seamless and efficient way for users to seek assistance and have their issues addressed by the admin.
 
 ---
 
 ## 18) *PRAISE Module (Removal/Retention Decision)*
 
 ### *Module Decision*
-- [ ] *Confirm if PRAISE is removed/de-scoped system-wide or retained with reduced scope.*
+- [x] Remove PRAISE modules along with employee evaluation across all users.
 
 ### Admin (if retained)
 - [ ] Manage awards/recognition with final approval authority.
@@ -825,6 +856,28 @@ Fatal error: Uncaught Error: Call to undefined function isValidUuid() in D:\xamp
 - [ ] Phase 6: Module removal/deprecation decisions and navigation cleanup.
 - [ ] Phase 7: Full localized JS performance pass and QA sign-off.
 
+---
+
+## 22) Sidebar and Topnav revisions
+
+### Admin
+- [ ] Change the position of Bagong Pilipinas icon and header, it should be after the hamburger icon
+- [ ] Categorize sidebar items better with clear section headers and logical grouping of related items, ensuring that the most frequently used items are easily accessible and that the overall organization of the sidebar is intuitive for admin users. This will help improve the user experience for admins when navigating through the system and allow them to quickly find and access the features and functionalities they need to manage the system effectively.
+- [ ] Remove indentation for sub-items in the sidebar to create a cleaner and more streamlined look, while still maintaining clear visual cues for the hierarchy of items. This will help reduce visual clutter and make it easier for admins to scan through the sidebar and find the items they need without being overwhelmed by too much indentation or nested items.
+
+### Staff
+- [ ] Change the sidebar behavior into an overlay instead of pushing the content when opened, providing a more modern and user-friendly experience for staff users when navigating through the system. This will allow staff to access the sidebar without disrupting their workflow or the content they are currently viewing, creating a smoother and more seamless navigation experience. Make sure to include a clear and intuitive way to open and close the sidebar, such as a hamburger menu icon, and ensure that the overlay design is visually appealing and consistent with the overall design of the system.
+- [ ] Categorize sidebar items better with clear section headers and logical grouping of related items, ensuring that the most frequently used items are easily accessible and that the overall organization of the sidebar is intuitive for staff users. This will help improve the user experience for staff when navigating through the system and allow them to quickly find and access the features and functionalities they need to perform their tasks effectively.
+
+### Employee
+- [ ] Change the sidebar behavior into an overlay instead of pushing the content when opened, providing a more modern and user-friendly experience for staff users when navigating through the system. This will allow staff to access the sidebar without disrupting their workflow or the content they are currently viewing, creating a smoother and more seamless navigation experience. Make sure to include a clear and intuitive way to open and close the sidebar, such as a hamburger menu icon, and ensure that the overlay design is visually appealing and consistent with the overall design of the system.
+- [ ] Categorize sidebar items better with clear section headers and logical grouping of related items, ensuring that the most frequently used items are easily accessible and that the overall organization of the sidebar is intuitive for staff users. This will help improve the user experience for staff when navigating through the system and allow them to quickly find and access the features and functionalities they need to perform their tasks effectively.
+
+### Cross users in Sidebar and Topnav revisions:
+- [ ] Ensure that the profile menu in the top navigation is consistent across all user roles, providing a clear and intuitive way for users to access their profile settings, change password flow, and other relevant options. This will help create a cohesive user experience across the system and allow users to easily manage their account settings and preferences from the top navigation regardless of their role.
+- [ ] 
+
+---
 
 To dos
 Applicant side:

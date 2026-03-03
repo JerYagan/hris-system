@@ -1,4 +1,4 @@
-import { bindTableFilters, initAdminShellInteractions, initModalSystem, initStatusChangeConfirmations, openModal } from '/hris-system/assets/js/shared/admin-core.js';
+import { initAdminShellInteractions, initModalSystem, initStatusChangeConfirmations, openModal } from '/hris-system/assets/js/shared/admin-core.js';
 
 const parseJsonArray = (value) => {
   try {
@@ -121,28 +121,139 @@ const initDashboardActions = () => {
 };
 
 const initDashboardFilters = () => {
-  bindTableFilters({
+  const bindDashboardTable = ({
+    tableId,
+    searchInputId,
+    searchDataAttr,
+    statusFilterId,
+    statusDataAttr,
+    secondaryFilterId,
+    secondaryDataAttr,
+    metaId,
+    prevId,
+    nextId,
+    pageSize = 10,
+  }) => {
+    const table = document.getElementById(tableId);
+    if (!table) {
+      return;
+    }
+
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+    const searchInput = searchInputId ? document.getElementById(searchInputId) : null;
+    const statusFilter = statusFilterId ? document.getElementById(statusFilterId) : null;
+    const secondaryFilter = secondaryFilterId ? document.getElementById(secondaryFilterId) : null;
+    const metaNode = metaId ? document.getElementById(metaId) : null;
+    const prevBtn = prevId ? document.getElementById(prevId) : null;
+    const nextBtn = nextId ? document.getElementById(nextId) : null;
+
+    let currentPage = 1;
+
+    const apply = () => {
+      const query = String(searchInput?.value || '').toLowerCase().trim();
+      const selectedStatus = String(statusFilter?.value || '').toLowerCase().trim();
+      const selectedSecondary = String(secondaryFilter?.value || '').toLowerCase().trim();
+
+      const filteredRows = rows.filter((row) => {
+        const rowSearch = String(row.getAttribute(searchDataAttr) || '').toLowerCase();
+        const rowStatus = statusDataAttr ? String(row.getAttribute(statusDataAttr) || '').toLowerCase() : '';
+        const rowSecondary = secondaryDataAttr ? String(row.getAttribute(secondaryDataAttr) || '').toLowerCase() : '';
+        const searchMatch = query === '' || rowSearch.includes(query);
+        const statusMatch = selectedStatus === '' || rowStatus === selectedStatus;
+        const secondaryMatch = selectedSecondary === '' || rowSecondary === selectedSecondary;
+        return searchMatch && statusMatch && secondaryMatch;
+      });
+
+      const total = filteredRows.length;
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      if (currentPage > totalPages) {
+        currentPage = totalPages;
+      }
+      if (currentPage < 1) {
+        currentPage = 1;
+      }
+
+      const start = (currentPage - 1) * pageSize;
+      const end = start + pageSize;
+      const visibleSet = new Set(filteredRows.slice(start, end));
+
+      rows.forEach((row) => {
+        row.style.display = visibleSet.has(row) ? '' : 'none';
+      });
+
+      if (metaNode) {
+        if (total === 0) {
+          metaNode.textContent = 'Showing 0 to 0 of 0 entries';
+        } else {
+          metaNode.textContent = `Showing ${start + 1} to ${Math.min(end, total)} of ${total} entries`;
+        }
+      }
+
+      if (prevBtn) {
+        prevBtn.disabled = currentPage <= 1;
+      }
+      if (nextBtn) {
+        nextBtn.disabled = currentPage >= totalPages || total === 0;
+      }
+    };
+
+    const rerenderFromFirstPage = () => {
+      currentPage = 1;
+      apply();
+    };
+
+    searchInput?.addEventListener('input', rerenderFromFirstPage);
+    statusFilter?.addEventListener('change', rerenderFromFirstPage);
+    secondaryFilter?.addEventListener('change', rerenderFromFirstPage);
+    prevBtn?.addEventListener('click', () => {
+      currentPage -= 1;
+      apply();
+    });
+    nextBtn?.addEventListener('click', () => {
+      currentPage += 1;
+      apply();
+    });
+
+    apply();
+  };
+
+  bindDashboardTable({
     tableId: 'dashboardPendingLeaveTable',
     searchInputId: 'dashboardLeaveSearch',
     searchDataAttr: 'data-dashboard-leave-search',
     statusFilterId: 'dashboardLeaveStatusFilter',
     statusDataAttr: 'data-dashboard-leave-status',
+    secondaryFilterId: '',
+    secondaryDataAttr: '',
+    metaId: 'dashboardLeavePaginationMeta',
+    prevId: 'dashboardLeavePrevPage',
+    nextId: 'dashboardLeaveNextPage',
   });
 
-  bindTableFilters({
+  bindDashboardTable({
     tableId: 'dashboardNotificationsTable',
     searchInputId: 'dashboardNotificationsSearch',
     searchDataAttr: 'data-dashboard-notification-search',
     statusFilterId: 'dashboardNotificationsStatusFilter',
     statusDataAttr: 'data-dashboard-notification-status',
+    secondaryFilterId: 'dashboardNotificationsCategoryFilter',
+    secondaryDataAttr: 'data-dashboard-notification-category',
+    metaId: 'dashboardNotificationsPaginationMeta',
+    prevId: 'dashboardNotificationsPrevPage',
+    nextId: 'dashboardNotificationsNextPage',
   });
 
-  bindTableFilters({
+  bindDashboardTable({
     tableId: 'dashboardDepartmentTable',
     searchInputId: 'dashboardDepartmentSearch',
     searchDataAttr: 'data-dashboard-department-search',
     statusFilterId: '',
     statusDataAttr: '',
+    secondaryFilterId: '',
+    secondaryDataAttr: '',
+    metaId: 'dashboardDepartmentPaginationMeta',
+    prevId: 'dashboardDepartmentPrevPage',
+    nextId: 'dashboardDepartmentNextPage',
   });
 };
 

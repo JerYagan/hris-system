@@ -1,5 +1,7 @@
 <?php
 
+require_once dirname(__DIR__, 3) . '/admin/includes/notifications/email.php';
+
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     return;
 }
@@ -16,7 +18,355 @@ if (!isValidUuid($applicantUserId)) {
     redirectWithState('error', 'Invalid applicant session context. Please login again.', 'profile.php');
 }
 
-$action = cleanText($_POST['action'] ?? null) ?? 'update_profile';
+$action = strtolower((string)(cleanText($_POST['action'] ?? null) ?? 'update_profile'));
+
+if (!in_array($action, ['update_profile', 'replace_uploaded_file', 'upload_profile_photo', 'request_password_change_code', 'confirm_password_change_code', 'cancel_password_change_code'], true)) {
+    redirectWithState('error', 'Unsupported profile action.', 'profile.php');
+}
+
+$verifyCurrentPassword = static function (string $email, string $currentPassword) use ($supabaseUrl): bool {
+    loadEnvFile(dirname(__DIR__, 4) . '/.env');
+    $anonKey = trim((string)($_ENV['SUPABASE_ANON_KEY'] ?? $_SERVER['SUPABASE_ANON_KEY'] ?? ''));
+    if ($anonKey === '' || trim($email) === '' || $currentPassword === '') {
+        return false;
+    }
+
+    $ch = curl_init($supabaseUrl . '/auth/v1/token?grant_type=password');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'apikey: ' . $anonKey,
+        'Content-Type: application/json',
+    ]);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+        'email' => $email,
+        'password' => $currentPassword,
+    ]));
+
+    curl_exec($ch);
+    $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    return $status >= 200 && $status < 300;
+};
+
+$validateStrongPassword = static function (string $password): ?string {
+    if (strlen($password) < 10) {
+        return 'New password must be at least 10 characters.';
+    }
+    if (!preg_match('/[A-Z]/', $password)) {
+        return 'New password must include at least one uppercase letter.';
+    }
+    if (!preg_match('/[a-z]/', $password)) {
+        return 'New password must include at least one lowercase letter.';
+    }
+    if (!preg_match('/\d/', $password)) {
+        return 'New password must include at least one number.';
+    }
+    if (!preg_match('/[^a-zA-Z0-9]/', $password)) {
+        return 'New password must include at least one special character.';
+    }
+
+    return null;
+};
+
+if ($action === 'upload_profile_photo') {
+    $photoFile = $_FILES['profile_photo'] ?? null;
+    if (!is_array($photoFile) || (int)($photoFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        redirectWithState('error', 'Please choose a valid profile photo file.', 'profile.php');
+    }
+
+    $tmpName = (string)($photoFile['tmp_name'] ?? '');
+    $sizeBytes = (int)($photoFile['size'] ?? 0);
+    if ($tmpName === '' || !is_uploaded_file($tmpName)) {
+        redirectWithState('error', 'Uploaded profile photo is invalid.', 'profile.php');
+    }
+
+    if ($sizeBytes <= 0 || $sizeBytes > (3 * 1024 * 1024)) {
+        redirectWithState('error', 'Profile photo must be less than or equal to 3 MB.', 'profile.php');
+    }
+
+    $mimeType = (string)(mime_content_type($tmpName) ?: '');
+    $allowedMimeToExt = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+    ];
+
+    $extension = $allowedMimeToExt[$mimeType] ?? null;
+    if ($extension === null) {
+        redirectWithState('error', 'Only JPG, PNG, and WEBP profile photos are allowed.', 'profile.php');
+    }
+
+    $beforePhotoResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/people?select=id,profile_photo_url&user_id=eq.' . rawurlencode($applicantUserId) . '&limit=1',
+        $headers
+    );
+
+    if (!isSuccessful($beforePhotoResponse) || empty((array)($beforePhotoResponse['data'] ?? []))) {
+        redirectWithState('error', 'Unable to load profile before photo update.', 'profile.php');
+    }
+
+    $beforePhotoRow = (array)$beforePhotoResponse['data'][0];
+    $personId = cleanText($beforePhotoRow['id'] ?? null) ?? '';
+    if (!isValidUuid($personId)) {
+        redirectWithState('error', 'Profile person record is invalid.', 'profile.php');
+    }
+
+    $oldPath = cleanText($beforePhotoRow['profile_photo_url'] ?? null);
+
+    $storageRoot = dirname(__DIR__, 4) . '/storage/document';
+    $profileDir = $storageRoot . '/profile-photos/' . $personId;
+    if (!is_dir($profileDir) && !mkdir($profileDir, 0775, true) && !is_dir($profileDir)) {
+        redirectWithState('error', 'Unable to prepare profile photo storage.', 'profile.php');
+    }
+
+    $fileName = 'photo_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
+    $relativePath = 'profile-photos/' . $personId . '/' . $fileName;
+    $absolutePath = $storageRoot . '/' . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+
+    if (!move_uploaded_file($tmpName, $absolutePath)) {
+        redirectWithState('error', 'Failed to save uploaded profile photo.', 'profile.php');
+    }
+
+    $photoUpdateResponse = apiRequest(
+        'PATCH',
+        $supabaseUrl . '/rest/v1/people?id=eq.' . rawurlencode($personId),
+        array_merge($headers, ['Prefer: return=minimal']),
+        [
+            'profile_photo_url' => $relativePath,
+            'updated_at' => gmdate('c'),
+        ]
+    );
+
+    if (!isSuccessful($photoUpdateResponse)) {
+        @unlink($absolutePath);
+        redirectWithState('error', 'Unable to update profile photo reference.', 'profile.php');
+    }
+
+    $oldRelativePath = null;
+    if ($oldPath !== null && $oldPath !== '') {
+        $normalizedOldPath = ltrim($oldPath, '/');
+        $storagePrefix = 'hris-system/storage/document/';
+        if (str_starts_with($normalizedOldPath, $storagePrefix)) {
+            $oldRelativePath = substr($normalizedOldPath, strlen($storagePrefix));
+        } elseif (str_starts_with($oldPath, 'profile-photos/')) {
+            $oldRelativePath = $oldPath;
+        }
+    }
+
+    if ($oldRelativePath !== null && $oldRelativePath !== '') {
+        $oldAbsolute = $storageRoot . '/' . str_replace('/', DIRECTORY_SEPARATOR, $oldRelativePath);
+        if (is_file($oldAbsolute)) {
+            @unlink($oldAbsolute);
+        }
+    }
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $applicantUserId,
+            'module_name' => 'applicant_profile',
+            'entity_name' => 'people',
+            'entity_id' => $personId,
+            'action_name' => 'upload_profile_photo',
+            'old_data' => ['profile_photo_url' => $oldPath],
+            'new_data' => ['profile_photo_url' => $relativePath],
+            'ip_address' => cleanText($_SERVER['REMOTE_ADDR'] ?? null),
+        ]]
+    );
+
+    unset($_SESSION['applicant_topnav_cache']);
+
+    redirectWithState('success', 'Profile photo updated successfully.', 'profile.php');
+}
+
+if ($action === 'request_password_change_code') {
+    $currentPassword = (string)($_POST['current_password'] ?? '');
+    $newPassword = (string)($_POST['new_password'] ?? '');
+    $confirmPassword = (string)($_POST['confirm_new_password'] ?? '');
+
+    if ($currentPassword === '' || $newPassword === '' || $confirmPassword === '') {
+        redirectWithState('error', 'Current, new, and confirm password fields are required.', 'profile.php');
+    }
+
+    if ($newPassword !== $confirmPassword) {
+        redirectWithState('error', 'New password and confirmation do not match.', 'profile.php');
+    }
+
+    if ($newPassword === $currentPassword) {
+        redirectWithState('error', 'New password must be different from the current password.', 'profile.php');
+    }
+
+    $strengthError = $validateStrongPassword($newPassword);
+    if ($strengthError !== null) {
+        redirectWithState('error', $strengthError, 'profile.php');
+    }
+
+    $accountLookup = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/user_accounts?select=id,email&id=eq.' . rawurlencode($applicantUserId) . '&limit=1',
+        $headers
+    );
+    $accountRow = isSuccessful($accountLookup) ? (array)($accountLookup['data'][0] ?? []) : [];
+    $email = strtolower(trim((string)($accountRow['email'] ?? '')));
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        redirectWithState('error', 'A valid account email is required for password verification.', 'profile.php');
+    }
+
+    if (!$verifyCurrentPassword($email, $currentPassword)) {
+        redirectWithState('error', 'Current password is incorrect.', 'profile.php');
+    }
+
+    $smtpConfig = [
+        'host' => (string)($_ENV['SMTP_HOST'] ?? ($_SERVER['SMTP_HOST'] ?? '')),
+        'port' => (int)($_ENV['SMTP_PORT'] ?? ($_SERVER['SMTP_PORT'] ?? 587)),
+        'username' => (string)($_ENV['SMTP_USERNAME'] ?? ($_SERVER['SMTP_USERNAME'] ?? '')),
+        'password' => (string)($_ENV['SMTP_PASSWORD'] ?? ($_SERVER['SMTP_PASSWORD'] ?? '')),
+        'encryption' => (string)($_ENV['SMTP_ENCRYPTION'] ?? ($_SERVER['SMTP_ENCRYPTION'] ?? 'tls')),
+        'auth' => (string)($_ENV['SMTP_AUTH'] ?? ($_SERVER['SMTP_AUTH'] ?? '1')),
+    ];
+    $mailFrom = (string)($_ENV['MAIL_FROM'] ?? ($_SERVER['MAIL_FROM'] ?? ''));
+    $mailFromName = (string)($_ENV['MAIL_FROM_NAME'] ?? ($_SERVER['MAIL_FROM_NAME'] ?? 'DA-ATI HRIS'));
+
+    $resolvedMail = resolveSmtpMailConfig($supabaseUrl, $headers, $smtpConfig, $mailFrom, $mailFromName);
+    $smtpConfig = (array)($resolvedMail['smtp'] ?? $smtpConfig);
+    $mailFrom = (string)($resolvedMail['from'] ?? $mailFrom);
+    $mailFromName = (string)($resolvedMail['from_name'] ?? $mailFromName);
+
+    if (!smtpConfigIsReady($smtpConfig, $mailFrom)) {
+        redirectWithState('error', 'Email verification is required but SMTP is not configured.', 'profile.php');
+    }
+
+    $verificationCode = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+    $expiresAt = time() + (10 * 60);
+
+    $_SESSION['applicant_profile_password_change'] = [
+        'code_hash' => hash('sha256', $verificationCode),
+        'new_password' => $newPassword,
+        'email' => $email,
+        'expires_at' => $expiresAt,
+        'attempts' => 0,
+    ];
+
+    $safeEmail = htmlspecialchars($email, ENT_QUOTES, 'UTF-8');
+    $safeCode = htmlspecialchars($verificationCode, ENT_QUOTES, 'UTF-8');
+    $safeExpiry = htmlspecialchars(date('M d, Y h:i A', $expiresAt), ENT_QUOTES, 'UTF-8');
+    $emailBody = '<p>Your DA-ATI HRIS password change verification code is:</p>'
+        . '<p style="font-size:24px;font-weight:700;letter-spacing:2px;">' . $safeCode . '</p>'
+        . '<p>This code expires on <strong>' . $safeExpiry . '</strong> (server time).</p>'
+        . '<p>If you did not request a password change for ' . $safeEmail . ', ignore this email and contact support.</p>';
+
+    $mailResponse = smtpSendTransactionalEmail(
+        $smtpConfig,
+        $mailFrom,
+        $mailFromName,
+        $email,
+        $email,
+        'DA-ATI HRIS Password Change Verification Code',
+        $emailBody
+    );
+
+    if (!isSuccessful($mailResponse)) {
+        unset($_SESSION['applicant_profile_password_change']);
+        redirectWithState('error', 'Unable to send verification code email. Please try again.', 'profile.php');
+    }
+
+    redirectWithState('success', 'Verification code sent to your email. Enter the code to complete password change.', 'profile.php');
+}
+
+if ($action === 'cancel_password_change_code') {
+    unset($_SESSION['applicant_profile_password_change']);
+    redirectWithState('success', 'Pending password change verification was cancelled.', 'profile.php');
+}
+
+if ($action === 'confirm_password_change_code') {
+    $enteredCode = trim((string)($_POST['verification_code'] ?? ''));
+    $pending = (array)($_SESSION['applicant_profile_password_change'] ?? []);
+
+    if ($enteredCode === '' || !preg_match('/^[0-9]{6}$/', $enteredCode)) {
+        redirectWithState('error', 'Enter a valid 6-digit verification code.', 'profile.php');
+    }
+
+    if (empty($pending)) {
+        redirectWithState('error', 'No pending password change request. Request a new verification code.', 'profile.php');
+    }
+
+    $expiresAt = (int)($pending['expires_at'] ?? 0);
+    if ($expiresAt <= time()) {
+        unset($_SESSION['applicant_profile_password_change']);
+        redirectWithState('error', 'Verification code expired. Request a new code.', 'profile.php');
+    }
+
+    $attempts = (int)($pending['attempts'] ?? 0);
+    $expectedHash = (string)($pending['code_hash'] ?? '');
+    if ($expectedHash === '' || !hash_equals($expectedHash, hash('sha256', $enteredCode))) {
+        $attempts++;
+        if ($attempts >= 5) {
+            unset($_SESSION['applicant_profile_password_change']);
+            redirectWithState('error', 'Too many invalid verification attempts. Request a new code.', 'profile.php');
+        }
+
+        $pending['attempts'] = $attempts;
+        $_SESSION['applicant_profile_password_change'] = $pending;
+        redirectWithState('error', 'Invalid verification code.', 'profile.php');
+    }
+
+    $newPassword = (string)($pending['new_password'] ?? '');
+    if ($newPassword === '') {
+        unset($_SESSION['applicant_profile_password_change']);
+        redirectWithState('error', 'Pending password payload is invalid. Request a new code.', 'profile.php');
+    }
+
+    $resetResponse = apiRequest(
+        'PUT',
+        $supabaseUrl . '/auth/v1/admin/users/' . rawurlencode($applicantUserId),
+        $headers,
+        [
+            'password' => $newPassword,
+            'email_confirm' => true,
+        ]
+    );
+
+    if (!isSuccessful($resetResponse)) {
+        redirectWithState('error', 'Failed to update password. Please try again.', 'profile.php');
+    }
+
+    apiRequest(
+        'PATCH',
+        $supabaseUrl . '/rest/v1/user_accounts?id=eq.' . rawurlencode($applicantUserId),
+        array_merge($headers, ['Prefer: return=minimal']),
+        [
+            'must_change_password' => false,
+            'failed_login_count' => 0,
+            'lockout_until' => null,
+            'updated_at' => gmdate('c'),
+        ]
+    );
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $applicantUserId,
+            'module_name' => 'applicant_profile',
+            'entity_name' => 'user_accounts',
+            'entity_id' => $applicantUserId,
+            'action_name' => 'change_password_with_email_verification',
+            'old_data' => null,
+            'new_data' => ['password_changed' => true],
+            'ip_address' => cleanText($_SERVER['REMOTE_ADDR'] ?? null),
+        ]]
+    );
+
+    unset($_SESSION['applicant_profile_password_change']);
+    redirectWithState('success', 'Password changed successfully.', 'profile.php');
+}
 
 if ($action === 'replace_uploaded_file') {
     $documentId = cleanText($_POST['document_id'] ?? null);

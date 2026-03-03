@@ -10,6 +10,8 @@ $staffTopnavDisplayName = 'Staff User';
 $staffTopnavRoleLabel = 'Staff';
 $staffUnreadNotificationCount = 0;
 $staffUnreadNotificationBadge = '0';
+$staffTopnavNotificationsPreview = [];
+$staffTopnavCsrfToken = function_exists('ensureCsrfToken') ? ensureCsrfToken() : '';
 $staffTopnavPhotoUrl = null;
 $staffTopnavInitials = 'ST';
 
@@ -50,6 +52,7 @@ if (function_exists('staffBackendContext')) {
         $staffTopnavRoleLabel = (string)($topnavCache['role_label'] ?? $staffTopnavRoleLabel);
         $staffTopnavPhotoUrl = $resolveProfilePhotoUrl((string)($topnavCache['profile_photo_url'] ?? ''));
         $staffUnreadNotificationCount = max(0, (int)($topnavCache['unread_count'] ?? 0));
+        $staffTopnavNotificationsPreview = (array)($topnavCache['notifications_preview'] ?? []);
     }
 
     if (!$cacheIsFresh && $topnavSupabaseUrl !== '' && $topnavStaffUserId !== '' && !empty($topnavHeaders) && function_exists('apiRequest') && function_exists('isSuccessful')) {
@@ -86,6 +89,19 @@ if (function_exists('staffBackendContext')) {
             $staffUnreadNotificationCount = count((array)($unreadResponse['data'] ?? []));
         }
 
+        $previewResponse = apiRequest(
+            'GET',
+            rtrim($topnavSupabaseUrl, '/')
+                . '/rest/v1/notifications?select=id,title,body,link_url,is_read,created_at,category'
+                . '&recipient_user_id=eq.' . rawurlencode($topnavStaffUserId)
+                . '&order=created_at.desc&limit=8',
+            $topnavHeaders
+        );
+
+        if (isSuccessful($previewResponse)) {
+            $staffTopnavNotificationsPreview = array_values((array)($previewResponse['data'] ?? []));
+        }
+
         $staffTopnavPhotoUrl = $resolveProfilePhotoUrl($profilePhotoPath);
         $_SESSION['staff_topnav_cache'] = [
             'user_id' => $topnavStaffUserId,
@@ -93,6 +109,7 @@ if (function_exists('staffBackendContext')) {
             'role_label' => $staffTopnavRoleLabel,
             'profile_photo_url' => (string)($profilePhotoPath ?? ''),
             'unread_count' => $staffUnreadNotificationCount,
+            'notifications_preview' => $staffTopnavNotificationsPreview,
             'cached_at' => time(),
         ];
     }
@@ -135,5 +152,8 @@ $staffUnreadNotificationBadge = $staffUnreadNotificationCount > 99
 
 <script src="../../assets/js/script.js"></script>
 <script src="../../assets/js/alert.js"></script>
+<?php foreach (($pageScripts ?? []) as $pageScript): ?>
+    <script type="module" src="<?= htmlspecialchars((string)$pageScript, ENT_QUOTES, 'UTF-8') ?>" defer></script>
+<?php endforeach; ?>
 </body>
 </html>

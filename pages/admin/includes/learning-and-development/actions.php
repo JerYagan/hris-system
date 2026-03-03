@@ -253,7 +253,7 @@ if ($action === 'create_training') {
                 'recipient_user_id' => $recipientUserId,
                 'category' => 'learning_and_development',
                 'title' => 'New Training Schedule',
-                'body' => 'You are enrolled in ' . $trainingType . ' (' . $trainingCategory . ') on ' . $scheduleDateLabel . ' at ' . $scheduleTimeLabel . '.',
+                'body' => 'You are enrolled in ' . $trainingType . ' (' . $trainingCategory . '). Schedule: ' . $scheduleDateLabel . ' at ' . $scheduleTimeLabel . ' PST. Provider: ' . $provider . '. Venue: ' . $venue . '. Mode: ' . ucfirst($mode) . '.',
                 'link_url' => '/hris-system/pages/employee/notifications.php',
             ];
         }

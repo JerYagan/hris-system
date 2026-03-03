@@ -14,13 +14,44 @@ if (($topnavSupabaseUrl === '' || empty($topnavHeaders) || $topnavAdminUserId ==
 
 $topnavUnreadCount = 0;
 $topnavUnreadNotifications = [];
+$adminTopnavCsrfToken = function_exists('ensureCsrfToken') ? ensureCsrfToken() : '';
 $topnavDisplayName = 'Admin User';
 $topnavDisplayRole = 'Administrator';
 $topnavDisplayInitials = 'AD';
+$topnavProfilePhotoUrl = null;
+
+$resolveProfilePhotoUrl = static function (?string $rawPath): ?string {
+    $path = trim((string)$rawPath);
+    if ($path === '') {
+        return null;
+    }
+
+    if (preg_match('#^https?://#i', $path) === 1) {
+        return $path;
+    }
+
+    if (str_starts_with($path, '/')) {
+        return $path;
+    }
+
+    $normalized = str_replace('\\', '/', ltrim($path, '/'));
+    if (str_starts_with($normalized, 'storage/document/')) {
+        $normalized = substr($normalized, strlen('storage/document/'));
+    }
+
+    $segments = array_values(array_filter(explode('/', $normalized), static fn(string $segment): bool => $segment !== ''));
+    if (empty($segments)) {
+        return null;
+    }
+
+    $encoded = implode('/', array_map('rawurlencode', $segments));
+    return '/hris-system/storage/document/' . $encoded;
+};
+
 if ($topnavSupabaseUrl !== '' && !empty($topnavHeaders) && $topnavAdminUserId !== '' && function_exists('apiRequest') && function_exists('isSuccessful')) {
     $topnavProfileResponse = apiRequest(
         'GET',
-        rtrim($topnavSupabaseUrl, '/') . '/rest/v1/user_accounts?select=id,email,people(first_name,surname)&id=eq.' . $topnavAdminUserId . '&limit=1',
+        rtrim($topnavSupabaseUrl, '/') . '/rest/v1/user_accounts?select=id,email,people(first_name,surname,profile_photo_url)&id=eq.' . $topnavAdminUserId . '&limit=1',
         $topnavHeaders
     );
 
@@ -29,6 +60,7 @@ if ($topnavSupabaseUrl !== '' && !empty($topnavHeaders) && $topnavAdminUserId !=
         $peopleRow = (array)($profileRow['people'][0] ?? $profileRow['people'] ?? []);
         $firstName = trim((string)($peopleRow['first_name'] ?? ''));
         $surname = trim((string)($peopleRow['surname'] ?? ''));
+        $topnavProfilePhotoUrl = $resolveProfilePhotoUrl((string)($peopleRow['profile_photo_url'] ?? ''));
         $email = trim((string)($profileRow['email'] ?? ''));
 
         $candidateName = trim($firstName . ' ' . $surname);
@@ -55,7 +87,7 @@ if ($topnavSupabaseUrl !== '' && !empty($topnavHeaders) && $topnavAdminUserId !=
 
     $topnavUnreadResponse = apiRequest(
         'GET',
-        rtrim($topnavSupabaseUrl, '/') . '/rest/v1/notifications?select=id&recipient_user_id=eq.' . $topnavAdminUserId . '&is_read=eq.false&limit=5000',
+        rtrim($topnavSupabaseUrl, '/') . '/rest/v1/notifications?select=id&recipient_user_id=eq.' . $topnavAdminUserId . '&is_read=eq.false&category=neq.announcement&limit=5000',
         $topnavHeaders
     );
 
@@ -65,7 +97,7 @@ if ($topnavSupabaseUrl !== '' && !empty($topnavHeaders) && $topnavAdminUserId !=
 
     $topnavUnreadPreviewResponse = apiRequest(
         'GET',
-        rtrim($topnavSupabaseUrl, '/') . '/rest/v1/notifications?select=id,title,body,created_at,link_url&recipient_user_id=eq.' . $topnavAdminUserId . '&is_read=eq.false&order=created_at.desc&limit=5',
+        rtrim($topnavSupabaseUrl, '/') . '/rest/v1/notifications?select=id,title,body,created_at,link_url&recipient_user_id=eq.' . $topnavAdminUserId . '&is_read=eq.false&category=neq.announcement&order=created_at.desc&limit=5',
         $topnavHeaders
     );
 
@@ -142,51 +174,111 @@ if ($topnavInitialSource !== '') {
             </div>
         </div>
 
-        <div class="relative" id="notificationDropdown">
-            <button id="notificationToggle" type="button" class="admin-top-chip w-9 h-9 inline-flex items-center justify-center text-slate-300 hover:text-emerald-300" aria-label="Open notifications">
+        <div
+            class="relative"
+            data-topnav-notifications
+            data-endpoint="notifications.php"
+            data-action-field="form_action"
+            data-mark-read-action="mark_notification_read"
+            data-id-field="notification_id"
+            data-csrf-field="csrf_token"
+            data-csrf-token="<?= htmlspecialchars((string)$adminTopnavCsrfToken, ENT_QUOTES, 'UTF-8') ?>"
+            data-role-label="Administrator"
+        >
+            <button type="button" data-topnav-notification-trigger class="admin-top-chip relative w-9 h-9 inline-flex items-center justify-center text-slate-300 hover:text-emerald-300" aria-label="Open notifications">
                 <span class="material-symbols-outlined">notifications</span>
                 <?php if ($topnavUnreadCount > 0): ?>
-                    <span class="absolute -top-1 -right-1 min-w-4 h-4 bg-emerald-500 text-slate-900 text-[10px] rounded-full px-1 font-semibold leading-4 text-center"><?= htmlspecialchars((string)min($topnavUnreadCount, 99), ENT_QUOTES, 'UTF-8') ?></span>
+                    <span data-topnav-unread-badge data-unread-count="<?= (int)$topnavUnreadCount ?>" class="absolute -top-1 -right-1 min-w-4 h-4 bg-emerald-500 text-slate-900 text-[10px] rounded-full px-1 font-semibold leading-4 text-center"><?= htmlspecialchars((string)min($topnavUnreadCount, 99), ENT_QUOTES, 'UTF-8') ?></span>
+                <?php else: ?>
+                    <span data-topnav-unread-badge data-unread-count="0" class="absolute -top-1 -right-1 hidden min-w-4 h-4 bg-emerald-500 text-slate-900 text-[10px] rounded-full px-1 font-semibold leading-4 text-center">0</span>
                 <?php endif; ?>
             </button>
 
-            <div id="notificationMenu" class="absolute right-0 mt-2 w-[340px] hidden z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
-                <div class="px-4 py-3 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-semibold text-slate-800">Unread Notifications</p>
-                        <p class="text-xs text-slate-500"><?= htmlspecialchars((string)$topnavUnreadCount, ENT_QUOTES, 'UTF-8') ?> unread</p>
+            <div data-topnav-list-modal class="absolute right-0 top-full z-[90] mt-2 hidden w-[min(90vw,42rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                    <div class="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-5 py-4">
+                        <div>
+                            <p class="text-sm font-semibold text-slate-800">Unread Notifications</p>
+                            <p class="text-xs text-slate-500"><span data-topnav-unread-text><?= (int)$topnavUnreadCount ?></span> unread</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <a href="notifications.php" class="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-white">Open All</a>
+                            <button type="button" data-topnav-close="list" class="rounded-md border border-slate-200 px-2 py-1 text-slate-600 hover:bg-white" aria-label="Close notifications">
+                                <span class="material-symbols-outlined text-base">close</span>
+                            </button>
+                        </div>
                     </div>
-                    <a href="notifications.php" class="text-xs font-medium text-emerald-700 hover:underline">Open All</a>
-                </div>
+                    <div class="max-h-[60vh] overflow-y-auto p-3" data-topnav-items>
+                        <?php if (empty($topnavUnreadNotifications)): ?>
+                            <div class="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">No unread notifications.</div>
+                        <?php else: ?>
+                            <?php foreach ($topnavUnreadNotifications as $item): ?>
+                                <?php
+                                $itemId = trim((string)($item['id'] ?? ''));
+                                if ($itemId === '') {
+                                    continue;
+                                }
+                                $itemTitle = (string)($item['title'] ?? 'Notification');
+                                $itemBody = (string)($item['body'] ?? '');
+                                $itemLink = trim((string)($item['link_url'] ?? ''));
+                                $itemCreatedAtRaw = (string)($item['created_at'] ?? '');
+                                $itemCreatedAt = $itemCreatedAtRaw !== '' ? date('M d, Y h:i A', strtotime($itemCreatedAtRaw)) : '-';
+                                ?>
+                                <button
+                                    type="button"
+                                    data-topnav-item
+                                    data-notification-id="<?= htmlspecialchars($itemId, ENT_QUOTES, 'UTF-8') ?>"
+                                    data-notification-title="<?= htmlspecialchars($itemTitle, ENT_QUOTES, 'UTF-8') ?>"
+                                    data-notification-body="<?= htmlspecialchars($itemBody !== '' ? $itemBody : 'No description available.', ENT_QUOTES, 'UTF-8') ?>"
+                                    data-notification-link="<?= htmlspecialchars($itemLink, ENT_QUOTES, 'UTF-8') ?>"
+                                    data-notification-category="general"
+                                    data-notification-created="<?= htmlspecialchars($itemCreatedAt, ENT_QUOTES, 'UTF-8') ?>"
+                                    data-notification-read="0"
+                                    class="mb-2 block w-full rounded-xl border border-amber-200 bg-amber-50/60 px-4 py-3 text-left transition hover:bg-slate-50"
+                                >
+                                    <div class="flex items-start justify-between gap-3">
+                                        <p class="text-sm font-medium text-slate-800"><?= htmlspecialchars($itemTitle, ENT_QUOTES, 'UTF-8') ?></p>
+                                        <span data-topnav-item-status class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-700">Unread</span>
+                                    </div>
+                                    <p class="mt-1 line-clamp-2 text-xs text-slate-600"><?= htmlspecialchars($itemBody !== '' ? $itemBody : 'No description available.', ENT_QUOTES, 'UTF-8') ?></p>
+                                    <p class="mt-2 text-[11px] text-slate-400"><?= htmlspecialchars($itemCreatedAt, ENT_QUOTES, 'UTF-8') ?></p>
+                                </button>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+            </div>
 
-                <div class="max-h-[340px] overflow-y-auto">
-                    <?php if (empty($topnavUnreadNotifications)): ?>
-                        <div class="px-4 py-6 text-sm text-slate-500 text-center">No unread notifications.</div>
-                    <?php else: ?>
-                        <?php foreach ($topnavUnreadNotifications as $item): ?>
-                            <?php
-                            $itemTitle = (string)($item['title'] ?? 'Notification');
-                            $itemBody = (string)($item['body'] ?? '');
-                            $itemLink = trim((string)($item['link_url'] ?? ''));
-                            $itemCreatedAtRaw = (string)($item['created_at'] ?? '');
-                            $itemCreatedAt = $itemCreatedAtRaw !== '' ? date('M d, Y h:i A', strtotime($itemCreatedAtRaw)) : '-';
-                            ?>
-                            <a href="<?= htmlspecialchars($itemLink !== '' ? $itemLink : 'notifications.php', ENT_QUOTES, 'UTF-8') ?>" class="block px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                                <p class="text-sm font-medium text-slate-800"><?= htmlspecialchars($itemTitle, ENT_QUOTES, 'UTF-8') ?></p>
-                                <p class="text-xs text-slate-600 mt-1 line-clamp-2"><?= htmlspecialchars($itemBody !== '' ? $itemBody : 'No description available.', ENT_QUOTES, 'UTF-8') ?></p>
-                                <p class="text-[11px] text-slate-400 mt-1"><?= htmlspecialchars($itemCreatedAt, ENT_QUOTES, 'UTF-8') ?></p>
-                            </a>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
+            <div data-topnav-detail-modal class="absolute right-0 top-full z-[95] mt-2 hidden w-[min(90vw,36rem)] rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                    <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+                        <p class="text-base font-semibold text-slate-800">Notification Details</p>
+                        <button type="button" data-topnav-close="detail" class="rounded-md border border-slate-200 px-2 py-1 text-slate-600 hover:bg-slate-50" aria-label="Close notification details">
+                            <span class="material-symbols-outlined text-base">close</span>
+                        </button>
+                    </div>
+                    <div class="space-y-3 px-5 py-4 text-sm">
+                        <div class="flex items-center gap-2">
+                            <span data-topnav-detail-status class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">Unread</span>
+                            <span data-topnav-detail-created class="text-xs text-slate-500">-</span>
+                        </div>
+                        <h3 data-topnav-detail-title class="text-base font-semibold text-slate-800">Notification</h3>
+                        <p data-topnav-detail-body class="text-slate-600">No details available.</p>
+                        <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                            <p class="font-medium text-slate-700">Related Link</p>
+                            <a data-topnav-detail-link href="#" class="mt-1 inline-flex items-center gap-1 text-emerald-700 hover:underline" target="_self" rel="noopener">Open related record</a>
+                            <p data-topnav-detail-link-empty class="mt-1 text-slate-500">No related link available.</p>
+                        </div>
+                    </div>
             </div>
         </div>
 
         <div class="relative" id="profileDropdown">
             <button id="profileToggle" class="admin-top-chip flex items-center gap-2 px-2 py-1.5 focus:outline-none">
-                <div class="w-8 h-8 rounded-lg bg-emerald-500 text-slate-900 flex items-center justify-center text-xs font-semibold">
-                    <?= htmlspecialchars($topnavDisplayInitials, ENT_QUOTES, 'UTF-8') ?>
-                </div>
+                <?php if (!empty($topnavProfilePhotoUrl)): ?>
+                    <img src="<?= htmlspecialchars((string)$topnavProfilePhotoUrl, ENT_QUOTES, 'UTF-8') ?>" alt="Admin profile" class="h-8 w-8 object-cover">
+                <?php else: ?>
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500 text-slate-900 flex items-center justify-center text-xs font-semibold">
+                        <?= htmlspecialchars($topnavDisplayInitials, ENT_QUOTES, 'UTF-8') ?>
+                    </div>
+                <?php endif; ?>
 
                 <div class="leading-tight hidden md:block text-left">
                     <p class="text-sm font-medium text-white"><?= htmlspecialchars($topnavDisplayName, ENT_QUOTES, 'UTF-8') ?></p>
@@ -213,6 +305,11 @@ if ($topnavInitialSource !== '') {
                     <span>Settings</span>
                 </a>
 
+                <a href="support.php" class="flex items-center gap-3 px-3 py-2 text-sm rounded-lg hover:bg-slate-100 text-slate-700 whitespace-nowrap">
+                    <span class="material-symbols-outlined text-[18px] text-slate-500">support_agent</span>
+                    <span>Support</span>
+                </a>
+
                 <a href="create-announcement.php" class="flex items-center gap-3 px-3 py-2 text-sm rounded-lg hover:bg-slate-100 text-slate-700 whitespace-nowrap">
                     <span class="material-symbols-outlined text-[18px] text-slate-500">campaign</span>
                     <span>Create Announcement</span>
@@ -231,3 +328,5 @@ if ($topnavInitialSource !== '') {
         </div>
     </div>
 </header>
+
+<script src="/hris-system/assets/js/shared/topnav-notifications.js" defer></script>

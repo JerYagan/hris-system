@@ -22,29 +22,14 @@ if ($action !== 'publish_announcement') {
 
 $title = trim((string)(cleanText($_POST['announcement_title'] ?? null) ?? ''));
 $body = trim((string)(cleanText($_POST['announcement_body'] ?? null) ?? ''));
-$category = strtolower(trim((string)(cleanText($_POST['announcement_category'] ?? null) ?? 'system')));
-$audience = strtolower(trim((string)(cleanText($_POST['audience'] ?? null) ?? 'all_users')));
-$targetMode = strtolower(trim((string)(cleanText($_POST['target_mode'] ?? null) ?? 'audience')));
+$category = 'announcement';
+$audience = 'all_users';
+$targetMode = 'audience';
 $channel = strtolower(trim((string)(cleanText($_POST['delivery_channel'] ?? null) ?? 'both')));
 $linkUrl = trim((string)(cleanText($_POST['link_url'] ?? null) ?? ''));
 
 if ($title === '' || $body === '') {
     redirectWithState('error', 'Announcement title and body are required.');
-}
-
-$allowedCategories = ['system', 'hr', 'recruitment', 'payroll', 'announcement'];
-if (!in_array($category, $allowedCategories, true)) {
-    $category = 'announcement';
-}
-
-$allowedAudiences = ['all_users', 'admins', 'staff', 'employees', 'applicants'];
-if (!in_array($audience, $allowedAudiences, true)) {
-    redirectWithState('error', 'Invalid audience selected.');
-}
-
-$allowedTargetModes = ['audience', 'employee', 'group', 'role'];
-if (!in_array($targetMode, $allowedTargetModes, true)) {
-    redirectWithState('error', 'Invalid target mode selected.');
 }
 
 $selectedEmployeeIds = [];
@@ -69,18 +54,6 @@ foreach ((array)($_POST['target_role_keys'] ?? []) as $roleKeyRaw) {
     if ($roleKey !== '' && preg_match('/^[a-z0-9_]+$/', $roleKey)) {
         $selectedRoleKeys[$roleKey] = true;
     }
-}
-
-if ($targetMode === 'employee' && empty($selectedEmployeeIds)) {
-    redirectWithState('error', 'Select at least one employee target.');
-}
-
-if ($targetMode === 'group' && empty($selectedGroupIds)) {
-    redirectWithState('error', 'Select at least one employee group target.');
-}
-
-if ($targetMode === 'role' && empty($selectedRoleKeys)) {
-    redirectWithState('error', 'Select at least one role target.');
 }
 
 $allowedChannels = ['in_app', 'email', 'both'];

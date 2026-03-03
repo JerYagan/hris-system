@@ -135,10 +135,6 @@ $formatDateTime = static function (?string $dateTime): string {
         <span class="inline-flex items-center gap-2"><span class="material-icons text-daGreen text-base">description</span>Generate Report</span>
         <span class="material-icons text-gray-400 text-base">arrow_forward</span>
       </a>
-      <a href="praise.php?quick_action=submit-self-evaluation" class="inline-flex items-center justify-between border rounded-lg px-4 py-3 hover:bg-gray-50">
-        <span class="inline-flex items-center gap-2"><span class="material-icons text-daGreen text-base">fact_check</span>Submit Self-Evaluation</span>
-        <span class="material-icons text-gray-400 text-base">arrow_forward</span>
-      </a>
     </div>
   </section>
 

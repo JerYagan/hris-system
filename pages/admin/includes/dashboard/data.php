@@ -95,7 +95,7 @@ $leaveRequestsResponse = apiRequest(
 
 $notificationsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/notifications?select=id,category,title,body,link_url,is_read,created_at&recipient_user_id=eq.' . $adminUserId . '&order=created_at.desc&limit=500',
+    $supabaseUrl . '/rest/v1/notifications?select=id,category,title,body,link_url,is_read,created_at&recipient_user_id=eq.' . $adminUserId . '&category=neq.announcement&order=created_at.desc&limit=500',
     $headers
 );
 
@@ -263,6 +263,7 @@ foreach ($leaveRequestRowsRaw as $entry) {
 }
 
 $notificationsRows = [];
+$notificationCategoryOptions = [];
 $unreadNotifications = 0;
 $readNotifications = 0;
 $highPriorityNotifications = 0;
@@ -299,7 +300,13 @@ foreach ($notificationRowsRaw as $entry) {
         'created_at' => $createdAtDisplay,
         'search_text' => strtolower(trim($title . ' ' . $body . ' ' . $category . ' ' . $statusLabel)),
     ];
+
+    if ($category !== '') {
+        $notificationCategoryOptions[$category] = ucfirst($category);
+    }
 }
+
+ksort($notificationCategoryOptions);
 
 $approvedPositions = count($jobPositionRows);
 $filledPositions = count($employmentRows);
@@ -444,6 +451,17 @@ $attendanceStatusChart = [
         (int)($attendanceCounts['leave'] ?? 0),
         (int)($attendanceCounts['holiday'] ?? 0),
         (int)($attendanceCounts['rest_day'] ?? 0),
+    ],
+    'updated_at' => date('M d, Y h:i A'),
+];
+
+$plantillaChart = [
+    'title' => 'Plantilla Distribution - ' . date('M d, Y'),
+    'subtitle' => '(Auto-updated ' . date('M d, Y') . ')',
+    'labels' => ['Filled Positions', 'Vacant Positions'],
+    'values' => [
+        (int)$filledPositions,
+        (int)$vacantPositions,
     ],
     'updated_at' => date('M d, Y h:i A'),
 ];

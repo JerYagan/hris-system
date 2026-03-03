@@ -26,6 +26,7 @@ if (!function_exists('resolveEmployeeIdentityContext')) {
             'error' => 'Employee session context is invalid. Please login again.',
             'user_id' => $employeeUserId,
             'role_assignment_id' => null,
+            'employee_role_assigned_at' => null,
             'person_id' => null,
             'employment_id' => null,
             'office_id' => null,
@@ -42,7 +43,7 @@ if (!function_exists('resolveEmployeeIdentityContext')) {
         $roleResponse = apiRequest(
             'GET',
             $supabaseUrl
-            . '/rest/v1/user_role_assignments?select=id,is_primary,roles!inner(role_key)'
+            . '/rest/v1/user_role_assignments?select=id,is_primary,assigned_at,roles!inner(role_key)'
             . '&user_id=eq.' . rawurlencode($employeeUserId)
             . '&roles.role_key=eq.employee'
             . '&order=is_primary.desc&limit=1',
@@ -61,6 +62,7 @@ if (!function_exists('resolveEmployeeIdentityContext')) {
             return $context;
         }
         $context['role_assignment_id'] = $roleAssignmentId;
+        $context['employee_role_assigned_at'] = cleanText($roleRow['assigned_at'] ?? null);
 
         $personResponse = apiRequest(
             'GET',

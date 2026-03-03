@@ -49,6 +49,71 @@ $matchesApprovedFlexiWindow = static function (?string $timeIn, ?string $timeOut
     return in_array($startKey . '|' . $endKey, $approvedWindows, true);
 };
 
+$currentPstLabel = static function (): string {
+    try {
+        $pst = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
+        return $pst->format('M d, Y h:i A') . ' PST';
+    } catch (Throwable $exception) {
+        return gmdate('M d, Y h:i A') . ' UTC';
+    }
+};
+
+$notifyStaffFinalDecision = static function (
+    string $entityName,
+    string $entityId,
+    string $recommendationAction,
+    string $decision,
+    ?string $notes,
+    string $title,
+    string $linkUrl,
+    string $subjectLabel
+) use ($supabaseUrl, $headers, $adminUserId, $currentPstLabel): void {
+    if ($entityId === '' || $recommendationAction === '') {
+        return;
+    }
+
+    $recommendationLogResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/activity_logs?select=actor_user_id,created_at'
+        . '&entity_name=eq.' . rawurlencode($entityName)
+        . '&entity_id=eq.' . rawurlencode($entityId)
+        . '&action_name=eq.' . rawurlencode($recommendationAction)
+        . '&order=created_at.desc&limit=1',
+        $headers
+    );
+
+    if (!isSuccessful($recommendationLogResponse)) {
+        return;
+    }
+
+    $recommendationLog = (array)(($recommendationLogResponse['data'] ?? [])[0] ?? []);
+    $staffRecipientUserId = (string)($recommendationLog['actor_user_id'] ?? '');
+    if ($staffRecipientUserId === '' || !isValidUuid($staffRecipientUserId) || $staffRecipientUserId === $adminUserId) {
+        return;
+    }
+
+    $decisionLabel = str_replace('_', ' ', strtolower($decision));
+    $notificationBody = 'Your forwarded ' . $subjectLabel . ' was ' . $decisionLabel . ' by Admin on ' . $currentPstLabel() . '.';
+    $notesText = trim((string)$notes);
+    if ($notesText !== '') {
+        $notificationBody .= ' Remarks: ' . $notesText;
+    }
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/notifications',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'recipient_user_id' => $staffRecipientUserId,
+            'category' => 'timekeeping',
+            'title' => $title,
+            'body' => $notificationBody,
+            'link_url' => $linkUrl,
+        ]]
+    );
+};
+
 if ($action === 'review_time_adjustment') {
     $requestId = cleanText($_POST['request_id'] ?? null) ?? '';
     $decision = strtolower((string)(cleanText($_POST['decision'] ?? null) ?? ''));
@@ -170,6 +235,17 @@ if ($action === 'review_time_adjustment') {
         );
     }
 
+    $notifyStaffFinalDecision(
+        'time_adjustment_requests',
+        $requestId,
+        'recommend_time_adjustment',
+        $decision,
+        $notes,
+        'Time Adjustment Recommendation Reviewed',
+        '/hris-system/pages/staff/timekeeping.php',
+        'time adjustment recommendation'
+    );
+
     logStatusTransition(
         $supabaseUrl,
         $headers,
@@ -251,6 +327,17 @@ if ($action === 'review_leave_request') {
         );
     }
 
+    $notifyStaffFinalDecision(
+        'leave_requests',
+        $leaveRequestId,
+        'recommend_leave_request',
+        $decision,
+        $notes,
+        'Leave Recommendation Reviewed',
+        '/hris-system/pages/staff/timekeeping.php',
+        'leave recommendation'
+    );
+
     logStatusTransition(
         $supabaseUrl,
         $headers,
@@ -326,6 +413,17 @@ if ($action === 'review_cto_request') {
             ]]
         );
     }
+
+    $notifyStaffFinalDecision(
+        'overtime_requests',
+        $requestId,
+        'recommend_ob_request',
+        $decision,
+        $notes,
+        'Official Business Recommendation Reviewed',
+        '/hris-system/pages/staff/timekeeping.php',
+        'official business recommendation'
+    );
 
     logStatusTransition(
         $supabaseUrl,

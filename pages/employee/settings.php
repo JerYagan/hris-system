@@ -1,4 +1,7 @@
 <?php
+header('Location: personal-information.php?state=error&message=' . urlencode('Settings module is not available for employee accounts.'));
+exit;
+
 require_once __DIR__ . '/includes/settings/bootstrap.php';
 require_once __DIR__ . '/includes/settings/actions.php';
 require_once __DIR__ . '/includes/settings/data.php';

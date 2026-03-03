@@ -214,86 +214,140 @@ const wirePermanentAddressToggle = () => {
 const wirePhotoUploadPreview = () => {
   const form = document.getElementById('profilePhotoForm');
   const input = document.getElementById('profilePhotoInput');
-  const actionButton = document.getElementById('profilePhotoActionBtn');
-  const actionIcon = document.getElementById('profilePhotoActionIcon');
-  const actionText = document.getElementById('profilePhotoActionText');
   const fileNameLabel = document.getElementById('profilePhotoFileName');
-  const previewWrap = document.getElementById('profilePhotoPreviewWrap');
-  const previewImage = document.getElementById('profilePhotoPreview');
+  const previewModal = document.getElementById('employeePhotoPreviewModal');
+  const previewImage = document.getElementById('employeeProfilePhotoPreviewImage');
+  const previewEmpty = document.getElementById('employeeProfilePhotoPreviewEmpty');
+  const confirmUploadButton = document.getElementById('employeeProfilePhotoConfirmUpload');
+
+  document.querySelectorAll('[data-trigger-file="profilePhotoInput"]').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (input instanceof HTMLInputElement) {
+        input.click();
+      }
+    });
+  });
 
   if (!(input instanceof HTMLInputElement)) {
     return;
   }
 
-  const renderActionButton = (mode) => {
-    if (!(actionButton instanceof HTMLButtonElement)) {
+  input.addEventListener('change', () => {
+    const file = input.files && input.files[0] ? input.files[0] : null;
+    if (fileNameLabel) {
+      fileNameLabel.textContent = file ? file.name : 'No file selected.';
+    }
+
+    if (!previewImage || !previewEmpty) {
       return;
     }
 
-    actionButton.dataset.mode = mode;
-    if (mode === 'save') {
-      actionButton.classList.remove('border', 'border-slate-300', 'bg-white', 'text-slate-700');
-      actionButton.classList.add('bg-daGreen', 'text-white');
-      if (actionIcon instanceof HTMLElement) {
-        actionIcon.textContent = 'photo_camera';
-      }
-      if (actionText instanceof HTMLElement) {
-        actionText.textContent = 'Save Photo';
-      }
+    if (!file) {
+      previewImage.classList.add('hidden');
+      previewImage.removeAttribute('src');
+      previewEmpty.classList.remove('hidden');
       return;
     }
 
-    actionButton.classList.remove('bg-daGreen', 'text-white');
-    actionButton.classList.add('border', 'border-slate-300', 'bg-white', 'text-slate-700');
-    if (actionIcon instanceof HTMLElement) {
-      actionIcon.textContent = 'upload';
-    }
-    if (actionText instanceof HTMLElement) {
-      actionText.textContent = 'Choose Photo';
-    }
-  };
+    const reader = new FileReader();
+    reader.onload = () => {
+      previewImage.src = String(reader.result || '');
+      previewImage.classList.remove('hidden');
+      previewEmpty.classList.add('hidden');
+      previewModal?.classList.remove('hidden');
+    };
+    reader.readAsDataURL(file);
+  });
 
-  actionButton?.addEventListener('click', () => {
-    const mode = (actionButton instanceof HTMLButtonElement ? actionButton.dataset.mode : 'choose') || 'choose';
-    if (mode === 'save') {
+  if (confirmUploadButton instanceof HTMLButtonElement) {
+    confirmUploadButton.addEventListener('click', () => {
+      if (!(input instanceof HTMLInputElement) || !input.files || input.files.length === 0) {
+        return;
+      }
+
       if (form instanceof HTMLFormElement) {
         form.submit();
       }
-      return;
-    }
+    });
+  }
 
-    input.click();
+  document.querySelectorAll('[data-close-photo-preview="employeePhotoPreviewModal"]').forEach((button) => {
+    button.addEventListener('click', () => {
+      previewModal?.classList.add('hidden');
+    });
   });
+};
 
-  input.addEventListener('change', () => {
-    const file = input.files && input.files[0] ? input.files[0] : null;
-    if (!file) {
-      if (fileNameLabel) {
-        fileNameLabel.textContent = 'No file selected';
-      }
-      previewWrap?.classList.add('hidden');
-      if (previewImage instanceof HTMLImageElement) {
-        previewImage.src = '';
-      }
-      renderActionButton('choose');
-      return;
+const wirePasswordChangeFlow = () => {
+  const passwordInput = document.getElementById('employeeNewPasswordInput');
+  const strengthBar = document.getElementById('employeePasswordStrengthBar');
+  const strengthText = document.getElementById('employeePasswordStrengthText');
+
+  const scorePassword = (value) => {
+    let score = 0;
+    if (value.length >= 10) score += 1;
+    if (/[A-Z]/.test(value)) score += 1;
+    if (/[a-z]/.test(value)) score += 1;
+    if (/\d/.test(value)) score += 1;
+    if (/[^a-zA-Z0-9]/.test(value)) score += 1;
+    return score;
+  };
+
+  const applyStrengthUi = (score) => {
+    if (!strengthBar || !strengthText) return;
+
+    const widths = ['0%', '20%', '40%', '60%', '80%', '100%'];
+    const labels = [
+      'Strength: Enter a new password',
+      'Strength: Very Weak',
+      'Strength: Weak',
+      'Strength: Fair',
+      'Strength: Good',
+      'Strength: Strong',
+    ];
+    const classes = ['bg-slate-300', 'bg-red-500', 'bg-orange-500', 'bg-amber-500', 'bg-lime-500', 'bg-emerald-600'];
+
+    strengthBar.style.width = widths[score] || '0%';
+    strengthBar.classList.remove('bg-slate-300', 'bg-red-500', 'bg-orange-500', 'bg-amber-500', 'bg-lime-500', 'bg-emerald-600');
+    strengthBar.classList.add(classes[score] || 'bg-slate-300');
+    strengthText.textContent = labels[score] || labels[0];
+  };
+
+  if (passwordInput) {
+    applyStrengthUi(0);
+    passwordInput.addEventListener('input', () => {
+      const value = passwordInput.value || '';
+      const score = value.length === 0 ? 0 : scorePassword(value);
+      applyStrengthUi(score);
+    });
+  }
+
+  const passwordFlowDataNode = document.getElementById('employeePasswordFlowData');
+  let passwordFlowData = { has_pending_code: false, state: '', message: '' };
+  if (passwordFlowDataNode && passwordFlowDataNode.textContent) {
+    try {
+      passwordFlowData = JSON.parse(passwordFlowDataNode.textContent);
+    } catch (_error) {
+      passwordFlowData = { has_pending_code: false, state: '', message: '' };
     }
+  }
 
-    if (fileNameLabel) {
-      fileNameLabel.textContent = file.name;
-    }
+  const requestModal = document.getElementById('employeePasswordRequestModal');
+  const verifyModal = document.getElementById('employeePasswordVerifyModal');
+  const hasPendingCode = Boolean(passwordFlowData.has_pending_code);
+  const state = String(passwordFlowData.state || '');
+  const message = String(passwordFlowData.message || '');
+  const lowerMessage = message.toLowerCase();
+  const shouldAutoOpenVerify = hasPendingCode && (
+    (state === 'success' && lowerMessage.includes('verification code sent'))
+    || state === 'error'
+  );
 
-    if (previewImage instanceof HTMLImageElement) {
-      previewImage.src = URL.createObjectURL(file);
-      previewImage.onload = () => {
-        URL.revokeObjectURL(previewImage.src);
-      };
-    }
-    previewWrap?.classList.remove('hidden');
-    renderActionButton('save');
-  });
-
-  renderActionButton('choose');
+  if (shouldAutoOpenVerify && verifyModal) {
+    requestModal?.classList.add('hidden');
+    verifyModal.classList.remove('hidden');
+    verifyModal.setAttribute('aria-hidden', 'false');
+  }
 };
 
 const extractDatalistValues = (id) => {
@@ -662,6 +716,7 @@ const initEmployeePersonalInformationPage = () => {
   wireDynamicRows();
   wirePermanentAddressToggle();
   wirePhotoUploadPreview();
+  wirePasswordChangeFlow();
   wireModernProfileSearch();
 
   wireModal({
@@ -677,10 +732,22 @@ const initEmployeePersonalInformationPage = () => {
     modalId: 'spouseRequestModal',
   });
 
+  wireModal({
+    openSelector: '[data-open-password-request]',
+    closeSelector: '[data-close-password-request]',
+    modalId: 'employeePasswordRequestModal',
+  });
+
+  wireModal({
+    openSelector: '[data-open-password-verify]',
+    closeSelector: '[data-close-password-verify]',
+    modalId: 'employeePasswordVerifyModal',
+  });
+
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
 
-    ['profileModal', 'spouseRequestModal'].forEach((modalId) => {
+    ['profileModal', 'spouseRequestModal', 'employeePasswordRequestModal', 'employeePasswordVerifyModal'].forEach((modalId) => {
       const modal = document.getElementById(modalId);
       if (modal && !modal.classList.contains('hidden')) {
         toggleModal(modal, false);

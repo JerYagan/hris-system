@@ -16,8 +16,9 @@ $selectedStatus = strtolower((string)(cleanText($_GET['status'] ?? null) ?? 'all
 $currentPage = max(1, (int)($_GET['page'] ?? 1));
 $pageSize = 10;
 
-$allowedCategories = ['all', 'system', 'hr', 'application', 'learning_and_development', 'general'];
+$allowedCategories = ['all', 'announcement', 'system', 'hr', 'employee_profile', 'learning_and_development', 'payroll', 'timekeeping', 'documents', 'general'];
 $allowedStatuses = ['all', 'unread', 'read'];
+$employeeNotificationSince = trim((string)($employeeRoleAssignedAt ?? ''));
 
 if (!in_array($selectedCategory, $allowedCategories, true)) {
     $selectedCategory = 'all';
@@ -37,6 +38,8 @@ $summaryResponse = apiRequest(
     $supabaseUrl
     . '/rest/v1/notifications?select=id,is_read,category'
     . '&recipient_user_id=eq.' . rawurlencode((string)$employeeUserId)
+    . '&category=not.in.(application,recruitment)'
+    . ($employeeNotificationSince !== '' ? ('&created_at=gte.' . rawurlencode($employeeNotificationSince)) : '')
     . '&limit=500',
     $headers
 );
@@ -71,17 +74,30 @@ if ($selectedStatus === 'read') {
 }
 
 if ($selectedCategory !== 'all') {
-    if ($selectedCategory === 'system') {
+    if ($selectedCategory === 'announcement') {
+        $queryParts[] = 'category=ilike.*announcement*';
+    } elseif ($selectedCategory === 'system') {
         $queryParts[] = 'category=ilike.*system*';
     } elseif ($selectedCategory === 'hr') {
         $queryParts[] = 'category=ilike.*hr*';
-    } elseif ($selectedCategory === 'application') {
-        $queryParts[] = 'category=ilike.*application*';
+    } elseif ($selectedCategory === 'employee_profile') {
+        $queryParts[] = 'category=ilike.*employee_profile*';
     } elseif ($selectedCategory === 'learning_and_development') {
         $queryParts[] = 'category=ilike.*learning*development*';
+    } elseif ($selectedCategory === 'payroll') {
+        $queryParts[] = 'category=ilike.*payroll*';
+    } elseif ($selectedCategory === 'timekeeping') {
+        $queryParts[] = 'category=ilike.*timekeeping*';
+    } elseif ($selectedCategory === 'documents') {
+        $queryParts[] = 'category=ilike.*documents*';
     } else {
         $queryParts[] = 'category=ilike.*general*';
     }
+}
+
+$queryParts[] = 'category=not.in.(application,recruitment)';
+if ($employeeNotificationSince !== '') {
+    $queryParts[] = 'created_at=gte.' . rawurlencode($employeeNotificationSince);
 }
 
 $offset = ($currentPage - 1) * $pageSize;

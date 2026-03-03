@@ -19,9 +19,9 @@
         <p class="text-xs text-blue-700 mt-1">Applicants needing decision updates</p>
     </article>
     <article class="bg-white border border-slate-200 rounded-xl p-4 min-h-[130px] flex flex-col justify-between">
-        <p class="text-xs uppercase text-slate-500 tracking-wide">Pending Documents</p>
+        <p class="text-xs uppercase text-slate-500 tracking-wide">Pending Document for Verification</p>
         <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$dashboardSummary['pending_documents'] ?></p>
-        <p class="text-xs text-purple-700 mt-1">Submitted documents awaiting review</p>
+        <p class="text-xs text-purple-700 mt-1">Submitted records awaiting verification</p>
     </article>
     <article class="bg-white border border-slate-200 rounded-xl p-4 min-h-[130px] flex flex-col justify-between">
         <p class="text-xs uppercase text-slate-500 tracking-wide">Total Employees</p>
@@ -51,9 +51,9 @@
             <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$dashboardSummary['present_today'] ?></p>
         </article>
         <article class="rounded-xl border border-slate-200 p-4 bg-rose-50">
-            <p class="text-xs uppercase text-rose-700">Absence Rate This Week (%)</p>
-            <p class="text-2xl font-bold text-slate-800 mt-2"><?= number_format((float)$dashboardSummary['absence_rate_week'], 2) ?>%</p>
-            <p class="text-xs text-rose-700 mt-1">Auto-updated Saturday 5:30AM</p>
+            <p class="text-xs uppercase text-rose-700">Absent Today</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2\"><?= (int)$dashboardSummary['absent_today'] ?></p>
+            <p class="text-xs text-rose-700 mt-1">As of today · Weekly absence rate: <?= number_format((float)$dashboardSummary['absence_rate_week'], 2) ?>%</p>
         </article>
     </div>
 </section>
@@ -149,6 +149,13 @@
             </tbody>
         </table>
     </div>
+    <div class="mt-3 flex items-center justify-between gap-3 text-sm text-slate-600">
+        <p id="dashboardLeavePaginationMeta">Showing 0 to 0 of 0 entries</p>
+        <div class="inline-flex items-center gap-2">
+            <button id="dashboardLeavePrevPage" type="button" class="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">Previous</button>
+            <button id="dashboardLeaveNextPage" type="button" class="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
+        </div>
+    </div>
 </section>
 
 <section class="bg-white border border-slate-200 rounded-2xl p-6 mb-6">
@@ -168,6 +175,15 @@
                 <option value="">All Statuses</option>
                 <option value="Unread">Unread</option>
                 <option value="Read">Read</option>
+            </select>
+        </div>
+        <div class="w-full md:w-56">
+            <label class="text-sm text-slate-600" for="dashboardNotificationsCategoryFilter">Category</label>
+            <select id="dashboardNotificationsCategoryFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
+                <option value="">All Categories</option>
+                <?php foreach (($notificationCategoryOptions ?? []) as $categoryKey => $categoryLabel): ?>
+                    <option value="<?= htmlspecialchars((string)$categoryKey, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$categoryLabel, ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
             </select>
         </div>
     </div>
@@ -191,6 +207,7 @@
                         <tr
                             data-dashboard-notification-search="<?= htmlspecialchars((string)$row['search_text'], ENT_QUOTES, 'UTF-8') ?>"
                             data-dashboard-notification-status="<?= htmlspecialchars((string)$row['status_label'], ENT_QUOTES, 'UTF-8') ?>"
+                            data-dashboard-notification-category="<?= htmlspecialchars((string)$row['category'], ENT_QUOTES, 'UTF-8') ?>"
                         >
                             <td class="px-4 py-3">
                                 <p class="font-medium text-slate-800"><?= htmlspecialchars((string)$row['title'], ENT_QUOTES, 'UTF-8') ?></p>
@@ -221,13 +238,30 @@
             </tbody>
         </table>
     </div>
+    <div class="mt-3 flex items-center justify-between gap-3 text-sm text-slate-600">
+        <p id="dashboardNotificationsPaginationMeta">Showing 0 to 0 of 0 entries</p>
+        <div class="inline-flex items-center gap-2">
+            <button id="dashboardNotificationsPrevPage" type="button" class="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">Previous</button>
+            <button id="dashboardNotificationsNextPage" type="button" class="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
+        </div>
+    </div>
 </section>
 
 <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
     <div class="bg-white border border-slate-200 rounded-2xl p-6">
         <div class="flex items-center justify-between mb-4">
-            <h2 class="font-semibold text-slate-800">Plantilla</h2>
+            <h2 class="font-semibold text-slate-800"><?= htmlspecialchars((string)$plantillaChart['title'], ENT_QUOTES, 'UTF-8') ?></h2>
             <a href="report-analytics.php" class="text-sm text-emerald-700 hover:underline">Open plantilla</a>
+        </div>
+        <p class="text-xs text-slate-500 mb-3"><?= htmlspecialchars((string)$plantillaChart['subtitle'], ENT_QUOTES, 'UTF-8') ?></p>
+        <div class="h-56 mb-4">
+            <canvas
+                data-chart-type="doughnut"
+                data-chart-label="Plantilla"
+                data-chart-labels='<?= htmlspecialchars((string)json_encode($plantillaChart['labels'], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?>'
+                data-chart-values='<?= htmlspecialchars((string)json_encode($plantillaChart['values'], JSON_NUMERIC_CHECK), ENT_QUOTES, 'UTF-8') ?>'
+                data-chart-colors='["#0f172a", "#10b981"]'
+            ></canvas>
         </div>
         <div class="space-y-2 text-sm">
             <p class="flex justify-between"><span>Approved Positions</span><span class="font-semibold text-slate-800"><?= (int)$dashboardSummary['approved_positions'] ?></span></p>
@@ -268,6 +302,13 @@
                     <?php endif; ?>
                 </tbody>
             </table>
+        </div>
+        <div class="mt-3 flex items-center justify-between gap-3 text-sm text-slate-600">
+            <p id="dashboardDepartmentPaginationMeta">Showing 0 to 0 of 0 entries</p>
+            <div class="inline-flex items-center gap-2">
+                <button id="dashboardDepartmentPrevPage" type="button" class="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">Previous</button>
+                <button id="dashboardDepartmentNextPage" type="button" class="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
+            </div>
         </div>
     </div>
 </section>

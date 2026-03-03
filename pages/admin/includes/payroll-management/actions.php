@@ -1849,6 +1849,16 @@ if ($action === 'review_payroll_batch') {
         $staffRecipientId = cleanText($handoffLog['actor_user_id'] ?? null) ?? '';
         if (isValidUuid($staffRecipientId)) {
             $decisionLabel = $decision === 'approved' ? 'approved' : 'returned/cancelled';
+            try {
+                $decisionTimestampPst = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('M d, Y h:i A') . ' PST';
+            } catch (Throwable $exception) {
+                $decisionTimestampPst = gmdate('M d, Y h:i A') . ' UTC';
+            }
+            $staffDecisionBody = 'Payroll batch ' . $runId . ' has been ' . $decisionLabel . ' by Admin on ' . $decisionTimestampPst . '.';
+            $notesText = trim((string)$notes);
+            if ($notesText !== '') {
+                $staffDecisionBody .= ' Remarks: ' . $notesText;
+            }
             apiRequest(
                 'POST',
                 $supabaseUrl . '/rest/v1/notifications',
@@ -1857,7 +1867,7 @@ if ($action === 'review_payroll_batch') {
                     'recipient_user_id' => $staffRecipientId,
                     'category' => 'payroll',
                     'title' => 'Payroll Batch Reviewed by Admin',
-                    'body' => 'Payroll batch ' . $runId . ' has been ' . $decisionLabel . ' by Admin.',
+                    'body' => $staffDecisionBody,
                     'link_url' => '/hris-system/pages/staff/payroll-management.php',
                 ]]
             );

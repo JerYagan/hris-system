@@ -9,12 +9,20 @@ $profileData = [
 	'email' => cleanText($_SESSION['user']['email'] ?? null) ?? '-',
 	'mobile_no' => '-',
 	'current_address' => '-',
+	'profile_photo_url' => '',
+	'profile_photo_public_url' => '',
 	'training_hours_completed' => 0.0,
 ];
 
 $profileSpouses = [];
 $profileEducations = [];
 $uploadedFiles = [];
+
+$passwordChangeStatus = [
+	'is_pending' => false,
+	'expires_at' => '-',
+	'email' => '',
+];
 
 $dataLoadError = null;
 
@@ -36,7 +44,7 @@ $accountResponse = apiRequest(
 
 $peopleResponse = apiRequest(
 	'GET',
-	$supabaseUrl . '/rest/v1/people?select=id,first_name,middle_name,surname,mobile_no,personal_email&user_id=eq.' . rawurlencode($applicantUserId) . '&limit=1',
+	$supabaseUrl . '/rest/v1/people?select=id,first_name,middle_name,surname,mobile_no,personal_email,profile_photo_url&user_id=eq.' . rawurlencode($applicantUserId) . '&limit=1',
 	$headers
 );
 
@@ -122,6 +130,7 @@ if ($profileData['current_address'] === '') {
 }
 
 $profileData['training_hours_completed'] = max(0.0, (float)($applicantProfileRow['training_hours_completed'] ?? 0));
+$profileData['profile_photo_url'] = (string)($peopleRow['profile_photo_url'] ?? '');
 
 if ($profileData['email'] === '') {
 	$profileData['email'] = '-';
@@ -129,6 +138,23 @@ if ($profileData['email'] === '') {
 
 if ($profileData['mobile_no'] === '') {
 	$profileData['mobile_no'] = '-';
+}
+
+$rawProfilePhotoPath = trim((string)$profileData['profile_photo_url']);
+if ($rawProfilePhotoPath !== '') {
+	if (preg_match('#^https?://#i', $rawProfilePhotoPath) === 1 || str_starts_with($rawProfilePhotoPath, '/')) {
+		$profileData['profile_photo_public_url'] = $rawProfilePhotoPath;
+	} else {
+		$profileData['profile_photo_public_url'] = '/hris-system/storage/document/' . ltrim($rawProfilePhotoPath, '/');
+	}
+}
+
+$pendingPasswordChange = (array)($_SESSION['applicant_profile_password_change'] ?? []);
+$pendingExpiresAt = (int)($pendingPasswordChange['expires_at'] ?? 0);
+if ($pendingExpiresAt > time()) {
+	$passwordChangeStatus['is_pending'] = true;
+	$passwordChangeStatus['expires_at'] = date('M d, Y h:i A', $pendingExpiresAt);
+	$passwordChangeStatus['email'] = (string)($pendingPasswordChange['email'] ?? '');
 }
 
 $personId = cleanText($peopleRow['id'] ?? null);
@@ -220,5 +246,97 @@ if ($applicantProfileId !== null && isValidUuid($applicantProfileId)) {
 				}
 			}
 		}
+
+		$loginHistoryResponse = apiRequest(
+			'GET',
+			$supabaseUrl . '/rest/v1/login_audit_logs?select=id,event_type,auth_provider,ip_address,user_agent,created_at&user_id=eq.' . rawurlencode($applicantUserId) . '&order=created_at.desc&limit=500',
+			$headers
+		);
+
+		$loginHistoryRowsRaw = isSuccessful($loginHistoryResponse) ? (array)($loginHistoryResponse['data'] ?? []) : [];
+
+		$resolveDeviceLabel = static function (string $userAgent): string {
+			$agent = strtolower(trim($userAgent));
+			if ($agent === '' || $agent === '-') {
+				return 'Unknown Device';
+			}
+
+			if (str_contains($agent, 'bot') || str_contains($agent, 'spider') || str_contains($agent, 'crawler')) {
+				return 'Bot / Script';
+			}
+
+			if (str_contains($agent, 'ipad') || str_contains($agent, 'tablet')) {
+				return 'Tablet';
+			}
+
+			if (str_contains($agent, 'mobile') || str_contains($agent, 'android') || str_contains($agent, 'iphone')) {
+				return 'Mobile';
+			}
+
+			return 'Desktop';
+		};
+
+		$loginSearchQuery = strtolower(trim((string)($_GET['login_search'] ?? '')));
+		$loginEventFilter = trim((string)($_GET['login_event'] ?? ''));
+		$loginDeviceFilter = trim((string)($_GET['login_device'] ?? ''));
+		$loginPage = max(1, (int)($_GET['login_page'] ?? 1));
+		$loginPerPage = 10;
+
+		$loginEventOptions = [];
+		$loginDeviceOptions = [];
+
+		$loginHistoryRows = [];
+		foreach ($loginHistoryRowsRaw as $entry) {
+			$eventType = (string)($entry['event_type'] ?? 'unknown');
+			$eventLabel = ucwords(str_replace('_', ' ', $eventType));
+			$createdAt = (string)($entry['created_at'] ?? '');
+			$userAgent = (string)($entry['user_agent'] ?? '-');
+			$deviceLabel = $resolveDeviceLabel($userAgent);
+
+			if ($eventLabel !== '') {
+				$loginEventOptions[$eventLabel] = true;
+			}
+			$loginDeviceOptions[$deviceLabel] = true;
+
+			$loginHistoryRows[] = [
+				'event_label' => $eventLabel,
+				'auth_provider' => (string)($entry['auth_provider'] ?? 'password'),
+				'ip_address' => (string)($entry['ip_address'] ?? 'unknown'),
+				'user_agent' => $userAgent,
+				'device_label' => $deviceLabel,
+				'created_at' => $createdAt !== '' ? date('M d, Y h:i A', strtotime($createdAt)) : '-',
+				'search_text' => strtolower(trim($eventLabel . ' ' . ((string)($entry['auth_provider'] ?? '')) . ' ' . ((string)($entry['ip_address'] ?? '')) . ' ' . $userAgent . ' ' . $deviceLabel)),
+			];
+		}
+
+		$loginHistoryRowsFiltered = array_values(array_filter(
+			$loginHistoryRows,
+			static function (array $row) use ($loginSearchQuery, $loginEventFilter, $loginDeviceFilter): bool {
+				if ($loginEventFilter !== '' && (string)($row['event_label'] ?? '') !== $loginEventFilter) {
+					return false;
+				}
+
+				if ($loginDeviceFilter !== '' && (string)($row['device_label'] ?? '') !== $loginDeviceFilter) {
+					return false;
+				}
+
+				if ($loginSearchQuery !== '' && !str_contains((string)($row['search_text'] ?? ''), $loginSearchQuery)) {
+					return false;
+				}
+
+				return true;
+			}
+		));
+
+		$loginHistoryTotal = count($loginHistoryRowsFiltered);
+		$loginTotalPages = max(1, (int)ceil($loginHistoryTotal / $loginPerPage));
+		$loginPage = min($loginPage, $loginTotalPages);
+		$loginOffset = ($loginPage - 1) * $loginPerPage;
+		$loginHistoryRows = array_slice($loginHistoryRowsFiltered, $loginOffset, $loginPerPage);
+
+		$loginEventOptions = array_keys($loginEventOptions);
+		sort($loginEventOptions);
+		$loginDeviceOptions = array_keys($loginDeviceOptions);
+		sort($loginDeviceOptions);
 	}
 }

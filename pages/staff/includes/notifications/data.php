@@ -43,8 +43,7 @@ foreach ($notifications as $index => $notificationRow) {
     $linkLower = strtolower($linkUrl);
     if (
         $linkUrl === ''
-        || str_contains($linkLower, '/pages/admin/payroll-management.php')
-        || str_contains($linkLower, '/pages/employee/payroll.php')
+        || !str_contains($linkLower, '/pages/staff/payroll-management.php')
     ) {
         $notificationRow['link_url'] = '/hris-system/pages/staff/payroll-management.php';
     }

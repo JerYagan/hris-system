@@ -1,6 +1,6 @@
 <?php
 $adminActivePage = $activePage ?? '';
-$adminChartPages = ['dashboard.php', 'report-analytics.php', 'praise-reports-analytics.php'];
+$adminChartPages = ['dashboard.php', 'report-analytics.php'];
 $adminDataTablePages = [
   'recruitment.php',
   'applicants.php',
@@ -11,10 +11,6 @@ $adminDataTablePages = [
   'timekeeping.php',
   'payroll-management.php',
   'report-analytics.php',
-  'praise.php',
-  'praise-employee-evaluation.php',
-  'praise-awards-recognition.php',
-  'praise-reports-analytics.php',
   'learning-and-development.php',
   'user-management.php',
   'notifications.php',

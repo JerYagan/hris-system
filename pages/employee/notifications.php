@@ -54,7 +54,7 @@ $buildQuery = static function (array $params): string {
 
 <div class="mb-6">
   <h1 class="text-2xl font-bold">Notifications</h1>
-  <p class="text-sm text-gray-500">System alerts, HR announcements, and application updates.</p>
+  <p class="text-sm text-gray-500">Announcements and employee-related updates relevant to your current employee account.</p>
 </div>
 
 <?php if (!empty($message)): ?>
@@ -92,10 +92,14 @@ $buildQuery = static function (array $params): string {
         <label class="block text-xs text-gray-500 mb-1" for="notifCategory">Category</label>
         <select id="notifCategory" name="category" class="border rounded-lg px-3 py-2">
           <option value="all" <?= $selectedCategory === 'all' ? 'selected' : '' ?>>All Categories</option>
+          <option value="announcement" <?= $selectedCategory === 'announcement' ? 'selected' : '' ?>>Announcements</option>
           <option value="system" <?= $selectedCategory === 'system' ? 'selected' : '' ?>>System Alerts</option>
           <option value="hr" <?= $selectedCategory === 'hr' ? 'selected' : '' ?>>HR Announcements</option>
-          <option value="application" <?= $selectedCategory === 'application' ? 'selected' : '' ?>>Application Updates</option>
+          <option value="employee_profile" <?= $selectedCategory === 'employee_profile' ? 'selected' : '' ?>>Profile Updates</option>
           <option value="learning_and_development" <?= $selectedCategory === 'learning_and_development' ? 'selected' : '' ?>>Learning and Development</option>
+          <option value="payroll" <?= $selectedCategory === 'payroll' ? 'selected' : '' ?>>Payroll</option>
+          <option value="timekeeping" <?= $selectedCategory === 'timekeeping' ? 'selected' : '' ?>>Timekeeping</option>
+          <option value="documents" <?= $selectedCategory === 'documents' ? 'selected' : '' ?>>Documents</option>
           <option value="general" <?= $selectedCategory === 'general' ? 'selected' : '' ?>>General</option>
         </select>
       </div>
@@ -127,12 +131,12 @@ $buildQuery = static function (array $params): string {
         $isRead = (bool)($notification['is_read'] ?? false);
         $category = (string)($notification['category'] ?? 'General');
       ?>
-      <div class="px-6 py-4 hover:bg-gray-50 flex items-start gap-4 <?= $isRead ? '' : 'bg-green-50' ?>" data-notification-item data-notification-id="<?= $escape((string)($notification['id'] ?? '')) ?>" data-is-read="<?= $isRead ? '1' : '0' ?>">
+      <div class="px-6 py-4 hover:bg-gray-50 transition-colors duration-150 flex items-start gap-4 <?= $isRead ? '' : 'bg-green-50' ?>" data-notification-item data-notification-id="<?= $escape((string)($notification['id'] ?? '')) ?>" data-is-read="<?= $isRead ? '1' : '0' ?>">
         <span class="material-icons mt-1 text-daGreen"><?= $escape($categoryIcon($category)) ?></span>
 
         <button
           type="button"
-          class="flex-1 text-left"
+          class="flex-1 text-left rounded-lg p-1 -m-1 hover:bg-gray-100 transition-colors duration-150"
           data-open-notification
           data-notification-id="<?= $escape((string)($notification['id'] ?? '')) ?>"
           data-notification-title="<?= $escape((string)($notification['title'] ?? 'Notification')) ?>"
@@ -148,6 +152,20 @@ $buildQuery = static function (array $params): string {
         </button>
 
         <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="border px-2 py-1 rounded text-xs inline-flex items-center gap-1 hover:bg-gray-50"
+            data-open-notification
+            data-notification-id="<?= $escape((string)($notification['id'] ?? '')) ?>"
+            data-notification-title="<?= $escape((string)($notification['title'] ?? 'Notification')) ?>"
+            data-notification-body="<?= $escape((string)($notification['body'] ?? '')) ?>"
+            data-notification-category="<?= $escape(formatNotificationCategoryLabel($category)) ?>"
+            data-notification-created="<?= $escape($formatPstDateTime((string)($notification['created_at'] ?? ''))) ?>"
+            data-notification-link="<?= $escape((string)($notification['link_url'] ?? '')) ?>"
+            data-notification-is-read="<?= $isRead ? '1' : '0' ?>"
+          >
+            <span class="material-icons text-xs">preview</span>Quick View
+          </button>
           <span class="w-2 h-2 bg-daGreen rounded-full <?= $isRead ? 'hidden' : '' ?>" title="Unread" data-notification-unread-dot></span>
           <form method="post" data-notification-mark-form class="<?= $isRead ? 'hidden' : '' ?>">
               <input type="hidden" name="csrf_token" value="<?= $escape(ensureCsrfToken()) ?>">

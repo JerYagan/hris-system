@@ -45,6 +45,53 @@ if (!function_exists('cleanText')) {
     }
 }
 
+if (!function_exists('isValidUuid')) {
+    function isValidUuid(?string $value): bool
+    {
+        if ($value === null) {
+            return false;
+        }
+
+        return (bool)preg_match(
+            '/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/',
+            trim($value)
+        );
+    }
+}
+
+if (!function_exists('ensureCsrfToken')) {
+    function ensureCsrfToken(): string
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            return '';
+        }
+
+        $token = $_SESSION['csrf_token'] ?? null;
+        if (!is_string($token) || $token === '') {
+            $token = bin2hex(random_bytes(32));
+            $_SESSION['csrf_token'] = $token;
+        }
+
+        return $token;
+    }
+}
+
+if (!function_exists('isValidCsrfToken')) {
+    function isValidCsrfToken(?string $token): bool
+    {
+        if ($token === null || session_status() !== PHP_SESSION_ACTIVE) {
+            return false;
+        }
+
+        $sessionToken = $_SESSION['csrf_token'] ?? null;
+        if (!is_string($sessionToken) || $sessionToken === '') {
+            return false;
+        }
+
+        return hash_equals($sessionToken, $token);
+    }
+}
+
 if (!function_exists('splitFullName')) {
     function splitFullName(string $fullName): array
     {

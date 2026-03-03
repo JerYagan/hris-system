@@ -6,6 +6,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
 
 $isAsyncRequest = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest'
     || isset($_POST['async']);
+$employeeNotificationSince = trim((string)($employeeRoleAssignedAt ?? ''));
 
 $respondNotificationAction = static function (bool $ok, string $message, array $payload = []) use ($isAsyncRequest): never {
     if ($isAsyncRequest) {
@@ -22,13 +23,15 @@ $respondNotificationAction = static function (bool $ok, string $message, array $
     redirectWithState($ok ? 'success' : 'error', $message, 'notifications.php');
 };
 
-$loadUnreadCount = static function () use ($supabaseUrl, $headers, $employeeUserId): int {
+$loadUnreadCount = static function () use ($supabaseUrl, $headers, $employeeUserId, $employeeNotificationSince): int {
     $response = apiRequest(
         'GET',
         $supabaseUrl
         . '/rest/v1/notifications?select=id'
         . '&recipient_user_id=eq.' . rawurlencode((string)$employeeUserId)
         . '&is_read=eq.false'
+        . '&category=not.in.(application,recruitment)'
+        . ($employeeNotificationSince !== '' ? ('&created_at=gte.' . rawurlencode($employeeNotificationSince)) : '')
         . '&limit=500',
         $headers
     );
@@ -66,6 +69,8 @@ if ($action === 'mark_notification_read') {
         . '/rest/v1/notifications?select=id,is_read'
         . '&id=eq.' . rawurlencode((string)$notificationId)
         . '&recipient_user_id=eq.' . rawurlencode((string)$employeeUserId)
+        . '&category=not.in.(application,recruitment)'
+        . ($employeeNotificationSince !== '' ? ('&created_at=gte.' . rawurlencode($employeeNotificationSince)) : '')
         . '&limit=1',
         $headers
     );
@@ -126,6 +131,8 @@ $unreadResponse = apiRequest(
     . '/rest/v1/notifications?select=id'
     . '&recipient_user_id=eq.' . rawurlencode((string)$employeeUserId)
     . '&is_read=eq.false'
+    . '&category=not.in.(application,recruitment)'
+    . ($employeeNotificationSince !== '' ? ('&created_at=gte.' . rawurlencode($employeeNotificationSince)) : '')
     . '&limit=500',
     $headers
 );
@@ -147,7 +154,9 @@ $updateResponse = apiRequest(
     'PATCH',
     $supabaseUrl
     . '/rest/v1/notifications?recipient_user_id=eq.' . rawurlencode((string)$employeeUserId)
-    . '&is_read=eq.false',
+    . '&is_read=eq.false'
+    . '&category=not.in.(application,recruitment)'
+    . ($employeeNotificationSince !== '' ? ('&created_at=gte.' . rawurlencode($employeeNotificationSince)) : ''),
     $headers,
     [
         'is_read' => true,

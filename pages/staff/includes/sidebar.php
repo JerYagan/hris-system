@@ -75,16 +75,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
           <span class="material-icons text-base">school</span>
           <span class="sidebar-label">Learning and Development</span>
         </a>
-
-        <a href="praise.php" class="flex items-center gap-3 px-4 py-2 rounded-lg <?= $activePage === 'praise.php' ? 'bg-green-100 font-medium' : 'hover:bg-gray-100' ?>">
-          <span class="material-icons text-base">emoji_events</span>
-          <span class="sidebar-label">PRAISE</span>
-        </a>
-
-        <a href="employee-evaluation.php" class="flex items-center gap-3 px-4 py-2 rounded-lg pl-10 <?= $activePage === 'employee-evaluation.php' ? 'bg-green-100 font-medium' : 'text-gray-600 hover:bg-gray-100' ?>">
-          <span class="material-icons text-base">rate_review</span>
-          <span class="sidebar-label">Employee Evaluation</span>
-        </a>
       </div>
     </div>
 
@@ -125,6 +115,11 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         <a href="reports.php" class="flex items-center gap-3 px-4 py-2 rounded-lg <?= $activePage === 'reports.php' ? 'bg-green-100 font-medium' : 'hover:bg-gray-100' ?>">
           <span class="material-icons text-base">assessment</span>
           <span class="sidebar-label">Reports and Analytics</span>
+        </a>
+
+        <a href="support.php" class="flex items-center gap-3 px-4 py-2 rounded-lg <?= $activePage === 'support.php' ? 'bg-green-100 font-medium' : 'hover:bg-gray-100' ?>">
+          <span class="material-icons text-base">support_agent</span>
+          <span class="sidebar-label">Support</span>
         </a>
 
         <a href="profile.php" class="flex items-center gap-3 px-4 py-2 rounded-lg <?= $activePage === 'profile.php' ? 'bg-green-100 font-medium' : 'hover:bg-gray-100' ?>">

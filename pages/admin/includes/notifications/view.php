@@ -76,8 +76,8 @@ $statusPill = static function (bool $isRead): array {
 <section class="bg-white border border-slate-200 rounded-2xl">
     <header class="px-6 py-4 border-b border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-            <h2 class="text-lg font-semibold text-slate-800">Admin Notification Feed</h2>
-            <p class="text-sm text-slate-500 mt-1">Use search and status filters to find and resolve notification items quickly.</p>
+            <h2 class="text-lg font-semibold text-slate-800">Recent Notifications</h2>
+            <p class="text-sm text-slate-500 mt-1">Announcement broadcasts are managed in Create Announcement. This feed shows actionable notification items.</p>
         </div>
         <form action="notifications.php" method="POST">
             <input type="hidden" name="form_action" value="mark_all_notifications_read">
@@ -101,15 +101,15 @@ $statusPill = static function (bool $isRead): array {
     </div>
 
     <div class="p-6 overflow-x-auto">
-        <table id="adminNotificationsTable" class="w-full text-sm">
+        <table id="adminNotificationsTable" class="w-full text-sm table-fixed">
             <thead class="bg-slate-50 text-slate-600">
                 <tr>
-                    <th class="text-left px-4 py-3">Title</th>
-                    <th class="text-left px-4 py-3">Category</th>
-                    <th class="text-left px-4 py-3">Message</th>
-                    <th class="text-left px-4 py-3">Created</th>
-                    <th class="text-left px-4 py-3">Status</th>
-                    <th class="text-left px-4 py-3">Action</th>
+                    <th class="text-left px-4 py-3 w-[18%]">Title</th>
+                    <th class="text-left px-4 py-3 w-[8%]">Category</th>
+                    <th class="text-left px-4 py-3 w-[34%]">Message</th>
+                    <th class="text-left px-4 py-3 w-[14%]">Created</th>
+                    <th class="text-left px-4 py-3 w-[8%]">Status</th>
+                    <th class="text-left px-4 py-3 w-[20%] min-w-[190px]">Action</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
@@ -134,10 +134,10 @@ $statusPill = static function (bool $isRead): array {
                         <tr data-notif-search="<?= htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8') ?>" data-notif-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>">
                             <td class="px-4 py-3 font-medium text-slate-800"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars(ucfirst(str_replace('_', ' ', strtolower($category))), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3 text-slate-700"><?= htmlspecialchars($body, ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-700 leading-relaxed break-words"><?= htmlspecialchars($body, ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($createdLabel, ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><span class="inline-flex items-center justify-center min-w-[85px] px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
-                            <td class="px-4 py-3">
+                            <td class="px-4 py-3 min-w-[190px]">
                                 <div class="flex items-center gap-2">
                                     <?php if (!$isRead): ?>
                                         <form action="notifications.php" method="POST">

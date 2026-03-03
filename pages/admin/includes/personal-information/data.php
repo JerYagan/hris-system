@@ -422,6 +422,7 @@ $employeeTableRows = [];
 $employeesForSelect = [];
 $staffAccountCandidates = [];
 $departmentFilters = [];
+$personNameByIdAll = [];
 
 $totalProfiles = count($peopleRows);
 $completeRecords = 0;
@@ -442,6 +443,7 @@ foreach ($peopleRows as $person) {
     if ($fullName === '') {
         $fullName = 'Unknown Employee';
     }
+    $personNameByIdAll[$personId] = $fullName;
 
     $employment = $currentEmploymentByPerson[$personId] ?? null;
     $officeId = (string)($employment['office_id'] ?? '');
@@ -636,6 +638,122 @@ if ($filterKeyword !== '' || $filterDepartment !== '' || $filterStatus !== '') {
 }
 
 $filteredProfileCount = count($employeeTableRows);
+
+$spouseRequestRows = [];
+if (!empty($personNameByIdAll)) {
+    $spouseRequestResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/activity_logs?select=id,actor_user_id,entity_id,created_at,new_data'
+        . '&module_name=eq.employee'
+        . '&entity_name=eq.person_family_spouses_request'
+        . '&action_name=eq.submit_spouse_addition_request'
+        . '&order=created_at.desc&limit=300',
+        $headers
+    );
+
+    if (isSuccessful($spouseRequestResponse)) {
+        $requestRows = (array)($spouseRequestResponse['data'] ?? []);
+        $requestIdSet = [];
+        $actorIdSet = [];
+
+        foreach ($requestRows as $requestRowRaw) {
+            $requestRow = (array)$requestRowRaw;
+            $requestId = (string)($requestRow['id'] ?? '');
+            if ($requestId !== '') {
+                $requestIdSet[$requestId] = true;
+            }
+
+            $actorId = (string)($requestRow['actor_user_id'] ?? '');
+            if ($actorId !== '' && preg_match('/^[a-f0-9-]{36}$/i', $actorId)) {
+                $actorIdSet[$actorId] = true;
+            }
+        }
+
+        $decisionByRequestId = [];
+        $decisionResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/activity_logs?select=id,created_at,new_data,action_name'
+            . '&module_name=eq.personal_information'
+            . '&entity_name=eq.person_family_spouses_request'
+            . '&action_name=in.(approve_spouse_addition_request,reject_spouse_addition_request)'
+            . '&order=created_at.desc&limit=600',
+            $headers
+        );
+
+        if (isSuccessful($decisionResponse)) {
+            foreach ((array)($decisionResponse['data'] ?? []) as $decisionRaw) {
+                $decisionRow = (array)$decisionRaw;
+                $decisionData = is_array($decisionRow['new_data'] ?? null) ? (array)$decisionRow['new_data'] : [];
+                $sourceRequestId = (string)($decisionData['request_log_id'] ?? '');
+                if ($sourceRequestId === '' || !isset($requestIdSet[$sourceRequestId]) || isset($decisionByRequestId[$sourceRequestId])) {
+                    continue;
+                }
+
+                $decisionByRequestId[$sourceRequestId] = [
+                    'status' => strtolower((string)($decisionData['status'] ?? '')),
+                    'remarks' => (string)($decisionData['remarks'] ?? ''),
+                    'reviewed_at' => (string)($decisionRow['created_at'] ?? ''),
+                ];
+            }
+        }
+
+        $actorEmailById = [];
+        if (!empty($actorIdSet)) {
+            $actorFilter = implode(',', array_map('rawurlencode', array_keys($actorIdSet)));
+            $actorResponse = apiRequest(
+                'GET',
+                $supabaseUrl . '/rest/v1/user_accounts?select=id,email&id=in.(' . $actorFilter . ')&limit=500',
+                $headers
+            );
+
+            if (isSuccessful($actorResponse)) {
+                foreach ((array)($actorResponse['data'] ?? []) as $actorRaw) {
+                    $actorRow = (array)$actorRaw;
+                    $actorId = (string)($actorRow['id'] ?? '');
+                    if ($actorId === '') {
+                        continue;
+                    }
+                    $actorEmailById[$actorId] = (string)($actorRow['email'] ?? 'Employee');
+                }
+            }
+        }
+
+        foreach ($requestRows as $requestRowRaw) {
+            $requestRow = (array)$requestRowRaw;
+            $requestId = (string)($requestRow['id'] ?? '');
+            $personId = (string)($requestRow['entity_id'] ?? '');
+
+            if ($requestId === '' || $personId === '' || !isset($personNameByIdAll[$personId]) || isset($decisionByRequestId[$requestId])) {
+                continue;
+            }
+
+            $newData = is_array($requestRow['new_data'] ?? null) ? (array)$requestRow['new_data'] : [];
+            $submittedAtRaw = (string)($requestRow['created_at'] ?? '');
+            $submittedAt = $submittedAtRaw !== '' ? strtotime($submittedAtRaw) : false;
+            $actorId = (string)($requestRow['actor_user_id'] ?? '');
+            $submittedBy = $actorEmailById[$actorId] ?? 'Employee';
+            $supportingDocumentPath = trim((string)($newData['supporting_document_path'] ?? ''));
+            $supportingDocumentUrl = $supportingDocumentPath !== ''
+                ? '/hris-system/storage/document/' . ltrim($supportingDocumentPath, '/')
+                : '';
+
+            $spouseRequestRows[] = [
+                'request_log_id' => $requestId,
+                'person_id' => $personId,
+                'employee_name' => (string)$personNameByIdAll[$personId],
+                'submitted_by' => $submittedBy,
+                'submitted_at_label' => $submittedAt ? date('M d, Y h:i A', $submittedAt) : '-',
+                'submitted_at_date' => $submittedAt ? date('Y-m-d', $submittedAt) : '',
+                'spouse_name' => trim((string)($newData['spouse_first_name'] ?? '') . ' ' . (string)($newData['spouse_surname'] ?? '')),
+                'request_notes' => (string)($newData['request_notes'] ?? ''),
+                'attachment_name' => (string)($newData['supporting_document_name'] ?? ''),
+                'attachment_url' => $supportingDocumentUrl,
+            ];
+        }
+    }
+}
 
 $personNameById = [];
 foreach ($employeeTableRows as $row) {

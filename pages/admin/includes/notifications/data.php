@@ -2,7 +2,7 @@
 
 $notificationsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/notifications?select=id,category,title,body,link_url,is_read,read_at,created_at&recipient_user_id=eq.' . $adminUserId . '&order=created_at.desc&limit=1000',
+    $supabaseUrl . '/rest/v1/notifications?select=id,category,title,body,link_url,is_read,read_at,created_at&recipient_user_id=eq.' . $adminUserId . '&category=neq.announcement&order=created_at.desc&limit=1000',
     $headers
 );
 

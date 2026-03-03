@@ -9,6 +9,8 @@ $dashboardMetrics = [
 ];
 
 $dashboardRecruitmentUpdates = [];
+$dashboardAnnouncements = [];
+$dashboardRoleNotifications = [];
 $dashboardTasks = [];
 $dashboardPendingApprovals = [];
 $dashboardRecentActivity = [];
@@ -109,7 +111,7 @@ if (!empty($scopePersonIds)) {
     $documentsResponse = apiRequest(
         'GET',
         $supabaseUrl
-        . '/rest/v1/documents?select=id,owner_person_id,document_status,updated_at,title'
+        . '/rest/v1/documents?select=id,owner_person_id,document_status,updated_at,title,owner:people(first_name,surname)'
         . '&owner_person_id=in.' . rawurlencode('(' . implode(',', $scopePersonIds) . ')')
         . '&document_status=eq.submitted&limit=5000',
         $headers
@@ -173,11 +175,43 @@ $dashboardMetrics['pending_timekeeping'] = count($leaveRows) + count($overtimeRo
 
 $notificationsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/notifications?select=id,title,category,is_read,created_at&recipient_user_id=eq.' . rawurlencode($staffUserId) . '&order=created_at.desc&limit=200',
+    $supabaseUrl . '/rest/v1/notifications?select=id,title,body,link_url,category,is_read,created_at&recipient_user_id=eq.' . rawurlencode($staffUserId) . '&order=created_at.desc&limit=200',
     $headers
 );
 $appendDashboardError('Notifications', $notificationsResponse);
 $notificationRows = isSuccessful($notificationsResponse) ? (array)($notificationsResponse['data'] ?? []) : [];
+
+foreach ($notificationRows as $row) {
+    $category = strtolower((string)($row['category'] ?? ''));
+    $title = cleanText($row['title'] ?? null) ?: 'Announcement';
+    $body = cleanText($row['body'] ?? null) ?: 'No additional details provided.';
+    $linkUrl = cleanText($row['link_url'] ?? null) ?: 'notifications.php';
+    $createdAt = cleanText($row['created_at'] ?? null);
+    $isRead = (bool)($row['is_read'] ?? false);
+
+    if ($category === 'announcement') {
+        $dashboardAnnouncements[] = [
+            'title' => $title,
+            'meta' => formatDateTimeForPhilippines($createdAt, 'M d, Y · h:i A'),
+            'status_label' => $isRead ? 'Read' : 'New',
+            'status_class' => $isRead ? 'bg-slate-100 text-slate-700' : 'bg-emerald-100 text-emerald-700',
+        ];
+        continue;
+    }
+
+    $dashboardRoleNotifications[] = [
+        'title' => $title,
+        'body' => $body,
+        'category' => $category !== '' ? ucwords(str_replace(['_', '-'], ' ', $category)) : 'Notification',
+        'link_url' => $linkUrl,
+        'meta' => formatDateTimeForPhilippines($createdAt, 'M d, Y · h:i A'),
+        'status_label' => $isRead ? 'Read' : 'New',
+        'status_class' => $isRead ? 'bg-slate-100 text-slate-700' : 'bg-blue-100 text-blue-700',
+    ];
+}
+
+$dashboardAnnouncements = array_slice($dashboardAnnouncements, 0, 8);
+$dashboardRoleNotifications = array_slice($dashboardRoleNotifications, 0, 8);
 
 $activityLogsResponse = apiRequest(
     'GET',
@@ -239,6 +273,54 @@ $dashboardTasks = [
 
 $approvalRows = [];
 
+foreach ($documentsRows as $row) {
+    $owner = (array)($row['owner'] ?? []);
+    $ownerName = trim(((string)($owner['first_name'] ?? '')) . ' ' . ((string)($owner['surname'] ?? '')));
+    if ($ownerName === '') {
+        $ownerName = 'Unknown Owner';
+    }
+
+    $approvalRows[] = [
+        'request' => cleanText($row['title'] ?? null) ?: 'Document Submission',
+        'owner' => $ownerName,
+        'module' => 'Document Management',
+        'status_label' => 'Submitted',
+        'status_class' => 'bg-amber-100 text-amber-800',
+        'created_at' => cleanText($row['updated_at'] ?? null),
+        'action_url' => 'document-management.php?status=submitted',
+    ];
+}
+
+foreach ($payrollRunRows as $row) {
+    $runStatus = strtolower((string)($row['run_status'] ?? 'draft'));
+    $approvalRows[] = [
+        'request' => 'Payroll Run #' . strtoupper(substr((string)($row['id'] ?? ''), 0, 8)),
+        'owner' => 'Payroll Queue',
+        'module' => 'Payroll',
+        'status_label' => ucwords(str_replace('_', ' ', $runStatus)),
+        'status_class' => 'bg-indigo-100 text-indigo-800',
+        'created_at' => cleanText($row['generated_at'] ?? null) ?: cleanText($row['created_at'] ?? null),
+        'action_url' => 'payroll-management.php?status=pending',
+    ];
+}
+
+foreach ($appRows as $row) {
+    $status = strtolower((string)($row['application_status'] ?? 'submitted'));
+    if (!in_array($status, $pendingApplicationStatuses, true)) {
+        continue;
+    }
+
+    $approvalRows[] = [
+        'request' => cleanText($row['job']['title'] ?? null) ?: 'Applicant Tracking Record',
+        'owner' => cleanText($row['applicant']['full_name'] ?? null) ?: 'Applicant',
+        'module' => 'Recruitment',
+        'status_label' => ucwords(str_replace('_', ' ', $status)),
+        'status_class' => 'bg-sky-100 text-sky-800',
+        'created_at' => cleanText($row['updated_at'] ?? null) ?: cleanText($row['submitted_at'] ?? null),
+        'action_url' => 'applicant-tracking.php?status=pending',
+    ];
+}
+
 foreach ($leaveRows as $row) {
     $person = (array)($row['person'] ?? []);
     $ownerName = trim(((string)($person['first_name'] ?? '')) . ' ' . ((string)($person['surname'] ?? '')));
@@ -299,7 +381,7 @@ usort($approvalRows, static function (array $left, array $right): int {
     $rightTime = strtotime((string)($right['created_at'] ?? '')) ?: 0;
     return $rightTime <=> $leftTime;
 });
-$dashboardPendingApprovals = array_slice($approvalRows, 0, 8);
+$dashboardPendingApprovals = $approvalRows;
 
 foreach (array_slice($activityRows, 0, 5) as $row) {
     $module = cleanText($row['module_name'] ?? null) ?: 'general';

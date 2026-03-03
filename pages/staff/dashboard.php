@@ -10,12 +10,29 @@ $breadcrumbs = ['Dashboard'];
 $state = cleanText($_GET['state'] ?? null);
 $message = cleanText($_GET['message'] ?? null);
 
+$pendingApprovalsPerPage = 10;
+$pendingApprovalsTotal = count($dashboardPendingApprovals);
+$pendingApprovalsPage = max(1, (int)($_GET['approvals_page'] ?? 1));
+$pendingApprovalsTotalPages = max(1, (int)ceil($pendingApprovalsTotal / $pendingApprovalsPerPage));
+if ($pendingApprovalsPage > $pendingApprovalsTotalPages) {
+    $pendingApprovalsPage = $pendingApprovalsTotalPages;
+}
+
+$pendingApprovalsStart = ($pendingApprovalsPage - 1) * $pendingApprovalsPerPage;
+$pendingApprovalsRows = array_slice($dashboardPendingApprovals, $pendingApprovalsStart, $pendingApprovalsPerPage);
+
+$buildApprovalsPageLink = static function (int $page) : string {
+    $params = $_GET;
+    $params['approvals_page'] = max(1, $page);
+    return 'dashboard.php?' . http_build_query($params);
+};
+
 ob_start();
 ?>
 
 <div class="mb-6">
     <h1 class="text-2xl font-bold text-gray-800">Staff Dashboard</h1>
-    <p class="text-sm text-gray-500">Overview of HR operations, recruitment pipeline, records, and reporting tasks.</p>
+    <p class="text-sm text-gray-500">Operational summary, pending approvals, and role-relevant notifications.</p>
 </div>
 
 <?php if ($state && $message): ?>
@@ -56,136 +73,135 @@ ob_start();
     </div>
 </div>
 
-<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-    <section class="bg-white border rounded-xl p-6 xl:col-span-2">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="font-semibold text-gray-800">Recruitment & HR Updates</h2>
-            <a href="notifications.php" class="text-sm text-green-700 hover:underline">View all</a>
-        </div>
+<section class="bg-white border rounded-xl p-6 mb-8">
+    <div class="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
+        <h2 class="font-semibold text-gray-800">Pending Approvals</h2>
+        <p class="text-xs text-gray-500">
+            Showing
+            <span class="font-medium text-gray-700"><?= $pendingApprovalsTotal === 0 ? 0 : ($pendingApprovalsStart + 1) ?></span>
+            -
+            <span class="font-medium text-gray-700"><?= min($pendingApprovalsStart + count($pendingApprovalsRows), $pendingApprovalsTotal) ?></span>
+            of
+            <span class="font-medium text-gray-700"><?= $pendingApprovalsTotal ?></span>
+        </p>
+    </div>
 
-        <ul class="space-y-4 text-sm">
-            <?php if (empty($dashboardRecruitmentUpdates)): ?>
-                <li class="border-l-4 border-slate-300 pl-4">
-                    <p class="font-medium text-gray-800">No recruitment updates available</p>
-                    <p class="text-xs text-gray-500">Dashboard data will appear once transactions are available.</p>
-                </li>
-            <?php else: ?>
-                <?php foreach ($dashboardRecruitmentUpdates as $item): ?>
-                    <li class="border-l-4 <?= htmlspecialchars((string)($item['accent'] ?? 'border-slate-300'), ENT_QUOTES, 'UTF-8') ?> pl-4">
-                        <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($item['title'] ?? 'Update'), ENT_QUOTES, 'UTF-8') ?></p>
-                        <p class="text-xs text-gray-500"><?= htmlspecialchars((string)($item['meta'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                    </li>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </ul>
-    </section>
-
-    <section class="bg-white border rounded-xl p-6">
-        <h2 class="font-semibold text-gray-800 mb-4">My Tasks</h2>
-
-        <ul class="space-y-3 text-sm">
-            <?php foreach ($dashboardTasks as $task): ?>
-                <li class="flex justify-between items-center gap-3">
-                    <a href="<?= htmlspecialchars((string)($task['url'] ?? '#'), ENT_QUOTES, 'UTF-8') ?>" class="hover:underline">
-                        <?= htmlspecialchars((string)($task['label'] ?? 'Task'), ENT_QUOTES, 'UTF-8') ?>
-                        <span class="text-xs text-gray-500">(<?= (int)($task['count'] ?? 0) ?>)</span>
-                    </a>
-                    <span class="text-xs px-2 py-1 rounded-full <?= htmlspecialchars((string)($task['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>">
-                        <?= htmlspecialchars((string)($task['status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?>
-                    </span>
-                </li>
-            <?php endforeach; ?>
-        </ul>
-    </section>
-
-    <section class="bg-white border rounded-xl p-6 xl:col-span-3">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="font-semibold text-gray-800">Pending Approvals</h2>
-            <a href="timekeeping.php?status=pending" class="text-sm text-green-700 hover:underline">Open timekeeping</a>
-        </div>
-
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-gray-50 text-gray-600">
+    <div class="overflow-x-auto rounded-lg border border-slate-200">
+        <table class="min-w-full divide-y divide-slate-200 text-sm">
+            <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                <tr>
+                    <th class="px-4 py-3">Request</th>
+                    <th class="px-4 py-3">Subject</th>
+                    <th class="px-4 py-3">Module</th>
+                    <th class="px-4 py-3">Submitted At</th>
+                    <th class="px-4 py-3">Status</th>
+                    <th class="px-4 py-3 text-right">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white">
+                <?php if (empty($pendingApprovalsRows)): ?>
                     <tr>
-                        <th class="text-left px-4 py-3 font-medium">Request</th>
-                        <th class="text-left px-4 py-3 font-medium">Owner</th>
-                        <th class="text-left px-4 py-3 font-medium">Module</th>
-                        <th class="text-left px-4 py-3 font-medium">Status</th>
+                        <td colspan="6" class="px-4 py-8 text-center text-sm text-slate-500">No pending approvals found.</td>
                     </tr>
-                </thead>
-                <tbody class="divide-y">
-                    <?php if (empty($dashboardPendingApprovals)): ?>
+                <?php else: ?>
+                    <?php foreach ($pendingApprovalsRows as $row): ?>
                         <tr>
-                            <td class="px-4 py-3 text-gray-500" colspan="4">No pending approvals found in your current scope.</td>
+                            <td class="px-4 py-3 font-medium text-slate-800"><?= htmlspecialchars((string)($row['request'] ?? 'Pending Approval'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)($row['owner'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)($row['module'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars(formatDateTimeForPhilippines(cleanText($row['created_at'] ?? null), 'M d, Y · h:i A'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3">
+                                <span class="inline-flex rounded-full px-2 py-1 text-xs font-medium <?= htmlspecialchars((string)($row['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>">
+                                    <?= htmlspecialchars((string)($row['status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?>
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                <a href="<?= htmlspecialchars((string)($row['action_url'] ?? '#'), ENT_QUOTES, 'UTF-8') ?>" class="text-sm font-medium text-green-700 hover:underline">Open queue</a>
+                            </td>
                         </tr>
-                    <?php else: ?>
-                        <?php foreach ($dashboardPendingApprovals as $row): ?>
-                            <tr>
-                                <td class="px-4 py-3">
-                                    <a href="<?= htmlspecialchars((string)($row['action_url'] ?? '#'), ENT_QUOTES, 'UTF-8') ?>" class="text-green-700 hover:underline">
-                                        <?= htmlspecialchars((string)($row['request'] ?? 'Request'), ENT_QUOTES, 'UTF-8') ?>
-                                    </a>
-                                </td>
-                                <td class="px-4 py-3"><?= htmlspecialchars((string)($row['owner'] ?? 'Unknown'), ENT_QUOTES, 'UTF-8') ?></td>
-                                <td class="px-4 py-3"><?= htmlspecialchars((string)($row['module'] ?? 'General'), ENT_QUOTES, 'UTF-8') ?></td>
-                                <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)($row['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($row['status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?></span></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+
+    <?php if ($pendingApprovalsTotalPages > 1): ?>
+        <div class="mt-4 flex items-center justify-between">
+            <a href="<?= htmlspecialchars($buildApprovalsPageLink(max(1, $pendingApprovalsPage - 1)), ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center rounded-md border px-3 py-1.5 text-xs font-medium <?= $pendingApprovalsPage <= 1 ? 'pointer-events-none opacity-50' : 'text-slate-700 hover:bg-slate-50' ?>">Previous</a>
+            <p class="text-xs text-slate-500">Page <?= $pendingApprovalsPage ?> of <?= $pendingApprovalsTotalPages ?></p>
+            <a href="<?= htmlspecialchars($buildApprovalsPageLink(min($pendingApprovalsTotalPages, $pendingApprovalsPage + 1)), ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center rounded-md border px-3 py-1.5 text-xs font-medium <?= $pendingApprovalsPage >= $pendingApprovalsTotalPages ? 'pointer-events-none opacity-50' : 'text-slate-700 hover:bg-slate-50' ?>">Next</a>
         </div>
-    </section>
-</div>
+    <?php endif; ?>
+</section>
 
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-    <section class="bg-white border rounded-xl p-6">
-        <h2 class="font-semibold text-gray-800 mb-4">Recent Activity</h2>
+<section class="bg-white border rounded-xl p-6">
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div>
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-semibold text-gray-800">Notifications</h2>
+                <a href="notifications.php" class="text-sm text-green-700 hover:underline">View all</a>
+            </div>
 
-        <ul class="space-y-3 text-sm text-gray-700">
-            <?php if (empty($dashboardRecentActivity)): ?>
-                <li>
-                    <p>No recent activity yet.</p>
-                    <p class="text-xs text-gray-500">Actions you perform will appear here.</p>
-                </li>
-            <?php else: ?>
-                <?php foreach ($dashboardRecentActivity as $activity): ?>
-                    <li>
-                        <p><?= htmlspecialchars((string)($activity['title'] ?? 'Activity'), ENT_QUOTES, 'UTF-8') ?></p>
-                        <p class="text-xs text-gray-500"><?= htmlspecialchars((string)($activity['meta'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+            <ul class="space-y-4 text-sm">
+                <?php if (empty($dashboardRoleNotifications)): ?>
+                    <li class="border-l-4 border-slate-300 pl-4">
+                        <p class="font-medium text-gray-800">No notifications</p>
+                        <p class="text-xs text-gray-500">Action-related alerts will appear here.</p>
                     </li>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </ul>
-    </section>
-
-    <section class="bg-white border rounded-xl p-6">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="font-semibold text-gray-800">HR Shortcuts</h2>
-            <a href="reports.php" class="text-sm text-green-700 hover:underline">Generate reports</a>
+                <?php else: ?>
+                    <?php foreach ($dashboardRoleNotifications as $item): ?>
+                        <li class="border-l-4 border-blue-500 pl-4">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($item['title'] ?? 'Notification'), ENT_QUOTES, 'UTF-8') ?></p>
+                                    <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars((string)($item['body'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
+                                    <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                                        <span class="px-2 py-1 rounded-full bg-slate-100 text-slate-700"><?= htmlspecialchars((string)($item['category'] ?? 'Notification'), ENT_QUOTES, 'UTF-8') ?></span>
+                                        <span><?= htmlspecialchars((string)($item['meta'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></span>
+                                        <a href="<?= htmlspecialchars((string)($item['link_url'] ?? 'notifications.php'), ENT_QUOTES, 'UTF-8') ?>" class="text-green-700 hover:underline">Open</a>
+                                    </div>
+                                </div>
+                                <span class="text-xs px-2 py-1 rounded-full <?= htmlspecialchars((string)($item['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>">
+                                    <?= htmlspecialchars((string)($item['status_label'] ?? 'New'), ENT_QUOTES, 'UTF-8') ?>
+                                </span>
+                            </div>
+                        </li>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </ul>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-            <a href="personal-information.php" class="flex items-center gap-3 border rounded-lg p-3 hover:bg-gray-50">
-                <span class="material-symbols-outlined text-green-700">badge</span>
-                Employee Profiles
-            </a>
-            <a href="document-management.php?status=submitted" class="flex items-center gap-3 border rounded-lg p-3 hover:bg-gray-50">
-                <span class="material-symbols-outlined text-blue-700">description</span>
-                Document Management
-            </a>
-            <a href="recruitment.php?status=pending" class="flex items-center gap-3 border rounded-lg p-3 hover:bg-gray-50">
-                <span class="material-symbols-outlined text-purple-700">person_search</span>
-                Recruitment
-            </a>
-            <a href="payroll-management.php?status=pending" class="flex items-center gap-3 border rounded-lg p-3 hover:bg-gray-50">
-                <span class="material-symbols-outlined text-yellow-700">download</span>
-                Payroll Tasks
-            </a>
+        <div>
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-semibold text-gray-800">Announcements</h2>
+                <a href="notifications.php" class="text-sm text-green-700 hover:underline">View all</a>
+            </div>
+
+            <ul class="space-y-4 text-sm">
+                <?php if (empty($dashboardAnnouncements)): ?>
+                    <li class="border-l-4 border-slate-300 pl-4">
+                        <p class="font-medium text-gray-800">No announcements available</p>
+                        <p class="text-xs text-gray-500">Announcements will appear here once published.</p>
+                    </li>
+                <?php else: ?>
+                    <?php foreach ($dashboardAnnouncements as $item): ?>
+                        <li class="border-l-4 border-green-500 pl-4">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($item['title'] ?? 'Announcement'), ENT_QUOTES, 'UTF-8') ?></p>
+                                    <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars((string)($item['meta'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                                </div>
+                                <span class="text-xs px-2 py-1 rounded-full <?= htmlspecialchars((string)($item['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>">
+                                    <?= htmlspecialchars((string)($item['status_label'] ?? 'New'), ENT_QUOTES, 'UTF-8') ?>
+                                </span>
+                            </div>
+                        </li>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </ul>
         </div>
-    </section>
-</div>
+    </div>
+</section>
 
 <?php
 $content = ob_get_clean();

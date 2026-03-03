@@ -211,6 +211,7 @@ $employeeSpouse = [
     'business_address' => '',
     'telephone_no' => '',
 ];
+$employeeSpouses = [];
 
 $employeeFather = [
     'id' => '',
@@ -234,6 +235,21 @@ $employeeDocuments = [];
 $employeePersonal201Files = [];
 $employeeApprovedEvaluations = [];
 $spouseRequestHistory = [];
+$passwordChangeStatus = [
+    'is_pending' => false,
+    'expires_at' => '-',
+    'email' => '',
+];
+$loginHistoryRows = [];
+$loginEventOptions = [];
+$loginDeviceOptions = [];
+$loginSearchQuery = strtolower(trim((string)($_GET['login_search'] ?? '')));
+$loginEventFilter = trim((string)($_GET['login_event'] ?? ''));
+$loginDeviceFilter = trim((string)($_GET['login_device'] ?? ''));
+$loginPage = max(1, (int)($_GET['login_page'] ?? 1));
+$loginPerPage = 10;
+$loginHistoryTotal = 0;
+$loginTotalPages = 1;
 
 if (!(bool)($employeeContextResolved ?? false)) {
     $dataLoadError = (string)($employeeContextError ?? 'Employee context could not be resolved.');
@@ -401,23 +417,29 @@ $spouseResponse = apiRequest(
     $supabaseUrl
     . '/rest/v1/person_family_spouses?select=id,surname,first_name,middle_name,extension_name,occupation,employer_business_name,business_address,telephone_no'
     . '&person_id=eq.' . rawurlencode((string)$employeePersonId)
-    . '&order=sequence_no.asc,created_at.asc&limit=1',
+    . '&order=sequence_no.asc,created_at.asc&limit=20',
     $headers
 );
 
 if (isSuccessful($spouseResponse) && !empty((array)($spouseResponse['data'] ?? []))) {
-    $spouseRow = (array)$spouseResponse['data'][0];
-    $employeeSpouse = [
-        'id' => (string)($spouseRow['id'] ?? ''),
-        'surname' => (string)($spouseRow['surname'] ?? ''),
-        'first_name' => (string)($spouseRow['first_name'] ?? ''),
-        'middle_name' => (string)($spouseRow['middle_name'] ?? ''),
-        'extension_name' => (string)($spouseRow['extension_name'] ?? ''),
-        'occupation' => (string)($spouseRow['occupation'] ?? ''),
-        'employer_business_name' => (string)($spouseRow['employer_business_name'] ?? ''),
-        'business_address' => (string)($spouseRow['business_address'] ?? ''),
-        'telephone_no' => (string)($spouseRow['telephone_no'] ?? ''),
-    ];
+    foreach ((array)($spouseResponse['data'] ?? []) as $spouseRaw) {
+        $spouseRow = (array)$spouseRaw;
+        $mappedSpouse = [
+            'id' => (string)($spouseRow['id'] ?? ''),
+            'surname' => (string)($spouseRow['surname'] ?? ''),
+            'first_name' => (string)($spouseRow['first_name'] ?? ''),
+            'middle_name' => (string)($spouseRow['middle_name'] ?? ''),
+            'extension_name' => (string)($spouseRow['extension_name'] ?? ''),
+            'occupation' => (string)($spouseRow['occupation'] ?? ''),
+            'employer_business_name' => (string)($spouseRow['employer_business_name'] ?? ''),
+            'business_address' => (string)($spouseRow['business_address'] ?? ''),
+            'telephone_no' => (string)($spouseRow['telephone_no'] ?? ''),
+        ];
+
+        $employeeSpouses[] = $mappedSpouse;
+    }
+
+    $employeeSpouse = $employeeSpouses[0];
 }
 
 $parentsResponse = apiRequest(
@@ -592,19 +614,77 @@ $spouseRequestResponse = apiRequest(
 );
 
 if (isSuccessful($spouseRequestResponse)) {
+    $requestLogIdList = [];
     foreach ((array)($spouseRequestResponse['data'] ?? []) as $requestRaw) {
         $requestRow = (array)$requestRaw;
         $newData = is_array($requestRow['new_data'] ?? null) ? (array)$requestRow['new_data'] : [];
+        $requestLogId = (string)($requestRow['id'] ?? '');
+        if ($requestLogId !== '') {
+            $requestLogIdList[] = $requestLogId;
+        }
 
         $spouseRequestHistory[] = [
-            'id' => (string)($requestRow['id'] ?? ''),
+            'id' => $requestLogId,
             'created_at' => cleanText($requestRow['created_at'] ?? null),
             'status' => (string)($newData['status'] ?? 'pending_admin_approval'),
             'spouse_name' => trim((string)($newData['spouse_first_name'] ?? '') . ' ' . (string)($newData['spouse_surname'] ?? '')),
             'attachment_name' => (string)($newData['supporting_document_name'] ?? ''),
             'notes' => (string)($newData['request_notes'] ?? ''),
+            'admin_remarks' => '',
         ];
     }
+
+    if (!empty($requestLogIdList)) {
+        $decisionResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/activity_logs?select=id,created_at,new_data,action_name'
+            . '&module_name=eq.personal_information'
+            . '&entity_name=eq.person_family_spouses_request'
+            . '&entity_id=eq.' . rawurlencode((string)$employeePersonId)
+            . '&action_name=in.(approve_spouse_addition_request,reject_spouse_addition_request)'
+            . '&order=created_at.desc&limit=100',
+            $headers
+        );
+
+        $decisionByRequestId = [];
+        if (isSuccessful($decisionResponse)) {
+            foreach ((array)($decisionResponse['data'] ?? []) as $decisionRaw) {
+                $decisionRow = (array)$decisionRaw;
+                $decisionData = is_array($decisionRow['new_data'] ?? null) ? (array)$decisionRow['new_data'] : [];
+                $sourceRequestId = (string)($decisionData['request_log_id'] ?? '');
+                if ($sourceRequestId === '' || isset($decisionByRequestId[$sourceRequestId])) {
+                    continue;
+                }
+
+                $decisionByRequestId[$sourceRequestId] = [
+                    'status' => (string)($decisionData['status'] ?? ''),
+                    'remarks' => (string)($decisionData['remarks'] ?? ''),
+                ];
+            }
+        }
+
+        foreach ($spouseRequestHistory as $index => $requestRow) {
+            $requestId = (string)($requestRow['id'] ?? '');
+            if ($requestId === '' || !isset($decisionByRequestId[$requestId])) {
+                continue;
+            }
+
+            $resolvedStatus = strtolower((string)($decisionByRequestId[$requestId]['status'] ?? ''));
+            if ($resolvedStatus === 'approved' || $resolvedStatus === 'rejected') {
+                $spouseRequestHistory[$index]['status'] = $resolvedStatus;
+            }
+            $spouseRequestHistory[$index]['admin_remarks'] = (string)($decisionByRequestId[$requestId]['remarks'] ?? '');
+        }
+    }
+}
+
+$passwordChangePending = (array)($_SESSION['employee_profile_password_change'] ?? []);
+$pendingExpiresAt = (int)($passwordChangePending['expires_at'] ?? 0);
+if ($pendingExpiresAt > time()) {
+    $passwordChangeStatus['is_pending'] = true;
+    $passwordChangeStatus['expires_at'] = date('M d, Y h:i A', $pendingExpiresAt);
+    $passwordChangeStatus['email'] = (string)($passwordChangePending['email'] ?? '');
 }
 
 $approvedEvaluationsResponse = apiRequest(
@@ -635,3 +715,85 @@ if (isSuccessful($approvedEvaluationsResponse)) {
         ];
     }
 }
+
+$loginHistoryResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/login_audit_logs?select=id,event_type,auth_provider,ip_address,user_agent,created_at&user_id=eq.' . rawurlencode((string)$employeeUserId) . '&order=created_at.desc&limit=500',
+    $headers
+);
+
+$loginHistoryRowsRaw = isSuccessful($loginHistoryResponse) ? (array)($loginHistoryResponse['data'] ?? []) : [];
+
+$resolveDeviceLabel = static function (string $userAgent): string {
+    $agent = strtolower(trim($userAgent));
+    if ($agent === '' || $agent === '-') {
+        return 'Unknown Device';
+    }
+
+    if (str_contains($agent, 'bot') || str_contains($agent, 'spider') || str_contains($agent, 'crawler')) {
+        return 'Bot / Script';
+    }
+
+    if (str_contains($agent, 'ipad') || str_contains($agent, 'tablet')) {
+        return 'Tablet';
+    }
+
+    if (str_contains($agent, 'mobile') || str_contains($agent, 'android') || str_contains($agent, 'iphone')) {
+        return 'Mobile';
+    }
+
+    return 'Desktop';
+};
+
+foreach ($loginHistoryRowsRaw as $entry) {
+    $eventType = (string)($entry['event_type'] ?? 'unknown');
+    $eventLabel = ucwords(str_replace('_', ' ', $eventType));
+    $createdAt = (string)($entry['created_at'] ?? '');
+    $userAgent = (string)($entry['user_agent'] ?? '-');
+    $deviceLabel = $resolveDeviceLabel($userAgent);
+
+    if ($eventLabel !== '') {
+        $loginEventOptions[$eventLabel] = true;
+    }
+    $loginDeviceOptions[$deviceLabel] = true;
+
+    $loginHistoryRows[] = [
+        'event_label' => $eventLabel,
+        'auth_provider' => (string)($entry['auth_provider'] ?? 'password'),
+        'ip_address' => (string)($entry['ip_address'] ?? 'unknown'),
+        'user_agent' => $userAgent,
+        'device_label' => $deviceLabel,
+        'created_at' => $createdAt !== '' ? date('M d, Y h:i A', strtotime($createdAt)) : '-',
+        'search_text' => strtolower(trim($eventLabel . ' ' . ((string)($entry['auth_provider'] ?? '')) . ' ' . ((string)($entry['ip_address'] ?? '')) . ' ' . $userAgent . ' ' . $deviceLabel)),
+    ];
+}
+
+$loginHistoryRowsFiltered = array_values(array_filter(
+    $loginHistoryRows,
+    static function (array $row) use ($loginSearchQuery, $loginEventFilter, $loginDeviceFilter): bool {
+        if ($loginEventFilter !== '' && (string)($row['event_label'] ?? '') !== $loginEventFilter) {
+            return false;
+        }
+
+        if ($loginDeviceFilter !== '' && (string)($row['device_label'] ?? '') !== $loginDeviceFilter) {
+            return false;
+        }
+
+        if ($loginSearchQuery !== '' && !str_contains((string)($row['search_text'] ?? ''), $loginSearchQuery)) {
+            return false;
+        }
+
+        return true;
+    }
+));
+
+$loginHistoryTotal = count($loginHistoryRowsFiltered);
+$loginTotalPages = max(1, (int)ceil($loginHistoryTotal / $loginPerPage));
+$loginPage = min($loginPage, $loginTotalPages);
+$loginOffset = ($loginPage - 1) * $loginPerPage;
+$loginHistoryRows = array_slice($loginHistoryRowsFiltered, $loginOffset, $loginPerPage);
+
+$loginEventOptions = array_keys($loginEventOptions);
+sort($loginEventOptions);
+$loginDeviceOptions = array_keys($loginDeviceOptions);
+sort($loginDeviceOptions);

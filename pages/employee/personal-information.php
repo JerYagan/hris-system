@@ -61,70 +61,152 @@ $formatDate = static function (?string $value): string {
       <h2 class="text-lg font-semibold text-slate-800">Personal <span class="text-daGreen">Profile</span></h2>
       <p class="text-sm text-slate-500 mt-1">View your profile summary and update editable details.</p>
     </div>
-    <button data-open-profile class="bg-daGreen text-white px-5 py-2 rounded-lg text-sm font-medium hover:opacity-90">Edit Profile</button>
+    <div class="flex items-center gap-2">
+      <button type="button" data-open-password-request class="inline-flex items-center gap-1 px-4 py-2 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">
+        <span class="material-symbols-outlined text-sm">password</span>
+        Change Password
+      </button>
+      <button data-open-profile class="bg-daGreen text-white px-5 py-2 rounded-lg text-sm font-medium hover:opacity-90">Edit Profile</button>
+    </div>
   </header>
 
-  <div class="p-6 space-y-5">
-    <div class="flex flex-col lg:flex-row gap-4 lg:items-end lg:justify-between rounded-xl border border-slate-200 p-4 bg-slate-50">
-      <div class="flex items-center gap-4">
+  <div class="p-6 grid grid-cols-1 gap-6 lg:grid-cols-2 text-sm">
+    <article class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <div class="flex items-start gap-4">
         <?php if (!empty($employeeProfile['profile_photo_public_url'])): ?>
-          <img src="<?= $escape((string)($employeeProfile['profile_photo_public_url'])) ?>" alt="Profile Photo" class="w-16 h-16 rounded-full object-cover border border-slate-200">
+          <img src="<?= $escape((string)($employeeProfile['profile_photo_public_url'])) ?>" alt="Employee profile photo" class="h-24 w-24 rounded-full object-cover border border-slate-200">
         <?php else: ?>
-          <div class="w-16 h-16 rounded-full bg-daGreen text-white flex items-center justify-center text-lg font-semibold">
+          <div class="h-24 w-24 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-2xl font-semibold">
             <?= $escape($profileInitials !== '' ? $profileInitials : 'EM') ?>
           </div>
         <?php endif; ?>
-        <div>
-          <p class="text-sm font-semibold text-slate-800"><?= $escape(trim((string)($employeeProfile['first_name'] ?? '') . ' ' . (string)($employeeProfile['last_name'] ?? ''))) ?></p>
-          <p class="text-xs text-slate-500">Profile photo appears in the top navigation.</p>
+
+        <div class="min-w-0 flex-1">
+          <p class="text-xs uppercase tracking-wide text-slate-500">Full Name</p>
+          <p class="mt-1 text-lg font-semibold text-slate-800"><?= $escape(trim((string)($employeeProfile['first_name'] ?? '') . ' ' . (string)($employeeProfile['last_name'] ?? '')) ?: '-') ?></p>
+          <p class="mt-3 text-xs uppercase tracking-wide text-slate-500">Email Address</p>
+          <p class="mt-1 break-all font-medium text-slate-800"><?= $escape($employeeProfile['personal_email'] ?? '-') ?></p>
         </div>
       </div>
 
-      <form id="profilePhotoForm" method="post" action="personal-information.php" enctype="multipart/form-data" class="flex flex-col lg:items-end gap-2">
+      <form id="profilePhotoForm" method="post" action="personal-information.php" enctype="multipart/form-data" class="mt-5">
         <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken ?? '') ?>">
         <input type="hidden" name="action" value="upload_profile_photo">
-        <div class="flex items-center gap-2">
-          <input id="profilePhotoInput" type="file" name="profile_photo" accept="image/png,image/jpeg,image/webp" class="hidden" required>
-          <button id="profilePhotoActionBtn" type="button" class="border border-slate-300 bg-white text-slate-700 px-3 py-2 rounded-lg text-sm inline-flex items-center gap-1.5"><span id="profilePhotoActionIcon" class="material-symbols-outlined text-sm">upload</span><span id="profilePhotoActionText">Choose Photo</span></button>
-          <span id="profilePhotoFileName" class="text-xs text-slate-500 max-w-[220px] truncate">No file selected</span>
-        </div>
-        <div id="profilePhotoPreviewWrap" class="hidden w-full lg:w-auto flex items-center gap-3 rounded-lg border border-slate-200 p-2 bg-white">
-          <img id="profilePhotoPreview" src="" alt="Profile preview" class="w-14 h-14 rounded-full object-cover border">
-          <p class="text-xs text-slate-600">Preview before saving</p>
-        </div>
+        <input id="profilePhotoInput" type="file" name="profile_photo" accept="image/png,image/jpeg,image/webp" class="hidden" required>
+        <button type="button" data-trigger-file="profilePhotoInput" class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+          <span class="material-symbols-outlined text-[18px]">upload</span>
+          Select and Upload Photo
+        </button>
+        <span id="profilePhotoFileName" class="mt-2 block text-xs text-slate-500">No file selected.</span>
+        <p class="mt-1 text-xs text-gray-500">Accepted: JPG, PNG, WEBP (max 3MB).</p>
       </form>
-    </div>
+    </article>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 text-sm">
-      <article class="rounded-xl border border-slate-200 p-4">
-        <p class="text-xs uppercase tracking-wide text-slate-500">First Name</p>
-        <p class="mt-2 font-medium text-slate-800"><?= $escape($employeeProfile['first_name'] ?? '-') ?></p>
-      </article>
-      <article class="rounded-xl border border-slate-200 p-4">
-        <p class="text-xs uppercase tracking-wide text-slate-500">Last Name</p>
-        <p class="mt-2 font-medium text-slate-800"><?= $escape($employeeProfile['last_name'] ?? '-') ?></p>
-      </article>
-      <article class="rounded-xl border border-slate-200 p-4">
-        <p class="text-xs uppercase tracking-wide text-slate-500">Email Address</p>
-        <p class="mt-2 font-medium text-slate-800 break-all"><?= $escape($employeeProfile['personal_email'] ?? '-') ?></p>
-      </article>
-      <article class="rounded-xl border border-slate-200 p-4">
-        <p class="text-xs uppercase tracking-wide text-slate-500">Mobile Number</p>
-        <p class="mt-2 font-medium text-slate-800"><?= $escape($employeeProfile['mobile_no'] ?? '-') ?></p>
-      </article>
-      <article class="rounded-xl border border-slate-200 p-4 md:col-span-2 xl:col-span-2">
-        <p class="text-xs uppercase tracking-wide text-slate-500">Address</p>
-        <p class="mt-2 font-medium text-slate-800"><?= $escape($employeeProfile['address_line'] ?? '-') ?></p>
-      </article>
-      <article class="rounded-xl border border-slate-200 p-4">
-        <p class="text-xs uppercase tracking-wide text-slate-500">Date of Birth</p>
-        <p class="mt-2 font-medium text-slate-800"><?= $escape($employeeProfile['date_of_birth'] ?? '-') ?></p>
-      </article>
-      <article class="rounded-xl border border-slate-200 p-4">
-        <p class="text-xs uppercase tracking-wide text-slate-500">Civil Status</p>
-        <p class="mt-2 font-medium text-slate-800"><?= $escape($employeeProfile['civil_status'] ?? '-') ?></p>
-      </article>
+    <article class="rounded-xl border border-slate-200 p-4">
+      <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-600">Employee Information</h3>
+      <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <p class="text-xs uppercase tracking-wide text-slate-500">Mobile Number</p>
+          <p class="mt-1 font-medium text-slate-800"><?= $escape($employeeProfile['mobile_no'] ?? '-') ?></p>
+        </div>
+        <div>
+          <p class="text-xs uppercase tracking-wide text-slate-500">Date of Birth</p>
+          <p class="mt-1 font-medium text-slate-800"><?= $escape($employeeProfile['date_of_birth'] ?? '-') ?></p>
+        </div>
+        <div class="md:col-span-2">
+          <p class="text-xs uppercase tracking-wide text-slate-500">Address</p>
+          <p class="mt-1 font-medium text-slate-800"><?= $escape($employeeProfile['address_line'] ?? '-') ?></p>
+        </div>
+        <div>
+          <p class="text-xs uppercase tracking-wide text-slate-500">Civil Status</p>
+          <p class="mt-1 font-medium text-slate-800"><?= $escape($employeeProfile['civil_status'] ?? '-') ?></p>
+        </div>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6 overflow-hidden">
+  <header class="px-6 py-4 border-b border-slate-200">
+    <h2 class="text-lg font-semibold text-slate-800">Login Activity</h2>
+    <p class="text-sm text-slate-500 mt-1">Recent authentication events for your account.</p>
+  </header>
+
+  <form method="GET" action="personal-information.php" class="px-6 pb-3 pt-4 grid grid-cols-1 gap-3 md:grid-cols-4 md:items-end md:gap-4">
+    <div class="w-full">
+      <label class="text-sm text-slate-600" for="employeeLoginSearch">Search Activity</label>
+      <input id="employeeLoginSearch" name="login_search" value="<?= $escape((string)$loginSearchQuery) ?>" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search by event, provider, IP, or device">
     </div>
+    <div class="w-full">
+      <label class="text-sm text-slate-600" for="employeeLoginEventFilter">Event Type</label>
+      <select id="employeeLoginEventFilter" name="login_event" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
+        <option value="">All Events</option>
+        <?php foreach ((array)$loginEventOptions as $eventOption): ?>
+          <option value="<?= $escape((string)$eventOption) ?>" <?= (string)$loginEventFilter === (string)$eventOption ? 'selected' : '' ?>><?= $escape((string)$eventOption) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="w-full">
+      <label class="text-sm text-slate-600" for="employeeLoginDeviceFilter">Device</label>
+      <select id="employeeLoginDeviceFilter" name="login_device" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
+        <option value="">All Devices</option>
+        <?php foreach ((array)$loginDeviceOptions as $deviceOption): ?>
+          <option value="<?= $escape((string)$deviceOption) ?>" <?= (string)$loginDeviceFilter === (string)$deviceOption ? 'selected' : '' ?>><?= $escape((string)$deviceOption) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="flex gap-2 md:justify-end">
+      <button type="submit" class="mt-6 rounded-md bg-green-700 px-4 py-2 text-sm text-white hover:bg-green-800">Apply</button>
+      <a href="personal-information.php" class="mt-6 rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Reset</a>
+    </div>
+  </form>
+
+  <div class="p-6 overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-slate-600">
+        <tr>
+          <th class="text-left px-4 py-3">Event</th>
+          <th class="text-left px-4 py-3">Provider</th>
+          <th class="text-left px-4 py-3">IP Address</th>
+          <th class="text-left px-4 py-3">Device</th>
+          <th class="text-left px-4 py-3">User Agent</th>
+          <th class="text-left px-4 py-3">Timestamp</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        <?php if (empty($loginHistoryRows)): ?>
+          <tr><td class="px-4 py-3 text-slate-500" colspan="6">No login activity available.</td></tr>
+        <?php else: ?>
+          <?php foreach ($loginHistoryRows as $row): ?>
+            <tr>
+              <td class="px-4 py-3"><?= $escape((string)$row['event_label']) ?></td>
+              <td class="px-4 py-3"><?= $escape((string)$row['auth_provider']) ?></td>
+              <td class="px-4 py-3"><?= $escape((string)$row['ip_address']) ?></td>
+              <td class="px-4 py-3"><?= $escape((string)$row['device_label']) ?></td>
+              <td class="px-4 py-3"><?= $escape((string)$row['user_agent']) ?></td>
+              <td class="px-4 py-3"><?= $escape((string)$row['created_at']) ?></td>
+            </tr>
+          <?php endforeach; ?>
+        <?php endif; ?>
+      </tbody>
+    </table>
+
+    <?php if (($loginTotalPages ?? 1) > 1): ?>
+      <div class="mt-4 flex items-center justify-between text-sm text-slate-600">
+        <p>Showing page <?= (int)($loginPage ?? 1) ?> of <?= (int)($loginTotalPages ?? 1) ?> (<?= (int)($loginHistoryTotal ?? 0) ?> total)</p>
+        <div class="flex items-center gap-2">
+          <?php $baseQuery = ['login_search' => (string)$loginSearchQuery, 'login_event' => (string)$loginEventFilter, 'login_device' => (string)$loginDeviceFilter]; ?>
+          <?php if ((int)$loginPage > 1): ?>
+            <?php $prevQuery = $baseQuery; $prevQuery['login_page'] = (int)$loginPage - 1; ?>
+            <a class="rounded-md border border-slate-300 px-3 py-1.5 hover:bg-slate-50" href="personal-information.php?<?= $escape((string)http_build_query($prevQuery)) ?>">Previous</a>
+          <?php endif; ?>
+          <?php if ((int)$loginPage < (int)$loginTotalPages): ?>
+            <?php $nextQuery = $baseQuery; $nextQuery['login_page'] = (int)$loginPage + 1; ?>
+            <a class="rounded-md border border-slate-300 px-3 py-1.5 hover:bg-slate-50" href="personal-information.php?<?= $escape((string)http_build_query($nextQuery)) ?>">Next</a>
+          <?php endif; ?>
+        </div>
+      </div>
+    <?php endif; ?>
   </div>
 </section>
 
@@ -135,6 +217,31 @@ $formatDate = static function (?string $value): string {
     <div><label class="text-gray-500">Office</label><input disabled value="<?= $escape($employeeProfile['employment_office_name'] ?? '') ?>" class="w-full mt-1 p-2 bg-gray-100 rounded-lg"></div>
     <div><label class="text-gray-500">Status</label><input disabled value="<?= $escape($employeeProfile['employment_status'] ?? '') ?>" class="w-full mt-1 p-2 bg-gray-100 rounded-lg"></div>
   </div>
+</section>
+
+<section class="bg-white rounded-xl shadow p-6 mt-6">
+  <h2 class="text-lg font-bold mb-4">Approved <span class="text-daGreen">Spouse Entries</span></h2>
+
+  <?php if (!empty($employeeSpouses)): ?>
+    <div class="space-y-3 text-sm">
+      <?php foreach ($employeeSpouses as $index => $spouseRow): ?>
+        <?php
+          $spouseDisplayName = trim((string)($spouseRow['first_name'] ?? '') . ' ' . (string)($spouseRow['middle_name'] ?? '') . ' ' . (string)($spouseRow['surname'] ?? '') . ' ' . (string)($spouseRow['extension_name'] ?? ''));
+        ?>
+        <article class="border rounded-lg p-4">
+          <p class="font-semibold text-slate-800"><?= $escape($spouseDisplayName !== '' ? $spouseDisplayName : 'Spouse Entry #' . ($index + 1)) ?></p>
+          <div class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-slate-600">
+            <p>Occupation: <?= $escape((string)($spouseRow['occupation'] ?? '-') ?: '-') ?></p>
+            <p>Employer: <?= $escape((string)($spouseRow['employer_business_name'] ?? '-') ?: '-') ?></p>
+            <p class="md:col-span-2">Business Address: <?= $escape((string)($spouseRow['business_address'] ?? '-') ?: '-') ?></p>
+            <p>Telephone: <?= $escape((string)($spouseRow['telephone_no'] ?? '-') ?: '-') ?></p>
+          </div>
+        </article>
+      <?php endforeach; ?>
+    </div>
+  <?php else: ?>
+    <div class="rounded-lg border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-500">No approved spouse entries yet.</div>
+  <?php endif; ?>
 </section>
 
 <section class="bg-white rounded-xl shadow p-6 mt-6">
@@ -172,6 +279,9 @@ $formatDate = static function (?string $value): string {
           <?php endif; ?>
           <?php if (!empty($request['notes'])): ?>
             <p class="mt-2 text-xs text-slate-600">Notes: <?= $escape((string)$request['notes']) ?></p>
+          <?php endif; ?>
+          <?php if (!empty($request['admin_remarks'])): ?>
+            <p class="mt-2 text-xs text-slate-600">Admin Remarks: <?= $escape((string)$request['admin_remarks']) ?></p>
           <?php endif; ?>
         </article>
       <?php endforeach; ?>
@@ -489,6 +599,120 @@ $formatDate = static function (?string $value): string {
   </div>
 </div>
 
+<div id="employeePasswordRequestModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+  <div class="absolute inset-0 bg-black/40" data-close-password-request></div>
+  <div class="relative z-10 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-lg w-full max-w-xl border border-slate-200">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Change Password (Email Verification)</h2>
+        <button type="button" data-close-password-request><span class="material-symbols-outlined">close</span></button>
+      </div>
+
+      <form method="post" action="personal-information.php" class="p-6 grid grid-cols-1 gap-4 text-sm" id="employeePasswordRequestForm">
+        <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken ?? '') ?>">
+        <input type="hidden" name="action" value="request_password_change_code">
+
+        <div>
+          <label class="text-slate-600">Current Password</label>
+          <input type="password" name="current_password" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+        </div>
+
+        <div>
+          <label class="text-slate-600">New Password</label>
+          <input type="password" id="employeeNewPasswordInput" name="new_password" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+          <div class="mt-2">
+            <div class="h-2 w-full rounded-full bg-slate-200">
+              <div id="employeePasswordStrengthBar" class="h-2 w-0 rounded-full bg-slate-300 transition-all duration-150"></div>
+            </div>
+            <p id="employeePasswordStrengthText" class="mt-1 text-xs text-slate-500">Strength: Enter a new password</p>
+          </div>
+          <p class="mt-1 text-xs text-slate-500">Use at least 10 characters with uppercase, lowercase, number, and special character.</p>
+        </div>
+
+        <div>
+          <label class="text-slate-600">Confirm New Password</label>
+          <input type="password" name="confirm_new_password" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+        </div>
+
+        <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+          After sending the verification code, you will immediately proceed to the code verification modal.
+        </div>
+
+        <div class="flex justify-end gap-3 mt-2">
+          <button type="button" data-close-password-request class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-md bg-daGreen text-white hover:opacity-90">Send Verification Code</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="employeePasswordVerifyModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+  <div class="absolute inset-0 bg-black/40" data-close-password-verify></div>
+  <div class="relative z-10 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-lg w-full max-w-xl border border-slate-200">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Verify Email Code</h2>
+        <button type="button" data-close-password-verify><span class="material-symbols-outlined">close</span></button>
+      </div>
+
+      <form method="post" action="personal-information.php" class="p-6 grid grid-cols-1 gap-4 text-sm">
+        <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken ?? '') ?>">
+        <input type="hidden" name="action" value="confirm_password_change_code">
+
+        <?php if (!empty($passwordChangeStatus['is_pending'])): ?>
+          <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Verification code sent to <strong><?= $escape((string)$passwordChangeStatus['email']) ?></strong>. Expires at <?= $escape((string)$passwordChangeStatus['expires_at']) ?>.
+          </div>
+        <?php else: ?>
+          <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            No pending verification code was found. Send a new code first.
+          </div>
+        <?php endif; ?>
+
+        <?php if (!empty($passwordChangeStatus['is_pending']) && ($state ?? '') === 'error' && !empty($message)): ?>
+          <div class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+            <?= $escape((string)$message) ?>
+          </div>
+        <?php endif; ?>
+
+        <div>
+          <label class="text-slate-600">Verification Code</label>
+          <input type="text" name="verification_code" maxlength="6" pattern="[0-9]{6}" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Enter 6-digit code" required>
+        </div>
+
+        <div class="flex justify-between gap-3 mt-2">
+          <button type="submit" name="action" value="cancel_password_change_code" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel Pending Request</button>
+          <button type="submit" class="px-5 py-2 rounded-md bg-daGreen text-white hover:opacity-90">Verify and Change Password</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="employeePhotoPreviewModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+  <div class="absolute inset-0 bg-black/40" data-close-photo-preview="employeePhotoPreviewModal"></div>
+  <div class="relative z-10 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-lg w-full max-w-md border border-slate-200">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Profile Photo Preview</h2>
+        <button type="button" data-close-photo-preview="employeePhotoPreviewModal"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="p-6">
+        <img id="employeeProfilePhotoPreviewImage" src="" alt="Selected profile preview" class="hidden h-64 w-full rounded-lg border border-slate-200 object-contain">
+        <p id="employeeProfilePhotoPreviewEmpty" class="rounded-lg border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">Choose a file first to preview it.</p>
+        <div class="mt-4 flex justify-end gap-2">
+          <button type="button" data-close-photo-preview="employeePhotoPreviewModal" class="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Cancel</button>
+          <button type="button" id="employeeProfilePhotoConfirmUpload" class="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-green-700 text-white text-sm hover:bg-green-800">
+            <span class="material-symbols-outlined text-sm">cloud_upload</span>
+            Confirm and Upload
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <template id="childRowTemplate">
   <div class="grid grid-cols-1 md:grid-cols-12 gap-2 child-row">
     <div class="md:col-span-8"><input name="children_full_name[]" placeholder="Child Full Name" class="border rounded-lg p-2 w-full"></div>
@@ -557,6 +781,12 @@ $formatDate = static function (?string $value): string {
 
 <script id="employeeAddressLookupData" type="application/json"><?= (string)json_encode([
   'barangayByCity' => $barangayByCityLookup,
+], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
+
+<script id="employeePasswordFlowData" type="application/json"><?= (string)json_encode([
+  'has_pending_code' => !empty($passwordChangeStatus['is_pending']),
+  'state' => (string)($state ?? ''),
+  'message' => (string)($message ?? ''),
 ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 
 <div id="spouseRequestModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">

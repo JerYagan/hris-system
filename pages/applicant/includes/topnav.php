@@ -6,9 +6,14 @@ $activePage = $activePage ?? basename($_SERVER['PHP_SELF']);
 require_once __DIR__ . '/lib/applicant-backend.php';
 
 $applicantFirstName = 'Applicant';
+$applicantDisplayName = 'Applicant User';
+$applicantTopnavPhotoUrl = null;
+$applicantTopnavInitials = 'AP';
 $fullNameFromSession = trim((string)($_SESSION['user']['name'] ?? ''));
 
 $unreadNotificationCount = 0;
+$topnavNotificationsPreview = [];
+$applicantTopnavCsrfToken = function_exists('ensureCsrfToken') ? ensureCsrfToken() : '';
 $topnavBackend = applicantBackendContext();
 $topnavSupabaseUrl = (string)($topnavBackend['supabase_url'] ?? '');
 $topnavApplicantUserId = (string)($topnavBackend['applicant_user_id'] ?? '');
@@ -16,6 +21,7 @@ $topnavHeaders = (array)($topnavBackend['headers'] ?? []);
 
 $cacheTtlSeconds = 45;
 $topnavCache = (array)($_SESSION['applicant_topnav_cache'] ?? []);
+$profilePhotoCachePath = trim((string)($topnavCache['profile_photo_url'] ?? ''));
 $cacheUserId = (string)($topnavCache['user_id'] ?? '');
 $cacheTimestamp = (int)($topnavCache['cached_at'] ?? 0);
 $cacheIsFresh = $cacheUserId !== ''
@@ -28,22 +34,46 @@ if ($cacheIsFresh) {
     if ($cachedFirstName !== '') {
         $applicantFirstName = $cachedFirstName;
     }
+    $applicantDisplayName = trim((string)($topnavCache['display_name'] ?? '')) !== ''
+        ? (string)$topnavCache['display_name']
+        : $applicantDisplayName;
+    $cachedPhotoPath = $profilePhotoCachePath;
+    if ($cachedPhotoPath !== '') {
+        $applicantTopnavPhotoUrl = preg_match('#^https?://#i', $cachedPhotoPath) === 1 || str_starts_with($cachedPhotoPath, '/')
+            ? $cachedPhotoPath
+            : '/hris-system/storage/document/' . ltrim($cachedPhotoPath, '/');
+    }
     $unreadNotificationCount = max(0, (int)($topnavCache['unread_count'] ?? 0));
+    $topnavNotificationsPreview = (array)($topnavCache['notifications_preview'] ?? []);
 }
 
 if (!$cacheIsFresh && $topnavSupabaseUrl !== '' && $topnavApplicantUserId !== '' && !empty($topnavHeaders) && function_exists('apiRequest')) {
     $peopleNameResponse = apiRequest(
         'GET',
         $topnavSupabaseUrl
-        . '/rest/v1/people?select=first_name&user_id=eq.' . rawurlencode($topnavApplicantUserId)
+        . '/rest/v1/people?select=first_name,surname,profile_photo_url&user_id=eq.' . rawurlencode($topnavApplicantUserId)
         . '&limit=1',
         $topnavHeaders
     );
 
     if (isSuccessful($peopleNameResponse)) {
+        $peopleRow = (array)($peopleNameResponse['data'][0] ?? []);
+        $peopleSurname = trim((string)($peopleRow['surname'] ?? ''));
         $peopleFirstName = trim((string)($peopleNameResponse['data'][0]['first_name'] ?? ''));
         if ($peopleFirstName !== '') {
             $applicantFirstName = $peopleFirstName;
+            $applicantDisplayName = trim($peopleFirstName . ' ' . $peopleSurname);
+            if ($applicantDisplayName === '') {
+                $applicantDisplayName = $peopleFirstName;
+            }
+        }
+
+        $profilePhotoPath = trim((string)($peopleRow['profile_photo_url'] ?? ''));
+        if ($profilePhotoPath !== '') {
+            $profilePhotoCachePath = $profilePhotoPath;
+            $applicantTopnavPhotoUrl = preg_match('#^https?://#i', $profilePhotoPath) === 1 || str_starts_with($profilePhotoPath, '/')
+                ? $profilePhotoPath
+                : '/hris-system/storage/document/' . ltrim($profilePhotoPath, '/');
         }
     }
 
@@ -61,6 +91,7 @@ if (!$cacheIsFresh && $topnavSupabaseUrl !== '' && $topnavApplicantUserId !== ''
             if ($profileFullName !== '') {
                 $nameParts = preg_split('/\s+/', $profileFullName) ?: [];
                 $applicantFirstName = (string)($nameParts[0] ?? 'Applicant');
+                $applicantDisplayName = $profileFullName;
             }
         }
     }
@@ -68,6 +99,7 @@ if (!$cacheIsFresh && $topnavSupabaseUrl !== '' && $topnavApplicantUserId !== ''
     if ($applicantFirstName === 'Applicant' && $fullNameFromSession !== '') {
         $nameParts = preg_split('/\s+/', $fullNameFromSession) ?: [];
         $applicantFirstName = (string)($nameParts[0] ?? 'Applicant');
+        $applicantDisplayName = $fullNameFromSession;
     }
 
     $unreadResponse = apiRequest(
@@ -82,10 +114,26 @@ if (!$cacheIsFresh && $topnavSupabaseUrl !== '' && $topnavApplicantUserId !== ''
         $unreadNotificationCount = count((array)($unreadResponse['data'] ?? []));
     }
 
+    $previewResponse = apiRequest(
+        'GET',
+        $topnavSupabaseUrl
+        . '/rest/v1/notifications?select=id,title,body,link_url,is_read,created_at,category'
+        . '&recipient_user_id=eq.' . rawurlencode($topnavApplicantUserId)
+        . '&order=created_at.desc&limit=8',
+        $topnavHeaders
+    );
+
+    if (isSuccessful($previewResponse)) {
+        $topnavNotificationsPreview = array_values((array)($previewResponse['data'] ?? []));
+    }
+
     $_SESSION['applicant_topnav_cache'] = [
         'user_id' => $topnavApplicantUserId,
         'first_name' => $applicantFirstName,
+        'display_name' => $applicantDisplayName,
+        'profile_photo_url' => $profilePhotoCachePath,
         'unread_count' => $unreadNotificationCount,
+        'notifications_preview' => $topnavNotificationsPreview,
         'cached_at' => time(),
     ];
 }
@@ -93,6 +141,25 @@ if (!$cacheIsFresh && $topnavSupabaseUrl !== '' && $topnavApplicantUserId !== ''
 if ($applicantFirstName === 'Applicant' && $fullNameFromSession !== '') {
     $nameParts = preg_split('/\s+/', $fullNameFromSession) ?: [];
     $applicantFirstName = (string)($nameParts[0] ?? 'Applicant');
+}
+
+if (trim($applicantDisplayName) === '' && $fullNameFromSession !== '') {
+    $applicantDisplayName = $fullNameFromSession;
+}
+
+if (trim($applicantDisplayName) === '') {
+    $applicantDisplayName = $applicantFirstName;
+}
+
+$namePartsForInitials = preg_split('/\s+/', trim($applicantDisplayName)) ?: [];
+$initials = '';
+foreach (array_slice($namePartsForInitials, 0, 2) as $part) {
+    if ($part !== '') {
+        $initials .= strtoupper(substr($part, 0, 1));
+    }
+}
+if ($initials !== '') {
+    $applicantTopnavInitials = $initials;
 }
 
 $unreadNotificationBadge = $unreadNotificationCount > 99 ? '99+' : (string)$unreadNotificationCount;
@@ -173,23 +240,121 @@ $allMobileLinks = array_merge($primaryLinks, $recruitmentLinks, $accountLinks);
                     <span class="material-symbols-outlined text-[20px]">menu</span>
                 </button>
 
-                <a href="notifications.php"
-                   class="relative rounded-md p-1 text-gray-600 transition hover:bg-gray-100 hover:text-green-700"
-                   aria-label="Notifications">
-                    <span class="material-symbols-outlined">notifications</span>
-                    <?php if ($unreadNotificationCount > 0): ?>
-                        <span class="absolute -right-1 -top-1 inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white">
-                            <?= htmlspecialchars($unreadNotificationBadge, ENT_QUOTES, 'UTF-8') ?>
-                        </span>
-                    <?php endif; ?>
-                </a>
+                <div
+                    class="relative"
+                    data-topnav-notifications
+                    data-endpoint="notifications.php"
+                    data-action-field="action"
+                    data-mark-read-action="mark_read"
+                    data-id-field="notification_id"
+                    data-csrf-field="csrf_token"
+                    data-csrf-token="<?= htmlspecialchars((string)$applicantTopnavCsrfToken, ENT_QUOTES, 'UTF-8') ?>"
+                    data-role-label="Applicant"
+                >
+                    <button type="button"
+                            data-topnav-notification-trigger
+                            class="relative rounded-md p-1 text-gray-600 transition hover:bg-gray-100 hover:text-green-700"
+                            aria-label="Notifications">
+                        <span class="material-symbols-outlined">notifications</span>
+                        <?php if ($unreadNotificationCount > 0): ?>
+                            <span data-topnav-unread-badge data-unread-count="<?= (int)$unreadNotificationCount ?>" class="absolute -right-1 -top-1 inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white">
+                                <?= htmlspecialchars($unreadNotificationBadge, ENT_QUOTES, 'UTF-8') ?>
+                            </span>
+                        <?php else: ?>
+                            <span data-topnav-unread-badge data-unread-count="0" class="absolute -right-1 -top-1 hidden min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white">0</span>
+                        <?php endif; ?>
+                    </button>
+
+                    <div data-topnav-list-modal class="absolute right-0 top-full z-[90] mt-2 hidden w-[min(90vw,42rem)] rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                            <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+                                <div>
+                                    <p class="text-base font-semibold text-slate-800">Notifications</p>
+                                    <p class="text-xs text-slate-500"><span data-topnav-unread-text><?= (int)$unreadNotificationCount ?></span> unread</p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <a href="notifications.php" class="rounded-md border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">Open All</a>
+                                    <button type="button" data-topnav-close="list" class="rounded-md border border-slate-200 px-2 py-1 text-slate-600 hover:bg-slate-50" aria-label="Close notifications">
+                                        <span class="material-symbols-outlined text-base">close</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="max-h-[60vh] overflow-y-auto p-3" data-topnav-items>
+                                <?php if (empty($topnavNotificationsPreview)): ?>
+                                    <div class="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">No notifications available.</div>
+                                <?php else: ?>
+                                    <?php foreach ((array)$topnavNotificationsPreview as $item): ?>
+                                        <?php
+                                        $itemId = trim((string)($item['id'] ?? ''));
+                                        if ($itemId === '') {
+                                            continue;
+                                        }
+                                        $itemTitle = trim((string)($item['title'] ?? 'Notification'));
+                                        $itemBody = trim((string)($item['body'] ?? ''));
+                                        $itemLink = trim((string)($item['link_url'] ?? ''));
+                                        $itemCategory = trim((string)($item['category'] ?? 'general'));
+                                        $itemCreatedAtRaw = trim((string)($item['created_at'] ?? ''));
+                                        $itemCreatedAtLabel = $itemCreatedAtRaw !== '' ? date('M d, Y h:i A', strtotime($itemCreatedAtRaw)) : '-';
+                                        $itemIsRead = (bool)($item['is_read'] ?? false);
+                                        ?>
+                                        <button
+                                            type="button"
+                                            data-topnav-item
+                                            data-notification-id="<?= htmlspecialchars($itemId, ENT_QUOTES, 'UTF-8') ?>"
+                                            data-notification-title="<?= htmlspecialchars($itemTitle, ENT_QUOTES, 'UTF-8') ?>"
+                                            data-notification-body="<?= htmlspecialchars($itemBody !== '' ? $itemBody : 'No details available.', ENT_QUOTES, 'UTF-8') ?>"
+                                            data-notification-link="<?= htmlspecialchars($itemLink, ENT_QUOTES, 'UTF-8') ?>"
+                                            data-notification-category="<?= htmlspecialchars($itemCategory, ENT_QUOTES, 'UTF-8') ?>"
+                                            data-notification-created="<?= htmlspecialchars($itemCreatedAtLabel, ENT_QUOTES, 'UTF-8') ?>"
+                                            data-notification-read="<?= $itemIsRead ? '1' : '0' ?>"
+                                            class="mb-2 block w-full rounded-xl border px-4 py-3 text-left transition hover:bg-slate-50 <?= $itemIsRead ? 'border-slate-200 bg-white' : 'border-amber-200 bg-amber-50/60' ?>"
+                                        >
+                                            <div class="flex items-start justify-between gap-3">
+                                                <p class="text-sm font-medium text-slate-800"><?= htmlspecialchars($itemTitle, ENT_QUOTES, 'UTF-8') ?></p>
+                                                <span data-topnav-item-status class="inline-flex rounded-full px-2 py-0.5 text-[11px] <?= $itemIsRead ? 'bg-slate-100 text-slate-600' : 'bg-amber-100 text-amber-700' ?>"><?= $itemIsRead ? 'Read' : 'Unread' ?></span>
+                                            </div>
+                                            <p class="mt-1 line-clamp-2 text-xs text-slate-600"><?= htmlspecialchars($itemBody !== '' ? $itemBody : 'No details available.', ENT_QUOTES, 'UTF-8') ?></p>
+                                            <p class="mt-2 text-[11px] text-slate-400"><?= htmlspecialchars($itemCreatedAtLabel, ENT_QUOTES, 'UTF-8') ?></p>
+                                        </button>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </div>
+                    </div>
+
+                    <div data-topnav-detail-modal class="absolute right-0 top-full z-[95] mt-2 hidden w-[min(90vw,36rem)] rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                            <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+                                <p class="text-base font-semibold text-slate-800">Notification Details</p>
+                                <button type="button" data-topnav-close="detail" class="rounded-md border border-slate-200 px-2 py-1 text-slate-600 hover:bg-slate-50" aria-label="Close notification details">
+                                    <span class="material-symbols-outlined text-base">close</span>
+                                </button>
+                            </div>
+                            <div class="space-y-3 px-5 py-4 text-sm">
+                                <div class="flex items-center gap-2">
+                                    <span data-topnav-detail-status class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">Read</span>
+                                    <span data-topnav-detail-created class="text-xs text-slate-500">-</span>
+                                </div>
+                                <h3 data-topnav-detail-title class="text-base font-semibold text-slate-800">Notification</h3>
+                                <p data-topnav-detail-body class="text-slate-600">No details available.</p>
+                                <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                                    <p class="font-medium text-slate-700">Related Link</p>
+                                    <a data-topnav-detail-link href="#" class="mt-1 inline-flex items-center gap-1 text-emerald-700 hover:underline" target="_self" rel="noopener">Open related record</a>
+                                    <p data-topnav-detail-link-empty class="mt-1 text-slate-500">No related link available.</p>
+                                </div>
+                            </div>
+                    </div>
+                </div>
 
                 <span class="hidden sm:block h-6 w-px bg-gray-200"></span>
 
                 <div class="relative">
                     <button id="applicantUserMenuBtn"
                             class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-gray-700 transition hover:bg-gray-100 hover:text-gray-900 focus:outline-none">
-                        <span class="material-symbols-outlined">account_circle</span>
+                        <?php if (!empty($applicantTopnavPhotoUrl)): ?>
+                            <img src="<?= htmlspecialchars((string)$applicantTopnavPhotoUrl, ENT_QUOTES, 'UTF-8') ?>" alt="Applicant profile" class="h-8 w-8 rounded-full border object-cover">
+                        <?php else: ?>
+                            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-green-700 text-xs font-semibold text-white">
+                                <?= htmlspecialchars((string)$applicantTopnavInitials, ENT_QUOTES, 'UTF-8') ?>
+                            </div>
+                        <?php endif; ?>
                         <span class="hidden sm:block"><?= htmlspecialchars($applicantFirstName, ENT_QUOTES, 'UTF-8') ?></span>
                         <span class="material-symbols-outlined text-base">expand_more</span>
                     </button>
@@ -265,6 +430,8 @@ $allMobileLinks = array_merge($primaryLinks, $recruitmentLinks, $accountLinks);
         </div>
     </div>
 </header>
+
+<script src="/hris-system/assets/js/shared/topnav-notifications.js" defer></script>
 
 <script>
     (function () {

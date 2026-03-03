@@ -119,76 +119,101 @@ ob_start();
 
 <!-- SNAPSHOT CARDS -->
 <section class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-    <article class="rounded-xl border bg-white p-5">
-        <p class="text-xs uppercase tracking-wide text-gray-500">Position Applied</p>
-        <p class="mt-2 font-semibold text-gray-800"><?= htmlspecialchars((string)$dashboardData['position_applied'], ENT_QUOTES, 'UTF-8') ?></p>
+    <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-500">
+            <span class="material-symbols-outlined text-[16px]">work</span>
+            Position Applied
+        </div>
+        <p class="mt-2 text-base font-semibold text-slate-800"><?= htmlspecialchars((string)$dashboardData['position_applied'], ENT_QUOTES, 'UTF-8') ?></p>
     </article>
-    <article class="rounded-xl border bg-white p-5">
-        <p class="text-xs uppercase tracking-wide text-gray-500">Current Stage</p>
-        <p class="mt-2 font-semibold text-gray-800"><?= htmlspecialchars((string)$dashboardData['current_stage'], ENT_QUOTES, 'UTF-8') ?></p>
+    <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-500">
+            <span class="material-symbols-outlined text-[16px]">flag</span>
+            Current Stage
+        </div>
+        <p class="mt-2 text-base font-semibold text-slate-800"><?= htmlspecialchars((string)$dashboardData['current_stage'], ENT_QUOTES, 'UTF-8') ?></p>
     </article>
-    <article class="rounded-xl border bg-white p-5">
-        <p class="text-xs uppercase tracking-wide text-gray-500">Date Applied</p>
-        <p class="mt-2 font-semibold text-gray-800"><?= htmlspecialchars((string)$dashboardData['date_applied'], ENT_QUOTES, 'UTF-8') ?></p>
+    <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-500">
+            <span class="material-symbols-outlined text-[16px]">calendar_today</span>
+            Date Applied
+        </div>
+        <p class="mt-2 text-base font-semibold text-slate-800"><?= htmlspecialchars((string)$dashboardData['date_applied'], ENT_QUOTES, 'UTF-8') ?></p>
     </article>
-    <article class="rounded-xl border bg-white p-5">
-        <p class="text-xs uppercase tracking-wide text-gray-500">Latest Update</p>
-        <p class="mt-2 font-semibold text-gray-800"><?= htmlspecialchars((string)$dashboardData['latest_update'], ENT_QUOTES, 'UTF-8') ?></p>
+    <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-500">
+            <span class="material-symbols-outlined text-[16px]">update</span>
+            Latest Update
+        </div>
+        <p class="mt-2 text-base font-semibold text-slate-800"><?= htmlspecialchars((string)$dashboardData['latest_update'], ENT_QUOTES, 'UTF-8') ?></p>
     </article>
 </section>
 
-<!-- PROGRESS + LATEST UPDATES -->
-<section class="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-3">
-    <div class="xl:col-span-2 rounded-xl border bg-white">
+<!-- APPLICATION PROGRESS -->
+<section class="mb-6">
+    <div class="rounded-xl border bg-white">
         <header class="flex flex-col gap-2 border-b px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <div class="flex items-center gap-2">
                 <span class="material-symbols-outlined text-green-700">route</span>
                 <h2 class="text-lg font-semibold text-gray-800">Application Progress</h2>
             </div>
-            <a href="applications.php" class="text-sm font-medium text-green-700 hover:underline">Open full tracker</a>
-        </header>
+        </div>
 
-        <div class="p-6">
-            <ol class="space-y-4">
-                <?php foreach (($dashboardProgressItems ?? []) as $progressItem): ?>
-                    <?php
-                    $progressState = (string)($progressItem['state'] ?? 'upcoming');
-                    $itemClass = 'rounded-lg border bg-gray-50';
-                    $iconWrapClass = 'bg-gray-400';
-                    $titleClass = 'text-gray-800';
-                    $iconName = 'radio_button_unchecked';
+        <div class="p-5 sm:p-6">
+            <?php if (empty($dashboardTimelineItems)): ?>
+                <div class="rounded-lg border border-slate-200 bg-slate-50 p-5">
+                    <p class="font-medium text-slate-800">No Applications Yet</p>
+                    <p class="mt-1 text-sm text-slate-600">Start by browsing open positions and submitting your first application.</p>
+                    <a href="job-list.php" class="mt-3 inline-flex items-center gap-1 text-sm font-medium text-green-700 hover:underline">
+                        Browse Open Jobs
+                        <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                    </a>
+                </div>
+            <?php else: ?>
+                <div class="w-full max-w-full overflow-hidden">
+                    <ol class="flex w-full items-start">
+                        <?php foreach ($dashboardTimelineItems as $index => $timelineItem): ?>
+                            <?php
+                            $timelineState = (string)($timelineItem['state'] ?? 'upcoming');
+                            $isLastItem = $index === (count($dashboardTimelineItems) - 1);
+                            $dotClass = 'border-slate-300 bg-white text-slate-400';
+                            $lineClass = 'bg-slate-200';
+                            $titleClass = 'text-slate-700';
+                            $iconName = 'radio_button_unchecked';
 
-                    if ($progressState === 'completed') {
-                        $itemClass = 'rounded-lg border bg-green-50 border-green-200';
-                        $iconWrapClass = 'bg-green-700';
-                        $titleClass = 'text-green-900';
-                        $iconName = 'task_alt';
-                    } elseif ($progressState === 'current') {
-                        $itemClass = 'rounded-lg border border-yellow-200 bg-yellow-50';
-                        $iconWrapClass = 'bg-yellow-500';
-                        $titleClass = 'text-yellow-900';
-                        $iconName = 'hourglass_top';
-                    }
-                    ?>
-                    <li class="flex items-start gap-3 p-4 <?= $itemClass ?>">
-                        <span class="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full text-white <?= $iconWrapClass ?>">
-                            <span class="material-symbols-outlined text-[15px]"><?= $iconName ?></span>
-                        </span>
-                        <div>
-                            <p class="font-medium <?= $titleClass ?>"><?= htmlspecialchars((string)($progressItem['title'] ?? 'Application Step'), ENT_QUOTES, 'UTF-8') ?></p>
-                            <?php if (!empty($progressItem['notes'])): ?>
-                                <p class="mt-1 text-xs text-gray-600"><?= htmlspecialchars((string)$progressItem['notes'], ENT_QUOTES, 'UTF-8') ?></p>
-                            <?php endif; ?>
-                            <?php if (!empty($progressItem['created_at'])): ?>
-                                <p class="mt-1 text-xs text-gray-500"><?= htmlspecialchars(date('M j, Y g:i A', strtotime((string)$progressItem['created_at'])), ENT_QUOTES, 'UTF-8') ?></p>
-                            <?php endif; ?>
-                        </div>
-                    </li>
-                <?php endforeach; ?>
-            </ol>
+                            if ($timelineState === 'completed') {
+                                $dotClass = 'border-green-700 bg-green-700 text-white';
+                                $lineClass = 'bg-green-600';
+                                $titleClass = 'text-green-800';
+                                $iconName = 'check';
+                            } elseif ($timelineState === 'current') {
+                                $dotClass = 'border-green-700 bg-white text-green-700';
+                                $lineClass = 'bg-slate-200';
+                                $titleClass = 'text-green-800';
+                                $iconName = 'schedule';
+                            }
+                            ?>
+                            <li class="min-w-0 flex-1">
+                                <div class="flex items-center">
+                                    <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 text-sm <?= $dotClass ?>">
+                                        <span class="material-symbols-outlined text-base"><?= $iconName ?></span>
+                                    </span>
+                                    <?php if (!$isLastItem): ?>
+                                        <span class="mx-2 h-1 flex-1 rounded-full <?= $lineClass ?>"></span>
+                                    <?php endif; ?>
+                                </div>
+                                <p class="mt-3 pr-2 text-sm font-semibold leading-5 <?= $titleClass ?>"><?= htmlspecialchars((string)($timelineItem['title'] ?? 'Application Step'), ENT_QUOTES, 'UTF-8') ?></p>
+                            </li>
+                        <?php endforeach; ?>
+                    </ol>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
+</section>
 
+<!-- LATEST UPDATES -->
+<section class="mb-8">
     <aside class="rounded-xl border bg-white">
         <header class="flex flex-col gap-2 border-b px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <h3 class="text-lg font-semibold text-gray-800">Latest Updates</h3>
@@ -225,7 +250,7 @@ ob_start();
 </section>
 
 <!-- ACTIONS + UPDATES -->
-<section class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+<section class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
     <div class="rounded-xl border bg-white">
         <header class="border-b px-6 py-4">
             <h3 class="font-semibold text-gray-800">Quick Actions</h3>

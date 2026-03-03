@@ -11,6 +11,8 @@
   $employeeTopnavRoleLabel = 'Employee';
   $employeeUnreadNotificationCount = 0;
   $employeeUnreadNotificationBadge = '0';
+  $employeeTopnavNotificationsPreview = [];
+  $employeeTopnavCsrfToken = function_exists('ensureCsrfToken') ? ensureCsrfToken() : '';
   $employeeTopnavPhotoUrl = null;
   $employeeTopnavInitials = 'EM';
 
@@ -50,6 +52,7 @@
       $employeeTopnavDisplayName = (string)($topnavCache['display_name'] ?? $employeeTopnavDisplayName);
       $employeeTopnavPhotoUrl = $resolveProfilePhotoUrl((string)($topnavCache['profile_photo_url'] ?? ''));
       $employeeUnreadNotificationCount = max(0, (int)($topnavCache['unread_count'] ?? 0));
+      $employeeTopnavNotificationsPreview = (array)($topnavCache['notifications_preview'] ?? []);
     }
 
     if (!$cacheIsFresh && $topnavSupabaseUrl !== '' && $topnavEmployeeUserId !== '' && !empty($topnavHeaders) && function_exists('apiRequest') && function_exists('isSuccessful')) {
@@ -72,14 +75,50 @@
         }
       }
 
+      $employeeNotificationSince = '';
+      $roleAssignedResponse = apiRequest(
+        'GET',
+        rtrim($topnavSupabaseUrl, '/')
+          . '/rest/v1/user_role_assignments?select=assigned_at,roles!inner(role_key)'
+          . '&user_id=eq.' . rawurlencode($topnavEmployeeUserId)
+          . '&roles.role_key=eq.employee'
+          . '&order=is_primary.desc&limit=1',
+        $topnavHeaders
+      );
+      if (isSuccessful($roleAssignedResponse) && !empty((array)($roleAssignedResponse['data'] ?? []))) {
+        $roleAssignedRow = (array)$roleAssignedResponse['data'][0];
+        $employeeNotificationSince = trim((string)($roleAssignedRow['assigned_at'] ?? ''));
+      }
+
       $unreadResponse = apiRequest(
         'GET',
-        rtrim($topnavSupabaseUrl, '/') . '/rest/v1/notifications?select=id&recipient_user_id=eq.' . rawurlencode($topnavEmployeeUserId) . '&is_read=eq.false&limit=200',
+        rtrim($topnavSupabaseUrl, '/')
+          . '/rest/v1/notifications?select=id'
+          . '&recipient_user_id=eq.' . rawurlencode($topnavEmployeeUserId)
+          . '&is_read=eq.false'
+          . '&category=not.in.(application,recruitment)'
+          . ($employeeNotificationSince !== '' ? ('&created_at=gte.' . rawurlencode($employeeNotificationSince)) : '')
+          . '&limit=200',
         $topnavHeaders
       );
 
       if (isSuccessful($unreadResponse)) {
         $employeeUnreadNotificationCount = count((array)($unreadResponse['data'] ?? []));
+      }
+
+      $previewResponse = apiRequest(
+        'GET',
+        rtrim($topnavSupabaseUrl, '/')
+          . '/rest/v1/notifications?select=id,title,body,link_url,is_read,created_at,category'
+          . '&recipient_user_id=eq.' . rawurlencode($topnavEmployeeUserId)
+          . '&category=not.in.(application,recruitment)'
+          . ($employeeNotificationSince !== '' ? ('&created_at=gte.' . rawurlencode($employeeNotificationSince)) : '')
+          . '&order=created_at.desc&limit=8',
+        $topnavHeaders
+      );
+
+      if (isSuccessful($previewResponse)) {
+        $employeeTopnavNotificationsPreview = array_values((array)($previewResponse['data'] ?? []));
       }
 
       $employeeTopnavPhotoUrl = $resolveProfilePhotoUrl($profilePhotoPath);
@@ -88,6 +127,7 @@
         'display_name' => $employeeTopnavDisplayName,
         'profile_photo_url' => (string)($profilePhotoPath ?? ''),
         'unread_count' => $employeeUnreadNotificationCount,
+        'notifications_preview' => $employeeTopnavNotificationsPreview,
         'cached_at' => time(),
       ];
     }

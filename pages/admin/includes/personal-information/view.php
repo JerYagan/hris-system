@@ -182,6 +182,73 @@ $rolePill = static function (string $roleKey): array {
     </div>
 </section>
 
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
+        <div>
+            <h2 class="text-lg font-semibold text-slate-800">Pending Spouse Entry Requests</h2>
+            <p class="text-sm text-slate-500 mt-1">Employee-submitted additional spouse entries awaiting admin decision.</p>
+        </div>
+        <span class="inline-flex items-center rounded-full bg-amber-100 text-amber-800 text-xs px-2.5 py-1 font-medium">Pending</span>
+    </header>
+
+    <div class="p-6 overflow-x-auto">
+        <table class="w-full text-sm table-fixed">
+            <thead class="bg-slate-50 text-slate-600">
+                <tr>
+                    <th class="text-left px-4 py-3 w-[18%]">Employee</th>
+                    <th class="text-left px-4 py-3 w-[16%]">Requested Spouse</th>
+                    <th class="text-left px-4 py-3 w-[14%]">Submitted By</th>
+                    <th class="text-left px-4 py-3 w-[14%]">Submitted On</th>
+                    <th class="text-left px-4 py-3 w-[14%]">Attachment</th>
+                    <th class="text-left px-4 py-3 w-[24%]">Decision</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                <?php if (empty($spouseRequestRows)): ?>
+                    <tr>
+                        <td class="px-4 py-3 text-slate-500" colspan="6">No pending spouse entry requests found.</td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($spouseRequestRows as $requestRow): ?>
+                        <tr>
+                            <td class="px-4 py-3 align-top font-medium text-slate-700"><?= htmlspecialchars((string)($requestRow['employee_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 align-top">
+                                <p class="text-slate-700"><?= htmlspecialchars((string)($requestRow['spouse_name'] ?? 'Spouse Request'), ENT_QUOTES, 'UTF-8') ?></p>
+                                <?php if (!empty($requestRow['request_notes'])): ?>
+                                    <p class="text-xs text-slate-500 mt-1">Notes: <?= htmlspecialchars((string)$requestRow['request_notes'], ENT_QUOTES, 'UTF-8') ?></p>
+                                <?php endif; ?>
+                            </td>
+                            <td class="px-4 py-3 align-top text-slate-600"><?= htmlspecialchars((string)($requestRow['submitted_by'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 align-top text-slate-600"><?= htmlspecialchars((string)($requestRow['submitted_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 align-top">
+                                <?php if (!empty($requestRow['attachment_url'])): ?>
+                                    <a href="<?= htmlspecialchars((string)$requestRow['attachment_url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="text-daGreen hover:underline text-xs">
+                                        <?= htmlspecialchars((string)($requestRow['attachment_name'] ?? 'View Attachment'), ENT_QUOTES, 'UTF-8') ?>
+                                    </a>
+                                <?php else: ?>
+                                    <span class="text-xs text-slate-500">No attachment</span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="px-4 py-3 align-top">
+                                <form method="POST" action="personal-information.php" class="space-y-2">
+                                    <input type="hidden" name="form_action" value="review_spouse_request">
+                                    <input type="hidden" name="request_log_id" value="<?= htmlspecialchars((string)($requestRow['request_log_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                    <input type="hidden" name="person_id" value="<?= htmlspecialchars((string)($requestRow['person_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                    <textarea name="remarks" rows="2" class="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs" placeholder="Optional remarks (required for rejection)"></textarea>
+                                    <div class="flex gap-2">
+                                        <button type="submit" name="decision" value="approve" class="px-3 py-1.5 text-xs rounded-md bg-emerald-600 text-white hover:bg-emerald-700">Approve</button>
+                                        <button type="submit" name="decision" value="reject" class="px-3 py-1.5 text-xs rounded-md bg-rose-600 text-white hover:bg-rose-700">Reject</button>
+                                    </div>
+                                </form>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</section>
+
 <form id="personalInfoRecommendationReviewForm" action="personal-information.php" method="POST" class="hidden">
     <input type="hidden" name="form_action" value="review_profile_recommendation">
     <input type="hidden" id="recommendationReviewLogId" name="recommendation_log_id" value="">

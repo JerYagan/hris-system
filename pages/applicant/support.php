@@ -25,6 +25,8 @@ if (isset($tabLabelMap[$tab]) && $tab !== 'menu') {
 ob_start();
 ?>
 
+<div id="supportPageFeedback" class="hidden" data-state="<?= htmlspecialchars((string)($state ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-message="<?= htmlspecialchars((string)($message ?? ''), ENT_QUOTES, 'UTF-8') ?>"></div>
+
 <?php if (!empty($message)): ?>
 <section class="mb-6 rounded-xl border px-4 py-3 text-sm <?= ($state ?? '') === 'success' ? 'border-green-200 bg-green-50 text-green-800' : 'border-rose-200 bg-rose-50 text-rose-800' ?>">
     <?= htmlspecialchars((string)$message, ENT_QUOTES, 'UTF-8') ?>
@@ -76,10 +78,23 @@ ob_start();
         <h2 class="text-lg font-semibold text-gray-800">Contact HR Department</h2>
     </header>
 
-    <form action="support.php?tab=contact" method="POST">
-        <input type="hidden" name="action" value="submit_support">
+    <form action="support.php?tab=contact" method="POST" enctype="multipart/form-data" id="applicantSupportForm">
+        <input type="hidden" name="action" value="submit_support_ticket">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
         <div class="space-y-4 p-4 text-sm sm:p-6">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                    <label class="text-gray-500">Category</label>
+                    <select name="inquiry_category" class="mt-1 w-full rounded-md border px-3 py-2" required>
+                        <option value="general">General</option>
+                        <option value="application_status">Application Status</option>
+                        <option value="documents">Documents</option>
+                        <option value="technical">Technical</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+            </div>
+
             <div>
                 <label class="text-gray-500">Subject</label>
                 <input type="text" name="subject" required minlength="5" class="mt-1 w-full rounded-md border px-3 py-2" placeholder="e.g. Application Status Inquiry">
@@ -88,6 +103,28 @@ ob_start();
             <div>
                 <label class="text-gray-500">Message</label>
                 <textarea rows="4" name="message" required minlength="10" class="mt-1 w-full rounded-md border px-3 py-2" placeholder="Type your message here..."></textarea>
+            </div>
+
+            <div>
+                <label class="text-gray-500">Attachment (optional)</label>
+                <input id="applicantSupportAttachment" type="file" name="support_attachment" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" class="hidden">
+
+                <button type="button" id="applicantSupportAttachmentTrigger" class="mt-1 inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                    <span class="material-symbols-outlined text-[18px]">attach_file</span>
+                    Select Attachment
+                </button>
+                <p id="applicantSupportAttachmentFilename" class="mt-2 text-xs text-slate-500">No file selected.</p>
+                <p class="mt-1 text-xs text-gray-500">Accepted: PDF, JPG, PNG, DOC, DOCX (max 5MB).</p>
+
+                <div id="applicantSupportAttachmentPreview" class="mt-3 hidden rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <div class="flex items-start gap-3">
+                        <img id="applicantSupportAttachmentPreviewImage" src="" alt="Attachment preview" class="hidden h-16 w-16 rounded border border-slate-200 object-cover">
+                        <div class="min-w-0 flex-1">
+                            <p id="applicantSupportAttachmentPreviewName" class="truncate text-sm font-medium text-slate-800"></p>
+                            <p id="applicantSupportAttachmentPreviewMeta" class="text-xs text-slate-600"></p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
@@ -101,21 +138,78 @@ ob_start();
     </form>
 
     <div class="border-t bg-gray-50 p-6">
-        <h3 class="mb-3 text-sm font-semibold text-gray-700">Recent support inquiries</h3>
+        <h3 class="mb-3 text-sm font-semibold text-gray-700">Recent support tickets</h3>
+
+        <form method="GET" action="support.php" class="mb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+            <input type="hidden" name="tab" value="contact">
+            <div>
+                <label class="text-xs font-semibold text-gray-600">Search</label>
+                <input type="search" name="search" value="<?= htmlspecialchars((string)($supportSearch ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2 text-sm" placeholder="Subject, ticket id, message">
+            </div>
+            <div>
+                <label class="text-xs font-semibold text-gray-600">Status</label>
+                <select name="status" class="mt-1 w-full rounded-md border px-3 py-2 text-sm">
+                    <option value="">All Statuses</option>
+                    <?php foreach (['submitted', 'in_review', 'forwarded_to_staff', 'resolved', 'rejected'] as $statusOption): ?>
+                        <option value="<?= htmlspecialchars($statusOption, ENT_QUOTES, 'UTF-8') ?>" <?= (string)($supportStatusFilter ?? '') === $statusOption ? 'selected' : '' ?>><?= htmlspecialchars(ucwords(str_replace('_', ' ', $statusOption)), ENT_QUOTES, 'UTF-8') ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div>
+                <label class="text-xs font-semibold text-gray-600">Category</label>
+                <select name="category" class="mt-1 w-full rounded-md border px-3 py-2 text-sm">
+                    <option value="">All Categories</option>
+                    <?php foreach ((array)($supportCategoryOptions ?? []) as $categoryOption): ?>
+                        <option value="<?= htmlspecialchars((string)$categoryOption, ENT_QUOTES, 'UTF-8') ?>" <?= (string)($supportCategoryFilter ?? '') === (string)$categoryOption ? 'selected' : '' ?>><?= htmlspecialchars(ucwords(str_replace('_', ' ', (string)$categoryOption)), ENT_QUOTES, 'UTF-8') ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="flex gap-2 sm:justify-end">
+                <button type="submit" class="rounded-md border px-3 py-2 text-sm font-semibold">Apply</button>
+                <a href="support.php?tab=contact" class="rounded-md border px-3 py-2 text-sm">Reset</a>
+            </div>
+        </form>
+
         <?php if (empty($recentSupportInquiries)): ?>
             <p class="text-sm text-gray-600">No prior support messages found.</p>
         <?php else: ?>
             <div class="space-y-3">
                 <?php foreach ($recentSupportInquiries as $inquiry): ?>
                     <article class="rounded-lg border bg-white p-4">
-                        <p class="font-medium text-gray-800"><?= htmlspecialchars((string)$inquiry['subject'], ENT_QUOTES, 'UTF-8') ?></p>
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <p class="font-medium text-gray-800\"><?= htmlspecialchars((string)$inquiry['subject'], ENT_QUOTES, 'UTF-8') ?></p>
+                            <span class="rounded-full px-2 py-1 text-xs <?= htmlspecialchars((string)($inquiry['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>\"><?= htmlspecialchars(ucfirst(str_replace('_', ' ', (string)($inquiry['status'] ?? 'submitted'))), ENT_QUOTES, 'UTF-8') ?></span>
+                        </div>
                         <p class="mt-1 text-sm text-gray-600"><?= htmlspecialchars((string)$inquiry['message'], ENT_QUOTES, 'UTF-8') ?></p>
+                        <?php if (!empty($inquiry['resolution_notes']) || !empty($inquiry['admin_notes']) || !empty($inquiry['staff_notes'])): ?>
+                            <div class="mt-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                                <span class="font-semibold">Support Update:</span>
+                                <?= htmlspecialchars((string)(($inquiry['resolution_notes'] ?? '') !== '' ? $inquiry['resolution_notes'] : (($inquiry['admin_notes'] ?? '') !== '' ? $inquiry['admin_notes'] : ($inquiry['staff_notes'] ?? ''))), ENT_QUOTES, 'UTF-8') ?>
+                            </div>
+                        <?php endif; ?>
+                        <?php if (!empty($inquiry['attachment_path'])): ?>
+                            <a href="<?= htmlspecialchars('/hris-system/' . ltrim((string)$inquiry['attachment_path'], '/'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="mt-2 inline-flex text-xs text-green-700 hover:underline">View Attachment</a>
+                        <?php endif; ?>
                         <?php if (!empty($inquiry['created_at'])): ?>
                             <p class="mt-2 text-xs text-gray-500"><?= htmlspecialchars(date('M j, Y g:i A', strtotime((string)$inquiry['created_at'])), ENT_QUOTES, 'UTF-8') ?></p>
                         <?php endif; ?>
                     </article>
                 <?php endforeach; ?>
             </div>
+
+            <?php if (!empty($supportPagination) && (($supportPagination['has_previous'] ?? false) || ($supportPagination['has_next'] ?? false))): ?>
+                <div class="mt-4 flex items-center justify-between text-sm text-gray-600">
+                    <p>Page <?= htmlspecialchars((string)($supportPagination['page'] ?? 1), ENT_QUOTES, 'UTF-8') ?></p>
+                    <div class="flex gap-2">
+                        <?php if (!empty($supportPagination['has_previous'])): ?>
+                            <a class="rounded-md border px-3 py-1.5" href="support.php?<?= htmlspecialchars(http_build_query(['tab' => 'contact', 'page' => $supportPagination['previous_page'] ?? 1, 'search' => $supportSearch ?? '', 'status' => $supportStatusFilter ?? '', 'category' => $supportCategoryFilter ?? '']), ENT_QUOTES, 'UTF-8') ?>">Previous</a>
+                        <?php endif; ?>
+                        <?php if (!empty($supportPagination['has_next'])): ?>
+                            <a class="rounded-md border px-3 py-1.5" href="support.php?<?= htmlspecialchars(http_build_query(['tab' => 'contact', 'page' => $supportPagination['next_page'] ?? 2, 'search' => $supportSearch ?? '', 'status' => $supportStatusFilter ?? '', 'category' => $supportCategoryFilter ?? '']), ENT_QUOTES, 'UTF-8') ?>">Next</a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </section>
@@ -169,6 +263,10 @@ ob_start();
         <a href="support.php" class="text-sm text-green-700 hover:underline">Back to Support Menu</a>
     </div>
 </section>
+<?php endif; ?>
+
+<?php if ($tab === 'contact'): ?>
+<script type="module" src="/hris-system/assets/js/applicant/support/index.js"></script>
 <?php endif; ?>
 
 <?php

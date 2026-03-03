@@ -4,21 +4,57 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     return;
 }
 
+$isAsyncRequest = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest'
+    || isset($_POST['async']);
+
+$respondNotificationAction = static function (bool $ok, string $message, array $payload = []) use ($isAsyncRequest): never {
+    if ($isAsyncRequest) {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+
+        echo json_encode(array_merge([
+            'ok' => $ok,
+            'message' => $message,
+        ], $payload), JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    redirectWithState($ok ? 'success' : 'error', $message, 'notifications.php');
+};
+
+$loadUnreadCount = static function () use ($supabaseUrl, $headers, $applicantUserId): int {
+    $response = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/notifications?select=id'
+        . '&recipient_user_id=eq.' . rawurlencode($applicantUserId)
+        . '&is_read=eq.false&limit=200',
+        $headers
+    );
+
+    if (!isSuccessful($response)) {
+        return 0;
+    }
+
+    return count((array)($response['data'] ?? []));
+};
+
 if (!isValidCsrfToken(cleanText($_POST['csrf_token'] ?? null))) {
-    redirectWithState('error', 'Invalid request token. Please refresh and try again.', 'notifications.php');
+    $respondNotificationAction(false, 'Invalid request token. Please refresh and try again.', []);
 }
 
 if ($applicantUserId === '') {
-    redirectWithState('error', 'Applicant session is missing. Please login again.', 'notifications.php');
+    $respondNotificationAction(false, 'Applicant session is missing. Please login again.', []);
 }
 
 if (!isValidUuid($applicantUserId)) {
-    redirectWithState('error', 'Invalid applicant session context. Please login again.', 'notifications.php');
+    $respondNotificationAction(false, 'Invalid applicant session context. Please login again.', []);
 }
 
 $action = cleanText($_POST['action'] ?? null);
 if ($action === null) {
-    redirectWithState('error', 'Invalid notifications action.', 'notifications.php');
+    $respondNotificationAction(false, 'Invalid notifications action.', []);
 }
 
 $readAt = date('c');
@@ -26,7 +62,7 @@ $readAt = date('c');
 if ($action === 'mark_read') {
     $notificationId = cleanText($_POST['notification_id'] ?? null);
     if ($notificationId === null || !isValidUuid($notificationId)) {
-        redirectWithState('error', 'Notification reference is missing.', 'notifications.php');
+        $respondNotificationAction(false, 'Notification reference is missing.', []);
     }
 
     $markReadResponse = apiRequest(
@@ -42,12 +78,14 @@ if ($action === 'mark_read') {
     );
 
     if (!isSuccessful($markReadResponse)) {
-        redirectWithState('error', 'Failed to mark notification as read.', 'notifications.php');
+        $respondNotificationAction(false, 'Failed to mark notification as read.', []);
     }
 
     unset($_SESSION['applicant_topnav_cache']);
-
-    redirectWithState('success', 'Notification marked as read.', 'notifications.php');
+    $respondNotificationAction(true, 'Notification marked as read.', [
+        'notification_id' => (string)$notificationId,
+        'unread_count' => $loadUnreadCount(),
+    ]);
 }
 
 if ($action === 'mark_all_read') {
@@ -64,12 +102,13 @@ if ($action === 'mark_all_read') {
     );
 
     if (!isSuccessful($markAllResponse)) {
-        redirectWithState('error', 'Failed to mark all notifications as read.', 'notifications.php');
+        $respondNotificationAction(false, 'Failed to mark all notifications as read.', []);
     }
 
     unset($_SESSION['applicant_topnav_cache']);
-
-    redirectWithState('success', 'All notifications are marked as read.', 'notifications.php');
+    $respondNotificationAction(true, 'All notifications are marked as read.', [
+        'unread_count' => 0,
+    ]);
 }
 
-redirectWithState('error', 'Unsupported notifications action.', 'notifications.php');
+$respondNotificationAction(false, 'Unsupported notifications action.', []);

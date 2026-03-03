@@ -18,7 +18,8 @@ $dashboardData = [
 
 $dashboardRecentNotifications = [];
 $dashboardProgressItems = [];
-$latestApplicationStatus = 'submitted';
+$dashboardTimelineItems = [];
+$latestApplicationStatus = 'no_application';
 $latestApplicationId = null;
 $profileCompletionReminder = [
 	'show_modal' => false,
@@ -166,6 +167,7 @@ if ($applicantProfileId !== '') {
 }
 
 $statusLabelMap = [
+	'no_application' => 'No Applications Yet',
 	'submitted' => 'Application Submitted',
 	'screening' => 'Document & Qualification Review',
 	'shortlisted' => 'Shortlisted',
@@ -202,7 +204,68 @@ if ($latestApplicationId !== null && isValidUuid($latestApplicationId)) {
 	}
 }
 
-if (empty($dashboardProgressItems)) {
+$applicationTimelineStages = [
+	'submitted' => 'Application Submitted',
+	'screening' => 'Qualification Review',
+	'shortlisted' => 'Shortlisted',
+	'interview' => 'Interview Stage',
+	'offer' => 'Offer Stage',
+	'hired' => 'Hired',
+];
+
+$historyStatusSet = [];
+foreach ($dashboardProgressItems as $progressItem) {
+	$statusTitle = strtolower(trim((string)($progressItem['title'] ?? '')));
+	if ($statusTitle === '') {
+		continue;
+	}
+
+	foreach ($applicationTimelineStages as $stageKey => $stageLabel) {
+		if ($statusTitle === strtolower($stageLabel)) {
+			$historyStatusSet[$stageKey] = true;
+		}
+	}
+}
+
+$timelineOrder = array_keys($applicationTimelineStages);
+$currentTimelineIndex = array_search($latestApplicationStatus, $timelineOrder, true);
+
+if ($latestApplicationStatus === 'rejected' || $latestApplicationStatus === 'withdrawn') {
+	foreach ($timelineOrder as $index => $stageKey) {
+		if (!isset($historyStatusSet[$stageKey])) {
+			continue;
+		}
+
+		$dashboardTimelineItems[] = [
+			'title' => $applicationTimelineStages[$stageKey],
+			'state' => 'completed',
+			'index' => $index,
+		];
+	}
+
+	$dashboardTimelineItems[] = [
+		'title' => $latestApplicationStatus === 'rejected' ? 'Application Not Successful' : 'Application Withdrawn',
+		'state' => 'current',
+		'index' => count($dashboardTimelineItems),
+	];
+} elseif ($currentTimelineIndex !== false) {
+	foreach ($timelineOrder as $index => $stageKey) {
+		$state = 'upcoming';
+		if ($index < $currentTimelineIndex) {
+			$state = 'completed';
+		} elseif ($index === $currentTimelineIndex) {
+			$state = 'current';
+		}
+
+		$dashboardTimelineItems[] = [
+			'title' => $applicationTimelineStages[$stageKey],
+			'state' => $state,
+			'index' => $index,
+		];
+	}
+}
+
+if (empty($dashboardProgressItems) && $latestApplicationId !== null && isValidUuid($latestApplicationId)) {
 	$dashboardProgressItems[] = [
 		'title' => (string)($statusLabelMap[$latestApplicationStatus] ?? ucwords(str_replace('_', ' ', $latestApplicationStatus))),
 		'state' => 'current',

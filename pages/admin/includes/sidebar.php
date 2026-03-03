@@ -4,8 +4,6 @@ $recruitmentPages = ['recruitment.php', 'applicants.php', 'applicant-tracking.ph
 $isRecruitmentSection = in_array($activePage, $recruitmentPages, true);
 $documentPages = ['document-management.php'];
 $isDocumentSection = in_array($activePage, $documentPages, true);
-$praisePages = ['praise.php', 'praise-employee-evaluation.php', 'praise-awards-recognition.php'];
-$isPraiseSection = in_array($activePage, $praisePages, true);
 ?>
 
 <aside
@@ -101,20 +99,6 @@ $isPraiseSection = in_array($activePage, $praisePages, true);
                 <span class="material-symbols-outlined admin-category-chevron text-[16px]">expand_more</span>
             </button>
             <div class="mt-2 space-y-1" data-cat-content="administration">
-                <div class="space-y-1">
-                    <a href="praise.php" class="admin-nav-link <?= $isPraiseSection ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
-                        <span class="admin-nav-icon material-symbols-outlined text-[18px]">emoji_events</span>
-                        <span class="admin-link-label">PRAISE</span>
-                    </a>
-                    <a href="praise-employee-evaluation.php" class="admin-nav-link ml-7 <?= $activePage === 'praise-employee-evaluation.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
-                        <span class="admin-nav-icon material-symbols-outlined text-[18px]">grading</span>
-                        <span class="admin-link-label text-[13px]">Employee Evaluation</span>
-                    </a>
-                    <a href="praise-awards-recognition.php" class="admin-nav-link ml-7 <?= $activePage === 'praise-awards-recognition.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
-                        <span class="admin-nav-icon material-symbols-outlined text-[18px]">workspace_premium</span>
-                        <span class="admin-link-label text-[13px]">Awards and Recognition</span>
-                    </a>
-                </div>
                 <a href="learning-and-development.php" class="admin-nav-link <?= $activePage === 'learning-and-development.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
                     <span class="admin-nav-icon material-symbols-outlined text-[18px]">school</span>
                     <span class="admin-link-label">Learning and Development</span>
@@ -140,6 +124,11 @@ $isPraiseSection = in_array($activePage, $praisePages, true);
                 <a href="settings.php" class="admin-nav-link <?= $activePage === 'settings.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
                     <span class="admin-nav-icon material-symbols-outlined text-[18px]">settings</span>
                     <span class="admin-link-label">Settings</span>
+                </a>
+
+                <a href="support.php" class="admin-nav-link <?= $activePage === 'support.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
+                    <span class="admin-nav-icon material-symbols-outlined text-[18px]">support_agent</span>
+                    <span class="admin-link-label">Support</span>
                 </a>
 
                 <a href="/hris-system/pages/auth/logout.php" class="admin-nav-link text-rose-300 hover:text-rose-200">
