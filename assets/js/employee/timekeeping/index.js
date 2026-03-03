@@ -250,11 +250,6 @@ const initActionConfirmations = () => {
       const actionName = normalizeText(actionInput ? actionInput.value : '');
 
       const actionMeta = {
-        create_leave_request: {
-          title: 'Submit leave request?',
-          text: 'Your leave/CTO request will be submitted for staff and admin review.',
-          confirm: 'Yes, submit',
-        },
         create_time_adjustment_request: {
           title: 'Submit time adjustment request?',
           text: 'Your time adjustment request will be submitted for review.',
@@ -348,12 +343,6 @@ const initEmployeeTimekeepingPage = async () => {
   runPageStatePass({ pageKey: 'employee-timekeeping' });
 
   wireModal({
-    openSelector: '[data-open-leave]',
-    closeSelector: '[data-close-leave]',
-    modalId: 'leaveModal',
-  });
-
-  wireModal({
     openSelector: '[data-open-ob]',
     closeSelector: '[data-close-ob]',
     modalId: 'obModal',
@@ -373,19 +362,13 @@ const initEmployeeTimekeepingPage = async () => {
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
 
-    ['leaveModal', 'obModal', 'adjustmentModal'].forEach((modalId) => {
+    ['obModal', 'adjustmentModal'].forEach((modalId) => {
       const modal = document.getElementById(modalId);
       if (modal && !modal.classList.contains('hidden')) {
         toggleModal(modal, false);
       }
     });
   });
-
-  const quickAction = new URLSearchParams(window.location.search).get('quick_action');
-  if (quickAction === 'create-leave') {
-    const leaveModal = document.getElementById('leaveModal');
-    toggleModal(leaveModal, true);
-  }
 };
 
 if (document.readyState === 'loading') {

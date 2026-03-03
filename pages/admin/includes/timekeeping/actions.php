@@ -114,6 +114,216 @@ $notifyStaffFinalDecision = static function (
     );
 };
 
+$isValidDate = static function (?string $value): bool {
+    if ($value === null || $value === '') {
+        return false;
+    }
+
+    $ts = strtotime($value);
+    return $ts !== false && date('Y-m-d', $ts) === $value;
+};
+
+if ($action === 'log_leave_from_card') {
+    $personId = cleanText($_POST['person_id'] ?? null) ?? '';
+    $leaveTypeId = cleanText($_POST['leave_type_id'] ?? null) ?? '';
+    $dateFrom = cleanText($_POST['date_from'] ?? null) ?? '';
+    $dateTo = cleanText($_POST['date_to'] ?? null) ?? '';
+    $reference = cleanText($_POST['reference'] ?? null);
+
+    if (!isValidUuid($personId) || !isValidUuid($leaveTypeId) || !$isValidDate($dateFrom) || !$isValidDate($dateTo)) {
+        redirectWithState('error', 'Employee, leave type, and valid date range are required.');
+    }
+
+    if (strtotime($dateTo) < strtotime($dateFrom)) {
+        redirectWithState('error', 'Leave end date cannot be earlier than leave start date.');
+    }
+
+    $fromYear = (int)date('Y', strtotime($dateFrom));
+    $toYear = (int)date('Y', strtotime($dateTo));
+    if ($fromYear !== $toYear) {
+        redirectWithState('error', 'Please log leave per year. Split cross-year leave card entries into separate records.');
+    }
+
+    $fromTs = strtotime($dateFrom . ' 00:00:00');
+    $toTs = strtotime($dateTo . ' 00:00:00');
+    if ($fromTs === false || $toTs === false) {
+        redirectWithState('error', 'Invalid date range for leave days computation.');
+    }
+
+    $daysCount = (float)(int)floor(($toTs - $fromTs) / 86400) + 1.0;
+    if ($daysCount <= 0) {
+        redirectWithState('error', 'Leave days must be greater than zero.');
+    }
+
+    $personResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/people?select=id,user_id,first_name,surname&id=eq.' . rawurlencode($personId) . '&limit=1',
+        $headers
+    );
+    $personRow = (array)(($personResponse['data'] ?? [])[0] ?? []);
+    if (!isSuccessful($personResponse) || $personRow === []) {
+        redirectWithState('error', 'Selected employee was not found.');
+    }
+
+    $leaveTypeResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/leave_types?select=id,leave_name,is_active&id=eq.' . rawurlencode($leaveTypeId) . '&limit=1',
+        $headers
+    );
+    $leaveTypeRow = (array)(($leaveTypeResponse['data'] ?? [])[0] ?? []);
+    $isActiveRaw = strtolower(trim((string)($leaveTypeRow['is_active'] ?? 'false')));
+    $isActive = in_array($isActiveRaw, ['1', 'true', 't', 'yes'], true);
+    if (!isSuccessful($leaveTypeResponse) || $leaveTypeRow === [] || !$isActive) {
+        redirectWithState('error', 'Selected leave type is invalid or inactive.');
+    }
+
+    $overlapResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/leave_requests?select=id,date_from,date_to,status'
+        . '&person_id=eq.' . rawurlencode($personId)
+        . '&leave_type_id=eq.' . rawurlencode($leaveTypeId)
+        . '&status=in.(pending,approved)'
+        . '&order=created_at.desc&limit=200',
+        $headers
+    );
+    if (isSuccessful($overlapResponse)) {
+        foreach ((array)($overlapResponse['data'] ?? []) as $existingRaw) {
+            $existing = (array)$existingRaw;
+            $existingFrom = cleanText($existing['date_from'] ?? null);
+            $existingTo = cleanText($existing['date_to'] ?? null);
+            if ($existingFrom === null || $existingTo === null) {
+                continue;
+            }
+
+            $hasOverlap = strtotime($dateFrom) <= strtotime($existingTo) && strtotime($dateTo) >= strtotime($existingFrom);
+            if ($hasOverlap) {
+                redirectWithState('error', 'A pending/approved leave entry already overlaps this leave-card date range.');
+            }
+        }
+    }
+
+    $reason = 'Logged from submitted leave card template.';
+    if ($reference !== null && $reference !== '') {
+        $reason .= ' Reference: ' . $reference;
+    }
+
+    $insertResponse = apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/leave_requests',
+        array_merge($headers, ['Prefer: return=representation']),
+        [[
+            'person_id' => $personId,
+            'leave_type_id' => $leaveTypeId,
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'days_count' => $daysCount,
+            'reason' => $reason,
+            'status' => 'approved',
+            'reviewed_by' => $adminUserId !== '' ? $adminUserId : null,
+            'reviewed_at' => gmdate('c'),
+            'review_notes' => 'Admin logged leave based on submitted leave card template.',
+            'updated_at' => gmdate('c'),
+        ]]
+    );
+
+    $newLeave = (array)(($insertResponse['data'] ?? [])[0] ?? []);
+    if (!isSuccessful($insertResponse) || $newLeave === []) {
+        redirectWithState('error', 'Failed to log leave card entry.');
+    }
+
+    $balanceResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/leave_balances?select=id,earned_credits,used_credits'
+        . '&person_id=eq.' . rawurlencode($personId)
+        . '&leave_type_id=eq.' . rawurlencode($leaveTypeId)
+        . '&year=eq.' . $fromYear
+        . '&limit=1',
+        $headers
+    );
+
+    $now = gmdate('c');
+    $existingBalance = (array)(($balanceResponse['data'] ?? [])[0] ?? []);
+    if ($existingBalance !== []) {
+        $earnedCredits = (float)($existingBalance['earned_credits'] ?? 0);
+        $usedCredits = (float)($existingBalance['used_credits'] ?? 0) + $daysCount;
+        $remainingCredits = $earnedCredits - $usedCredits;
+
+        $updateBalanceResponse = apiRequest(
+            'PATCH',
+            $supabaseUrl . '/rest/v1/leave_balances?id=eq.' . rawurlencode((string)($existingBalance['id'] ?? '')),
+            array_merge($headers, ['Prefer: return=minimal']),
+            [
+                'used_credits' => $usedCredits,
+                'remaining_credits' => $remainingCredits,
+                'updated_at' => $now,
+            ]
+        );
+
+        if (!isSuccessful($updateBalanceResponse)) {
+            redirectWithState('error', 'Leave was logged, but failed to update leave balances.');
+        }
+    } else {
+        $insertBalanceResponse = apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/leave_balances',
+            array_merge($headers, ['Prefer: return=minimal']),
+            [[
+                'person_id' => $personId,
+                'leave_type_id' => $leaveTypeId,
+                'year' => $fromYear,
+                'earned_credits' => 0,
+                'used_credits' => $daysCount,
+                'remaining_credits' => -$daysCount,
+                'updated_at' => $now,
+            ]]
+        );
+
+        if (!isSuccessful($insertBalanceResponse)) {
+            redirectWithState('error', 'Leave was logged, but failed to create leave balance record.');
+        }
+    }
+
+    $personUserId = (string)($personRow['user_id'] ?? '');
+    if ($personUserId !== '') {
+        apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/notifications',
+            array_merge($headers, ['Prefer: return=minimal']),
+            [[
+                'recipient_user_id' => $personUserId,
+                'category' => 'timekeeping',
+                'title' => 'Leave Logged from Leave Card',
+                'body' => 'An approved leave entry was logged by Admin based on your submitted leave card template.',
+                'link_url' => '/hris-system/pages/employee/timekeeping.php',
+            ]]
+        );
+    }
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $adminUserId !== '' ? $adminUserId : null,
+            'module_name' => 'timekeeping',
+            'entity_name' => 'leave_requests',
+            'entity_id' => (string)($newLeave['id'] ?? null),
+            'action_name' => 'log_leave_from_card',
+            'new_data' => [
+                'person_id' => $personId,
+                'leave_type_id' => $leaveTypeId,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'days_count' => $daysCount,
+            ],
+        ]]
+    );
+
+    redirectWithState('success', 'Leave card entry logged successfully and leave balance updated.');
+}
+
 if ($action === 'review_time_adjustment') {
     $requestId = cleanText($_POST['request_id'] ?? null) ?? '';
     $decision = strtolower((string)(cleanText($_POST['decision'] ?? null) ?? ''));

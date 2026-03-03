@@ -21,6 +21,8 @@ $dashboardProgressItems = [];
 $dashboardTimelineItems = [];
 $latestApplicationStatus = 'no_application';
 $latestApplicationId = null;
+$latestApplicationSubmittedAtRaw = null;
+$latestApplicationUpdatedAtRaw = null;
 $profileCompletionReminder = [
 	'show_modal' => false,
 	'education_entries' => 0,
@@ -154,11 +156,13 @@ if ($applicantProfileId !== '') {
 			$dashboardData['status_badge'] = 'Current status: ' . $dashboardData['current_stage'];
 
 			$submittedAt = cleanText($latestApplication['submitted_at'] ?? null);
+			$latestApplicationSubmittedAtRaw = $submittedAt;
 			if ($submittedAt !== null) {
 				$dashboardData['date_applied'] = date('M j, Y', strtotime($submittedAt));
 			}
 
 			$updatedAt = cleanText($latestApplication['updated_at'] ?? null);
+			$latestApplicationUpdatedAtRaw = $updatedAt;
 			if ($updatedAt !== null) {
 				$dashboardData['latest_update'] = date('M j, Y', strtotime($updatedAt));
 			}
@@ -178,6 +182,18 @@ $statusLabelMap = [
 	'withdrawn' => 'Application Withdrawn',
 ];
 
+$applicationTimelineStages = [
+	'submitted' => ['title' => 'Application Submitted', 'subtitle' => 'Application received'],
+	'screening' => ['title' => 'Qualification Review', 'subtitle' => 'Document checking'],
+	'shortlisted' => ['title' => 'Shortlisted', 'subtitle' => 'Qualified for next stage'],
+	'interview' => ['title' => 'Interview Stage', 'subtitle' => 'Interview scheduling'],
+	'offer' => ['title' => 'Offer Stage', 'subtitle' => 'Offer processing'],
+	'hired' => ['title' => 'Hired', 'subtitle' => 'Final onboarding'],
+];
+
+$timelineStageDates = [];
+$timelineStageNotes = [];
+
 if ($latestApplicationId !== null && isValidUuid($latestApplicationId)) {
 	$historyResponse = apiRequest(
 		'GET',
@@ -194,24 +210,26 @@ if ($latestApplicationId !== null && isValidUuid($latestApplicationId)) {
 
 		foreach ($historyRows as $index => $historyRow) {
 			$statusKey = strtolower((string)($historyRow['new_status'] ?? 'submitted'));
+			$createdAt = cleanText($historyRow['created_at'] ?? null);
+
+			if (isset($applicationTimelineStages[$statusKey]) && $createdAt !== null) {
+				$timelineStageDates[$statusKey] = $createdAt;
+			}
+
+			$note = cleanText($historyRow['notes'] ?? null);
+			if (isset($applicationTimelineStages[$statusKey]) && $note !== null && $note !== '') {
+				$timelineStageNotes[$statusKey] = $note;
+			}
+
 			$dashboardProgressItems[] = [
 				'title' => (string)($statusLabelMap[$statusKey] ?? ucwords(str_replace('_', ' ', $statusKey))),
 				'state' => $index === $lastHistoryIndex ? 'current' : 'completed',
-				'notes' => cleanText($historyRow['notes'] ?? null),
-				'created_at' => cleanText($historyRow['created_at'] ?? null),
+				'notes' => $note,
+				'created_at' => $createdAt,
 			];
 		}
 	}
 }
-
-$applicationTimelineStages = [
-	'submitted' => 'Application Submitted',
-	'screening' => 'Qualification Review',
-	'shortlisted' => 'Shortlisted',
-	'interview' => 'Interview Stage',
-	'offer' => 'Offer Stage',
-	'hired' => 'Hired',
-];
 
 $historyStatusSet = [];
 foreach ($dashboardProgressItems as $progressItem) {
@@ -220,7 +238,8 @@ foreach ($dashboardProgressItems as $progressItem) {
 		continue;
 	}
 
-	foreach ($applicationTimelineStages as $stageKey => $stageLabel) {
+	foreach ($applicationTimelineStages as $stageKey => $stageMeta) {
+		$stageLabel = (string)($stageMeta['title'] ?? '');
 		if ($statusTitle === strtolower($stageLabel)) {
 			$historyStatusSet[$stageKey] = true;
 		}
@@ -230,14 +249,38 @@ foreach ($dashboardProgressItems as $progressItem) {
 $timelineOrder = array_keys($applicationTimelineStages);
 $currentTimelineIndex = array_search($latestApplicationStatus, $timelineOrder, true);
 
+$formatTimelineDateLabel = static function (?string $rawDate): string {
+	if ($rawDate === null || trim($rawDate) === '') {
+		return '';
+	}
+
+	$timestamp = strtotime($rawDate);
+	if ($timestamp === false) {
+		return '';
+	}
+
+	return date('M j', $timestamp);
+};
+
+$fallbackDateRaw = $latestApplicationSubmittedAtRaw
+	?? $latestApplicationUpdatedAtRaw
+	?? cleanText($dashboardProgressItems[0]['created_at'] ?? null)
+	?? date('c');
+
 if ($latestApplicationStatus === 'rejected' || $latestApplicationStatus === 'withdrawn') {
 	foreach ($timelineOrder as $index => $stageKey) {
 		if (!isset($historyStatusSet[$stageKey])) {
 			continue;
 		}
 
+		$stageMeta = (array)($applicationTimelineStages[$stageKey] ?? []);
+
 		$dashboardTimelineItems[] = [
-			'title' => $applicationTimelineStages[$stageKey],
+			'title' => (string)($stageMeta['title'] ?? 'Application Step'),
+			'subtitle' => (string)($timelineStageNotes[$stageKey] ?? ($stageMeta['subtitle'] ?? '')),
+			'date_label' => isset($timelineStageDates[$stageKey])
+				? $formatTimelineDateLabel((string)$timelineStageDates[$stageKey])
+				: $formatTimelineDateLabel($fallbackDateRaw),
 			'state' => 'completed',
 			'index' => $index,
 		];
@@ -245,11 +288,14 @@ if ($latestApplicationStatus === 'rejected' || $latestApplicationStatus === 'wit
 
 	$dashboardTimelineItems[] = [
 		'title' => $latestApplicationStatus === 'rejected' ? 'Application Not Successful' : 'Application Withdrawn',
+		'subtitle' => 'Final decision',
+		'date_label' => $formatTimelineDateLabel($latestApplicationUpdatedAtRaw ?? $fallbackDateRaw),
 		'state' => 'current',
 		'index' => count($dashboardTimelineItems),
 	];
 } elseif ($currentTimelineIndex !== false) {
 	foreach ($timelineOrder as $index => $stageKey) {
+		$stageMeta = (array)($applicationTimelineStages[$stageKey] ?? []);
 		$state = 'upcoming';
 		if ($index < $currentTimelineIndex) {
 			$state = 'completed';
@@ -258,7 +304,11 @@ if ($latestApplicationStatus === 'rejected' || $latestApplicationStatus === 'wit
 		}
 
 		$dashboardTimelineItems[] = [
-			'title' => $applicationTimelineStages[$stageKey],
+			'title' => (string)($stageMeta['title'] ?? 'Application Step'),
+			'subtitle' => (string)($timelineStageNotes[$stageKey] ?? ($stageMeta['subtitle'] ?? '')),
+			'date_label' => isset($timelineStageDates[$stageKey])
+				? $formatTimelineDateLabel((string)$timelineStageDates[$stageKey])
+				: $formatTimelineDateLabel($fallbackDateRaw),
 			'state' => $state,
 			'index' => $index,
 		];

@@ -102,6 +102,24 @@ $staffRecommendationsResponse = apiRequest(
     $headers
 );
 
+$employeeOptionsResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/people?select=id,first_name,surname,user_id,agency_employee_no'
+    . '&user_id=not.is.null'
+    . '&order=surname.asc,first_name.asc&limit=5000',
+    $headers
+);
+
+$leaveTypeOptionsResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/leave_types?select=id,leave_name,is_active'
+    . '&is_active=eq.true'
+    . '&order=leave_name.asc&limit=200',
+    $headers
+);
+
 $dataLoadError = null;
 $dataLoadError = $appendError($dataLoadError, 'Attendance (today)', $attendanceTodayResponse);
 $dataLoadError = $appendError($dataLoadError, 'Attendance history', $attendanceHistoryResponse);
@@ -111,6 +129,8 @@ $dataLoadError = $appendError($dataLoadError, 'CTO', $ctoRequestsResponse);
 $dataLoadError = $appendError($dataLoadError, 'Holidays', $holidaysResponse);
 $dataLoadError = $appendError($dataLoadError, 'Holiday payroll policy', $holidayPolicyResponse);
 $dataLoadError = $appendError($dataLoadError, 'Staff recommendations', $staffRecommendationsResponse);
+$dataLoadError = $appendError($dataLoadError, 'Employees', $employeeOptionsResponse);
+$dataLoadError = $appendError($dataLoadError, 'Leave types', $leaveTypeOptionsResponse);
 
 $attendanceLogs = [];
 $attendanceHistoryRows = [];
@@ -122,6 +142,49 @@ $leaveCtoRequests = [];
 $holidayRows = isSuccessful($holidaysResponse) ? (array)$holidaysResponse['data'] : [];
 $historyEntries = [];
 $staffRecommendationRows = [];
+$employeeOptions = [];
+$leaveTypeOptions = [];
+
+if (isSuccessful($employeeOptionsResponse)) {
+    foreach ((array)$employeeOptionsResponse['data'] as $personRaw) {
+        $person = (array)$personRaw;
+        $personId = trim((string)($person['id'] ?? ''));
+        if ($personId === '') {
+            continue;
+        }
+
+        $fullName = trim((string)($person['surname'] ?? '') . ', ' . (string)($person['first_name'] ?? ''));
+        if ($fullName === '' || $fullName === ',') {
+            $fullName = 'Unknown Employee';
+        }
+
+        $employeeCode = trim((string)($person['agency_employee_no'] ?? ''));
+        $displayLabel = $employeeCode !== '' ? ($employeeCode . ' · ' . $fullName) : $fullName;
+
+        $employeeOptions[] = [
+            'id' => $personId,
+            'label' => $displayLabel,
+            'name' => $fullName,
+            'employee_code' => $employeeCode,
+            'user_id' => (string)($person['user_id'] ?? ''),
+        ];
+    }
+}
+
+if (isSuccessful($leaveTypeOptionsResponse)) {
+    foreach ((array)$leaveTypeOptionsResponse['data'] as $typeRaw) {
+        $type = (array)$typeRaw;
+        $typeId = trim((string)($type['id'] ?? ''));
+        if ($typeId === '') {
+            continue;
+        }
+
+        $leaveTypeOptions[] = [
+            'id' => $typeId,
+            'leave_name' => (string)($type['leave_name'] ?? 'Leave'),
+        ];
+    }
+}
 
 $attendanceSummaryToday = [
     'present' => 0,

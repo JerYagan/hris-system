@@ -75,11 +75,11 @@ Rules applied while consolidating:
 
 ## 1) Login / Access / Public Homepage
 
-### Applicant
+### Login/Register Module
 - [ ] Add password creation validation.
 - [ ] Fix forgot-password flow.
 
-### Admin
+### Landing Page / Index
 - [ ] Align homepage copy with ATI mission/vision/strategic updates.
 - [ ] Replace legacy homepage sections with updated institutional activity sections.
 - [ ] Keep Careers list aligned with active recruitment postings.
@@ -117,6 +117,7 @@ Rules applied while consolidating:
 ## 3) Recruitment Module (Job Listing / Applicants / Tracking / Offer)
 
 ### Admin
+- [x] In "Add as Employee" (in Applicant Tracking module), copy the flow in User Management module for "Create Account". This means the system should create the credentials (previously used email as an applicant and password) for that new employee account and send an email notification to the employee with their login details and a prompt to change their password upon first login. This will ensure that new employees added through the recruitment module have proper access to the system and can log in securely with their own credentials. Change their role to Employee from applicant.
 - [x] In Applicant Registration module: when approving an applicant for next stage, the system marks it as fail including the email. The system should only mark the applicant as failed if they do not meet the qualification criteria for the job posting. If the applicant meets the criteria and is approved for the next stage, their status should be updated accordingly without marking them as failed. The email notification should also reflect the correct status and provide appropriate information based on whether they were approved or failed.
 - [x] In Job Creation and Edit, change the education criteria from years to education level (e.g., Bachelor's Degree, High School Graduate, etc.) to better reflect the actual qualifications of the applicants. The system should evaluate the applicant's education level against the required education level for the job posting and provide a recommendation based on whether they meet that criterion or not. Do note that the applicant may type multiple education entries but the system should still select the highest educational attainment entered by the user.
 - [x] Applicant Profile: Remove Career Summary field
@@ -480,6 +481,12 @@ Rules applied while consolidating:
 - [x] Keep RFID attendance assist marked temporary/supportive only.
 
 ### Employee
+- [x] In timekeeping module, instead of creating a "Leave/CTO Request", the employee can download the leave card template and fill it out. The document is in the assets/. So change the "Leave/CTO Request" button to "Download Leave Card Template" and when the employee clicks it, it should download the leave card template file. This will allow employees to easily access and fill out the leave card template for their leave requests, and it will also help standardize the format of leave requests submitted by employees for better processing and record-keeping.
+
+### Admin
+- [x] Employee should be searchable by employee ID or name in the leave log section for easier navigation and management of employee leave record (Don't use the default result UI). This will allow the admin to quickly find and access the leave logs of specific employees when needed, improving efficiency in managing and tracking employee leave history and balances in the system. Auto compute Leave Days based on the date from and to.
+- [x] Change the flow so that the admin can fill out the leave logs of the employee based on the leave card template that the employee submitted.
+- [x] Keep in mind that the processing of leave requests is outside the system but the admin can still log the leave in the system based on the leave card template submitted by the employee, and this will be reflected in the employee's leave history and balance in the system for accurate tracking and record-keeping.
 - [x] Use sweetalert for all actions with submission and confirmation and reason capture for status changes. Avoid using localhost alerts for better UX consistency across the module.
 - [x] Add labels above the calendar input on all the modals in Timekeeping module to indicate what the date input is for (e.g., "Select Leave Date", "Select Time Adjustment Date", etc.) to improve clarity and user experience when employees are filling out the forms for leave requests, time adjustments, and official business requests. This will help employees understand the purpose of the date input and ensure that they are selecting the correct dates for their requests, reducing confusion and potential errors in the submission process.
 - [ ] Seems like flatpickr is bugged. Also prevent scrolling on the page when the modal is open

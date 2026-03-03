@@ -71,7 +71,7 @@ $todayManila = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->
 
 <div class="mb-6">
   <h1 class="text-2xl font-bold">Timekeeping</h1>
-  <p class="text-sm text-gray-500">Manage your attendance, leave/CTO, time adjustment, and official business requests.</p>
+  <p class="text-sm text-gray-500">Manage your attendance, download the leave card template, and submit time adjustment or official business requests.</p>
 </div>
 
 <?php if (!empty($message)): ?>
@@ -91,7 +91,7 @@ $todayManila = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->
   <div class="flex items-center justify-between mb-6">
     <h2 class="text-lg font-bold">Attendance <span class="text-daGreen">Overview</span></h2>
     <div class="flex flex-wrap gap-2">
-      <button data-open-leave class="inline-flex items-center gap-2 bg-daGreen text-white px-5 py-2 rounded-lg text-sm font-medium hover:opacity-90"><span class="material-symbols-outlined text-base">event_available</span>Create Leave/CTO Request</button>
+      <a href="/hris-system/assets/Leave_Card_Template.xlsx" download class="inline-flex items-center gap-2 bg-daGreen text-white px-5 py-2 rounded-lg text-sm font-medium hover:opacity-90"><span class="material-symbols-outlined text-base">download</span>Download Leave Card Template</a>
       <button data-open-ob class="inline-flex items-center gap-2 border px-5 py-2 rounded-lg text-sm font-medium"><span class="material-symbols-outlined text-base">work_history</span>File Official Business</button>
       <button data-open-adjustment class="inline-flex items-center gap-2 border px-5 py-2 rounded-lg text-sm font-medium"><span class="material-symbols-outlined text-base">schedule</span>Request Time Adjustment</button>
     </div>
@@ -400,48 +400,6 @@ $todayManila = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->
     </table>
   </div>
 </section>
-
-<div id="leaveModal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden" aria-hidden="true">
-  <div class="bg-white w-full max-w-lg rounded-xl shadow-lg max-h-[90vh] flex flex-col">
-    <div class="px-6 py-4 border-b flex justify-between items-center shrink-0">
-      <h2 class="text-lg font-semibold">Create Leave Request</h2>
-      <button type="button" data-close-leave><span class="material-icons">close</span></button>
-    </div>
-
-    <form method="post" action="timekeeping.php" class="px-6 py-5 space-y-4 text-sm overflow-y-auto">
-      <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken ?? '') ?>">
-      <input type="hidden" name="action" value="create_leave_request">
-
-      <select name="leave_type_id" class="w-full border rounded-lg p-2" required>
-        <option value="">Select leave type</option>
-        <?php foreach ($leaveTypeOptions as $type): ?>
-          <option value="<?= $escape((string)($type['id'] ?? '')) ?>"><?= $escape((string)($type['leave_name'] ?? '')) ?></option>
-        <?php endforeach; ?>
-      </select>
-
-      <p class="text-xs text-slate-500">CTO requests follow CTO-only policy: no past dates, same payroll month, and cannot cross cut-off windows (1-15 or 16-end).</p>
-
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="text-gray-500">Select Start Date</label>
-          <input type="date" name="date_from" min="<?= $escape($todayManila) ?>" class="w-full mt-1 border rounded-lg p-2" required>
-        </div>
-        <div>
-          <label class="text-gray-500">Select End Date</label>
-          <input type="date" name="date_to" min="<?= $escape($todayManila) ?>" class="w-full mt-1 border rounded-lg p-2" required>
-        </div>
-      </div>
-
-      <input type="number" step="0.25" min="0.25" name="days_count" class="w-full border rounded-lg p-2" placeholder="Days Count (e.g. 1 or 0.5)" required>
-      <textarea name="reason" class="w-full border rounded-lg p-2" rows="3" placeholder="Reason for leave" required></textarea>
-
-      <div class="pt-2 flex justify-end gap-3">
-        <button type="button" data-close-leave class="border px-4 py-2 rounded-lg text-sm">Cancel</button>
-        <button type="submit" class="bg-daGreen text-white px-4 py-2 rounded-lg text-sm">Submit</button>
-      </div>
-    </form>
-  </div>
-</div>
 
 <div id="adjustmentModal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden" aria-hidden="true">
   <div class="bg-white w-full max-w-lg rounded-xl shadow-lg max-h-[90vh] flex flex-col">

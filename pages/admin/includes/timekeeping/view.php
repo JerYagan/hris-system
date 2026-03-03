@@ -91,6 +91,80 @@ $formatTime = static function (?string $raw): string {
 </section>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200 flex items-start justify-between gap-3">
+        <div>
+            <h2 class="text-lg font-semibold text-slate-800">Log Leave from Leave Card</h2>
+            <p class="text-sm text-slate-500 mt-1">Leave processing is handled outside the system. Use this form to encode approved leave-card entries so employee leave history and balances stay accurate.</p>
+        </div>
+        <a href="/hris-system/assets/Leave_Card_Template.xlsx" download class="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 whitespace-nowrap">
+            <span class="material-symbols-outlined text-[16px]">download</span>Download Template
+        </a>
+    </header>
+    <form id="leaveCardLogForm" action="timekeeping.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        <input type="hidden" name="form_action" value="log_leave_from_card">
+        <input type="hidden" name="person_id" id="leaveLogPersonId" value="" required>
+        <div class="md:col-span-2">
+            <label class="text-slate-600">Employee (Search by ID or Name)</label>
+            <div class="relative mt-1">
+                <input id="leaveLogEmployeeSearch" type="text" class="w-full border border-slate-300 rounded-md px-3 py-2" placeholder="Type employee ID or name" autocomplete="off" required>
+                <div id="leaveLogEmployeeResults" class="hidden absolute z-20 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg max-h-56 overflow-y-auto">
+                    <?php foreach ($employeeOptions as $employeeOption): ?>
+                        <?php
+                        $employeeName = (string)($employeeOption['name'] ?? $employeeOption['label'] ?? 'Unknown Employee');
+                        $employeeCode = trim((string)($employeeOption['employee_code'] ?? ''));
+                        $optionLabel = (string)($employeeOption['label'] ?? $employeeName);
+                        $searchText = strtolower(trim($optionLabel . ' ' . $employeeName . ' ' . $employeeCode));
+                        ?>
+                        <button
+                            type="button"
+                            class="w-full text-left px-3 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-b-0"
+                            data-employee-option
+                            data-person-id="<?= htmlspecialchars((string)($employeeOption['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                            data-label="<?= htmlspecialchars($optionLabel, ENT_QUOTES, 'UTF-8') ?>"
+                            data-search="<?= htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8') ?>"
+                        >
+                            <span class="block text-slate-800"><?= htmlspecialchars($optionLabel, ENT_QUOTES, 'UTF-8') ?></span>
+                        </button>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1" id="leaveLogEmployeeHint">Select an employee from the custom search results.</p>
+        </div>
+        <div>
+            <label class="text-slate-600">Leave Type</label>
+            <select name="leave_type_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                <option value="">Select leave type</option>
+                <?php foreach ($leaveTypeOptions as $leaveTypeOption): ?>
+                    <option value="<?= htmlspecialchars((string)($leaveTypeOption['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($leaveTypeOption['leave_name'] ?? 'Leave'), ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div>
+            <label class="text-slate-600">Date From</label>
+            <input id="leaveLogDateFrom" type="date" name="date_from" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+        </div>
+        <div>
+            <label class="text-slate-600">Date To</label>
+            <input id="leaveLogDateTo" type="date" name="date_to" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+        </div>
+        <div>
+            <label class="text-slate-600">Leave Days</label>
+            <input id="leaveLogDays" type="number" name="days_count" min="1" step="1" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" placeholder="Auto-computed" readonly required>
+            <p class="text-[11px] text-slate-500 mt-1">Auto-computed from Date From and Date To (inclusive).</p>
+        </div>
+        <div class="md:col-span-3">
+            <label class="text-slate-600">Reference / Notes</label>
+            <textarea name="reference" rows="2" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Leave card control number or remarks (optional)"></textarea>
+        </div>
+        <div class="md:col-span-3 flex justify-end">
+            <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-md bg-daGreen text-white hover:opacity-90">
+                <span class="material-symbols-outlined text-[16px]">save</span>Log Leave Entry
+            </button>
+        </div>
+    </form>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Staff Recommendations Queue</h2>
         <p class="text-sm text-slate-500 mt-1">Review staff-submitted recommendations with approval controls and audit log context.</p>
@@ -617,6 +691,134 @@ $formatTime = static function (?string $raw): string {
             setValue('obWindow', button.getAttribute('data-window'));
             openModal('reviewObModal');
         });
+    });
+
+    const leaveLogForm = document.getElementById('leaveCardLogForm');
+    const employeeSearchInput = document.getElementById('leaveLogEmployeeSearch');
+    const employeeResults = document.getElementById('leaveLogEmployeeResults');
+    const employeeHiddenInput = document.getElementById('leaveLogPersonId');
+    const employeeHint = document.getElementById('leaveLogEmployeeHint');
+    const employeeOptionButtons = Array.from(document.querySelectorAll('[data-employee-option]'));
+    const leaveDateFrom = document.getElementById('leaveLogDateFrom');
+    const leaveDateTo = document.getElementById('leaveLogDateTo');
+    const leaveDays = document.getElementById('leaveLogDays');
+
+    const showEmployeeResults = () => {
+        if (employeeResults) {
+            employeeResults.classList.remove('hidden');
+        }
+    };
+
+    const hideEmployeeResults = () => {
+        if (employeeResults) {
+            employeeResults.classList.add('hidden');
+        }
+    };
+
+    const filterEmployeeResults = () => {
+        if (!employeeSearchInput || !employeeResults) return;
+        const query = (employeeSearchInput.value || '').trim().toLowerCase();
+        let visibleCount = 0;
+
+        employeeOptionButtons.forEach((button) => {
+            const haystack = (button.getAttribute('data-search') || '').toLowerCase();
+            const visible = query === '' || haystack.includes(query);
+            button.classList.toggle('hidden', !visible);
+            if (visible) visibleCount += 1;
+        });
+
+        showEmployeeResults();
+        if (employeeHint) {
+            employeeHint.textContent = visibleCount > 0
+                ? 'Select an employee from the custom search results.'
+                : 'No employee matched your search.';
+        }
+    };
+
+    const selectEmployee = (button) => {
+        if (!button || !employeeSearchInput || !employeeHiddenInput) return;
+        const personId = button.getAttribute('data-person-id') || '';
+        const label = button.getAttribute('data-label') || '';
+        employeeHiddenInput.value = personId;
+        employeeSearchInput.value = label;
+        employeeSearchInput.setCustomValidity('');
+        if (employeeHint) {
+            employeeHint.textContent = 'Selected: ' + label;
+        }
+        hideEmployeeResults();
+    };
+
+    if (employeeSearchInput && employeeHiddenInput) {
+        employeeSearchInput.addEventListener('focus', () => {
+            filterEmployeeResults();
+        });
+
+        employeeSearchInput.addEventListener('input', () => {
+            employeeHiddenInput.value = '';
+            filterEmployeeResults();
+        });
+    }
+
+    employeeOptionButtons.forEach((button) => {
+        button.addEventListener('click', () => selectEmployee(button));
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!employeeResults || !employeeSearchInput) return;
+        const target = event.target;
+        if (!(target instanceof Node)) return;
+        const clickedInside = employeeResults.contains(target) || employeeSearchInput.contains(target);
+        if (!clickedInside) {
+            hideEmployeeResults();
+        }
+    });
+
+    const computeLeaveDays = () => {
+        if (!leaveDateFrom || !leaveDateTo || !leaveDays) return;
+
+        const fromValue = leaveDateFrom.value;
+        const toValue = leaveDateTo.value;
+
+        if (!fromValue || !toValue) {
+            leaveDays.value = '';
+            leaveDateTo.setCustomValidity('');
+            return;
+        }
+
+        const fromDate = new Date(fromValue + 'T00:00:00');
+        const toDate = new Date(toValue + 'T00:00:00');
+        if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
+            leaveDays.value = '';
+            leaveDateTo.setCustomValidity('Invalid date range.');
+            return;
+        }
+
+        const diffMs = toDate.getTime() - fromDate.getTime();
+        if (diffMs < 0) {
+            leaveDays.value = '';
+            leaveDateTo.setCustomValidity('Date To cannot be earlier than Date From.');
+            return;
+        }
+
+        const totalDays = Math.floor(diffMs / 86400000) + 1;
+        leaveDateTo.setCustomValidity('');
+        leaveDays.value = String(totalDays);
+    };
+
+    leaveDateFrom?.addEventListener('change', computeLeaveDays);
+    leaveDateTo?.addEventListener('change', computeLeaveDays);
+
+    leaveLogForm?.addEventListener('submit', (event) => {
+        if (!employeeHiddenInput || !employeeSearchInput) return;
+        if (!employeeHiddenInput.value) {
+            event.preventDefault();
+            employeeSearchInput.setCustomValidity('Please select an employee from the search results.');
+            employeeSearchInput.reportValidity();
+            showEmployeeResults();
+            return;
+        }
+        employeeSearchInput.setCustomValidity('');
+        computeLeaveDays();
     });
 })();
 </script>

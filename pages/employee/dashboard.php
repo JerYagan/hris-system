@@ -123,8 +123,8 @@ $formatDateTime = static function (?string $dateTime): string {
     <h2 class="font-semibold mb-4">Quick Actions</h2>
 
     <div class="grid grid-cols-1 gap-3 text-sm">
-      <a href="timekeeping.php?quick_action=create-leave" class="inline-flex items-center justify-between border rounded-lg px-4 py-3 hover:bg-gray-50">
-        <span class="inline-flex items-center gap-2"><span class="material-icons text-daGreen text-base">event_available</span>Create Leave Request</span>
+      <a href="/hris-system/assets/Leave_Card_Template.xlsx" download class="inline-flex items-center justify-between border rounded-lg px-4 py-3 hover:bg-gray-50">
+        <span class="inline-flex items-center gap-2"><span class="material-icons text-daGreen text-base">download</span>Download Leave Card Template</span>
         <span class="material-icons text-gray-400 text-base">arrow_forward</span>
       </a>
       <a href="document-management.php?quick_action=upload-document" class="inline-flex items-center justify-between border rounded-lg px-4 py-3 hover:bg-gray-50">
