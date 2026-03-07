@@ -12,6 +12,8 @@ if (!isValidCsrfToken($_POST['csrf_token'] ?? null)) {
     redirectWithState('error', 'Invalid request token. Please refresh and try again.');
 }
 
+redirectWithState('error', 'Staff applicant tracking is now read-only. Decision actions are unavailable.');
+
 if (!function_exists('staffApplicantTrackingNotify')) {
     function staffApplicantTrackingNotify(array $headers, string $supabaseUrl, string $recipientUserId, string $title, string $body, string $linkUrl): void
     {

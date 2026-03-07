@@ -1,5 +1,16 @@
 <?php
 
+if (!function_exists('array_is_list')) {
+    function array_is_list(array $array): bool
+    {
+        if ($array === []) {
+            return true;
+        }
+
+        return array_keys($array) === range(0, count($array) - 1);
+    }
+}
+
 if (!function_exists('formatDateTimeForPhilippines')) {
     function formatDateTimeForPhilippines(?string $dateTime, string $format = 'M j, Y g:i A'): string
     {

@@ -381,6 +381,9 @@ foreach ($documents as $document) {
     $viewUrl = $statusRaw === 'archived'
         ? ''
         : $resolveDocumentUrl(cleanText($document['storage_bucket'] ?? null), cleanText($document['storage_path'] ?? null));
+    $previewUrl = $statusRaw === 'archived'
+        ? ''
+        : '/hris-system/pages/staff/document-preview.php?source=employee&document_id=' . rawurlencode($documentId) . '&return_to=' . rawurlencode('/hris-system/pages/staff/document-management.php');
 
     $documentRow = [
         'id' => $documentId,
@@ -397,7 +400,9 @@ foreach ($documents as $document) {
         'latest_review_status' => strtolower((string)(cleanText($latestReviewByDocument[$documentId]['status'] ?? null) ?? '')),
         'previous_recommendation' => strtolower((string)(cleanText($staffRecommendationByDocument[$documentId]['status'] ?? null) ?? '')),
         'previous_recommendation_notes' => cleanText($staffRecommendationByDocument[$documentId]['notes'] ?? null) ?? '',
+        'preview_url' => $previewUrl,
         'view_url' => $viewUrl,
+        'download_url' => $viewUrl,
         'search_text' => strtolower(trim($title . ' ' . $ownerName . ' ' . $documentType201 . ' ' . $statusLabel . ' ' . $description)),
         'can_recommend' => false,
     ];
@@ -452,12 +457,15 @@ foreach ($documents as $document) {
     [$fileTypeLabel, $fileTypeIcon, $fileTypeClass] = $buildFileTypeMeta((string)(cleanText($document['storage_path'] ?? null) ?? $title));
 
     $uploaderSummaryMap[$ownerUserId]['documents'][] = [
+        'id' => $documentId,
+        'preview_source' => 'employee',
         'title' => $title,
         'category' => $documentType201,
         'status' => $statusLabel,
         'updated_at_raw' => $updatedAt,
         'updated' => formatDateTimeForPhilippines($updatedAt, 'M d, Y'),
         'source' => 'Employee Document',
+        'preview_url' => '/hris-system/pages/staff/document-preview.php?source=employee&document_id=' . rawurlencode($documentId) . '&return_to=' . rawurlencode('/hris-system/pages/staff/document-management.php'),
         'view_url' => $viewUrl,
         'download_url' => $viewUrl,
         'file_type_label' => $fileTypeLabel,
@@ -500,11 +508,14 @@ foreach ((array)($applicationDocumentsResponse['data'] ?? []) as $applicationDoc
     $uploadedLabel = formatDateTimeForPhilippines($uploadedAt, 'M d, Y');
     $status = ucwords(str_replace('_', ' ', strtolower((string)(cleanText($applicationDocument['application']['application_status'] ?? null) ?? 'submitted'))));
     $fileUrl = '';
+    $downloadUrl = '';
     if (isValidUuid($applicationDocumentId)) {
-        $fileUrl = '/hris-system/pages/admin/applicant-document.php?document_id=' . rawurlencode($applicationDocumentId);
+        $fileUrl = '/hris-system/pages/staff/document-preview.php?source=applicant&document_id=' . rawurlencode($applicationDocumentId) . '&return_to=' . rawurlencode('/hris-system/pages/staff/document-management.php');
+        $downloadUrl = '/hris-system/pages/staff/applicant-document.php?document_id=' . rawurlencode($applicationDocumentId) . '&download=1';
     }
     if ($fileUrl === '') {
         $fileUrl = $resolveFileUrl(cleanText($applicationDocument['file_url'] ?? null));
+        $downloadUrl = $fileUrl;
     }
     [$fileTypeLabel, $fileTypeIcon, $fileTypeClass] = $buildFileTypeMeta($fileName);
 
@@ -529,14 +540,17 @@ foreach ((array)($applicationDocumentsResponse['data'] ?? []) as $applicationDoc
     }
 
     $uploaderSummaryMap[$applicantUserId]['documents'][] = [
+        'id' => $applicationDocumentId,
+        'preview_source' => 'applicant',
         'title' => $fileName,
         'category' => $documentType201,
         'status' => $status,
         'updated_at_raw' => $uploadedAt,
         'updated' => $uploadedLabel,
         'source' => 'Applicant Requirement',
+        'preview_url' => $fileUrl,
         'view_url' => $fileUrl,
-        'download_url' => $fileUrl,
+        'download_url' => $downloadUrl,
         'file_type_label' => $fileTypeLabel,
         'file_type_icon' => $fileTypeIcon,
         'file_type_class' => $fileTypeClass,

@@ -421,25 +421,15 @@
             const appliedPosition = applicant.applied_position ? applicant.applied_position.toString() : '-';
             const submittedLabel = applicant.submitted_label ? applicant.submitted_label.toString() : '-';
             const screening = applicant.initial_screening_label ? applicant.initial_screening_label.toString() : '-';
-            const canAddEmployee = Boolean(applicant.can_add_employee) && applicationId !== '';
             const alreadyEmployee = Boolean(applicant.already_employee);
 
             setText(applicantProfileName, applicantName);
             setText(applicantProfileMeta, `${appliedPosition} • ${applicantEmail} • Submitted ${submittedLabel} • ${screening}`);
             if (applicantEmployeeActionEl) {
-                if (canAddEmployee) {
-                    applicantEmployeeActionEl.innerHTML = `
-                        <form method="POST" action="recruitment.php" class="add-employee-form inline-block" data-applicant-name="${escapeHtml(applicantName)}">
-                            <input type="hidden" name="form_action" value="add_hired_applicant_as_employee">
-                            <input type="hidden" name="csrf_token" value="${escapeHtml((modal.getAttribute('data-csrf-token') || '').trim())}">
-                            <input type="hidden" name="application_id" value="${escapeHtml(applicationId)}">
-                            <button type="submit" class="px-3 py-1.5 rounded-md text-xs bg-green-700 text-white hover:bg-green-800">Add as Employee</button>
-                        </form>
-                    `;
-                } else if (alreadyEmployee) {
+                if (alreadyEmployee) {
                     applicantEmployeeActionEl.innerHTML = '<span class="px-2 py-1 text-xs rounded-full bg-slate-200 text-slate-700">Already Employee</span>';
                 } else {
-                    applicantEmployeeActionEl.innerHTML = '';
+                    applicantEmployeeActionEl.innerHTML = '<span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">Read-only review</span>';
                 }
             }
             renderDocuments(Array.isArray(applicant.documents) ? applicant.documents : []);
@@ -574,28 +564,6 @@
             });
         }
 
-        if (applicantDecisionForm) {
-            applicantDecisionForm.addEventListener('submit', async (event) => {
-                if (applicantDecisionForm.dataset.confirmed === '1') {
-                    return;
-                }
-
-                event.preventDefault();
-                const shouldContinue = await showConfirmation('Save this applicant screening decision?', 'Save Decision');
-                if (!shouldContinue) {
-                    return;
-                }
-
-                const submitButton = applicantDecisionForm.querySelector('button[type="submit"]');
-                if (submitButton) {
-                    submitButton.disabled = true;
-                    submitButton.classList.add('opacity-60', 'cursor-not-allowed');
-                }
-
-                applicantDecisionForm.dataset.confirmed = '1';
-                applicantDecisionForm.submit();
-            });
-        }
     };
 
     const setupAddEmployeeForms = () => {

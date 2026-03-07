@@ -114,7 +114,7 @@ $employeeOptionsResponse = apiRequest(
 $leaveTypeOptionsResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/leave_types?select=id,leave_name,is_active'
+    . '/rest/v1/leave_types?select=id,leave_name,leave_code,is_active'
     . '&is_active=eq.true'
     . '&order=leave_name.asc&limit=200',
     $headers
@@ -182,6 +182,7 @@ if (isSuccessful($leaveTypeOptionsResponse)) {
         $leaveTypeOptions[] = [
             'id' => $typeId,
             'leave_name' => (string)($type['leave_name'] ?? 'Leave'),
+            'leave_code' => strtolower(trim((string)($type['leave_code'] ?? ''))),
         ];
     }
 }

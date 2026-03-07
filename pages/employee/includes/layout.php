@@ -155,6 +155,7 @@
 
   <!-- SIDEBAR -->
   <?php include __DIR__ . '/sidebar.php'; ?>
+  <button id="sidebarBackdrop" type="button" class="fixed inset-0 z-40 hidden bg-slate-950/55" aria-label="Close sidebar overlay"></button>
 
   <!-- MAIN CONTENT WRAPPER -->
   <div

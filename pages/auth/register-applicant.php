@@ -1,5 +1,5 @@
 <?php
-$pageTitle = 'Applicant Sign Up | DA HRIS';
+$pageTitle = 'Register | DA HRIS';
 
 ob_start();
 ?>
@@ -11,8 +11,8 @@ ob_start();
   </a>
 
   <div class="mb-6">
-    <h1 class="text-2xl font-bold text-gray-900 mb-2">Create Applicant Account</h1>
-    <p class="text-sm text-gray-600">Sign up as an applicant to browse jobs and submit your application online.</p>
+    <h1 class="text-2xl font-bold text-gray-900 mb-2">Register</h1>
+    <p class="text-sm text-gray-600">Create your applicant account to browse job postings and submit applications online.</p>
   </div>
 
   <?php if (isset($_GET['error'])): ?>
@@ -23,7 +23,7 @@ ob_start();
       if ($errorCode === 'invalid_email') {
         $errorMessage = 'Please enter a valid email address.';
       } elseif ($errorCode === 'weak_password') {
-        $errorMessage = 'Password must be at least 8 characters.';
+        $errorMessage = 'Password must be at least 10 characters and include uppercase, lowercase, number, and special character.';
       } elseif ($errorCode === 'password_mismatch') {
         $errorMessage = 'Passwords do not match.';
       } elseif ($errorCode === 'missing_name') {
@@ -42,7 +42,7 @@ ob_start();
     </div>
   <?php endif; ?>
 
-  <form action="register-applicant-handler.php" method="POST" class="space-y-5">
+  <form action="register-applicant-handler.php" method="POST" class="space-y-5" novalidate>
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
       <div>
         <label class="block text-sm font-medium mb-1">First Name</label>
@@ -67,25 +67,76 @@ ob_start();
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
       <div>
         <label class="block text-sm font-medium mb-1">Password</label>
-        <input type="password" name="password" required minlength="8" class="w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-daGreen">
+        <input type="password" name="password" id="registerPassword" required minlength="10" autocomplete="new-password" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{10,}" title="Use at least 10 characters with uppercase, lowercase, number, and special character." class="w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-daGreen">
+        <p class="mt-1 text-xs text-gray-500">Use at least 10 characters with uppercase, lowercase, number, and special character.</p>
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Confirm Password</label>
-        <input type="password" name="confirm_password" required minlength="8" class="w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-daGreen">
+        <input type="password" name="confirm_password" id="registerConfirmPassword" required minlength="10" autocomplete="new-password" class="w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-daGreen">
       </div>
     </div>
 
     <button type="submit" class="w-full rounded-lg bg-daGreen px-5 py-2.5 text-sm font-semibold text-white hover:bg-green-700 transition inline-flex items-center justify-center gap-2">
       <span class="material-icons text-base">person_add</span>
-      Create Applicant Account
+      Create Account
     </button>
   </form>
-
-  <div class="mt-6 text-sm text-center text-gray-600">
-    Need employee/staff registration?
-    <a href="register.php" class="text-daGreen font-medium hover:underline">Use full registration form</a>
-  </div>
 </div>
+
+<script>
+  const registerForm = document.querySelector('form');
+  const passwordInput = document.getElementById('registerPassword');
+  const confirmPasswordInput = document.getElementById('registerConfirmPassword');
+
+  const setMismatchState = (hasMismatch) => {
+    if (!passwordInput || !confirmPasswordInput) {
+      return;
+    }
+
+    const mismatchClasses = ['border-red-500', 'focus:ring-red-500'];
+    const normalClasses = ['focus:ring-daGreen'];
+
+    [passwordInput, confirmPasswordInput].forEach((input) => {
+      input.classList.remove(...mismatchClasses, ...normalClasses);
+      input.classList.add(hasMismatch ? 'border-red-500' : 'focus:ring-daGreen');
+      if (hasMismatch) {
+        input.classList.add('focus:ring-red-500');
+      }
+    });
+
+    confirmPasswordInput.setCustomValidity(hasMismatch ? 'Passwords do not match.' : '');
+  };
+
+  const validatePasswordMatch = () => {
+    if (!passwordInput || !confirmPasswordInput) {
+      return true;
+    }
+
+    const hasMismatch = passwordInput.value !== ''
+      && confirmPasswordInput.value !== ''
+      && passwordInput.value !== confirmPasswordInput.value;
+
+    setMismatchState(hasMismatch);
+    return !hasMismatch;
+  };
+
+  passwordInput?.addEventListener('input', validatePasswordMatch);
+  confirmPasswordInput?.addEventListener('input', validatePasswordMatch);
+  confirmPasswordInput?.addEventListener('blur', validatePasswordMatch);
+
+  registerForm?.addEventListener('submit', (event) => {
+    if (!validatePasswordMatch()) {
+      confirmPasswordInput?.reportValidity();
+      event.preventDefault();
+      return;
+    }
+
+    if (!registerForm.checkValidity()) {
+      registerForm.reportValidity();
+      event.preventDefault();
+    }
+  });
+</script>
 
 <?php
 $content = ob_get_clean();

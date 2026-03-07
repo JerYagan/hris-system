@@ -167,12 +167,11 @@ $unreadNotificationBadge = $unreadNotificationCount > 99 ? '99+' : (string)$unre
 $primaryLinks = [
     ['href' => 'dashboard.php', 'label' => 'Dashboard', 'icon' => 'dashboard'],
     ['href' => 'job-list.php', 'label' => 'Jobs', 'icon' => 'list_alt'],
-    ['href' => 'applications.php', 'label' => 'Applications', 'icon' => 'folder_shared'],
 ];
 
 $recruitmentLinks = [
+    ['href' => 'applications.php', 'label' => 'Applications', 'icon' => 'folder_shared'],
     ['href' => 'application-feedback.php', 'label' => 'Application Feedback', 'icon' => 'fact_check'],
-    ['href' => 'notifications.php', 'label' => 'Notifications', 'icon' => 'notifications'],
 ];
 
 $accountLinks = [
@@ -191,9 +190,12 @@ $allMobileLinks = array_merge($primaryLinks, $recruitmentLinks, $accountLinks);
             <!-- LEFT: BRAND + NAV -->
             <div class="flex min-w-0 items-center gap-3 lg:gap-5">
                 <a href="dashboard.php" class="flex items-center gap-2.5 shrink-0">
-                    <img src="/hris-system/assets/images/icon.png" alt="DA-ATI HRIS" class="h-9 w-9 rounded-lg border object-contain p-1">
+                    <div class="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 shadow-sm">
+                        <img src="/hris-system/assets/images/Bagong_Pilipinas_logo.png" alt="Bagong Pilipinas" class="h-8 w-auto object-contain" loading="lazy">
+                        <img src="/hris-system/assets/images/DA_logo.png" alt="Department of Agriculture" class="h-8 w-8 object-contain" loading="lazy">
+                    </div>
                     <div class="hidden sm:block leading-tight">
-                        <p class="text-xs text-gray-500">Applicant Portal</p>
+                        <p class="text-xs text-gray-500">Applicant Portal · Bagong Pilipinas</p>
                         <p class="text-sm font-semibold text-gray-800">DA-ATI HRIS</p>
                     </div>
                 </a>
@@ -249,6 +251,11 @@ $allMobileLinks = array_merge($primaryLinks, $recruitmentLinks, $accountLinks);
                     data-id-field="notification_id"
                     data-csrf-field="csrf_token"
                     data-csrf-token="<?= htmlspecialchars((string)$applicantTopnavCsrfToken, ENT_QUOTES, 'UTF-8') ?>"
+                    data-snapshot-action="topnav_snapshot"
+                    data-supabase-url="<?= htmlspecialchars((string)$topnavSupabaseUrl, ENT_QUOTES, 'UTF-8') ?>"
+                    data-supabase-anon-key="<?= htmlspecialchars((string)(trim((string)($_ENV['SUPABASE_ANON_KEY'] ?? $_SERVER['SUPABASE_ANON_KEY'] ?? ''))), ENT_QUOTES, 'UTF-8') ?>"
+                    data-realtime-access-token="<?= htmlspecialchars((string)($_SESSION['supabase']['access_token'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                    data-user-id="<?= htmlspecialchars((string)$topnavApplicantUserId, ENT_QUOTES, 'UTF-8') ?>"
                     data-role-label="Applicant"
                 >
                     <button type="button"
@@ -360,24 +367,47 @@ $allMobileLinks = array_merge($primaryLinks, $recruitmentLinks, $accountLinks);
                     </button>
 
                     <div id="applicantUserMenu"
-                         class="hidden absolute right-0 mt-2 w-56 rounded-xl border bg-white p-2 shadow-sm text-sm z-50">
+                         class="absolute right-0 z-50 mt-2 hidden w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl text-sm">
+                        <div class="border-b border-slate-100 bg-slate-50/70 px-4 py-3">
+                            <p class="text-sm font-semibold text-slate-800"><?= htmlspecialchars($applicantDisplayName, ENT_QUOTES, 'UTF-8') ?></p>
+                            <p class="text-xs text-slate-500">Applicant</p>
+                        </div>
 
-                        <?php foreach ($accountLinks as $link): ?>
-                            <?php $isActive = $activePage === $link['href']; ?>
-                            <a href="<?= $link['href'] ?>"
-                               class="flex items-center gap-2 rounded-lg px-3 py-2 <?= $isActive ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700 hover:bg-gray-50' ?>">
-                                <span class="material-symbols-outlined text-sm"><?= $link['icon'] ?></span>
-                                <?= htmlspecialchars($link['label'], ENT_QUOTES, 'UTF-8') ?>
+                        <div class="p-2">
+                            <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Account</p>
+                            <div class="space-y-1">
+                                <a href="profile.php" class="flex items-center gap-3 rounded-xl px-3 py-2 text-slate-700 transition hover:bg-slate-100">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">person</span>
+                                    <span>My Profile</span>
+                                </a>
+                                <a href="profile.php" class="flex items-center gap-3 rounded-xl px-3 py-2 text-slate-700 transition hover:bg-slate-100">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">password</span>
+                                    <span>Change Password</span>
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="mx-2 border-t border-slate-100"></div>
+
+                        <div class="p-2">
+                            <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Tools</p>
+                            <div class="space-y-1">
+                                <a href="support.php" class="flex items-center gap-3 rounded-xl px-3 py-2 text-slate-700 transition hover:bg-slate-100">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">help</span>
+                                    <span>Support</span>
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="mx-2 border-t border-slate-100"></div>
+
+                        <div class="p-2">
+                            <a href="/hris-system/pages/auth/logout.php"
+                               class="flex items-center gap-3 rounded-xl px-3 py-2 font-medium text-rose-600 transition hover:bg-rose-50">
+                                <span class="material-symbols-outlined text-[18px]">logout</span>
+                                <span>Logout</span>
                             </a>
-                        <?php endforeach; ?>
-
-                        <div class="my-1 border-t"></div>
-
-                        <a href="/hris-system/pages/auth/logout.php"
-                           class="flex items-center gap-2 rounded-lg px-3 py-2 text-red-600 hover:bg-red-50 font-medium">
-                            <span class="material-symbols-outlined text-sm">logout</span>
-                            Logout
-                        </a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -446,7 +476,11 @@ $allMobileLinks = array_merge($primaryLinks, $recruitmentLinks, $accountLinks);
             mobileMenuBtn.addEventListener('click', function (event) {
                 event.preventDefault();
                 event.stopPropagation();
+                document.dispatchEvent(new CustomEvent('hris:close-topnav-notifications', { detail: { source: 'applicant-mobile-menu' } }));
                 mobileMenu.classList.toggle('hidden');
+                if (!mobileMenu.classList.contains('hidden')) {
+                    document.dispatchEvent(new CustomEvent('hris:sidebar-opened', { detail: { source: 'applicant-mobile-menu' } }));
+                }
             });
         }
 
@@ -454,9 +488,13 @@ $allMobileLinks = array_merge($primaryLinks, $recruitmentLinks, $accountLinks);
             menuBtn.addEventListener('click', function (event) {
                 event.preventDefault();
                 event.stopPropagation();
+                document.dispatchEvent(new CustomEvent('hris:close-topnav-notifications', { detail: { source: 'applicant-user-menu' } }));
                 menu.classList.toggle('hidden');
                 if (recruitmentMenu) {
                     recruitmentMenu.classList.add('hidden');
+                }
+                if (!menu.classList.contains('hidden')) {
+                    document.dispatchEvent(new CustomEvent('hris:profile-menu-opened', { detail: { source: 'applicant-user-menu' } }));
                 }
             });
 
@@ -469,9 +507,13 @@ $allMobileLinks = array_merge($primaryLinks, $recruitmentLinks, $accountLinks);
             recruitmentBtn.addEventListener('click', function (event) {
                 event.preventDefault();
                 event.stopPropagation();
+                document.dispatchEvent(new CustomEvent('hris:close-topnav-notifications', { detail: { source: 'applicant-recruitment-menu' } }));
                 recruitmentMenu.classList.toggle('hidden');
                 if (menu) {
                     menu.classList.add('hidden');
+                }
+                if (!recruitmentMenu.classList.contains('hidden')) {
+                    document.dispatchEvent(new CustomEvent('hris:applicant-menu-opened', { detail: { source: 'applicant-recruitment-menu' } }));
                 }
             });
 
@@ -487,6 +529,12 @@ $allMobileLinks = array_merge($primaryLinks, $recruitmentLinks, $accountLinks);
             if (recruitmentMenu) {
                 recruitmentMenu.classList.add('hidden');
             }
+            if (mobileMenu) {
+                mobileMenu.classList.add('hidden');
+            }
+        });
+
+        document.addEventListener('hris:request-close-sidebar', function () {
             if (mobileMenu) {
                 mobileMenu.classList.add('hidden');
             }

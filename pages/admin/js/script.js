@@ -17,16 +17,39 @@
     const categoryToggles = document.querySelectorAll('[data-cat-toggle]');
 
     let isOpen = false;
+    const closeProfileMenu = () => {
+      if (profileMenu && !profileMenu.classList.contains('hidden')) {
+        profileMenu.classList.add('hidden');
+      }
+    };
+
+    const closeLegacyNotificationMenu = () => {
+      if (notificationMenu && !notificationMenu.classList.contains('hidden')) {
+        notificationMenu.classList.add('hidden');
+      }
+    };
+
+    const closeTopnavNotificationPanels = () => {
+      document.dispatchEvent(new CustomEvent('admin:close-topnav-notifications'));
+      document.dispatchEvent(new CustomEvent('hris:close-topnav-notifications', { detail: { source: 'admin-legacy-shell' } }));
+      document.querySelectorAll('[data-topnav-list-modal], [data-topnav-detail-modal]').forEach(panel => {
+        panel.classList.add('hidden');
+      });
+      closeLegacyNotificationMenu();
+    };
 
     function applySidebarState() {
       if (!sidebar || !overlay) return;
 
       if (isOpen) {
+        closeProfileMenu();
+        closeTopnavNotificationPanels();
         sidebar.classList.remove('-translate-x-full');
         sidebar.classList.add('translate-x-0');
         overlay.classList.remove('opacity-0', 'pointer-events-none');
         overlay.classList.add('opacity-100');
         sidebar.setAttribute('aria-hidden', 'false');
+        document.dispatchEvent(new CustomEvent('hris:sidebar-opened', { detail: { source: 'admin-legacy-sidebar' } }));
       } else {
         sidebar.classList.add('-translate-x-full');
         sidebar.classList.remove('translate-x-0');
@@ -57,6 +80,15 @@
       });
     }
 
+    document.addEventListener('hris:request-close-sidebar', () => {
+      if (!isOpen) {
+        return;
+      }
+
+      isOpen = false;
+      applySidebarState();
+    });
+
     document.addEventListener('click', (event) => {
       if (!isOpen || !sidebar || !toggle || !overlay) return;
       const clickedInsideSidebar = sidebar.contains(event.target);
@@ -79,10 +111,11 @@
     if (profileToggle && profileMenu) {
       profileToggle.addEventListener('click', (event) => {
         event.stopPropagation();
-        if (notificationMenu && !notificationMenu.classList.contains('hidden')) {
-          notificationMenu.classList.add('hidden');
-        }
+        closeTopnavNotificationPanels();
         profileMenu.classList.toggle('hidden');
+        if (!profileMenu.classList.contains('hidden')) {
+          document.dispatchEvent(new CustomEvent('hris:profile-menu-opened', { detail: { source: 'admin-legacy-profile' } }));
+        }
       });
 
       document.addEventListener('click', (event) => {
@@ -95,9 +128,7 @@
     if (notificationToggle && notificationMenu) {
       notificationToggle.addEventListener('click', (event) => {
         event.stopPropagation();
-        if (profileMenu && !profileMenu.classList.contains('hidden')) {
-          profileMenu.classList.add('hidden');
-        }
+        closeProfileMenu();
         notificationMenu.classList.toggle('hidden');
       });
 

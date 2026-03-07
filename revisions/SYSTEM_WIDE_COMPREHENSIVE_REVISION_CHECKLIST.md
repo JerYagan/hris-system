@@ -76,13 +76,66 @@ Rules applied while consolidating:
 ## 1) Login / Access / Public Homepage
 
 ### Login/Register Module
-- [ ] Add password creation validation.
-- [ ] Fix forgot-password flow.
+- [x] Invalid email or password when logging in even though the credentials are correct. Can you verify what happened in the login flow and check if there are any issues with the authentication logic or database queries that might be causing this problem? Also, make sure to check if there are any error messages or logs that can provide more information about why the login is failing for valid credentials.
+- [x] Add password creation validation.
+- [x] Fix forgot-password flow.
+- [x] Remove "as Applicant" it should only be "Register" and register is only for applicants
+- [x] Remove "Register as Employee"
+- [x] Make the "Remember me" checkbox functional by implementing the necessary logic to keep users logged in across sessions when they select this option during login.
 
 ### Landing Page / Index
-- [ ] Align homepage copy with ATI mission/vision/strategic updates.
-- [ ] Replace legacy homepage sections with updated institutional activity sections.
-- [ ] Keep Careers list aligned with active recruitment postings.
+- [x] Remove news and advisories at the top and the section
+- [x] In the mission and vision section, make the height of the photo match the height of the text for better visual balance and alignment. (See photo)
+- [x] Remove "View ATI training services" and "Career Reference" links
+- [x] Remove the "Core Services" At the top and the section
+- [x] The CTAs at the hero section. Change it from Login to HRIS to "Explore Careers" and remove lean about da
+- [x] Align homepage copy with ATI mission/vision/strategic updates.
+Mission - Empowering stakeholders through a resilient and responsive agriculture and fisheries extension system.
+Vision- A competitive and prosperous agriculture and fisheries sector towards a vibrant economy. 
+institutional activities.
+
+- [x] Replace legacy homepage sections with updated institutional activity sections.
+Training 
+Link Ref: https://ati2.da.gov.ph/ati
+main/content/training_services
+
+Example of Training Courses: 
+
+Agricultural Development Officers of the Community (AgRIDOC)
+
+The AgRiDOC is a season-long, experiential course with transformational leadership as its foundation. It is being implemented through the project, “Improving Technology Promotion and Delivery through Capability Enhancement of Next-Gen Rice Extension Professionals and Other Intermediaries” (IPAD), which aims to develop a new breed of rice extension experts by undergoing several rice-related training programs.
+
+Specialist Training on Participatory Guarantee System (PGS)
+
+Participatory Guarantee Systems (PGS) are quality assurance initiatives that follow the production-to-consumption approach in providing guarantees on the integrity and quality of organic products. As an alternative and complementary tool to third-party certification, PGS plays a vital role in rural development and farmer empowerment through active engagement with the farmers in the whole process of verification, decision-making, and marketing. With its recognition by law, organic farmers will be able to get training and certification for their produce, without incurring heavy costs.
+
+
+Season-Long Training of Trainers (SL-TOT) for HVCDP
+
+This training course focuses on crop production for the banner programs’ focal or technical staff. The graduates of this training course shall be responsible for the dissemination of these technologies in their respective regions. The course is a rigid training for a team of trainers who will in turn conduct FFS in crops-producing areas.
+
+
+CAREERS
+
+- Example of Job Listings that are available. 
+1. Administrative Aide VI 
+- Description, posting date and closing date 
+2. Training Specialitst I
+- Description, posting date and closing date 
+3. Accountant I
+- Description, posting date and closing date 
+
+Ref Link: https://csc.gov.ph/career/index.php
+
+- [x] Keep Careers list aligned with active recruitment postings.
+
+- Example of Job Listings that are available. 
+1. Administrative Aide VI 
+- Description, posting date and closing date 
+2. Training Specialitst I
+- Description, posting date and closing date 
+3. Accountant I
+- Description, posting date and closing date 
 
 ---
 
@@ -867,22 +920,39 @@ Fatal error: Uncaught Error: Call to undefined function isValidUuid() in D:\xamp
 
 ## 22) Sidebar and Topnav revisions
 
+### Across staff and employee users
+- [x] Just add the User profile picture and name at the top of the sidebar
+
 ### Admin
-- [ ] Change the position of Bagong Pilipinas icon and header, it should be after the hamburger icon
-- [ ] Categorize sidebar items better with clear section headers and logical grouping of related items, ensuring that the most frequently used items are easily accessible and that the overall organization of the sidebar is intuitive for admin users. This will help improve the user experience for admins when navigating through the system and allow them to quickly find and access the features and functionalities they need to manage the system effectively.
-- [ ] Remove indentation for sub-items in the sidebar to create a cleaner and more streamlined look, while still maintaining clear visual cues for the hierarchy of items. This will help reduce visual clutter and make it easier for admins to scan through the sidebar and find the items they need without being overwhelmed by too much indentation or nested items.
+- [x] Categorize sidebar items better with clear section headers and logical grouping of related items, ensuring that the most frequently used items are easily accessible and that the overall organization of the sidebar is intuitive for admin users. This will help improve the user experience for admins when navigating through the system and allow them to quickly find and access the features and functionalities they need to manage the system effectively.
+- [x] Remove indentation for sub-items in the sidebar to create a cleaner and more streamlined look, while still maintaining clear visual cues for the hierarchy of items. This will help reduce visual clutter and make it easier for admins to scan through the sidebar and find the items they need without being overwhelmed by too much indentation or nested items.
+- [x] Change the position of Bagong Pilipinas icon and header, it should be after the hamburger icon
 
 ### Staff
+- [ ] Remove logos from the sidebar to create a cleaner and more focused navigation experience for staff users, allowing them to easily find and access the features and functionalities they need without being distracted by visual elements in the sidebar. This will help improve the user experience for staff when navigating through the system and allow them to focus on their tasks and responsibilities without unnecessary visual clutter in the sidebar.
 - [ ] Change the sidebar behavior into an overlay instead of pushing the content when opened, providing a more modern and user-friendly experience for staff users when navigating through the system. This will allow staff to access the sidebar without disrupting their workflow or the content they are currently viewing, creating a smoother and more seamless navigation experience. Make sure to include a clear and intuitive way to open and close the sidebar, such as a hamburger menu icon, and ensure that the overlay design is visually appealing and consistent with the overall design of the system.
-- [ ] Categorize sidebar items better with clear section headers and logical grouping of related items, ensuring that the most frequently used items are easily accessible and that the overall organization of the sidebar is intuitive for staff users. This will help improve the user experience for staff when navigating through the system and allow them to quickly find and access the features and functionalities they need to perform their tasks effectively.
+- [x] Categorize sidebar items better with clear section headers and logical grouping of related items, ensuring that the most frequently used items are easily accessible and that the overall organization of the sidebar is intuitive for staff users. This will help improve the user experience for staff when navigating through the system and allow them to quickly find and access the features and functionalities they need to perform their tasks effectively.
 
 ### Employee
+- [ ] Remove logos from the sidebar to create a cleaner and more focused navigation experience for employee users, allowing them to easily find and access the features and functionalities they need without being distracted by visual elements in the sidebar. This will help improve the user experience for employees when navigating through the system and allow them to focus on their tasks and responsibilities without unnecessary visual clutter in the sidebar.
 - [ ] Change the sidebar behavior into an overlay instead of pushing the content when opened, providing a more modern and user-friendly experience for staff users when navigating through the system. This will allow staff to access the sidebar without disrupting their workflow or the content they are currently viewing, creating a smoother and more seamless navigation experience. Make sure to include a clear and intuitive way to open and close the sidebar, such as a hamburger menu icon, and ensure that the overlay design is visually appealing and consistent with the overall design of the system.
-- [ ] Categorize sidebar items better with clear section headers and logical grouping of related items, ensuring that the most frequently used items are easily accessible and that the overall organization of the sidebar is intuitive for staff users. This will help improve the user experience for staff when navigating through the system and allow them to quickly find and access the features and functionalities they need to perform their tasks effectively.
+- [x] Categorize sidebar items better with clear section headers and logical grouping of related items, ensuring that the most frequently used items are easily accessible and that the overall organization of the sidebar is intuitive for staff users. This will help improve the user experience for staff when navigating through the system and allow them to quickly find and access the features and functionalities they need to perform their tasks effectively.
 
 ### Cross users in Sidebar and Topnav revisions:
-- [ ] Ensure that the profile menu in the top navigation is consistent across all user roles, providing a clear and intuitive way for users to access their profile settings, change password flow, and other relevant options. This will help create a cohesive user experience across the system and allow users to easily manage their account settings and preferences from the top navigation regardless of their role.
-- [ ] 
+- [ ] Ensure that the profile menu UI in the top navigation is consistent across all user roles, providing a clear and intuitive way for users to access their profile settings, change password flow, and other relevant options. This will help create a cohesive user experience across the system and allow users to easily manage their account settings and preferences from the top navigation regardless of their role.
+
+---
+
+## Notifications Revision
+
+### Employee
+- [x] Make sure that the notification modal is closing when opening the profile menu and vise versa, and the same applies when opening the sidebar. This will help prevent overlapping UI elements and ensure a smoother user experience when interacting with the top navigation and sidebar, allowing users to focus on one element at a time without confusion or visual clutter.
+
+### Across all users
+- [x] Make sure that the notification modal is closing when opening the profile menu and vise versa, and the same applies when opening the sidebar. This will help prevent overlapping UI elements and ensure a smoother user experience when interacting with the top navigation and sidebar, allowing users to focus on one element at a time without confusion or visual clutter.
+- [x] Ensure real time notifications update across all users when a new notification is received, allowing users to stay informed about important updates and events in the system without needing to refresh the page. This will enhance the user experience by providing timely and relevant information through notifications, keeping users engaged and informed about their activities and interactions within the system.
+ Also apply the same real time update for the notification count badge in the top navigation.
+- [x] Implement real time update when reading a notification, so that when a user opens a notification and it is marked as read, the notification count badge in the top navigation should also update in real time to reflect the change. This will provide users with immediate feedback on their notification status and help them stay organized and informed about their notifications without needing to refresh the page. 
 
 ---
 
@@ -899,3 +969,85 @@ Add utility/tool pages in admin, such as OCR for document processing, setting up
 
 change timekeeping CTO filing to match the excel sent by the client
 
+---
+
+## 23) Additional Revisions Identified from Notes
+
+### Applicant Module
+- [ ] Change application timeline design.
+- [ ] Audit applicant-side UI for consistency, spacing, and visual polish.
+
+### Notifications Module
+- [ ] Add a notification details modal across all user roles. Opening a notification should open a modal, display full notification details, and mark the notification as read.
+
+### Sidebar and Topnav Module
+- [ ] Change the sidebar behavior to an overlay instead of pushing page content on Staff pages.
+- [ ] Change the sidebar behavior to an overlay instead of pushing page content on Employee pages.
+
+### Admin Utilities / Tools
+- [ ] Add admin utility/tool pages such as OCR for document processing, RFID setup for timekeeping, and email template management for notifications.
+
+### Timekeeping Module
+- [ ] Change the CTO filing fields/flow to match the client-provided Excel format.
+
+---
+
+## Additional Revisions
+
+### Admin
+- [ ] Support module: Topnav profile menu doesn't open when in this page
+- [ ] Timekeeping module: Add fields for SL, VL, and CTO points for logging employee leave and CTO requests, and ensure that these points are properly calculated and reflected in the employee's leave card and dashboard. (In the "Log Leave from Leave Card section")
+- [ ] When the user is in the Support Page, the sidebar doesn't work. Also the topnav profile menu doesn't open
+- [ ] There's an error when opening Learning and Development module
+- [ ] Notification Modal in topnav should close when opening the profile menu and vise versa, and the same applies when opening the sidebar. This will help prevent overlapping UI elements and ensure a smoother user experience when interacting with the top navigation and sidebar, allowing users to focus on one element at a time without confusion or visual clutter.
+
+### Staff
+- [x] Document Management module: When viewing files, it should open up a new tab with a fullscreen view of the document, without any buttons or other elements on the page, just the document itself. If the file type is not supported for preview, it should show a message that says "File type not supported for preview. Please download the file to view its contents." instead of showing a placeholder text or redirecting to the login page.
+
+- [x] Applicant Registration module: When viewing files, it should open up a new tab with a fullscreen view of the document, without any buttons or other elements on the page, just the document itself. If the file type is not supported for preview, it should show a message that says "File type not supported for preview. Please download the file to view its contents." instead of showing a placeholder text or redirecting to the login page.
+
+### Employee
+- [ ] Fix the Employee Profile not persisting, just copy the logic from staff and make sure that the profile updates are properly saved and reflected in the employee's profile. This will ensure that employees can successfully update their profile information and have it persist in the system, allowing them to maintain accurate and up-to-date personal information in their profiles.
+- [x] Profile Module: Remove Approved Spouse Entries and Spouse Entry Requests sections
+- [x] Remove the Notifications link in sidebar
+- [x] In the Dashboard, change the Leave Card stat card to "Add Visual Points of Employee (e.g SL, VL, CTO points)", and in the quick action change the "Download Leave Card Template" to " View Leave Card" which shows leave points and cto points
+- [x] Timekeeping module: change the "Download Leave Card Template" to "View Leave Card" but the functionality will be the same as the download leave card template.
+- [x] Timekeeping module: Remove the Action column in Leave/CTO Requests section and change the header text to Leave Status
+- [x] Timekeeping module: Change the Leave Balance header into Leave/CTO Balance and verify if the data shown here matches the data inserted by the admin.
+
+- [x] Verify if the SL, VL, CTO points are properly implemented and reflected in the employee's leave card and dashboard, ensuring that the points are accurately calculated based on the employee's leave entitlements and usage, and that they are displayed correctly in the respective sections of the system for employees to easily track their leave balances and points.
+- [x] Timekeeping module: In Attendance Records section, add a button that downloads/exports the record in a pdf format, the employee should be able to select the date range for the attendance record they want to download, and the downloaded pdf should include the employee's name, the date range selected, a table of their attendance records for that period, and a space for the employee's signature and the date of signing. This will provide employees with a convenient way to keep a record of their attendance and have a formal document that they can use for various purposes such as leave applications, performance reviews, or personal record-keeping.
+
+- [x] Timekeeping Module: The Leave/CTO Balance section in timekeeping module should show the current balance of leave and CTO points for the employee, and it should be updated in real-time based on any leave or CTO requests that the employee submits or any adjustments made by the admin. This will allow employees to easily track their leave and CTO balances and make informed decisions when applying for leave or requesting CTO, ensuring that they have accurate information about their available points at all times.
+- [x] Timekeeping Module: Remove Request Time Adjustment button at the top
+### Employee
+- [ ] In My Reports module: Employee should be able to download their own reports without requesting it
+- [ ] My Reports Module: Standardize status badge colors to match the rest of the system.
+- [ ] My Reports Module: Remove Performance Summary Report
+ 4501843091
+
+
+- [x] Applicant registration module, Can you make the view page fullscreen with the only the file name, back button, and download file button visible? don't add any padding to the main container and make the file viewer takes the full width and height of the screen, this will provide a more immersive and focused experience for staff members when viewing documents in the Document Management module, allowing them to easily view the contents of the document without any distractions or unnecessary elements on the screen. The back button should allow them to easily return to the previous page, while the download button should provide a convenient way for them to download the document if needed.
+- [x] Can you do the same in Document management module in all sections where viewing files opens up a new tab.
+- [x] In viewing applicant profile remove the document type column, and make the document viewing works because it result in 404 bucket not found. This is in Applicant Registration module
+- [x] Remove Access column in Recruitment module and sub modules.
+- [x] Can you make the document preview a modal instead of opening the file in a new tab? This will provide a more seamless and integrated user experience for staff members when viewing documents in the Document Management module, allowing them to easily view the contents of the document without having to navigate away from the current page or open a new tab. The modal should also include options for downloading the document or closing the preview, providing staff with convenient access to the document while maintaining their workflow within the system.
+- [x] In Recruitment/Applicant Registration/Applicant Tracking/Evaluation, remove all decisions. Staff should be read-only in these modules, with no decision-making capabilities. This will help clarify the role of staff in the recruitment and applicant management process, ensuring that they are focused on supporting the admin and providing necessary information without being involved in the decision-making aspects of the recruitment process.
+- [x] In document manegement module, all sections, all file viewing results in a placeholder text and some are redirecting to login page. I think some of the files are not supported for viewing. Is there a way to show a message that says "File type not supported for preview. Please download the file to view its contents." instead of showing the placeholder text or redirecting to the login page when the file type is not supported for preview? This will provide a clearer and more user-friendly message to staff members when they encounter unsupported file types in the Document Management module, improving the overall user experience and reducing confusion when trying to view uploaded documents.
+- [x] In Staff view, Learning and Development module, Employee Training Records, change the status text colors to match the badge color instead of just plain black text
+- [x] In Staff view, Document Management module, Document Uploaders section. When viewing the documents uploaded by the user, it results in a placeholder text (see image) and some are redirecting to login page. I think some of the files are not supported for viewing. Is there a way to show a message that says "File type not supported for preview. Please download the file to view its contents." instead of showing the placeholder text or redirecting to the login page when the file type is not supported for preview? This will provide a clearer and more user-friendly message to staff members when they encounter unsupported file types in the Document Uploaders section, improving the overall user experience and reducing confusion when trying to view uploaded documents.
+
+
+
+
+
+- [x] In Admin Dashboard remove, pending leave requests and view notifications section
+- [x] In Staff view, timekeeping module, remove the action column on Leave/CTO Requests section
+- [x] In Staff view, personal information module, in the pending admin approval section, shorten the status to "Pending" instead of "Pending Admin Action"
+- [x] In Employee view, Dashboard, remove Praise Status in statcard and change it to leave card download link (See timekeeping module in employee view for reference)
+
+Admin Timekeeping:
+- [ ] Logging Leave Entry should pop up a sweetalert confirmation
+
+Employee Dashboard:
+- [ ] There shouldn't be an "Earned" or limi to SL and Vl for employees, it should just be a total accumulation of points based on the amount of points the admin inserted for the employee. For example if the admin inserted 10 SL points for the employee, the employee's dashboard should reflect 10 SL points, and if the admin later inserts 5 more SL points, the employee's dashboard should update to show 15 SL points. The same applies to VL and CTO points as well. This will allow employees to easily track their total accumulated leave points without any confusion or limitations on the number of points they can earn. So make sure this change reflects in the timekeeping and dashboard module for employees

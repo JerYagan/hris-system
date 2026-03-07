@@ -28,20 +28,40 @@ $formatCurrency = static function (float $value): string {
     return '₱ ' . number_format($value, 2);
 };
 
-$statusPill = static function (string $status): array {
-    $key = strtolower(trim($status));
-    return match ($key) {
-        'ready' => ['Ready', 'bg-approved text-green-800'],
-        'processing', 'queued' => [ucfirst($key), 'bg-pending text-yellow-800'],
-        'failed' => ['Failed', 'bg-rejected text-red-800'],
-        default => [ucfirst($key !== '' ? $key : 'queued'), 'bg-gray-200 text-gray-700'],
+$attendanceExportFrom = (string)($reportFilters['date_from'] ?? date('Y-01-01'));
+$attendanceExportTo = (string)($reportFilters['date_to'] ?? date('Y-m-d'));
+$attendanceReportDownloadUrl = 'export/attendance.php?' . http_build_query([
+  'from' => $attendanceExportFrom,
+  'to' => $attendanceExportTo,
+]);
+
+$payrollExportParams = [];
+if (!empty($reportFilters['date_from'])) {
+  $payrollExportParams['from'] = (string)$reportFilters['date_from'];
+}
+if (!empty($reportFilters['date_to'])) {
+  $payrollExportParams['to'] = (string)$reportFilters['date_to'];
+}
+$payrollReportDownloadUrl = 'export/payroll.php' . (!empty($payrollExportParams) ? ('?' . http_build_query($payrollExportParams)) : '');
+$documentsExportParams = [];
+if (!empty($reportFilters['status'])) {
+  $documentsExportParams['status'] = (string)$reportFilters['status'];
+}
+$documentsReportDownloadUrl = 'export/documents.php' . (!empty($documentsExportParams) ? ('?' . http_build_query($documentsExportParams)) : '');
+
+$generatedReportTypeLabel = static function (string $value): string {
+    return match (strtolower(trim($value))) {
+        'attendance' => 'Attendance',
+        'payroll' => 'Payroll',
+        'documents' => 'Documents',
+        default => ucfirst($value !== '' ? $value : 'Report'),
     };
 };
 ?>
 
 <div class="mb-6">
   <h1 class="text-2xl font-bold">My reports</h1>
-  <p class="text-sm text-gray-500">View your personal report history and request new exports.</p>
+  <p class="text-sm text-gray-500">View your personal report history and download your own available reports directly.</p>
 </div>
 
 <?php if (!empty($message)): ?>
@@ -73,7 +93,7 @@ $statusPill = static function (string $status): array {
       <label class="block text-gray-600 mb-1">Report Type</label>
       <select name="report_type" class="border rounded-lg px-3 py-2">
         <option value="">All Reports</option>
-        <?php foreach (['attendance', 'payroll', 'performance', 'documents'] as $type): ?>
+        <?php foreach (['attendance', 'payroll', 'documents'] as $type): ?>
           <option value="<?= $escape($type) ?>" <?= (($reportFilters['report_type'] ?? '') === $type) ? 'selected' : '' ?>><?= $escape(ucfirst($type)) ?></option>
         <?php endforeach; ?>
       </select>
@@ -89,27 +109,57 @@ $statusPill = static function (string $status): array {
       </select>
     </div>
 
-    <div>
-      <label class="block text-gray-600 mb-1">Evaluation Quarter</label>
-      <select name="evaluation_quarter" class="border rounded-lg px-3 py-2">
-        <option value="">All Quarters</option>
-        <option value="q1" <?= (($reportFilters['evaluation_quarter'] ?? '') === 'q1') ? 'selected' : '' ?>>Q1</option>
-        <option value="q2" <?= (($reportFilters['evaluation_quarter'] ?? '') === 'q2') ? 'selected' : '' ?>>Q2</option>
-        <option value="q3" <?= (($reportFilters['evaluation_quarter'] ?? '') === 'q3') ? 'selected' : '' ?>>Q3</option>
-        <option value="q4" <?= (($reportFilters['evaluation_quarter'] ?? '') === 'q4') ? 'selected' : '' ?>>Q4</option>
-      </select>
-    </div>
-
     <button type="submit" class="bg-daGreen text-white px-4 py-2 rounded-lg inline-flex items-center gap-1.5"><span class="material-icons text-sm">filter_alt</span>Apply Filters</button>
-    <button type="button" data-open-request-report class="border px-4 py-2 rounded-lg inline-flex items-center gap-1.5"><span class="material-icons text-sm">description</span>Request Report</button>
   </form>
 </div>
+
+<section id="available-downloads" class="mb-8">
+  <div class="mb-3">
+    <h2 class="text-lg font-semibold">Available Downloads</h2>
+    <p class="text-sm text-gray-500">Download your own attendance, payroll, and document reports instantly using the current filters.</p>
+  </div>
+
+  <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+    <article class="bg-white border rounded-xl p-5">
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <div>
+          <h3 class="text-base font-semibold text-slate-800">Attendance Summary</h3>
+          <p class="text-sm text-slate-500 mt-1">PDF export of your attendance records within the selected date range.</p>
+        </div>
+        <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-blue-100 text-blue-700">PDF</span>
+      </div>
+      <a href="<?= $escape($attendanceReportDownloadUrl) ?>" target="_blank" rel="noopener noreferrer" class="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><span class="material-icons text-sm">download</span>Download Attendance Report</a>
+    </article>
+
+    <article class="bg-white border rounded-xl p-5">
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <div>
+          <h3 class="text-base font-semibold text-slate-800">Payroll History</h3>
+          <p class="text-sm text-slate-500 mt-1">Excel export of your payroll history filtered to the selected period.</p>
+        </div>
+        <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-emerald-100 text-emerald-700">XLS</span>
+      </div>
+      <a href="<?= $escape($payrollReportDownloadUrl) ?>" class="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><span class="material-icons text-sm">download</span>Download Payroll Report</a>
+    </article>
+
+    <article class="bg-white border rounded-xl p-5">
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <div>
+          <h3 class="text-base font-semibold text-slate-800">Document Status Report</h3>
+          <p class="text-sm text-slate-500 mt-1">Excel export of your uploaded document categories, versions, and review statuses.</p>
+        </div>
+        <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-violet-100 text-violet-700">XLS</span>
+      </div>
+      <a href="<?= $escape($documentsReportDownloadUrl) ?>" class="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><span class="material-icons text-sm">download</span>Download Document Report</a>
+    </article>
+  </div>
+</section>
 
 <section class="mb-8">
   <div class="flex justify-between items-center mb-3">
     <div>
       <h2 class="text-lg font-semibold">Generated Reports</h2>
-      <p class="text-sm text-gray-500">History and status of your requested report exports.</p>
+      <p class="text-sm text-gray-500">History of previously generated files for your account.</p>
     </div>
   </div>
 
@@ -117,7 +167,7 @@ $statusPill = static function (string $status): array {
     <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
       <div class="md:col-span-2">
         <label class="block text-gray-600 mb-1" for="employeeGeneratedReportsSearch">Search</label>
-        <input id="employeeGeneratedReportsSearch" type="search" class="w-full border rounded-lg px-3 py-2" placeholder="Search report type, format, status, or output">
+        <input id="employeeGeneratedReportsSearch" type="search" class="w-full border rounded-lg px-3 py-2" placeholder="Search report type, format, or file output">
       </div>
       <div>
         <label class="block text-gray-600 mb-1" for="employeeGeneratedReportsStatusFilter">Status</label>
@@ -138,33 +188,40 @@ $statusPill = static function (string $status): array {
         <tr>
           <th class="px-4 py-3 text-left">Report Type</th>
           <th class="px-4 py-3 text-left">Format</th>
+          <th class="px-4 py-3 text-left">Status</th>
           <th class="px-4 py-3 text-left">Created</th>
           <th class="px-4 py-3 text-left">Generated</th>
-          <th class="px-4 py-3 text-left">Status</th>
-          <th class="px-4 py-3 text-left">Output</th>
+          <th class="px-4 py-3 text-left">Action</th>
         </tr>
       </thead>
       <tbody class="divide-y">
         <?php if (empty($generatedReportRows)): ?>
-          <tr><td class="px-4 py-3 text-gray-500" colspan="6">No generated report requests yet.</td></tr>
+          <tr><td class="px-4 py-3 text-gray-500" colspan="6">No generated reports available yet.</td></tr>
         <?php else: ?>
           <?php foreach ($generatedReportRows as $report): ?>
-            <?php [$statusLabel, $statusClass] = $statusPill((string)($report['status'] ?? 'queued')); ?>
             <tr
               data-generated-report-row="1"
               data-generated-report-search="<?= $escape(strtolower(trim((string)($report['report_type'] ?? ''))) . ' ' . strtolower(trim((string)($report['file_format'] ?? ''))). ' ' . strtolower(trim((string)($report['status'] ?? ''))) . ' ' . strtolower(trim((string)($report['storage_path'] ?? '')))) ?>"
               data-generated-report-status="<?= $escape(strtolower(trim((string)($report['status'] ?? 'queued')))) ?>"
             >
-              <td class="px-4 py-3"><?= $escape(ucfirst((string)($report['report_type'] ?? 'report'))) ?></td>
+              <td class="px-4 py-3"><?= $escape($generatedReportTypeLabel((string)($report['report_type'] ?? 'report'))) ?></td>
               <td class="px-4 py-3 uppercase"><?= $escape((string)($report['file_format'] ?? 'pdf')) ?></td>
+              <td class="px-4 py-3">
+                <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium <?= $escape((string)($report['status_class'] ?? 'bg-slate-100 text-slate-700')) ?>">
+                  <?= $escape((string)($report['status_label'] ?? 'Queued')) ?>
+                </span>
+              </td>
               <td class="px-4 py-3"><?= $escape($formatDate($report['created_at'] ?? null)) ?></td>
               <td class="px-4 py-3"><?= $escape($formatDate($report['generated_at'] ?? null)) ?></td>
-              <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full <?= $escape($statusClass) ?>"><?= $escape($statusLabel) ?></span></td>
               <td class="px-4 py-3">
-                <?php if (!empty($report['storage_path'])): ?>
+                <?php if (!empty($report['download_url'])): ?>
+                  <a href="<?= $escape((string)$report['download_url']) ?>" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"><span class="material-icons text-sm">download</span>Download</a>
+                <?php elseif (($report['status'] ?? '') === 'processing' || ($report['status'] ?? '') === 'queued'): ?>
+                  <span class="text-xs text-slate-500">File is still being prepared.</span>
+                <?php elseif (!empty($report['storage_path'])): ?>
                   <span class="text-xs text-gray-600"><?= $escape((string)$report['storage_path']) ?></span>
                 <?php else: ?>
-                  <span class="text-xs text-gray-400">Pending output</span>
+                  <span class="text-xs text-rose-600">File unavailable</span>
                 <?php endif; ?>
               </td>
             </tr>
@@ -193,6 +250,7 @@ $statusPill = static function (string $status): array {
       <h2 class="text-lg font-semibold">Attendance Summary Report</h2>
       <p class="text-sm text-gray-500">Monthly summary of attendance, absences, and late records.</p>
     </div>
+    <a href="<?= $escape($attendanceReportDownloadUrl) ?>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><span class="material-icons text-sm">download</span>Download PDF</a>
   </div>
 
   <div class="bg-white border rounded-lg overflow-x-auto">
@@ -229,6 +287,7 @@ $statusPill = static function (string $status): array {
       <h2 class="text-lg font-semibold">Payroll History Report</h2>
       <p class="text-sm text-gray-500">Record of payroll periods and pay values.</p>
     </div>
+    <a href="<?= $escape($payrollReportDownloadUrl) ?>" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><span class="material-icons text-sm">download</span>Download Excel</a>
   </div>
 
   <div class="bg-white border rounded-lg overflow-x-auto">
@@ -259,37 +318,49 @@ $statusPill = static function (string $status): array {
   </div>
 </section>
 
-<section>
+<section class="mb-10">
   <div class="flex justify-between items-center mb-3">
     <div>
-      <h2 class="text-lg font-semibold">Performance Summary Report</h2>
-      <p class="text-sm text-gray-500">Performance evaluations and ratings.</p>
+      <h2 class="text-lg font-semibold">Document Status Snapshot</h2>
+      <p class="text-sm text-gray-500">Latest uploaded employee documents and their current review state.</p>
     </div>
+    <a href="<?= $escape($documentsReportDownloadUrl) ?>" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><span class="material-icons text-sm">download</span>Download Excel</a>
   </div>
 
   <div class="bg-white border rounded-lg overflow-x-auto">
     <table class="w-full text-sm">
       <thead class="bg-gray-50 text-gray-600">
         <tr>
-          <th class="px-4 py-3 text-left">Quarter</th>
-          <th class="px-4 py-3 text-left">Evaluation Period</th>
-          <th class="px-4 py-3 text-left">Cycle</th>
-          <th class="px-4 py-3 text-left">Rating</th>
+          <th class="px-4 py-3 text-left">Document</th>
+          <th class="px-4 py-3 text-left">Category</th>
           <th class="px-4 py-3 text-left">Status</th>
+          <th class="px-4 py-3 text-left">Version</th>
+          <th class="px-4 py-3 text-left">Updated</th>
         </tr>
       </thead>
       <tbody class="divide-y">
-        <?php if (empty($performanceSummaryRows)): ?>
-          <tr><td class="px-4 py-3 text-gray-500" colspan="5">No performance summary rows available.</td></tr>
+        <?php if (empty($documentSummaryRows)): ?>
+          <tr><td class="px-4 py-3 text-gray-500" colspan="5">No document rows available yet.</td></tr>
         <?php else: ?>
-          <?php foreach ($performanceSummaryRows as $row): ?>
-            <?php [$statusLabel, $statusClass] = $statusPill((string)($row['status'] ?? 'draft')); ?>
+          <?php foreach (array_slice($documentSummaryRows, 0, 10) as $row): ?>
+            <?php
+              $documentStatus = strtolower((string)($row['status'] ?? 'draft'));
+              $documentStatusClass = match ($documentStatus) {
+                  'approved' => 'bg-emerald-100 text-emerald-700',
+                  'submitted' => 'bg-blue-100 text-blue-700',
+                  'needs_revision' => 'bg-amber-100 text-amber-800',
+                  'rejected' => 'bg-rose-100 text-rose-700',
+                  'archived' => 'bg-slate-100 text-slate-700',
+                  default => 'bg-slate-100 text-slate-700',
+              };
+              $documentStatusLabel = ucwords(str_replace('_', ' ', $documentStatus !== '' ? $documentStatus : 'draft'));
+            ?>
             <tr>
-              <td class="px-4 py-3"><?= $escape((string)($row['quarter_label'] ?? '-')) ?></td>
-              <td class="px-4 py-3"><?= $escape((string)($row['period_label'] ?? '-')) ?></td>
-              <td class="px-4 py-3"><?= $escape((string)($row['cycle_name'] ?? '-')) ?></td>
-              <td class="px-4 py-3"><?= $escape((string)($row['final_rating'] ?? '-')) ?></td>
-              <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full <?= $escape($statusClass) ?>"><?= $escape($statusLabel) ?></span></td>
+              <td class="px-4 py-3 font-medium text-slate-800"><?= $escape((string)($row['title'] ?? 'Untitled Document')) ?></td>
+              <td class="px-4 py-3"><?= $escape((string)($row['category_name'] ?? 'Others')) ?></td>
+              <td class="px-4 py-3"><span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium <?= $escape($documentStatusClass) ?>"><?= $escape($documentStatusLabel) ?></span></td>
+              <td class="px-4 py-3">v<?= $escape((string)($row['current_version_no'] ?? 1)) ?></td>
+              <td class="px-4 py-3"><?= $escape($formatDate($row['updated_at'] ?? null)) ?></td>
             </tr>
           <?php endforeach; ?>
         <?php endif; ?>
@@ -297,66 +368,6 @@ $statusPill = static function (string $status): array {
     </table>
   </div>
 </section>
-
-<div id="requestReportModal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden" aria-hidden="true">
-  <div class="bg-white w-full max-w-lg rounded-xl shadow-lg max-h-[90vh] flex flex-col">
-    <div class="px-6 py-4 border-b flex justify-between items-center shrink-0">
-      <h2 class="text-lg font-semibold">Request Report Export</h2>
-      <button type="button" data-close-request-report><span class="material-icons">close</span></button>
-    </div>
-
-    <form method="post" action="personal-reports.php" class="px-6 py-5 space-y-4 text-sm overflow-y-auto">
-      <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken ?? '') ?>">
-      <input type="hidden" name="action" value="request_report">
-
-      <div>
-        <label class="text-gray-600">Report Type</label>
-        <select name="report_type" class="w-full mt-1 border rounded-lg p-2" required>
-          <option value="attendance">Attendance</option>
-          <option value="payroll">Payroll</option>
-          <option value="performance">Performance</option>
-          <option value="documents">Documents</option>
-        </select>
-      </div>
-
-      <div>
-        <label class="text-gray-600">File Format</label>
-        <select name="file_format" class="w-full mt-1 border rounded-lg p-2" required>
-          <option value="pdf">PDF</option>
-          <option value="csv">CSV</option>
-          <option value="xlsx">XLSX</option>
-        </select>
-      </div>
-
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="text-gray-600">Date From</label>
-          <input type="date" name="date_from" class="w-full mt-1 border rounded-lg p-2">
-        </div>
-        <div>
-          <label class="text-gray-600">Date To</label>
-          <input type="date" name="date_to" class="w-full mt-1 border rounded-lg p-2">
-        </div>
-      </div>
-
-      <div>
-        <label class="text-gray-600">Evaluation Quarter (Optional)</label>
-        <select name="evaluation_quarter" class="w-full mt-1 border rounded-lg p-2">
-          <option value="">All Quarters</option>
-          <option value="q1">Q1</option>
-          <option value="q2">Q2</option>
-          <option value="q3">Q3</option>
-          <option value="q4">Q4</option>
-        </select>
-      </div>
-
-      <div class="pt-2 flex justify-end gap-3">
-        <button type="button" data-close-request-report class="border px-4 py-2 rounded-lg text-sm inline-flex items-center gap-1.5"><span class="material-icons text-sm">close</span>Cancel</button>
-        <button type="submit" class="bg-daGreen text-white px-4 py-2 rounded-lg text-sm inline-flex items-center gap-1.5"><span class="material-icons text-sm">send</span>Queue Report</button>
-      </div>
-    </form>
-  </div>
-</div>
 
 <?php
 $content = ob_get_clean();

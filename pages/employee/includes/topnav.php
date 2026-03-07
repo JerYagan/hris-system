@@ -7,8 +7,17 @@
         <span class="material-icons">menu</span>
       </button>
 
-      <div class="font-semibold truncate">
-        Human Resource Information System
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 shadow-sm">
+          <img src="/hris-system/assets/images/Bagong_Pilipinas_logo.png" alt="Bagong Pilipinas" class="h-8 w-auto object-contain" loading="lazy">
+          <img src="/hris-system/assets/images/DA_logo.png" alt="Department of Agriculture" class="h-8 w-8 object-contain" loading="lazy">
+        </div>
+        <div class="leading-tight min-w-0">
+          <div class="text-[10px] font-semibold uppercase tracking-[0.24em] text-gray-500">Bagong Pilipinas</div>
+          <div class="font-semibold truncate">
+            Human Resource Information System
+          </div>
+        </div>
       </div>
     </div>
 
@@ -22,6 +31,11 @@
         data-id-field="notification_id"
         data-csrf-field="csrf_token"
         data-csrf-token="<?= htmlspecialchars((string)($employeeTopnavCsrfToken ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+        data-snapshot-action="topnav_snapshot"
+        data-supabase-url="<?= htmlspecialchars((string)($topnavEmployeeUserId ?? '') !== '' ? (string)($topnavSupabaseUrl ?? '') : '', ENT_QUOTES, 'UTF-8') ?>"
+        data-supabase-anon-key="<?= htmlspecialchars((string)(trim((string)($_ENV['SUPABASE_ANON_KEY'] ?? $_SERVER['SUPABASE_ANON_KEY'] ?? ''))), ENT_QUOTES, 'UTF-8') ?>"
+        data-realtime-access-token="<?= htmlspecialchars((string)($_SESSION['supabase']['access_token'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+        data-user-id="<?= htmlspecialchars((string)($topnavEmployeeUserId ?? ($_SESSION['user']['id'] ?? '')), ENT_QUOTES, 'UTF-8') ?>"
         data-role-label="Employee"
       >
         <button type="button" data-topnav-notification-trigger class="relative rounded-md p-1 text-gray-600 transition hover:bg-gray-100 hover:text-daGreen" aria-label="Notifications">
@@ -133,17 +147,46 @@
           <span class="material-icons text-gray-500 text-sm">expand_more</span>
         </button>
 
-        <div id="profileMenu" class="absolute right-0 mt-2 w-56 rounded-xl border bg-white p-2 shadow-sm hidden z-50">
-          <a href="personal-information.php" class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-            <span class="material-icons text-sm">person</span>
-            My Profile
-          </a>
-          <div class="my-1 border-t"></div>
+        <div id="profileMenu" class="absolute right-0 z-50 mt-2 hidden w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+          <div class="border-b border-slate-100 bg-slate-50/70 px-4 py-3">
+            <p class="text-sm font-semibold text-slate-800"><?= htmlspecialchars((string)($employeeTopnavDisplayName ?? 'Employee'), ENT_QUOTES, 'UTF-8') ?></p>
+            <p class="text-xs text-slate-500"><?= htmlspecialchars((string)($employeeTopnavRoleLabel ?? 'Employee'), ENT_QUOTES, 'UTF-8') ?></p>
+          </div>
 
-          <a href="/hris-system/pages/auth/logout.php" class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50 font-medium">
-            <span class="material-icons text-sm">logout</span>
-            Logout
-          </a>
+          <div class="p-2">
+            <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Account</p>
+            <div class="space-y-1">
+              <a href="personal-information.php" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100">
+                <span class="material-icons text-[18px] text-slate-500">person</span>
+                <span>My Profile</span>
+              </a>
+              <a href="personal-information.php" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100">
+                <span class="material-icons text-[18px] text-slate-500">password</span>
+                <span>Change Password</span>
+              </a>
+            </div>
+          </div>
+
+          <div class="mx-2 border-t border-slate-100"></div>
+
+          <div class="p-2">
+            <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Tools</p>
+            <div class="space-y-1">
+              <a href="support.php" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100">
+                <span class="material-icons text-[18px] text-slate-500">support_agent</span>
+                <span>Support</span>
+              </a>
+            </div>
+          </div>
+
+          <div class="mx-2 border-t border-slate-100"></div>
+
+          <div class="p-2">
+            <a href="/hris-system/pages/auth/logout.php" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-rose-600 transition hover:bg-rose-50">
+              <span class="material-icons text-[18px]">logout</span>
+              <span>Logout</span>
+            </a>
+          </div>
         </div>
       </div>
     </div>

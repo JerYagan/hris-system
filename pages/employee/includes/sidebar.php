@@ -1,24 +1,32 @@
 <aside
   id="sidebar"
-  class="w-64 bg-white border-r py-6
-         fixed inset-y-0 left-0 z-40
+  data-sidebar-mode="overlay"
+  class="w-72 bg-white border-r py-6
+         fixed inset-y-0 left-0 z-50
          transform transition-transform duration-200 ease-in-out
          -translate-x-full flex flex-col"
 >
 
   <!-- BRAND -->
-  <div class="flex items-center space-x-4 px-4 shadow-md pb-4">
-    <div>
-      <img src="../../assets/images/icon.png" alt="" class="w-24">
-    </div>
-      <div>
-        <h1 class="text-lg font-bold leading-tight">
-          DA-ATI HRIS
-        </h1>
-        <p class="text-xs text-gray-500">
-          Human Resource Information System
-        </p>
+  <div class="px-4 shadow-md pb-4">
+    <div class="flex items-start justify-between gap-3">
+      <div class="flex min-w-0 items-center gap-3">
+        <?php if (!empty($employeeTopnavPhotoUrl)): ?>
+          <img src="<?= htmlspecialchars((string)$employeeTopnavPhotoUrl, ENT_QUOTES, 'UTF-8') ?>" alt="Profile" class="h-11 w-11 rounded-2xl border border-gray-200 object-cover shadow-sm">
+        <?php else: ?>
+          <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-daGreen text-sm font-semibold text-white shadow-sm">
+            <?= htmlspecialchars((string)($employeeTopnavInitials ?? 'EM'), ENT_QUOTES, 'UTF-8') ?>
+          </div>
+        <?php endif; ?>
+        <div class="min-w-0">
+          <p class="truncate text-sm font-semibold text-gray-900"><?= htmlspecialchars((string)($employeeTopnavDisplayName ?? 'Employee'), ENT_QUOTES, 'UTF-8') ?></p>
+          <p class="truncate text-xs text-gray-500"><?= htmlspecialchars((string)($employeeTopnavRoleLabel ?? 'Employee'), ENT_QUOTES, 'UTF-8') ?></p>
+        </div>
       </div>
+      <button id="sidebarClose" type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900" aria-label="Close sidebar">
+        <span class="material-icons text-[20px]">menu</span>
+      </button>
+    </div>
   </div>
 
 
@@ -42,14 +50,14 @@
       </a>
     </div>
 
-    <!-- EMPLOYEE RECORDS -->
+    <!-- MY RECORDS -->
     <div>
       <button
         data-collapse-toggle="employee-records"
         class="w-full flex items-center justify-between px-2 mb-2
                text-xs font-semibold text-gray-400 uppercase">
 
-        <span>Employee Records</span>
+        <span>My Records</span>
         <span class="material-icons text-sm transition-transform">
           expand_more
         </span>
@@ -114,14 +122,14 @@
       </div>
     </div>
 
-    <!-- PERFORMANCE -->
+    <!-- GROWTH AND REPORTS -->
     <div>
       <button
         data-collapse-toggle="performance"
         class="w-full flex items-center justify-between px-2 mb-2
                text-xs font-semibold text-gray-400 uppercase">
 
-        <span>Performance</span>
+        <span>Growth and Reports</span>
         <span class="material-icons text-sm transition-transform">
           expand_more
         </span>
@@ -150,37 +158,20 @@
       </div>
     </div>
 
-    <!-- MISCELLANEOUS -->
+    <!-- HELP AND SUPPORT -->
     <div>
       <button
         data-collapse-toggle="misc"
         class="w-full flex items-center justify-between px-2 mb-2
                text-xs font-semibold text-gray-400 uppercase">
 
-        <span>Miscellaneous</span>
+        <span>Help and Support</span>
         <span class="material-icons text-sm transition-transform">
           expand_more
         </span>
       </button>
 
       <div data-collapse-content="misc" class="space-y-1">
-
-        <!-- NOTIFICATIONS (WITH BADGE) -->
-        <a href="notifications.php"
-           title="Notifications"
-            class="flex items-center justify-between px-4 py-2 rounded-lg <?= $activePage === 'notifications.php' ? 'bg-green-100 font-medium' : 'hover:bg-gray-100' ?>">
-
-          <div class="flex items-center gap-3">
-            <span class="material-icons text-base">notifications</span>
-            <span class="sidebar-label">Notifications</span>
-          </div>
-
-          <?php if (($employeeUnreadNotificationCount ?? 0) > 0): ?>
-            <span class="text-xs bg-red-600 text-white px-2 py-0.5 rounded-full">
-              <?= htmlspecialchars((string)($employeeUnreadNotificationBadge ?? '0'), ENT_QUOTES, 'UTF-8') ?>
-            </span>
-          <?php endif; ?>
-        </a>
 
         <a href="support.php"
            title="Support"

@@ -158,7 +158,7 @@ if (!empty($applicationIds)) {
     $documentResponse = apiRequest(
         'GET',
         $supabaseUrl
-        . '/rest/v1/application_documents?select=application_id,document_type,file_url,file_name,mime_type,uploaded_at'
+        . '/rest/v1/application_documents?select=id,application_id,document_type,file_url,file_name,mime_type,uploaded_at'
         . '&application_id=in.' . rawurlencode('(' . implode(',', $applicationIds) . ')')
         . '&order=uploaded_at.desc&limit=10000',
         $headers
@@ -178,6 +178,7 @@ if (!empty($applicationIds)) {
     };
 
     foreach ($documentRows as $document) {
+        $documentId = cleanText($document['id'] ?? null) ?? '';
         $applicationId = cleanText($document['application_id'] ?? null);
         if ($applicationId === null || !isValidUuid($applicationId)) {
             continue;
@@ -188,14 +189,24 @@ if (!empty($applicationIds)) {
         }
 
         $fileUrl = $resolveApplicantDocumentUrl(cleanText($document['file_url'] ?? null) ?? '');
+        $previewUrl = $fileUrl;
+        $downloadUrl = $fileUrl;
+        if (isValidUuid($documentId)) {
+            $previewUrl = '/hris-system/pages/staff/document-preview.php?source=applicant&document_id=' . rawurlencode($documentId) . '&return_to=' . rawurlencode('/hris-system/pages/staff/applicant-registration.php');
+            $downloadUrl = '/hris-system/pages/staff/applicant-document.php?document_id=' . rawurlencode($documentId) . '&download=1';
+        }
+
         $documentsByApplication[$applicationId][] = [
+            'id' => $documentId,
             'document_type' => cleanText($document['document_type'] ?? null) ?? 'other',
             'document_label' => $documentTypeLabel((string)(cleanText($document['document_type'] ?? null) ?? 'other')),
             'file_name' => cleanText($document['file_name'] ?? null) ?? 'document',
-            'file_url' => $fileUrl,
+            'file_url' => $previewUrl,
+            'preview_url' => $previewUrl,
+            'download_url' => $downloadUrl,
             'mime_type' => cleanText($document['mime_type'] ?? null) ?? '',
             'uploaded_label' => formatDateTimeForPhilippines(cleanText($document['uploaded_at'] ?? null), 'M d, Y'),
-            'is_available' => $fileUrl !== '',
+            'is_available' => $previewUrl !== '',
         ];
     }
 }

@@ -1,21 +1,51 @@
 (() => {
+const closeTopnavNotifications = () => {
+  document.dispatchEvent(new CustomEvent("hris:close-topnav-notifications", { detail: { source: "shell" } }));
+};
+
+const profileMenu = document.getElementById("profileMenu");
+
 document.addEventListener("DOMContentLoaded", () => {
   const sidebar = document.getElementById("sidebar");
   const toggle = document.getElementById("sidebarToggle");
   const main = document.getElementById("mainContent");
+  const close = document.getElementById("sidebarClose");
+  const backdrop = document.getElementById("sidebarBackdrop");
+  const isOverlayMode = sidebar?.dataset.sidebarMode === "overlay";
 
   // Exit early if layout elements are missing
   if (!sidebar || !toggle || !main) return;
 
-  let isOpen = window.innerWidth >= 768; // desktop default open
+  let isOpen = isOverlayMode ? false : window.innerWidth >= 768;
+  const closeProfileMenu = () => {
+    if (profileMenu) {
+      profileMenu.classList.add("hidden");
+    }
+  };
 
   function applyLayout() {
     if (isOpen) {
+      closeProfileMenu();
+      closeTopnavNotifications();
       sidebar.classList.remove("-translate-x-full");
-      main.classList.add("md:ml-64");
+      if (!isOverlayMode) {
+        main.classList.add("md:ml-64");
+      }
+      backdrop?.classList.remove("hidden");
+      document.body.classList.add("overflow-hidden");
+      document.dispatchEvent(new CustomEvent("hris:sidebar-opened", { detail: { source: "sidebar" } }));
     } else {
       sidebar.classList.add("-translate-x-full");
-      main.classList.remove("md:ml-64");
+      if (!isOverlayMode) {
+        main.classList.remove("md:ml-64");
+      }
+      backdrop?.classList.add("hidden");
+      document.body.classList.remove("overflow-hidden");
+    }
+
+    if (!isOverlayMode && window.innerWidth >= 768) {
+      backdrop?.classList.add("hidden");
+      document.body.classList.remove("overflow-hidden");
     }
   }
 
@@ -28,9 +58,37 @@ document.addEventListener("DOMContentLoaded", () => {
     applyLayout();
   });
 
+  close?.addEventListener("click", () => {
+    isOpen = false;
+    applyLayout();
+  });
+
+  document.addEventListener("hris:request-close-sidebar", () => {
+    if (!isOpen) {
+      return;
+    }
+
+    isOpen = false;
+    applyLayout();
+  });
+
+  backdrop?.addEventListener("click", () => {
+    isOpen = false;
+    applyLayout();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && isOpen) {
+      isOpen = false;
+      applyLayout();
+    }
+  });
+
   // Handle resize edge cases
   window.addEventListener("resize", () => {
-    if (window.innerWidth < 768) {
+    if (isOverlayMode) {
+      isOpen = false;
+    } else if (window.innerWidth < 768) {
       isOpen = false;
     }
     applyLayout();
@@ -64,26 +122,28 @@ if (topnav) {
 
 const ctx = document.getElementById("leaveChart");
 
-new Chart(ctx, {
-  type: "doughnut",
-  data: {
-    labels: ["Approved", "Pending", "Rejected"],
-    datasets: [
-      {
-        data: [4, 2, 1],
-        backgroundColor: ["#B7F7A3", "#F9F871", "#FF9A9A"],
-        borderWidth: 0,
-      },
-    ],
-  },
-  options: {
-    plugins: {
-      legend: {
-        position: "bottom",
+if (ctx && typeof window.Chart === "function") {
+  new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels: ["Approved", "Pending", "Rejected"],
+      datasets: [
+        {
+          data: [4, 2, 1],
+          backgroundColor: ["#B7F7A3", "#F9F871", "#FF9A9A"],
+          borderWidth: 0,
+        },
+      ],
+    },
+    options: {
+      plugins: {
+        legend: {
+          position: "bottom",
+        },
       },
     },
-  },
-});
+  });
+}
 
 /* ===============================
    REPORT CHART PLACEHOLDERS
@@ -219,12 +279,16 @@ supportMap.forEach(([key, modalId]) => {
    PROFILE DROPDOWN
    =============================== */
 const profileToggle = document.getElementById("profileToggle");
-const profileMenu = document.getElementById("profileMenu");
 
 if (profileToggle && profileMenu) {
   profileToggle.addEventListener("click", (e) => {
     e.stopPropagation();
+    closeTopnavNotifications();
     profileMenu.classList.toggle("hidden");
+
+    if (!profileMenu.classList.contains("hidden")) {
+      document.dispatchEvent(new CustomEvent("hris:profile-menu-opened", { detail: { source: "profile" } }));
+    }
   });
 
   document.addEventListener("click", () => {

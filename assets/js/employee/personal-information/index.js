@@ -727,12 +727,6 @@ const initEmployeePersonalInformationPage = () => {
   });
 
   wireModal({
-    openSelector: '[data-open-spouse-request]',
-    closeSelector: '[data-close-spouse-request]',
-    modalId: 'spouseRequestModal',
-  });
-
-  wireModal({
     openSelector: '[data-open-password-request]',
     closeSelector: '[data-close-password-request]',
     modalId: 'employeePasswordRequestModal',
@@ -747,7 +741,7 @@ const initEmployeePersonalInformationPage = () => {
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
 
-    ['profileModal', 'spouseRequestModal', 'employeePasswordRequestModal', 'employeePasswordVerifyModal'].forEach((modalId) => {
+    ['profileModal', 'employeePasswordRequestModal', 'employeePasswordVerifyModal'].forEach((modalId) => {
       const modal = document.getElementById(modalId);
       if (modal && !modal.classList.contains('hidden')) {
         toggleModal(modal, false);

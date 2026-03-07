@@ -117,6 +117,40 @@ if (!function_exists('redirectWithState')) {
     }
 }
 
+if (!function_exists('logApiRequestPerformance')) {
+    function logApiRequestPerformance(string $method, string $url, int $statusCode, int $durationMs, mixed $data, ?string $error = null): void
+    {
+        $enabledRaw = strtolower(trim((string)($_ENV['HRIS_PERF_LOGGING'] ?? $_SERVER['HRIS_PERF_LOGGING'] ?? '1')));
+        if (in_array($enabledRaw, ['0', 'false', 'off', 'no'], true)) {
+            return;
+        }
+
+        $thresholdMs = (int)($_ENV['HRIS_PERF_SLOW_MS'] ?? $_SERVER['HRIS_PERF_SLOW_MS'] ?? 300);
+        if ($thresholdMs < 0) {
+            $thresholdMs = 300;
+        }
+
+        if ($durationMs < $thresholdMs) {
+            return;
+        }
+
+        $requestPath = (string)parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+        $endpointPath = (string)parse_url($url, PHP_URL_PATH);
+        $rowCount = is_array($data) ? count($data) : 0;
+
+        error_log(sprintf(
+            '[HRIS][PERF][employee] page=%s method=%s endpoint=%s status=%d duration_ms=%d rows=%d error=%s',
+            $requestPath !== '' ? $requestPath : 'unknown',
+            strtoupper($method),
+            $endpointPath !== '' ? $endpointPath : $url,
+            $statusCode,
+            $durationMs,
+            $rowCount,
+            $error !== null && $error !== '' ? $error : '-'
+        ));
+    }
+}
+
 if (!function_exists('apiRequest')) {
     function apiRequest(string $method, string $url, array $headers, ?array $body = null): array
     {
@@ -143,9 +177,11 @@ if (!function_exists('apiRequest')) {
                 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
             }
 
+            $startedAt = microtime(true);
             $raw = curl_exec($ch);
             $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
             $error = curl_error($ch);
+            $durationMs = (int)round((microtime(true) - $startedAt) * 1000);
             curl_close($ch);
 
             $decoded = is_string($raw) ? json_decode($raw, true) : null;
@@ -153,11 +189,14 @@ if (!function_exists('apiRequest')) {
                 $decoded = [];
             }
 
+            logApiRequestPerformance($method, $url, $status, $durationMs, $decoded, $error !== '' ? $error : null);
+
             $last = [
                 'status' => $status,
                 'data' => $decoded,
                 'raw' => (string)$raw,
                 'error' => $error !== '' ? $error : null,
+                'duration_ms' => $durationMs,
             ];
 
             $isTransientFailure = $status === 0 || $status >= 500;
@@ -234,5 +273,45 @@ if (!function_exists('resolveStorageFilePath')) {
             'relative_path' => str_replace('\\', '/', $relativePath),
             'absolute_path' => $fileReal,
         ];
+    }
+}
+
+if (!function_exists('resolveEmployeeLeavePointSummary')) {
+    function resolveEmployeeLeavePointSummary(array $balanceRows): array
+    {
+        $summary = [
+            'sl' => 0.0,
+            'vl' => 0.0,
+            'cto' => 0.0,
+        ];
+
+        foreach ($balanceRows as $balanceRaw) {
+            $balance = is_array($balanceRaw) ? $balanceRaw : [];
+            $leaveType = isset($balance['leave_type']) && is_array($balance['leave_type'])
+                ? (array)$balance['leave_type']
+                : [];
+
+            $leaveCode = strtolower(trim((string)($balance['leave_code'] ?? ($leaveType['leave_code'] ?? ''))));
+            $leaveName = strtolower(trim((string)($balance['leave_name'] ?? ($leaveType['leave_name'] ?? ''))));
+            $remainingCredits = array_key_exists('projected_remaining', $balance)
+                ? (float)($balance['projected_remaining'] ?? 0)
+                : (float)($balance['remaining_credits'] ?? 0);
+
+            if ($leaveCode === 'sl' || str_contains($leaveName, 'sick')) {
+                $summary['sl'] += $remainingCredits;
+                continue;
+            }
+
+            if ($leaveCode === 'vl' || str_contains($leaveName, 'vacation')) {
+                $summary['vl'] += $remainingCredits;
+                continue;
+            }
+
+            if ($leaveCode === 'cto' || str_contains($leaveName, 'cto') || str_contains($leaveName, 'compensatory')) {
+                $summary['cto'] += $remainingCredits;
+            }
+        }
+
+        return $summary;
     }
 }

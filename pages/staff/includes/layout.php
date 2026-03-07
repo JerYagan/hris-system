@@ -140,6 +140,7 @@ $staffUnreadNotificationBadge = $staffUnreadNotificationCount > 99
 
 <div class="flex min-h-screen">
     <?php include __DIR__ . '/sidebar.php'; ?>
+    <button id="sidebarBackdrop" type="button" class="fixed inset-0 z-40 hidden bg-slate-950/55" aria-label="Close sidebar overlay"></button>
 
     <div id="mainContent" class="flex flex-col flex-1 transition-all duration-200 ease-in-out">
         <?php include __DIR__ . '/topnav.php'; ?>

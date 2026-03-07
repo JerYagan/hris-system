@@ -416,8 +416,8 @@ $rolePill = static function (string $roleKey): array {
                             <td class="px-4 py-3"><?= htmlspecialchars((string)$row['position'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><span class="inline-flex items-center justify-center min-w-[90px] px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td class="px-4 py-3">
-                                <div data-person-action-scope class="relative inline-block text-left w-full max-w-[240px]">
-                                    <button type="button" data-person-action-menu-toggle class="w-full inline-flex items-center justify-between gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300">
+                                <div data-person-action-scope class="relative inline-block text-left">
+                                    <button type="button" data-person-action-menu-toggle class="w-full inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300">
                                         <span class="inline-flex items-center gap-2">
                                             <span class="material-symbols-outlined text-[18px]">more_horiz</span>
                                             Actions

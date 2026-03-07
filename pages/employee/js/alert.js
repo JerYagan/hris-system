@@ -138,7 +138,6 @@ document.querySelectorAll("[data-close-overtime]").forEach(btn =>
 const reportMap = [
   ['attendance', 'attendanceReportModal'],
   ['payroll', 'payrollReportModal'],
-  ['performance', 'performanceReportModal'],
 ];
 
 reportMap.forEach(([key, modalId]) => {
@@ -159,7 +158,7 @@ reportMap.forEach(([key, modalId]) => {
 
 // Initialize charts when any report modal opens
 document.querySelectorAll(
-  "[data-open-attendance-report], [data-open-payroll-report], [data-open-performance-report]"
+  "[data-open-attendance-report], [data-open-payroll-report]"
 ).forEach(btn => {
   btn.addEventListener("click", () => {
     setTimeout(initReportCharts, 100);

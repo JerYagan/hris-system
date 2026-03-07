@@ -140,6 +140,40 @@ if (!function_exists('redirectWithState')) {
     }
 }
 
+if (!function_exists('logApiRequestPerformance')) {
+    function logApiRequestPerformance(string $method, string $url, int $statusCode, int $durationMs, mixed $data, ?string $error = null): void
+    {
+        $enabledRaw = strtolower(trim((string)($_ENV['HRIS_PERF_LOGGING'] ?? $_SERVER['HRIS_PERF_LOGGING'] ?? '1')));
+        if (in_array($enabledRaw, ['0', 'false', 'off', 'no'], true)) {
+            return;
+        }
+
+        $thresholdMs = (int)($_ENV['HRIS_PERF_SLOW_MS'] ?? $_SERVER['HRIS_PERF_SLOW_MS'] ?? 300);
+        if ($thresholdMs < 0) {
+            $thresholdMs = 300;
+        }
+
+        if ($durationMs < $thresholdMs) {
+            return;
+        }
+
+        $requestPath = (string)parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+        $endpointPath = (string)parse_url($url, PHP_URL_PATH);
+        $rowCount = is_array($data) ? count($data) : 0;
+
+        error_log(sprintf(
+            '[HRIS][PERF][staff] page=%s method=%s endpoint=%s status=%d duration_ms=%d rows=%d error=%s',
+            $requestPath !== '' ? $requestPath : 'unknown',
+            strtoupper($method),
+            $endpointPath !== '' ? $endpointPath : $url,
+            $statusCode,
+            $durationMs,
+            $rowCount,
+            $error !== null && $error !== '' ? $error : '-'
+        ));
+    }
+}
+
 if (!function_exists('apiRequest')) {
     function apiRequest(string $method, string $url, array $headers, ?array $body = null): array
     {
@@ -166,9 +200,11 @@ if (!function_exists('apiRequest')) {
                 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
             }
 
+            $startedAt = microtime(true);
             $raw = curl_exec($ch);
             $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
             $error = curl_error($ch);
+            $durationMs = (int)round((microtime(true) - $startedAt) * 1000);
             curl_close($ch);
 
             $decoded = is_string($raw) ? json_decode($raw, true) : null;
@@ -176,11 +212,14 @@ if (!function_exists('apiRequest')) {
                 $decoded = [];
             }
 
+            logApiRequestPerformance($method, $url, $status, $durationMs, $decoded, $error !== '' ? $error : null);
+
             $lastResponse = [
                 'status' => $status,
                 'data' => $decoded,
                 'raw' => (string)$raw,
                 'error' => $error !== '' ? $error : null,
+                'duration_ms' => $durationMs,
             ];
 
             $isTransientFailure = $status === 0 || $status >= 500;
@@ -201,6 +240,62 @@ if (!function_exists('isSuccessful')) {
     {
         $status = (int)($response['status'] ?? 0);
         return $status >= 200 && $status < 300;
+    }
+}
+
+if (!function_exists('normalizeRelativeStoragePath')) {
+    function normalizeRelativeStoragePath(?string $storagePath): ?string
+    {
+        $value = cleanText($storagePath);
+        if ($value === null) {
+            return null;
+        }
+
+        $value = str_replace('\\', '/', $value);
+        $value = preg_replace('#/+#', '/', $value) ?? $value;
+        $value = ltrim($value, '/');
+
+        if ($value === '' || str_contains($value, "\0") || str_contains($value, '..')) {
+            return null;
+        }
+
+        if (!preg_match('#^[a-zA-Z0-9_./\-]+$#', $value)) {
+            return null;
+        }
+
+        return $value;
+    }
+}
+
+if (!function_exists('resolveStorageFilePath')) {
+    function resolveStorageFilePath(string $storageRoot, ?string $storagePath): ?array
+    {
+        $relativePath = normalizeRelativeStoragePath($storagePath);
+        if ($relativePath === null) {
+            return null;
+        }
+
+        $rootReal = realpath($storageRoot);
+        if ($rootReal === false || !is_dir($rootReal)) {
+            return null;
+        }
+
+        $absolutePath = $rootReal . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+        $fileReal = realpath($absolutePath);
+        if ($fileReal === false || !is_file($fileReal)) {
+            return null;
+        }
+
+        $rootPrefix = rtrim($rootReal, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+        if (!str_starts_with($fileReal, $rootPrefix)) {
+            return null;
+        }
+
+        return [
+            'root' => $rootReal,
+            'relative_path' => str_replace('\\', '/', $relativePath),
+            'absolute_path' => $fileReal,
+        ];
     }
 }
 

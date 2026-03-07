@@ -21,6 +21,8 @@ const adminModuleMap = {
   'document-management': () => import('/hris-system/assets/js/admin/document-management/index.js'),
   'payroll-management': () => import('/hris-system/assets/js/admin/payroll-management/index.js'),
   'learning-and-development': () => import('/hris-system/assets/js/admin/learning-and-development/index.js'),
+  'report-analytics': () => import('/hris-system/assets/js/admin/report-analytics/index.js'),
+  'user-management': () => import('/hris-system/assets/js/admin/user-management/index.js'),
   support: () => import('/hris-system/assets/js/admin/support/index.js'),
 };
 

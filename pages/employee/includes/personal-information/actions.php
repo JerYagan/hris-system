@@ -68,7 +68,6 @@ if ($action === 'upload_profile_photo') {
 
     $fileName = 'photo_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
     $relativePath = 'profile-photos/' . $employeePersonId . '/' . $fileName;
-    $publicPath = '/hris-system/storage/document/' . ltrim($relativePath, '/');
     $absolutePath = $storageRoot . '/' . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
 
     if (!move_uploaded_file($tmpName, $absolutePath)) {
@@ -78,9 +77,10 @@ if ($action === 'upload_profile_photo') {
     $photoUpdateResponse = apiRequest(
         'PATCH',
         $supabaseUrl . '/rest/v1/people?id=eq.' . rawurlencode((string)$employeePersonId),
-        $headers,
+        array_merge($headers, ['Prefer: return=minimal']),
         [
-            'profile_photo_url' => $publicPath,
+            'profile_photo_url' => $relativePath,
+            'updated_at' => gmdate('c'),
         ]
     );
 
@@ -110,7 +110,7 @@ if ($action === 'upload_profile_photo') {
     apiRequest(
         'POST',
         $supabaseUrl . '/rest/v1/activity_logs',
-        $headers,
+        array_merge($headers, ['Prefer: return=minimal']),
         [[
             'actor_user_id' => $employeeUserId,
             'module_name' => 'employee',
@@ -118,7 +118,7 @@ if ($action === 'upload_profile_photo') {
             'entity_id' => $employeePersonId,
             'action_name' => 'upload_profile_photo',
             'old_data' => ['profile_photo_url' => $oldPath],
-            'new_data' => ['profile_photo_url' => $publicPath],
+            'new_data' => ['profile_photo_url' => $relativePath],
         ]]
     );
 

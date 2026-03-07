@@ -1,4 +1,16 @@
+import { initAdminShellInteractions } from '/hris-system/assets/js/shared/admin-core.js';
+
 const initAdminSupportPage = () => {
+  if (document.body?.dataset?.adminSupportPageInitialized === 'true') {
+    return;
+  }
+
+  if (document.body) {
+    document.body.dataset.adminSupportPageInitialized = 'true';
+  }
+
+  initAdminShellInteractions();
+
   const feedbackNode = document.getElementById('supportPageFeedback');
   const manageForm = document.getElementById('adminSupportManageForm');
 
@@ -53,11 +65,5 @@ const initAdminSupportPage = () => {
     }
   });
 };
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initAdminSupportPage);
-} else {
-  initAdminSupportPage();
-}
 
 export default initAdminSupportPage;

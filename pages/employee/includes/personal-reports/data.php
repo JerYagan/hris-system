@@ -10,21 +10,16 @@ $reportFilters = [
     'date_to' => cleanText($_GET['date_to'] ?? null),
     'report_type' => strtolower((string)cleanText($_GET['report_type'] ?? null)),
     'status' => strtolower((string)cleanText($_GET['status'] ?? null)),
-    'evaluation_quarter' => strtolower((string)cleanText($_GET['evaluation_quarter'] ?? null)),
 ];
 
-$allowedReportTypes = ['attendance', 'payroll', 'performance', 'documents'];
+$allowedReportTypes = ['attendance', 'payroll', 'documents'];
 $allowedStatuses = ['queued', 'processing', 'ready', 'failed'];
-$allowedQuarters = ['q1', 'q2', 'q3', 'q4'];
 
 if (!in_array($reportFilters['report_type'], array_merge([''], $allowedReportTypes), true)) {
     $reportFilters['report_type'] = '';
 }
 if (!in_array($reportFilters['status'], array_merge([''], $allowedStatuses), true)) {
     $reportFilters['status'] = '';
-}
-if (!in_array($reportFilters['evaluation_quarter'], array_merge([''], $allowedQuarters), true)) {
-    $reportFilters['evaluation_quarter'] = '';
 }
 
 $isValidDate = static function (?string $value): bool {
@@ -48,7 +43,7 @@ if ($reportFilters['date_from'] !== null && $reportFilters['date_to'] !== null &
 
 $attendanceSummaryRows = [];
 $payrollSummaryRows = [];
-$performanceSummaryRows = [];
+$documentSummaryRows = [];
 $generatedReportRows = [];
 
 if (!(bool)($employeeContextResolved ?? false)) {
@@ -129,48 +124,26 @@ if (isSuccessful($payrollItemsResponse)) {
     }
 }
 
-$performanceResponse = apiRequest(
+$documentsResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/performance_evaluations?select=id,final_rating,status,created_at,cycle:performance_cycles(cycle_name,period_start,period_end)'
-    . '&employee_person_id=eq.' . rawurlencode((string)$employeePersonId)
-    . '&order=created_at.desc&limit=50',
+    . '/rest/v1/documents?select=id,title,document_status,current_version_no,updated_at,category:document_categories(category_name)'
+    . '&owner_person_id=eq.' . rawurlencode((string)$employeePersonId)
+    . '&order=updated_at.desc&limit=100',
     $headers
 );
 
-if (isSuccessful($performanceResponse)) {
-    foreach ((array)($performanceResponse['data'] ?? []) as $evaluationRaw) {
-        $evaluation = (array)$evaluationRaw;
-        $cycle = (array)($evaluation['cycle'] ?? []);
+if (isSuccessful($documentsResponse)) {
+    foreach ((array)($documentsResponse['data'] ?? []) as $documentRaw) {
+        $document = (array)$documentRaw;
+        $category = (array)($document['category'] ?? []);
 
-        $cycleName = (string)($cycle['cycle_name'] ?? 'Performance Cycle');
-        $periodStart = (string)($cycle['period_start'] ?? '');
-        $periodEnd = (string)($cycle['period_end'] ?? '');
-        $periodLabel = ($periodStart !== '' && $periodEnd !== '')
-            ? (date('M Y', strtotime($periodStart)) . ' - ' . date('M Y', strtotime($periodEnd)))
-            : $cycleName;
-
-        $quarterTs = $periodStart !== '' ? strtotime($periodStart) : strtotime((string)($evaluation['created_at'] ?? ''));
-        $quarterValue = '';
-        $quarterLabel = '-';
-        if ($quarterTs !== false) {
-            $month = (int)date('n', $quarterTs);
-            $quarterNumber = (int)ceil($month / 3);
-            $quarterValue = 'q' . $quarterNumber;
-            $quarterLabel = 'Q' . $quarterNumber . ' ' . date('Y', $quarterTs);
-        }
-
-        if ($reportFilters['evaluation_quarter'] !== '' && $quarterValue !== $reportFilters['evaluation_quarter']) {
-            continue;
-        }
-
-        $performanceSummaryRows[] = [
-            'quarter_value' => $quarterValue,
-            'quarter_label' => $quarterLabel,
-            'period_label' => $periodLabel,
-            'cycle_name' => $cycleName,
-            'final_rating' => cleanText($evaluation['final_rating'] ?? null) ?? '-',
-            'status' => strtolower((string)($evaluation['status'] ?? 'draft')),
+        $documentSummaryRows[] = [
+            'title' => cleanText($document['title'] ?? null) ?? 'Untitled Document',
+            'category_name' => cleanText($category['category_name'] ?? null) ?? 'Others',
+            'status' => strtolower((string)($document['document_status'] ?? 'draft')),
+            'current_version_no' => (int)($document['current_version_no'] ?? 1),
+            'updated_at' => cleanText($document['updated_at'] ?? null),
         ];
     }
 }
@@ -178,6 +151,7 @@ if (isSuccessful($performanceResponse)) {
 $generatedReportsUrl = $supabaseUrl
     . '/rest/v1/generated_reports?select=id,report_type,file_format,status,filters_json,storage_path,generated_at,created_at'
     . '&requested_by=eq.' . rawurlencode((string)$employeeUserId)
+    . '&report_type=in.(attendance,payroll,documents)'
     . '&order=created_at.desc&limit=200';
 
 if (!empty($reportFilters['report_type'])) {
@@ -195,14 +169,30 @@ if (!empty($reportFilters['date_to'])) {
 
 $generatedReportsResponse = apiRequest('GET', $generatedReportsUrl, $headers);
 if (isSuccessful($generatedReportsResponse)) {
+    $statusMeta = static function (string $status): array {
+        return match (strtolower(trim($status))) {
+            'queued' => ['Queued', 'bg-blue-100 text-blue-700'],
+            'processing' => ['Processing', 'bg-amber-100 text-amber-800'],
+            'ready' => ['Ready', 'bg-emerald-100 text-emerald-700'],
+            'failed' => ['Failed', 'bg-rose-100 text-rose-700'],
+            default => ['Unknown', 'bg-slate-100 text-slate-700'],
+        };
+    };
+
     foreach ((array)($generatedReportsResponse['data'] ?? []) as $reportRaw) {
         $report = (array)$reportRaw;
+        [$statusLabel, $statusClass] = $statusMeta((string)($report['status'] ?? 'queued'));
         $generatedReportRows[] = [
             'id' => (string)($report['id'] ?? ''),
             'report_type' => strtolower((string)($report['report_type'] ?? 'attendance')),
             'file_format' => strtolower((string)($report['file_format'] ?? 'pdf')),
             'status' => strtolower((string)($report['status'] ?? 'queued')),
+            'status_label' => $statusLabel,
+            'status_class' => $statusClass,
             'storage_path' => cleanText($report['storage_path'] ?? null),
+            'download_url' => !empty($report['storage_path']) && !empty($report['id'])
+                ? ('/hris-system/pages/employee/download-generated-report.php?report_id=' . rawurlencode((string)$report['id']))
+                : null,
             'generated_at' => cleanText($report['generated_at'] ?? null),
             'created_at' => cleanText($report['created_at'] ?? null),
         ];

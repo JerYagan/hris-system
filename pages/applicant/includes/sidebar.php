@@ -13,10 +13,13 @@ $activePage = basename($_SERVER['PHP_SELF']);
   <!-- BRAND -->
   <div class="px-4 pb-4 border-b">
     <div class="flex items-center gap-3">
-      <img src="../../assets/images/icon.png" alt="DA-ATI HRIS" class="w-10 h-10 object-contain">
+      <div class="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-2 py-2 shadow-sm">
+        <img src="../../assets/images/Bagong_Pilipinas_logo.png" alt="Bagong Pilipinas" class="h-8 w-auto object-contain">
+        <img src="../../assets/images/DA_logo.png" alt="Department of Agriculture" class="h-8 w-8 object-contain">
+      </div>
       <div>
         <h1 class="text-sm font-semibold text-gray-800 leading-tight">DA-ATI HRIS</h1>
-        <p class="text-xs text-gray-500">Applicant Portal</p>
+        <p class="text-xs text-gray-500">Applicant Portal · Bagong Pilipinas</p>
       </div>
     </div>
   </div>

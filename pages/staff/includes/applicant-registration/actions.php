@@ -10,6 +10,8 @@ if (!isValidCsrfToken($_POST['csrf_token'] ?? null)) {
     redirectWithState('error', 'Invalid request token. Please refresh and try again.');
 }
 
+redirectWithState('error', 'Staff applicant registration is now read-only. Decision actions are unavailable.');
+
 if (!in_array($action, ['registration_decision', 'save_applicant_decision'], true)) {
     redirectWithState('error', 'Unknown applicant registration action.');
 }

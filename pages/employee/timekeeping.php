@@ -8,6 +8,13 @@ require_once __DIR__ . '/includes/timekeeping/bootstrap.php';
 require_once __DIR__ . '/includes/timekeeping/actions.php';
 require_once __DIR__ . '/includes/timekeeping/data.php';
 
+$leaveBalanceRows = $leaveBalanceRows ?? [];
+$leavePointSummary = $leavePointSummary ?? ['sl' => 0.0, 'vl' => 0.0, 'cto' => 0.0];
+$postedLeavePointSummary = $postedLeavePointSummary ?? ['sl' => 0.0, 'vl' => 0.0, 'cto' => 0.0];
+$pendingLeavePointSummary = $pendingLeavePointSummary ?? ['sl' => 0.0, 'vl' => 0.0, 'cto' => 0.0];
+$leaveBalanceLastUpdatedAt = $leaveBalanceLastUpdatedAt ?? null;
+$leaveBalanceRefreshUrl = $leaveBalanceRefreshUrl ?? 'timekeeping.php?partial=leave-balance';
+
 $pageTitle = 'Timekeeping | DA HRIS';
 $activePage = 'timekeeping.php';
 $breadcrumbs = ['Timekeeping'];
@@ -67,11 +74,96 @@ if (!empty($attendanceTo)) {
 }
 
 $todayManila = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d');
+$attendanceExportFrom = $attendanceFrom ?? date('Y-m-01');
+$attendanceExportTo = $attendanceTo ?? date('Y-m-t');
+
+$renderLeaveBalanceSection = static function () use (
+    $escape,
+    $formatDateTime,
+    $leaveBalanceLastUpdatedAt,
+    $leaveBalanceRefreshUrl,
+    $leaveBalanceRows,
+    $leavePointSummary,
+    $pendingLeavePointSummary,
+    $postedLeavePointSummary
+): void {
+?>
+<section id="leave-balance" data-refresh-url="<?= $escape($leaveBalanceRefreshUrl ?? 'timekeeping.php?partial=leave-balance') ?>" class="bg-white rounded-xl shadow p-6 mb-6">
+  <div class="flex flex-col gap-2 mb-4 md:flex-row md:items-start md:justify-between">
+    <div>
+      <h2 class="text-lg font-bold">Leave/CTO <span class="text-daGreen">Balance</span></h2>
+      <p class="text-xs text-gray-500 mt-1">Live available points auto-refresh from accumulated admin-posted balances and reserve pending leave/CTO requests so you can see your running totals clearly.</p>
+    </div>
+    <div class="text-xs text-gray-500 md:text-right">
+      <p class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700"><span class="h-2 w-2 rounded-full bg-emerald-500"></span>Live sync enabled</p>
+      <p class="mt-2">Admin balance last updated: <?= $escape($formatDateTime($leaveBalanceLastUpdatedAt)) ?></p>
+      <p class="mt-1">Section refreshes automatically every 60 seconds.</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm mb-4">
+    <div class="rounded-lg bg-sky-50 px-4 py-3 border border-sky-100">
+      <p class="text-xs font-semibold uppercase tracking-wide text-sky-700">SL Points</p>
+      <p class="mt-1 text-xl font-bold text-sky-800"><?= $escape(number_format((float)($leavePointSummary['sl'] ?? 0), 2)) ?></p>
+      <p class="mt-1 text-xs text-sky-700">Admin posted: <?= $escape(number_format((float)($postedLeavePointSummary['sl'] ?? 0), 2)) ?> · Pending reserved: <?= $escape(number_format(max(0, (float)($pendingLeavePointSummary['sl'] ?? 0)), 2)) ?></p>
+    </div>
+    <div class="rounded-lg bg-emerald-50 px-4 py-3 border border-emerald-100">
+      <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">VL Points</p>
+      <p class="mt-1 text-xl font-bold text-emerald-800"><?= $escape(number_format((float)($leavePointSummary['vl'] ?? 0), 2)) ?></p>
+      <p class="mt-1 text-xs text-emerald-700">Admin posted: <?= $escape(number_format((float)($postedLeavePointSummary['vl'] ?? 0), 2)) ?> · Pending reserved: <?= $escape(number_format(max(0, (float)($pendingLeavePointSummary['vl'] ?? 0)), 2)) ?></p>
+    </div>
+    <div class="rounded-lg bg-amber-50 px-4 py-3 border border-amber-100">
+      <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">CTO Points</p>
+      <p class="mt-1 text-xl font-bold text-amber-800"><?= $escape(number_format((float)($leavePointSummary['cto'] ?? 0), 2)) ?></p>
+      <p class="mt-1 text-xs text-amber-700">Admin posted: <?= $escape(number_format((float)($postedLeavePointSummary['cto'] ?? 0), 2)) ?> · Pending reserved: <?= $escape(number_format(max(0, (float)($pendingLeavePointSummary['cto'] ?? 0)), 2)) ?></p>
+    </div>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b text-gray-500">
+          <th class="text-left py-3">Leave Type</th>
+          <th class="text-left py-3">Admin Posted Total</th>
+          <th class="text-left py-3">Approved/Used</th>
+          <th class="text-left py-3">Pending Deduction</th>
+          <th class="text-left py-3">Posted Balance</th>
+          <th class="text-left py-3">Current Available</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php if (empty($leaveBalanceRows)): ?>
+          <tr><td class="py-3 text-gray-500" colspan="6">No accumulated leave balance records found yet.</td></tr>
+        <?php else: ?>
+          <?php foreach ($leaveBalanceRows as $balance): ?>
+            <tr class="border-b">
+              <td class="py-3"><?= $escape((string)($balance['leave_name'] ?? '-')) ?></td>
+              <td class="py-3"><?= $escape(number_format((float)($balance['admin_posted_total'] ?? 0), 2)) ?></td>
+              <td class="py-3"><?= $escape(number_format((float)($balance['used_credits'] ?? 0), 2)) ?></td>
+              <td class="py-3"><?= $escape(number_format((float)($balance['pending_deduction'] ?? 0), 2)) ?></td>
+              <td class="py-3 font-medium"><?= $escape(number_format((float)($balance['remaining_credits'] ?? 0), 2)) ?></td>
+              <td class="py-3 font-medium <?= ((float)($balance['projected_remaining'] ?? 0) < 0) ? 'text-red-700' : '' ?>"><?= $escape(number_format((float)($balance['projected_remaining'] ?? 0), 2)) ?></td>
+            </tr>
+          <?php endforeach; ?>
+        <?php endif; ?>
+      </tbody>
+    </table>
+  </div>
+</section>
+<?php
+};
+
+if (($_GET['partial'] ?? '') === 'leave-balance') {
+    ob_start();
+    $renderLeaveBalanceSection();
+    echo ob_get_clean();
+    return;
+}
 ?>
 
 <div class="mb-6">
   <h1 class="text-2xl font-bold">Timekeeping</h1>
-  <p class="text-sm text-gray-500">Manage your attendance, download the leave card template, and submit time adjustment or official business requests.</p>
+  <p class="text-sm text-gray-500">Manage your attendance, view the leave card file, and submit official business or record-level time adjustment requests.</p>
 </div>
 
 <?php if (!empty($message)): ?>
@@ -91,9 +183,8 @@ $todayManila = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->
   <div class="flex items-center justify-between mb-6">
     <h2 class="text-lg font-bold">Attendance <span class="text-daGreen">Overview</span></h2>
     <div class="flex flex-wrap gap-2">
-      <a href="/hris-system/assets/Leave_Card_Template.xlsx" download class="inline-flex items-center gap-2 bg-daGreen text-white px-5 py-2 rounded-lg text-sm font-medium hover:opacity-90"><span class="material-symbols-outlined text-base">download</span>Download Leave Card Template</a>
+      <a href="/hris-system/assets/Leave_Card_Template.xlsx" download class="inline-flex items-center gap-2 bg-daGreen text-white px-5 py-2 rounded-lg text-sm font-medium hover:opacity-90"><span class="material-symbols-outlined text-base">visibility</span>View Leave Card</a>
       <button data-open-ob class="inline-flex items-center gap-2 border px-5 py-2 rounded-lg text-sm font-medium"><span class="material-symbols-outlined text-base">work_history</span>File Official Business</button>
-      <button data-open-adjustment class="inline-flex items-center gap-2 border px-5 py-2 rounded-lg text-sm font-medium"><span class="material-symbols-outlined text-base">schedule</span>Request Time Adjustment</button>
     </div>
   </div>
 
@@ -160,6 +251,7 @@ $todayManila = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->
 <section class="bg-white rounded-xl shadow p-6 mb-6">
   <div class="flex items-center justify-between mb-4">
     <h2 class="text-lg font-bold">Attendance <span class="text-daGreen">Records</span></h2>
+    <button type="button" data-open-attendance-export class="inline-flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"><span class="material-symbols-outlined text-base">picture_as_pdf</span>Export PDF</button>
   </div>
 
   <form method="get" action="timekeeping.php" class="grid md:grid-cols-4 gap-3 mb-4 text-sm">
@@ -248,43 +340,10 @@ $todayManila = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->
   </div>
 </section>
 
-<section class="bg-white rounded-xl shadow p-6 mb-6">
-  <h2 class="text-lg font-bold mb-4">Leave <span class="text-daGreen">Balance</span></h2>
-  <p class="text-xs text-gray-500 mb-3">Deduction behavior: pending requests reserve credits; projected remaining = remaining credits - pending deductions.</p>
-  <div class="overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="border-b text-gray-500">
-          <th class="text-left py-3">Leave Type</th>
-          <th class="text-left py-3">Earned</th>
-          <th class="text-left py-3">Used</th>
-          <th class="text-left py-3">Pending Deduction</th>
-          <th class="text-left py-3">Remaining</th>
-          <th class="text-left py-3">Projected Remaining</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php if (empty($leaveBalanceRows)): ?>
-          <tr><td class="py-3 text-gray-500" colspan="6">No leave balance records found for current year.</td></tr>
-        <?php else: ?>
-          <?php foreach ($leaveBalanceRows as $balance): ?>
-            <tr class="border-b">
-              <td class="py-3"><?= $escape((string)($balance['leave_name'] ?? '-')) ?></td>
-              <td class="py-3"><?= $escape(number_format((float)($balance['earned_credits'] ?? 0), 2)) ?></td>
-              <td class="py-3"><?= $escape(number_format((float)($balance['used_credits'] ?? 0), 2)) ?></td>
-              <td class="py-3"><?= $escape(number_format((float)($balance['pending_deduction'] ?? 0), 2)) ?></td>
-              <td class="py-3 font-medium"><?= $escape(number_format((float)($balance['remaining_credits'] ?? 0), 2)) ?></td>
-              <td class="py-3 font-medium <?= ((float)($balance['projected_remaining'] ?? 0) < 0) ? 'text-red-700' : '' ?>"><?= $escape(number_format((float)($balance['projected_remaining'] ?? 0), 2)) ?></td>
-            </tr>
-          <?php endforeach; ?>
-        <?php endif; ?>
-      </tbody>
-    </table>
-  </div>
-</section>
+<?php $renderLeaveBalanceSection(); ?>
 
 <section class="bg-white rounded-xl shadow p-6 mb-6">
-  <h2 class="text-lg font-bold mb-4">Leave/CTO <span class="text-daGreen">Requests</span></h2>
+  <h2 class="text-lg font-bold mb-4">Leave <span class="text-daGreen">Status</span></h2>
   <div class="overflow-x-auto">
     <table class="w-full text-sm">
       <thead>
@@ -296,12 +355,11 @@ $todayManila = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->
           <th class="text-left py-3">Deduction</th>
           <th class="text-left py-3">Reason</th>
           <th class="text-left py-3">Status</th>
-          <th class="text-left py-3">Action</th>
         </tr>
       </thead>
       <tbody>
         <?php if (empty($leaveRequestRows)): ?>
-          <tr><td class="py-3 text-gray-500" colspan="8">No leave requests yet.</td></tr>
+          <tr><td class="py-3 text-gray-500" colspan="7">No leave requests yet.</td></tr>
         <?php else: ?>
           <?php foreach ($leaveRequestRows as $request): ?>
             <?php [$label, $pillClass] = $statusPill((string)($request['status'] ?? 'pending')); ?>
@@ -313,18 +371,6 @@ $todayManila = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->
               <td class="py-3"><?= $escape(number_format((float)($request['days_count'] ?? 0), 2)) ?></td>
               <td class="py-3"><?= $escape((string)($request['reason'] ?? '')) ?></td>
               <td class="py-3"><span class="inline-flex items-center px-2 py-0.5 text-[11px] rounded-full font-medium <?= $escape($pillClass) ?>"><?= $escape($label) ?></span></td>
-              <td class="py-3">
-                <?php if (strtolower((string)($request['status'] ?? '')) === 'pending'): ?>
-                  <form method="post" action="timekeeping.php" class="inline-flex">
-                    <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken ?? '') ?>">
-                    <input type="hidden" name="action" value="cancel_leave_request">
-                    <input type="hidden" name="leave_request_id" value="<?= $escape((string)($request['id'] ?? '')) ?>">
-                    <button type="submit" class="inline-flex items-center gap-1 border px-3 py-1 rounded-lg text-xs text-red-700 border-red-200 bg-red-50 hover:bg-red-100"><span class="material-symbols-outlined text-sm">cancel</span>Cancel</button>
-                  </form>
-                <?php else: ?>
-                  <span class="text-xs text-slate-400">-</span>
-                <?php endif; ?>
-              </td>
             </tr>
           <?php endforeach; ?>
         <?php endif; ?>
@@ -400,6 +446,32 @@ $todayManila = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->
     </table>
   </div>
 </section>
+
+<div id="attendanceExportModal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden" aria-hidden="true">
+  <div class="bg-white w-full max-w-lg rounded-xl shadow-lg max-h-[90vh] flex flex-col">
+    <div class="px-6 py-4 border-b flex justify-between items-center shrink-0">
+      <h2 class="text-lg font-semibold">Export Attendance PDF</h2>
+      <button type="button" data-close-attendance-export><span class="material-icons">close</span></button>
+    </div>
+
+    <form method="get" action="export/attendance.php" target="_blank" class="px-6 py-5 space-y-4 text-sm overflow-y-auto">
+      <div>
+        <label class="text-gray-500">From Date</label>
+        <input type="date" name="from" value="<?= $escape((string)$attendanceExportFrom) ?>" class="w-full mt-1 border rounded-lg p-2" required>
+      </div>
+      <div>
+        <label class="text-gray-500">To Date</label>
+        <input type="date" name="to" value="<?= $escape((string)$attendanceExportTo) ?>" class="w-full mt-1 border rounded-lg p-2" required>
+      </div>
+      <p class="text-xs text-gray-500">The PDF will include your name, selected date range, attendance table, and signature/date lines.</p>
+
+      <div class="pt-2 flex justify-end gap-3">
+        <button type="button" data-close-attendance-export class="border px-4 py-2 rounded-lg text-sm">Cancel</button>
+        <button type="submit" class="bg-daGreen text-white px-4 py-2 rounded-lg text-sm">Generate PDF</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <div id="adjustmentModal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden" aria-hidden="true">
   <div class="bg-white w-full max-w-lg rounded-xl shadow-lg max-h-[90vh] flex flex-col">

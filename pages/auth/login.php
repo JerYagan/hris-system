@@ -106,6 +106,14 @@ ob_start();
       </div>
     <?php endif; ?>
 
+    <?php if (isset($_GET['reset'])): ?>
+      <div class="mb-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3
+                  text-sm text-emerald-700 flex gap-2">
+        <span class="material-icons text-sm">check_circle</span>
+        Password updated successfully. You can now sign in with your new password.
+      </div>
+    <?php endif; ?>
+
     <?php if (isset($_GET['error'])): ?>
       <?php
         $errorCode = (string)($_GET['error'] ?? 'invalid');
@@ -143,6 +151,7 @@ ob_start();
           <input
             type="email"
             name="email"
+            autocomplete="username"
             placeholder="name@da.gov.ph"
             class="w-full pl-10 pr-4 py-2.5 border rounded-md
                    focus:outline-none focus:ring-2 focus:ring-daGreen"
@@ -163,6 +172,7 @@ ob_start();
             id="password"
             type="password"
             name="password"
+                 autocomplete="current-password"
             placeholder="••••••••"
             class="w-full pl-10 pr-12 py-2.5 border rounded-md
                    focus:outline-none focus:ring-2 focus:ring-daGreen"
@@ -179,7 +189,7 @@ ob_start();
       <!-- OPTIONS -->
       <div class="flex items-center justify-between text-sm">
         <label class="flex items-center gap-2">
-          <input type="checkbox" class="rounded border-gray-300">
+          <input type="checkbox" name="remember_me" value="1" class="rounded border-gray-300">
           Remember me
         </label>
 
@@ -202,12 +212,8 @@ ob_start();
 
     <div class="mt-6 text-sm text-center text-gray-600 space-y-2">
       <p>
-        Don’t have an applicant account?
-        <a href="register-applicant.php" class="text-daGreen font-medium hover:underline">Sign Up as Applicant</a>
-      </p>
-      <p class="text-xs text-gray-500">
-        Employee/Staff registration:
-        <a href="register.php" class="text-daGreen hover:underline">Open full registration form</a>
+        Don’t have an account?
+        <a href="register.php" class="text-daGreen font-medium hover:underline">Register</a>
       </p>
     </div>
 

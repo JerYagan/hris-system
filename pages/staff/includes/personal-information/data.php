@@ -277,7 +277,7 @@ if ($personIdFilter !== '') {
             'employee_name' => (string)($personNameById[$resolvedPersonId] ?? 'Unknown Employee'),
             'submitted_by' => $staffLabel,
             'submitted_at_label' => formatDateTimeForPhilippines(cleanText($recommendationLog['created_at'] ?? null), 'M d, Y h:i A'),
-            'status_label' => 'Pending Admin Action',
+            'status_label' => 'Pending',
             'status_class' => 'bg-amber-100 text-amber-800',
             'summary' => $summary,
             'review_title' => $reviewTitle,

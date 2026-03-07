@@ -123,6 +123,37 @@ $isValidDate = static function (?string $value): bool {
     return $ts !== false && date('Y-m-d', $ts) === $value;
 };
 
+$resolveLeavePointBreakdown = static function (string $leaveTypeCode, string $leaveTypeName, float $points): array {
+    $normalizedCode = strtolower(trim($leaveTypeCode));
+    $normalizedName = strtolower(trim($leaveTypeName));
+    $safePoints = max(0, $points);
+    $breakdown = [
+        'sl' => 0.0,
+        'vl' => 0.0,
+        'cto' => 0.0,
+    ];
+
+    if ($safePoints <= 0) {
+        return $breakdown;
+    }
+
+    if ($normalizedCode === 'sl' || str_contains($normalizedName, 'sick')) {
+        $breakdown['sl'] = $safePoints;
+        return $breakdown;
+    }
+
+    if ($normalizedCode === 'vl' || str_contains($normalizedName, 'vacation')) {
+        $breakdown['vl'] = $safePoints;
+        return $breakdown;
+    }
+
+    if ($normalizedCode === 'cto' || str_contains($normalizedName, 'cto') || str_contains($normalizedName, 'compensatory')) {
+        $breakdown['cto'] = $safePoints;
+    }
+
+    return $breakdown;
+};
+
 if ($action === 'log_leave_from_card') {
     $personId = cleanText($_POST['person_id'] ?? null) ?? '';
     $leaveTypeId = cleanText($_POST['leave_type_id'] ?? null) ?? '';
@@ -167,7 +198,7 @@ if ($action === 'log_leave_from_card') {
 
     $leaveTypeResponse = apiRequest(
         'GET',
-        $supabaseUrl . '/rest/v1/leave_types?select=id,leave_name,is_active&id=eq.' . rawurlencode($leaveTypeId) . '&limit=1',
+        $supabaseUrl . '/rest/v1/leave_types?select=id,leave_name,leave_code,is_active&id=eq.' . rawurlencode($leaveTypeId) . '&limit=1',
         $headers
     );
     $leaveTypeRow = (array)(($leaveTypeResponse['data'] ?? [])[0] ?? []);
@@ -176,6 +207,10 @@ if ($action === 'log_leave_from_card') {
     if (!isSuccessful($leaveTypeResponse) || $leaveTypeRow === [] || !$isActive) {
         redirectWithState('error', 'Selected leave type is invalid or inactive.');
     }
+
+    $leaveTypeName = (string)($leaveTypeRow['leave_name'] ?? 'Leave');
+    $leaveTypeCode = (string)($leaveTypeRow['leave_code'] ?? '');
+    $leavePointBreakdown = $resolveLeavePointBreakdown($leaveTypeCode, $leaveTypeName, $daysCount);
 
     $overlapResponse = apiRequest(
         'GET',
@@ -206,6 +241,20 @@ if ($action === 'log_leave_from_card') {
     $reason = 'Logged from submitted leave card template.';
     if ($reference !== null && $reference !== '') {
         $reason .= ' Reference: ' . $reference;
+    }
+
+    $pointSummaryParts = [];
+    foreach (['sl' => 'SL', 'vl' => 'VL', 'cto' => 'CTO'] as $pointKey => $pointLabel) {
+        $pointValue = (float)($leavePointBreakdown[$pointKey] ?? 0);
+        if ($pointValue <= 0) {
+            continue;
+        }
+
+        $pointSummaryParts[] = $pointLabel . ': ' . number_format($pointValue, 2);
+    }
+
+    if (!empty($pointSummaryParts)) {
+        $reason .= ' Points logged: ' . implode(', ', $pointSummaryParts) . '.';
     }
 
     $insertResponse = apiRequest(
@@ -317,6 +366,8 @@ if ($action === 'log_leave_from_card') {
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
                 'days_count' => $daysCount,
+                'leave_type_name' => $leaveTypeName,
+                'leave_point_breakdown' => $leavePointBreakdown,
             ],
         ]]
     );

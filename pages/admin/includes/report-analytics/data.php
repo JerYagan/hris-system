@@ -1,5 +1,8 @@
 <?php
 
+$reportAnalyticsTurnoverStartDate = date('Y-m-d', strtotime('-365 days'));
+$reportAnalyticsEmploymentHistoryFilter = rawurlencode('(is_current.eq.true,hire_date.gte.' . $reportAnalyticsTurnoverStartDate . ',separation_date.gte.' . $reportAnalyticsTurnoverStartDate . ')');
+
 $employmentResponse = apiRequest(
     'GET',
     $supabaseUrl . '/rest/v1/employment_records?select=id,person_id,office_id,employment_status,hire_date,is_current&is_current=eq.true&limit=2000',
@@ -8,13 +11,13 @@ $employmentResponse = apiRequest(
 
 $peopleResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/people?select=id,first_name,surname,middle_name,sex_at_birth,date_of_birth,civil_status&limit=5000',
+    $supabaseUrl . '/rest/v1/people?select=id,first_name,surname,middle_name,sex_at_birth,date_of_birth&limit=5000',
     $headers
 );
 
 $employmentAllResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/employment_records?select=id,person_id,office_id,employment_status,hire_date,separation_date,is_current&limit=10000',
+    $supabaseUrl . '/rest/v1/employment_records?select=id,person_id,office_id,hire_date,separation_date,is_current&or=' . $reportAnalyticsEmploymentHistoryFilter . '&limit=10000',
     $headers
 );
 
@@ -26,31 +29,31 @@ $officesResponse = apiRequest(
 
 $attendanceResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/attendance_logs?select=id,attendance_date,attendance_status&order=attendance_date.desc&limit=3000',
+    $supabaseUrl . '/rest/v1/attendance_logs?select=attendance_date,attendance_status&limit=3000',
     $headers
 );
 
 $payrollResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/payroll_items?select=id,gross_pay,net_pay,created_at,payroll_run:payroll_runs(payroll_period:payroll_periods(period_start,period_end,period_code))&order=created_at.desc&limit=5000',
+    $supabaseUrl . '/rest/v1/payroll_items?select=gross_pay,net_pay,created_at,payroll_run:payroll_runs(payroll_period:payroll_periods(period_end))&limit=5000',
     $headers
 );
 
 $documentsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/documents?select=id,document_status,updated_at&order=updated_at.desc&limit=5000',
+    $supabaseUrl . '/rest/v1/documents?select=document_status&limit=5000',
     $headers
 );
 
 $performanceResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/performance_evaluations?select=id,status,updated_at&order=updated_at.desc&limit=5000',
+    $supabaseUrl . '/rest/v1/performance_evaluations?select=status&limit=5000',
     $headers
 );
 
 $applicationsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/applications?select=id,application_status,submitted_at&order=submitted_at.desc&limit=5000',
+    $supabaseUrl . '/rest/v1/applications?select=application_status&limit=5000',
     $headers
 );
 
@@ -62,7 +65,7 @@ $auditLogsResponse = apiRequest(
 
 $trainingEnrollmentsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/training_enrollments?select=*&order=created_at.desc&limit=5000',
+    $supabaseUrl . '/rest/v1/training_enrollments?select=person_id,enrollment_status&limit=5000',
     $headers
 );
 

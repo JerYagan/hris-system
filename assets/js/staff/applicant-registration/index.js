@@ -108,11 +108,10 @@
 
         modal.classList.add('hidden');
         if (form) {
-            form.reset();
             form.dataset.confirmed = '0';
         }
         if (documentsBody) {
-            documentsBody.innerHTML = '<tr><td class="px-3 py-3 text-slate-500" colspan="4">No document selected.</td></tr>';
+            documentsBody.innerHTML = '<tr><td class="px-3 py-3 text-slate-500" colspan="3">No document selected.</td></tr>';
         }
     };
 
@@ -122,30 +121,30 @@
         }
 
         if (!Array.isArray(documents) || documents.length === 0) {
-            documentsBody.innerHTML = '<tr><td class="px-3 py-3 text-slate-500" colspan="4">No submitted documents found.</td></tr>';
+            documentsBody.innerHTML = '<tr><td class="px-3 py-3 text-slate-500" colspan="3">No submitted documents found.</td></tr>';
             return;
         }
 
         documentsBody.innerHTML = documents.map((documentRow) => {
-            const label = escapeHtml(documentRow && documentRow.document_label ? documentRow.document_label : 'Document');
             const fileName = escapeHtml(documentRow && documentRow.file_name ? documentRow.file_name : '-');
             const uploaded = escapeHtml(documentRow && documentRow.uploaded_label ? documentRow.uploaded_label : '-');
-            const fileUrl = documentRow && documentRow.file_url ? documentRow.file_url.toString() : '';
-            const hasFile = Boolean(documentRow && documentRow.is_available && fileUrl.trim() !== '');
-            const safeUrl = escapeHtml(fileUrl);
+            const previewUrl = documentRow && documentRow.preview_url ? documentRow.preview_url.toString() : ((documentRow && documentRow.file_url ? documentRow.file_url.toString() : ''));
+            const downloadUrl = documentRow && documentRow.download_url ? documentRow.download_url.toString() : previewUrl;
+            const hasFile = Boolean(documentRow && documentRow.is_available && previewUrl.trim() !== '');
+            const safePreviewUrl = escapeHtml(previewUrl);
+            const safeDownloadUrl = escapeHtml(downloadUrl);
 
             const actionHtml = hasFile
                 ? `
                     <div class="flex items-center gap-2">
-                        <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="px-2 py-1 text-xs rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">View</a>
-                        <a href="${safeUrl}" download class="px-2 py-1 text-xs rounded-md border border-green-200 bg-green-50 text-green-700 hover:bg-green-100">Download</a>
+                        <a href="${safePreviewUrl}" target="_blank" rel="noopener noreferrer" class="px-2 py-1 text-xs rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">View</a>
+                        <a href="${safeDownloadUrl}" class="px-2 py-1 text-xs rounded-md border border-green-200 bg-green-50 text-green-700 hover:bg-green-100">Download</a>
                     </div>
                 `
                 : '<span class="text-xs text-slate-500">File unavailable</span>';
 
             return `
                 <tr>
-                    <td class="px-3 py-2 text-slate-700">${label}</td>
                     <td class="px-3 py-2 text-slate-700">${fileName}</td>
                     <td class="px-3 py-2 text-slate-700">${uploaded}</td>
                     <td class="px-3 py-2">${actionHtml}</td>
@@ -196,37 +195,6 @@
             if (event.target === modal) {
                 closeModal();
             }
-        });
-    }
-
-    if (form) {
-        form.addEventListener('submit', async (event) => {
-            if (form.dataset.confirmed === '1') {
-                return;
-            }
-
-            event.preventDefault();
-
-            const applicant = (applicantNameLabel ? applicantNameLabel.textContent : 'Applicant') || 'Applicant';
-            const decision = normalize(decisionInput ? decisionInput.value : 'forward_for_evaluation');
-            let decisionLabel = 'Approve for next stage';
-            if (decision === 'disqualify_application' || decision === 'reject_application') {
-                decisionLabel = 'Disqualify application';
-            } else if (decision === 'return_for_compliance' || decision === 'screening') {
-                decisionLabel = 'Return for compliance';
-            }
-            const shouldContinue = window.confirm(`Confirm decision "${decisionLabel}" for ${applicant}?`);
-            if (!shouldContinue) {
-                return;
-            }
-
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.classList.add('opacity-60', 'cursor-not-allowed');
-            }
-
-            form.dataset.confirmed = '1';
-            form.submit();
         });
     }
 

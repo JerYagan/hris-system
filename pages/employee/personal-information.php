@@ -219,78 +219,6 @@ $formatDate = static function (?string $value): string {
   </div>
 </section>
 
-<section class="bg-white rounded-xl shadow p-6 mt-6">
-  <h2 class="text-lg font-bold mb-4">Approved <span class="text-daGreen">Spouse Entries</span></h2>
-
-  <?php if (!empty($employeeSpouses)): ?>
-    <div class="space-y-3 text-sm">
-      <?php foreach ($employeeSpouses as $index => $spouseRow): ?>
-        <?php
-          $spouseDisplayName = trim((string)($spouseRow['first_name'] ?? '') . ' ' . (string)($spouseRow['middle_name'] ?? '') . ' ' . (string)($spouseRow['surname'] ?? '') . ' ' . (string)($spouseRow['extension_name'] ?? ''));
-        ?>
-        <article class="border rounded-lg p-4">
-          <p class="font-semibold text-slate-800"><?= $escape($spouseDisplayName !== '' ? $spouseDisplayName : 'Spouse Entry #' . ($index + 1)) ?></p>
-          <div class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-slate-600">
-            <p>Occupation: <?= $escape((string)($spouseRow['occupation'] ?? '-') ?: '-') ?></p>
-            <p>Employer: <?= $escape((string)($spouseRow['employer_business_name'] ?? '-') ?: '-') ?></p>
-            <p class="md:col-span-2">Business Address: <?= $escape((string)($spouseRow['business_address'] ?? '-') ?: '-') ?></p>
-            <p>Telephone: <?= $escape((string)($spouseRow['telephone_no'] ?? '-') ?: '-') ?></p>
-          </div>
-        </article>
-      <?php endforeach; ?>
-    </div>
-  <?php else: ?>
-    <div class="rounded-lg border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-500">No approved spouse entries yet.</div>
-  <?php endif; ?>
-</section>
-
-<section class="bg-white rounded-xl shadow p-6 mt-6">
-  <div class="flex items-center justify-between mb-4">
-    <h2 class="text-lg font-bold">Spouse <span class="text-daGreen">Entry Requests</span></h2>
-    <button type="button" data-open-spouse-request class="bg-daGreen text-white px-4 py-2 rounded-lg text-sm font-medium">Request Additional Spouse Entry</button>
-  </div>
-
-  <?php if (!empty($spouseRequestHistory)): ?>
-    <div class="space-y-3 text-sm">
-      <?php foreach ($spouseRequestHistory as $request): ?>
-        <?php
-          $requestStatus = strtolower((string)($request['status'] ?? 'pending_admin_approval'));
-          $requestStatusLabel = match ($requestStatus) {
-              'approved' => 'Approved',
-              'rejected' => 'Rejected',
-              default => 'Pending Admin Approval',
-          };
-          $requestStatusClass = match ($requestStatus) {
-              'approved' => 'bg-green-100 text-green-800',
-              'rejected' => 'bg-red-100 text-red-800',
-              default => 'bg-amber-100 text-amber-800',
-          };
-        ?>
-        <article class="border rounded-lg p-4">
-          <div class="flex flex-wrap justify-between items-start gap-2">
-            <div>
-              <p class="font-semibold text-slate-800"><?= $escape((string)($request['spouse_name'] !== '' ? $request['spouse_name'] : 'Spouse request')) ?></p>
-              <p class="text-xs text-slate-500 mt-1">Submitted <?= $escape($formatDate($request['created_at'] ?? null)) ?></p>
-            </div>
-            <span class="px-2.5 py-1 rounded-full text-xs <?= $escape($requestStatusClass) ?>"><?= $escape($requestStatusLabel) ?></span>
-          </div>
-          <?php if (!empty($request['attachment_name'])): ?>
-            <p class="mt-2 text-xs text-slate-600">Attachment: <?= $escape((string)$request['attachment_name']) ?></p>
-          <?php endif; ?>
-          <?php if (!empty($request['notes'])): ?>
-            <p class="mt-2 text-xs text-slate-600">Notes: <?= $escape((string)$request['notes']) ?></p>
-          <?php endif; ?>
-          <?php if (!empty($request['admin_remarks'])): ?>
-            <p class="mt-2 text-xs text-slate-600">Admin Remarks: <?= $escape((string)$request['admin_remarks']) ?></p>
-          <?php endif; ?>
-        </article>
-      <?php endforeach; ?>
-    </div>
-  <?php else: ?>
-    <div class="rounded-lg border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-500">No spouse entry requests yet.</div>
-  <?php endif; ?>
-</section>
-
 <div id="profileModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
   <div class="absolute inset-0 bg-black/40" data-close-profile></div>
   <div class="relative z-10 min-h-screen flex items-center justify-center p-4">
@@ -505,14 +433,12 @@ $formatDate = static function (?string $value): string {
             <h3 class="font-semibold text-base">II. Family Background</h3>
             <h4 class="font-semibold">Spouse</h4>
             <div class="rounded-lg border border-dashed border-slate-300 p-4">
-              <p class="text-sm text-slate-600">Spouse details are controlled by request. Submit a spouse entry request with supporting documents for admin approval.</p>
-              <div class="mt-3 text-sm">
+              <div class="text-sm">
                 <p class="font-medium text-slate-700"><?= $escape(trim((string)($employeeSpouse['first_name'] ?? '') . ' ' . (string)($employeeSpouse['surname'] ?? ''))) !== '' ? $escape(trim((string)($employeeSpouse['first_name'] ?? '') . ' ' . (string)($employeeSpouse['surname'] ?? ''))) : 'No approved spouse record yet.' ?></p>
                 <?php if (!empty($employeeSpouse['occupation']) || !empty($employeeSpouse['employer_business_name'])): ?>
                   <p class="text-xs text-slate-500 mt-1"><?= $escape((string)($employeeSpouse['occupation'] ?? '')) ?> <?= !empty($employeeSpouse['employer_business_name']) ? '· ' . $escape((string)$employeeSpouse['employer_business_name']) : '' ?></p>
                 <?php endif; ?>
               </div>
-              <button type="button" data-open-spouse-request class="mt-3 border border-slate-300 px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50">Submit Spouse Entry Request</button>
             </div>
 
             <div class="flex items-center justify-between pt-2">
@@ -788,49 +714,6 @@ $formatDate = static function (?string $value): string {
   'state' => (string)($state ?? ''),
   'message' => (string)($message ?? ''),
 ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
-
-<div id="spouseRequestModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
-  <div class="absolute inset-0 bg-black/40" data-close-spouse-request></div>
-  <div class="relative z-10 min-h-screen flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl shadow-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-      <div class="px-6 py-4 border-b flex items-center justify-between">
-        <h2 class="text-lg font-semibold">Request Additional Spouse Entry</h2>
-        <button type="button" data-close-spouse-request><span class="material-symbols-outlined">close</span></button>
-      </div>
-      <form method="post" action="personal-information.php" enctype="multipart/form-data" class="p-6 overflow-y-auto space-y-4 text-sm">
-        <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken ?? '') ?>">
-        <input type="hidden" name="action" value="submit_spouse_request">
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div><label class="text-gray-600">Surname</label><input name="spouse_surname" required class="border rounded-lg p-2 w-full"></div>
-          <div><label class="text-gray-600">First Name</label><input name="spouse_first_name" required class="border rounded-lg p-2 w-full"></div>
-          <div><label class="text-gray-600">Middle Name</label><input name="spouse_middle_name" class="border rounded-lg p-2 w-full"></div>
-          <div><label class="text-gray-600">Name Extension</label><input name="spouse_name_extension" class="border rounded-lg p-2 w-full"></div>
-          <div><label class="text-gray-600">Occupation</label><input name="spouse_occupation" class="border rounded-lg p-2 w-full"></div>
-          <div><label class="text-gray-600">Employer/Business Name</label><input name="spouse_employer_business_name" class="border rounded-lg p-2 w-full"></div>
-          <div class="md:col-span-2"><label class="text-gray-600">Business Address</label><input name="spouse_business_address" class="border rounded-lg p-2 w-full"></div>
-          <div><label class="text-gray-600">Telephone No.</label><input name="spouse_telephone_no" class="border rounded-lg p-2 w-full"></div>
-        </div>
-
-        <div>
-          <label class="text-gray-600">Supporting Document</label>
-          <input type="file" name="spouse_supporting_document" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" class="mt-1 w-full text-sm" required>
-          <p class="text-xs text-slate-500 mt-1">Accepted: PDF, JPG, PNG, DOC, DOCX (max 10 MB)</p>
-        </div>
-
-        <div>
-          <label class="text-gray-600">Request Notes</label>
-          <textarea name="request_notes" rows="3" class="border rounded-lg p-2 w-full" placeholder="Reason/notes for admin review"></textarea>
-        </div>
-
-        <div class="flex justify-end gap-2 pt-2">
-          <button type="button" data-close-spouse-request class="border px-4 py-2 rounded-lg">Cancel</button>
-          <button type="submit" class="bg-daGreen text-white px-4 py-2 rounded-lg">Submit for Approval</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
 
 <?php
 $content = ob_get_clean();

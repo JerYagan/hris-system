@@ -4,19 +4,31 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
 <aside
   id="sidebar"
-  class="w-64 bg-white border-r py-6
-         fixed inset-y-0 left-0 z-40
+  data-sidebar-mode="overlay"
+  class="w-72 bg-white border-r py-6
+         fixed inset-y-0 left-0 z-50
          transform transition-transform duration-200 ease-in-out
          -translate-x-full flex flex-col"
 >
-  <div class="flex items-center space-x-4 px-4 shadow-md pb-4">
-    <div>
-      <img src="../../assets/images/icon.png" alt="DA-ATI HRIS" class="w-24">
-    </div>
-      <div>
-        <h1 class="text-lg font-bold leading-tight">DA-ATI HRIS</h1>
-        <p class="text-xs text-gray-500">Human Resource Information System</p>
+  <div class="px-4 shadow-md pb-4">
+    <div class="flex items-start justify-between gap-3">
+      <div class="flex min-w-0 items-center gap-3">
+        <?php if (!empty($staffTopnavPhotoUrl)): ?>
+          <img src="<?= htmlspecialchars((string)$staffTopnavPhotoUrl, ENT_QUOTES, 'UTF-8') ?>" alt="Profile" class="h-11 w-11 rounded-2xl border border-gray-200 object-cover shadow-sm">
+        <?php else: ?>
+          <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-daGreen text-sm font-semibold text-white shadow-sm">
+            <?= htmlspecialchars((string)($staffTopnavInitials ?? 'ST'), ENT_QUOTES, 'UTF-8') ?>
+          </div>
+        <?php endif; ?>
+        <div class="min-w-0">
+          <p class="truncate text-sm font-semibold text-gray-900"><?= htmlspecialchars((string)($staffTopnavDisplayName ?? 'Staff User'), ENT_QUOTES, 'UTF-8') ?></p>
+          <p class="truncate text-xs text-gray-500"><?= htmlspecialchars((string)($staffTopnavRoleLabel ?? 'Staff'), ENT_QUOTES, 'UTF-8') ?></p>
+        </div>
       </div>
+      <button id="sidebarClose" type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900" aria-label="Close sidebar">
+        <span class="material-icons text-[20px]">menu</span>
+      </button>
+    </div>
   </div>
 
   <nav class="flex-1 text-sm overflow-y-auto py-4 px-4 space-y-6">
@@ -31,7 +43,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
     <div>
       <button data-collapse-toggle="employee-records" class="w-full flex items-center justify-between px-2 mb-2 text-xs font-semibold text-gray-400 uppercase">
-        <span>Employee Records</span>
+        <span>People and Records</span>
         <span class="material-icons text-sm transition-transform">expand_more</span>
       </button>
       <div data-collapse-content="employee-records" class="space-y-1">
@@ -49,7 +61,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
     <div>
       <button data-collapse-toggle="time-pay" class="w-full flex items-center justify-between px-2 mb-2 text-xs font-semibold text-gray-400 uppercase">
-        <span>Time & Pay</span>
+        <span>Operations</span>
         <span class="material-icons text-sm transition-transform">expand_more</span>
       </button>
       <div data-collapse-content="time-pay" class="space-y-1">
@@ -62,15 +74,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
           <span class="material-icons text-base">payments</span>
           <span class="sidebar-label">Payroll Management</span>
         </a>
-      </div>
-    </div>
 
-    <div>
-      <button data-collapse-toggle="performance" class="w-full flex items-center justify-between px-2 mb-2 text-xs font-semibold text-gray-400 uppercase">
-        <span>Performance</span>
-        <span class="material-icons text-sm transition-transform">expand_more</span>
-      </button>
-      <div data-collapse-content="performance" class="space-y-1">
         <a href="learning-development.php" class="flex items-center gap-3 px-4 py-2 rounded-lg <?= $activePage === 'learning-development.php' ? 'bg-green-100 font-medium' : 'hover:bg-gray-100' ?>">
           <span class="material-icons text-base">school</span>
           <span class="sidebar-label">Learning and Development</span>
@@ -89,17 +93,17 @@ $currentPage = basename($_SERVER['PHP_SELF']);
           <span class="sidebar-label">Recruitment</span>
         </a>
 
-        <a href="applicant-registration.php" class="flex items-center gap-3 px-4 py-2 rounded-lg pl-10 <?= $currentPage === 'applicant-registration.php' ? 'bg-green-100 font-medium' : 'text-gray-600 hover:bg-gray-100' ?>">
+        <a href="applicant-registration.php" class="flex items-center gap-3 px-4 py-2 rounded-lg <?= $currentPage === 'applicant-registration.php' ? 'bg-green-100 font-medium' : 'text-gray-600 hover:bg-gray-100' ?>">
           <span class="material-icons text-base">app_registration</span>
           <span class="sidebar-label">Applicant Registration</span>
         </a>
 
-        <a href="applicant-tracking.php" class="flex items-center gap-3 px-4 py-2 rounded-lg pl-10 <?= $currentPage === 'applicant-tracking.php' ? 'bg-green-100 font-medium' : 'text-gray-600 hover:bg-gray-100' ?>">
+        <a href="applicant-tracking.php" class="flex items-center gap-3 px-4 py-2 rounded-lg <?= $currentPage === 'applicant-tracking.php' ? 'bg-green-100 font-medium' : 'text-gray-600 hover:bg-gray-100' ?>">
           <span class="material-icons text-base">track_changes</span>
           <span class="sidebar-label">Applicant Tracking</span>
         </a>
 
-        <a href="evaluation.php" class="flex items-center gap-3 px-4 py-2 rounded-lg pl-10 <?= $currentPage === 'evaluation.php' ? 'bg-green-100 font-medium' : 'text-gray-600 hover:bg-gray-100' ?>">
+        <a href="evaluation.php" class="flex items-center gap-3 px-4 py-2 rounded-lg <?= $currentPage === 'evaluation.php' ? 'bg-green-100 font-medium' : 'text-gray-600 hover:bg-gray-100' ?>">
           <span class="material-icons text-base">fact_check</span>
           <span class="sidebar-label">Evaluation</span>
         </a>
@@ -107,11 +111,11 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     </div>
 
     <div>
-      <button data-collapse-toggle="misc" class="w-full flex items-center justify-between px-2 mb-2 text-xs font-semibold text-gray-400 uppercase">
-        <span>Miscellaneous</span>
+      <button data-collapse-toggle="workspace" class="w-full flex items-center justify-between px-2 mb-2 text-xs font-semibold text-gray-400 uppercase">
+        <span>Workspace</span>
         <span class="material-icons text-sm transition-transform">expand_more</span>
       </button>
-      <div data-collapse-content="misc" class="space-y-1">
+      <div data-collapse-content="workspace" class="space-y-1">
         <a href="reports.php" class="flex items-center gap-3 px-4 py-2 rounded-lg <?= $activePage === 'reports.php' ? 'bg-green-100 font-medium' : 'hover:bg-gray-100' ?>">
           <span class="material-icons text-base">assessment</span>
           <span class="sidebar-label">Reports and Analytics</span>

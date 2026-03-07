@@ -132,10 +132,10 @@ $formatTime = static function (?string $raw): string {
         </div>
         <div>
             <label class="text-slate-600">Leave Type</label>
-            <select name="leave_type_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+            <select id="leaveLogLeaveType" name="leave_type_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
                 <option value="">Select leave type</option>
                 <?php foreach ($leaveTypeOptions as $leaveTypeOption): ?>
-                    <option value="<?= htmlspecialchars((string)($leaveTypeOption['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($leaveTypeOption['leave_name'] ?? 'Leave'), ENT_QUOTES, 'UTF-8') ?></option>
+                    <option value="<?= htmlspecialchars((string)($leaveTypeOption['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-leave-code="<?= htmlspecialchars((string)($leaveTypeOption['leave_code'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-leave-name="<?= htmlspecialchars((string)($leaveTypeOption['leave_name'] ?? 'Leave'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($leaveTypeOption['leave_name'] ?? 'Leave'), ENT_QUOTES, 'UTF-8') ?></option>
                 <?php endforeach; ?>
             </select>
         </div>
@@ -151,6 +151,21 @@ $formatTime = static function (?string $raw): string {
             <label class="text-slate-600">Leave Days</label>
             <input id="leaveLogDays" type="number" name="days_count" min="1" step="1" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" placeholder="Auto-computed" readonly required>
             <p class="text-[11px] text-slate-500 mt-1">Auto-computed from Date From and Date To (inclusive).</p>
+        </div>
+        <div>
+            <label class="text-slate-600">SL Points</label>
+            <input id="leaveLogSlPoints" type="number" min="0" step="0.01" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" placeholder="0.00" readonly>
+            <p class="text-[11px] text-slate-500 mt-1">Auto-calculated point impact for Sick Leave postings.</p>
+        </div>
+        <div>
+            <label class="text-slate-600">VL Points</label>
+            <input id="leaveLogVlPoints" type="number" min="0" step="0.01" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" placeholder="0.00" readonly>
+            <p class="text-[11px] text-slate-500 mt-1">Auto-calculated point impact for Vacation Leave postings.</p>
+        </div>
+        <div>
+            <label class="text-slate-600">CTO Points</label>
+            <input id="leaveLogCtoPoints" type="number" min="0" step="0.01" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" placeholder="0.00" readonly>
+            <p class="text-[11px] text-slate-500 mt-1">Auto-calculated point impact for CTO/Compensatory leave postings.</p>
         </div>
         <div class="md:col-span-3">
             <label class="text-slate-600">Reference / Notes</label>
@@ -699,9 +714,13 @@ $formatTime = static function (?string $raw): string {
     const employeeHiddenInput = document.getElementById('leaveLogPersonId');
     const employeeHint = document.getElementById('leaveLogEmployeeHint');
     const employeeOptionButtons = Array.from(document.querySelectorAll('[data-employee-option]'));
+    const leaveTypeSelect = document.getElementById('leaveLogLeaveType');
     const leaveDateFrom = document.getElementById('leaveLogDateFrom');
     const leaveDateTo = document.getElementById('leaveLogDateTo');
     const leaveDays = document.getElementById('leaveLogDays');
+    const leaveLogSlPoints = document.getElementById('leaveLogSlPoints');
+    const leaveLogVlPoints = document.getElementById('leaveLogVlPoints');
+    const leaveLogCtoPoints = document.getElementById('leaveLogCtoPoints');
 
     const showEmployeeResults = () => {
         if (employeeResults) {
@@ -803,10 +822,67 @@ $formatTime = static function (?string $raw): string {
         const totalDays = Math.floor(diffMs / 86400000) + 1;
         leaveDateTo.setCustomValidity('');
         leaveDays.value = String(totalDays);
+        syncLeavePointFields();
+    };
+
+    const resetLeavePointFields = () => {
+        [leaveLogSlPoints, leaveLogVlPoints, leaveLogCtoPoints].forEach((input) => {
+            if (input) {
+                input.value = '0.00';
+            }
+        });
+    };
+
+    const resolveLeavePointBucket = () => {
+        if (!(leaveTypeSelect instanceof HTMLSelectElement)) {
+            return '';
+        }
+
+        const selectedOption = leaveTypeSelect.options[leaveTypeSelect.selectedIndex];
+        if (!(selectedOption instanceof HTMLOptionElement)) {
+            return '';
+        }
+
+        const leaveCode = (selectedOption.dataset.leaveCode || '').trim().toLowerCase();
+        const leaveName = (selectedOption.dataset.leaveName || '').trim().toLowerCase();
+
+        if (leaveCode === 'sl' || leaveName.includes('sick')) {
+            return 'sl';
+        }
+
+        if (leaveCode === 'vl' || leaveName.includes('vacation')) {
+            return 'vl';
+        }
+
+        if (leaveCode === 'cto' || leaveName.includes('cto') || leaveName.includes('compensatory')) {
+            return 'cto';
+        }
+
+        return '';
+    };
+
+    const syncLeavePointFields = () => {
+        resetLeavePointFields();
+
+        const totalDays = Number.parseFloat(leaveDays?.value || '0');
+        if (!Number.isFinite(totalDays) || totalDays <= 0) {
+            return;
+        }
+
+        const bucket = resolveLeavePointBucket();
+        const formattedValue = totalDays.toFixed(2);
+        if (bucket === 'sl' && leaveLogSlPoints) {
+            leaveLogSlPoints.value = formattedValue;
+        } else if (bucket === 'vl' && leaveLogVlPoints) {
+            leaveLogVlPoints.value = formattedValue;
+        } else if (bucket === 'cto' && leaveLogCtoPoints) {
+            leaveLogCtoPoints.value = formattedValue;
+        }
     };
 
     leaveDateFrom?.addEventListener('change', computeLeaveDays);
     leaveDateTo?.addEventListener('change', computeLeaveDays);
+    leaveTypeSelect?.addEventListener('change', syncLeavePointFields);
 
     leaveLogForm?.addEventListener('submit', (event) => {
         if (!employeeHiddenInput || !employeeSearchInput) return;
@@ -819,6 +895,67 @@ $formatTime = static function (?string $raw): string {
         }
         employeeSearchInput.setCustomValidity('');
         computeLeaveDays();
+        syncLeavePointFields();
+
+        const totalDays = Number.parseFloat(leaveDays?.value || '0');
+        if (!Number.isFinite(totalDays) || totalDays <= 0) {
+            event.preventDefault();
+            if (window.Swal && typeof window.Swal.fire === 'function') {
+                window.Swal.fire({
+                    icon: 'warning',
+                    title: 'Incomplete leave entry',
+                    text: 'Please provide a valid leave date range before logging the leave card entry.',
+                    confirmButtonColor: '#16a34a',
+                });
+            }
+            return;
+        }
+
+        if (leaveLogForm.dataset.confirmed === 'true') {
+            leaveLogForm.dataset.confirmed = 'false';
+            return;
+        }
+
+        event.preventDefault();
+
+        const selectedEmployeeLabel = (employeeSearchInput.value || 'Selected employee').trim();
+        const selectedLeaveOption = leaveTypeSelect instanceof HTMLSelectElement
+            ? leaveTypeSelect.options[leaveTypeSelect.selectedIndex]
+            : null;
+        const leaveTypeLabel = selectedLeaveOption instanceof HTMLOptionElement
+            ? (selectedLeaveOption.dataset.leaveName || selectedLeaveOption.textContent || 'Leave')
+            : 'Leave';
+
+        const submitForm = () => {
+            leaveLogForm.dataset.confirmed = 'true';
+            leaveLogForm.requestSubmit();
+        };
+
+        if (window.Swal && typeof window.Swal.fire === 'function') {
+            window.Swal.fire({
+                icon: 'question',
+                title: 'Log leave entry?',
+                html: `You are about to log <strong>${String(totalDays.toFixed(2))}</strong> day(s) of <strong>${leaveTypeLabel}</strong> for <strong>${selectedEmployeeLabel}</strong>.`,
+                showCancelButton: true,
+                confirmButtonText: 'Yes, log leave',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#16a34a',
+                cancelButtonColor: '#64748b',
+                focusCancel: true,
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    submitForm();
+                }
+            });
+            return;
+        }
+
+        const confirmed = window.confirm('Log this leave entry now?');
+        if (confirmed) {
+            submitForm();
+        }
     });
+
+    resetLeavePointFields();
 })();
 </script>

@@ -15,10 +15,21 @@ if (($topnavSupabaseUrl === '' || empty($topnavHeaders) || $topnavAdminUserId ==
 $topnavUnreadCount = 0;
 $topnavUnreadNotifications = [];
 $adminTopnavCsrfToken = function_exists('ensureCsrfToken') ? ensureCsrfToken() : '';
+$adminTopnavAnonKey = trim((string)($_ENV['SUPABASE_ANON_KEY'] ?? $_SERVER['SUPABASE_ANON_KEY'] ?? ''));
+$adminTopnavAccessToken = trim((string)($_SESSION['supabase']['access_token'] ?? ''));
 $topnavDisplayName = 'Admin User';
 $topnavDisplayRole = 'Administrator';
 $topnavDisplayInitials = 'AD';
 $topnavProfilePhotoUrl = null;
+
+$adminTopnavCacheTtlSeconds = 45;
+$adminTopnavCache = (array)($_SESSION['admin_topnav_cache'] ?? []);
+$adminTopnavCacheUserId = (string)($adminTopnavCache['user_id'] ?? '');
+$adminTopnavCacheTimestamp = (int)($adminTopnavCache['cached_at'] ?? 0);
+$adminTopnavCacheIsFresh = $adminTopnavCacheUserId !== ''
+    && $adminTopnavCacheUserId === $topnavAdminUserId
+    && $adminTopnavCacheTimestamp > 0
+    && (time() - $adminTopnavCacheTimestamp) <= $adminTopnavCacheTtlSeconds;
 
 $resolveProfilePhotoUrl = static function (?string $rawPath): ?string {
     $path = trim((string)$rawPath);
@@ -48,10 +59,26 @@ $resolveProfilePhotoUrl = static function (?string $rawPath): ?string {
     return '/hris-system/storage/document/' . $encoded;
 };
 
-if ($topnavSupabaseUrl !== '' && !empty($topnavHeaders) && $topnavAdminUserId !== '' && function_exists('apiRequest') && function_exists('isSuccessful')) {
+if ($adminTopnavCacheIsFresh) {
+    $cachedDisplayName = trim((string)($adminTopnavCache['display_name'] ?? ''));
+    if ($cachedDisplayName !== '') {
+        $topnavDisplayName = $cachedDisplayName;
+    }
+
+    $cachedDisplayRole = trim((string)($adminTopnavCache['display_role'] ?? ''));
+    if ($cachedDisplayRole !== '') {
+        $topnavDisplayRole = $cachedDisplayRole;
+    }
+
+    $topnavUnreadCount = max(0, (int)($adminTopnavCache['unread_count'] ?? 0));
+    $topnavUnreadNotifications = (array)($adminTopnavCache['unread_notifications'] ?? []);
+    $topnavProfilePhotoUrl = $resolveProfilePhotoUrl((string)($adminTopnavCache['profile_photo_url'] ?? ''));
+}
+
+if (!$adminTopnavCacheIsFresh && $topnavSupabaseUrl !== '' && !empty($topnavHeaders) && $topnavAdminUserId !== '' && function_exists('apiRequest') && function_exists('isSuccessful')) {
     $topnavProfileResponse = apiRequest(
         'GET',
-        rtrim($topnavSupabaseUrl, '/') . '/rest/v1/user_accounts?select=id,email,people(first_name,surname,profile_photo_url)&id=eq.' . $topnavAdminUserId . '&limit=1',
+        rtrim($topnavSupabaseUrl, '/') . '/rest/v1/user_accounts?select=id,email,people(first_name,surname,profile_photo_url)&id=eq.' . rawurlencode($topnavAdminUserId) . '&limit=1',
         $topnavHeaders
     );
 
@@ -73,7 +100,7 @@ if ($topnavSupabaseUrl !== '' && !empty($topnavHeaders) && $topnavAdminUserId !=
 
     $topnavRoleResponse = apiRequest(
         'GET',
-        rtrim($topnavSupabaseUrl, '/') . '/rest/v1/user_role_assignments?select=role:roles(role_name,role_key)&user_id=eq.' . $topnavAdminUserId . '&is_primary=eq.true&expires_at=is.null&limit=1',
+        rtrim($topnavSupabaseUrl, '/') . '/rest/v1/user_role_assignments?select=role:roles(role_name,role_key)&user_id=eq.' . rawurlencode($topnavAdminUserId) . '&is_primary=eq.true&expires_at=is.null&limit=1',
         $topnavHeaders
     );
 
@@ -87,7 +114,7 @@ if ($topnavSupabaseUrl !== '' && !empty($topnavHeaders) && $topnavAdminUserId !=
 
     $topnavUnreadResponse = apiRequest(
         'GET',
-        rtrim($topnavSupabaseUrl, '/') . '/rest/v1/notifications?select=id&recipient_user_id=eq.' . $topnavAdminUserId . '&is_read=eq.false&category=neq.announcement&limit=5000',
+        rtrim($topnavSupabaseUrl, '/') . '/rest/v1/notifications?select=id&recipient_user_id=eq.' . rawurlencode($topnavAdminUserId) . '&is_read=eq.false&category=neq.announcement&limit=5000',
         $topnavHeaders
     );
 
@@ -97,13 +124,23 @@ if ($topnavSupabaseUrl !== '' && !empty($topnavHeaders) && $topnavAdminUserId !=
 
     $topnavUnreadPreviewResponse = apiRequest(
         'GET',
-        rtrim($topnavSupabaseUrl, '/') . '/rest/v1/notifications?select=id,title,body,created_at,link_url&recipient_user_id=eq.' . $topnavAdminUserId . '&is_read=eq.false&category=neq.announcement&order=created_at.desc&limit=5',
+        rtrim($topnavSupabaseUrl, '/') . '/rest/v1/notifications?select=id,title,body,created_at,link_url&recipient_user_id=eq.' . rawurlencode($topnavAdminUserId) . '&is_read=eq.false&category=neq.announcement&order=created_at.desc&limit=5',
         $topnavHeaders
     );
 
     if (isSuccessful($topnavUnreadPreviewResponse)) {
         $topnavUnreadNotifications = (array)($topnavUnreadPreviewResponse['data'] ?? []);
     }
+
+    $_SESSION['admin_topnav_cache'] = [
+        'user_id' => $topnavAdminUserId,
+        'display_name' => $topnavDisplayName,
+        'display_role' => $topnavDisplayRole,
+        'profile_photo_url' => (string)($topnavProfilePhotoUrl ?? ''),
+        'unread_count' => $topnavUnreadCount,
+        'unread_notifications' => $topnavUnreadNotifications,
+        'cached_at' => time(),
+    ];
 }
 
 if (isset($_SESSION['user']) && is_array($_SESSION['user'])) {
@@ -134,14 +171,20 @@ if ($topnavInitialSource !== '') {
 
 <header id="topnav" class="h-16 admin-topbar sticky top-0 z-20 flex items-center justify-between px-5 transition-transform duration-300 ease-in-out bg-slate-900">
     <div class="flex items-center gap-3">
-        <div class="hidden md:flex items-center gap-2 rounded-lg bg-white/5 px-2 py-1">
-            <img src="/hris-system/assets/images/1x/Artboard%202.png" alt="Bagong Pilipinas" class="h-7 w-auto object-contain" loading="lazy">
-            <span class="text-[10px] uppercase tracking-wide text-slate-300">Bagong Pilipinas</span>
-        </div>
-
         <button id="sidebarToggle" class="admin-top-chip w-8 h-8 inline-flex items-center justify-center text-slate-300 hover:text-white focus:outline-none" aria-label="Toggle sidebar">
             <span class="material-symbols-outlined">menu</span>
         </button>
+
+        <div class="hidden md:flex items-center gap-3 rounded-xl bg-white/5 px-3 py-1.5">
+            <div class="flex items-center gap-2">
+                <img src="/hris-system/assets/images/DA_logo.png" alt="Department of Agriculture" class="h-8 w-8 object-contain" loading="lazy">
+                <img src="/hris-system/assets/images/Bagong_Pilipinas_logo.png" alt="Bagong Pilipinas" class="h-8 w-auto object-contain" loading="lazy">
+            </div>
+            <div class="leading-tight">
+                <span class="block text-[10px] uppercase tracking-[0.24em] text-slate-300">Bagong Pilipinas</span>
+                <span class="block text-xs font-semibold text-slate-100">DA-ATI HRIS</span>
+            </div>
+        </div>
 
         <nav aria-label="Breadcrumb" class="leading-tight">
             <ol class="flex items-center gap-1.5 text-sm text-slate-400">
@@ -183,6 +226,11 @@ if ($topnavInitialSource !== '') {
             data-id-field="notification_id"
             data-csrf-field="csrf_token"
             data-csrf-token="<?= htmlspecialchars((string)$adminTopnavCsrfToken, ENT_QUOTES, 'UTF-8') ?>"
+            data-snapshot-action="topnav_snapshot"
+            data-supabase-url="<?= htmlspecialchars((string)$topnavSupabaseUrl, ENT_QUOTES, 'UTF-8') ?>"
+            data-supabase-anon-key="<?= htmlspecialchars((string)$adminTopnavAnonKey, ENT_QUOTES, 'UTF-8') ?>"
+            data-realtime-access-token="<?= htmlspecialchars((string)$adminTopnavAccessToken, ENT_QUOTES, 'UTF-8') ?>"
+            data-user-id="<?= htmlspecialchars((string)$topnavAdminUserId, ENT_QUOTES, 'UTF-8') ?>"
             data-role-label="Administrator"
         >
             <button type="button" data-topnav-notification-trigger class="admin-top-chip relative w-9 h-9 inline-flex items-center justify-center text-slate-300 hover:text-emerald-300" aria-label="Open notifications">
@@ -288,41 +336,53 @@ if ($topnavInitialSource !== '') {
                 <span class="material-symbols-outlined text-slate-300 text-sm">expand_more</span>
             </button>
 
-            <div id="profileMenu" class="absolute right-0 mt-2 w-64 hidden z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
-                <div class="px-4 py-3 border-b border-slate-100 bg-slate-50/70">
+            <div id="profileMenu" class="absolute right-0 z-50 mt-2 hidden w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+                <div class="border-b border-slate-100 bg-slate-50/70 px-4 py-3">
                     <p class="text-sm font-semibold text-slate-800"><?= htmlspecialchars($topnavDisplayName, ENT_QUOTES, 'UTF-8') ?></p>
                     <p class="text-xs text-slate-500"><?= htmlspecialchars($topnavDisplayRole, ENT_QUOTES, 'UTF-8') ?></p>
                 </div>
 
-                <div class="p-2 space-y-1">
-                <a href="profile.php" class="flex items-center gap-3 px-3 py-2 text-sm rounded-lg hover:bg-slate-100 text-slate-700 whitespace-nowrap">
-                    <span class="material-symbols-outlined text-[18px] text-slate-500">person</span>
-                    <span>My Profile</span>
-                </a>
-
-                <a href="settings.php" class="flex items-center gap-3 px-3 py-2 text-sm rounded-lg hover:bg-slate-100 text-slate-700 whitespace-nowrap">
-                    <span class="material-symbols-outlined text-[18px] text-slate-500">settings</span>
-                    <span>Settings</span>
-                </a>
-
-                <a href="support.php" class="flex items-center gap-3 px-3 py-2 text-sm rounded-lg hover:bg-slate-100 text-slate-700 whitespace-nowrap">
-                    <span class="material-symbols-outlined text-[18px] text-slate-500">support_agent</span>
-                    <span>Support</span>
-                </a>
-
-                <a href="create-announcement.php" class="flex items-center gap-3 px-3 py-2 text-sm rounded-lg hover:bg-slate-100 text-slate-700 whitespace-nowrap">
-                    <span class="material-symbols-outlined text-[18px] text-slate-500">campaign</span>
-                    <span>Create Announcement</span>
-                </a>
+                <div class="p-2">
+                    <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Account</p>
+                    <div class="space-y-1">
+                        <a href="profile.php" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 whitespace-nowrap">
+                            <span class="material-symbols-outlined text-[18px] text-slate-500">person</span>
+                            <span>My Profile</span>
+                        </a>
+                        <a href="profile.php" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 whitespace-nowrap">
+                            <span class="material-symbols-outlined text-[18px] text-slate-500">password</span>
+                            <span>Change Password</span>
+                        </a>
+                    </div>
                 </div>
 
-                <div class="border-t border-slate-100"></div>
+                <div class="mx-2 border-t border-slate-100"></div>
 
                 <div class="p-2">
-                <a href="/hris-system/pages/auth/logout.php" class="flex items-center gap-3 px-3 py-2 text-sm rounded-lg text-rose-600 hover:bg-rose-50 whitespace-nowrap">
-                    <span class="material-symbols-outlined text-[18px]">logout</span>
-                    <span>Logout</span>
-                </a>
+                    <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Tools</p>
+                    <div class="space-y-1">
+                        <a href="settings.php" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 whitespace-nowrap">
+                            <span class="material-symbols-outlined text-[18px] text-slate-500">settings</span>
+                            <span>Settings</span>
+                        </a>
+                        <a href="support.php" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 whitespace-nowrap">
+                            <span class="material-symbols-outlined text-[18px] text-slate-500">support_agent</span>
+                            <span>Support</span>
+                        </a>
+                        <a href="create-announcement.php" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 whitespace-nowrap">
+                            <span class="material-symbols-outlined text-[18px] text-slate-500">campaign</span>
+                            <span>Create Announcement</span>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="mx-2 border-t border-slate-100"></div>
+
+                <div class="p-2">
+                    <a href="/hris-system/pages/auth/logout.php" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-rose-600 transition hover:bg-rose-50 whitespace-nowrap">
+                        <span class="material-symbols-outlined text-[18px]">logout</span>
+                        <span>Logout</span>
+                    </a>
                 </div>
             </div>
         </div>

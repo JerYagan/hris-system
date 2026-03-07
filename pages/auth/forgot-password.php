@@ -2,6 +2,17 @@
 $pageTitle = 'Forgot Password | DA HRIS';
 
 ob_start();
+
+$errorCode = (string)($_GET['error'] ?? '');
+$errorMessage = '';
+
+if ($errorCode === 'invalid_email') {
+  $errorMessage = 'Please enter a valid email address.';
+} elseif ($errorCode === 'config') {
+  $errorMessage = 'Password reset is not configured. Check Supabase and SMTP credentials.';
+} elseif ($errorCode === 'send_failed') {
+  $errorMessage = 'Unable to send the reset code right now. Please try again.';
+}
 ?>
 
 <div class="min-h-screen flex items-center justify-center bg-gray-50 px-4">
@@ -16,8 +27,14 @@ ob_start();
 
     <h1 class="text-2xl font-bold mb-2">Forgot Password</h1>
     <p class="text-sm text-gray-500 mb-6">
-      Enter your registered email address. We will send you a link to reset your password.
+      Enter your registered email address. We will send a verification code that you can use to reset your password.
     </p>
+
+    <?php if ($errorMessage !== ''): ?>
+      <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <?= htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8') ?>
+      </div>
+    <?php endif; ?>
 
     <form action="forgot-password-sent.php" method="POST" class="space-y-4">
 
@@ -25,6 +42,8 @@ ob_start();
         <label class="text-sm font-medium">Email Address</label>
         <input
           type="email"
+          name="email"
+          autocomplete="email"
           required
           class="w-full mt-1 border rounded-lg p-2"
           placeholder="employee@da.gov.ph">

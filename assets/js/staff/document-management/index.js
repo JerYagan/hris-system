@@ -29,6 +29,14 @@
     const reviewStatusSelect = document.getElementById('reviewStatusSelect');
     const reviewViewDocumentButton = document.getElementById('reviewViewDocumentButton');
 
+    const documentPreviewModal = document.getElementById('documentPreviewModal');
+    const documentPreviewModalClose = document.getElementById('documentPreviewModalClose');
+    const documentPreviewModalCancel = document.getElementById('documentPreviewModalCancel');
+    const documentPreviewTitle = document.getElementById('documentPreviewTitle');
+    const documentPreviewStatusText = document.getElementById('documentPreviewStatusText');
+    const documentPreviewDownloadButton = document.getElementById('documentPreviewDownloadButton');
+    const documentPreviewFrame = document.getElementById('documentPreviewFrame');
+
     const archiveModal = document.getElementById('documentArchiveModal');
     const archiveOpenButtons = Array.from(document.querySelectorAll('[data-open-archive-modal]'));
     const archiveCloseButton = document.getElementById('documentArchiveModalClose');
@@ -339,6 +347,73 @@
         modal.classList.remove('flex');
     };
 
+    const buildEmbeddedPreviewUrl = (url) => {
+        const raw = (url || '').toString().trim();
+        if (raw === '') {
+            return '';
+        }
+
+        if (!/document-preview\.php/i.test(raw)) {
+            return raw;
+        }
+
+        return `${raw}${raw.includes('?') ? '&' : '?'}embedded=1`;
+    };
+
+    const openDocumentPreviewInNewTab = (url) => {
+        const rawUrl = (url || '').toString().trim();
+        if (rawUrl === '') {
+            return;
+        }
+
+        const previewWindow = window.open(rawUrl, '_blank', 'noopener');
+        if (previewWindow) {
+            previewWindow.opener = null;
+        }
+    };
+
+    const closeDocumentPreviewModal = () => {
+        closeModal(documentPreviewModal);
+        if (documentPreviewFrame) {
+            documentPreviewFrame.src = 'about:blank';
+        }
+        if (documentPreviewTitle) {
+            documentPreviewTitle.textContent = 'Document Preview';
+        }
+        if (documentPreviewStatusText) {
+            documentPreviewStatusText.textContent = 'Loading preview…';
+        }
+        if (documentPreviewDownloadButton) {
+            documentPreviewDownloadButton.href = '#';
+            documentPreviewDownloadButton.classList.add('pointer-events-none', 'opacity-60');
+        }
+    };
+
+    const openDocumentPreviewModal = ({ title, previewUrl, downloadUrl }) => {
+        const rawPreviewUrl = (previewUrl || '').toString().trim();
+        if (!documentPreviewModal || !documentPreviewFrame || rawPreviewUrl === '') {
+            return;
+        }
+
+        if (documentPreviewTitle) {
+            documentPreviewTitle.textContent = (title || 'Document Preview').toString();
+        }
+        if (documentPreviewStatusText) {
+            documentPreviewStatusText.textContent = 'Preview ready. Unsupported file types will show a download message.';
+        }
+
+        const resolvedDownloadUrl = (downloadUrl || rawPreviewUrl).toString().trim();
+        if (documentPreviewDownloadButton) {
+            documentPreviewDownloadButton.href = resolvedDownloadUrl || '#';
+            const canDownload = resolvedDownloadUrl !== '';
+            documentPreviewDownloadButton.classList.toggle('pointer-events-none', !canDownload);
+            documentPreviewDownloadButton.classList.toggle('opacity-60', !canDownload);
+        }
+
+        documentPreviewFrame.src = buildEmbeddedPreviewUrl(rawPreviewUrl);
+        openModal(documentPreviewModal);
+    };
+
     reviewOpenButtons.forEach((button) => {
         button.addEventListener('click', () => {
             if (!reviewDocumentId || !reviewDocumentTitle || !reviewDocumentCurrentStatus) {
@@ -350,11 +425,14 @@
             reviewDocumentCurrentStatus.textContent = button.getAttribute('data-current-status') || '-';
 
             const viewUrl = (button.getAttribute('data-document-view-url') || '').trim();
+            const downloadUrl = (button.getAttribute('data-document-download-url') || '').trim();
             if (reviewViewDocumentButton) {
-                reviewViewDocumentButton.href = viewUrl || '#';
                 const viewEnabled = viewUrl !== '';
                 reviewViewDocumentButton.classList.toggle('pointer-events-none', !viewEnabled);
                 reviewViewDocumentButton.classList.toggle('opacity-60', !viewEnabled);
+                reviewViewDocumentButton.onclick = viewEnabled
+                    ? () => openDocumentPreviewInNewTab(viewUrl)
+                    : null;
             }
 
             const previousRecommendation = normalize(button.getAttribute('data-previous-recommendation') || '');
@@ -389,6 +467,22 @@
         reviewModal.addEventListener('click', (event) => {
             if (event.target === reviewModal) {
                 closeModal(reviewModal);
+            }
+        });
+    }
+
+    if (documentPreviewModalClose) {
+        documentPreviewModalClose.addEventListener('click', closeDocumentPreviewModal);
+    }
+
+    if (documentPreviewModalCancel) {
+        documentPreviewModalCancel.addEventListener('click', closeDocumentPreviewModal);
+    }
+
+    if (documentPreviewModal) {
+        documentPreviewModal.addEventListener('click', (event) => {
+            if (event.target === documentPreviewModal) {
+                closeDocumentPreviewModal();
             }
         });
     }
@@ -628,7 +722,7 @@
             const status = escapeHtml(document.status || '-');
             const updated = escapeHtml(document.updated || '-');
             const source = escapeHtml(document.source || '-');
-            const viewUrl = (document.view_url || '').toString().trim();
+            const viewUrl = (document.preview_url || document.view_url || '').toString().trim();
             const downloadUrl = (document.download_url || '').toString().trim();
 
             const viewEnabled = viewUrl !== '';
@@ -655,9 +749,9 @@
                     <td class="px-4 py-3 text-gray-700">${updated}</td>
                     <td class="px-4 py-3">
                         <div class="flex items-center gap-2">
-                            <a href="${escapeHtml(viewUrl || '#')}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border ${viewClass}">
+                            <button type="button" data-preview-document="1" data-preview-title="${title}" data-preview-url="${escapeHtml(viewUrl || '')}" data-download-url="${escapeHtml(downloadUrl || '')}" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border ${viewClass}">
                                 <span class="material-symbols-outlined text-[14px]">visibility</span>View
-                            </a>
+                            </button>
                             <a href="${escapeHtml(downloadUrl || '#')}" target="_blank" rel="noopener noreferrer" download class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border ${downloadClass}">
                                 <span class="material-symbols-outlined text-[14px]">download</span>Download
                             </a>
@@ -727,6 +821,25 @@
             if (event.target === uploaderModal) {
                 closeModal(uploaderModal);
             }
+        });
+
+        uploaderModal.addEventListener('click', (event) => {
+            const target = event.target;
+            if (!(target instanceof Element)) {
+                return;
+            }
+
+            const previewButton = target.closest('[data-preview-document="1"]');
+            if (!(previewButton instanceof HTMLElement)) {
+                return;
+            }
+
+            const previewUrl = (previewButton.getAttribute('data-preview-url') || '').trim();
+            if (previewUrl === '') {
+                return;
+            }
+
+            openDocumentPreviewInNewTab(previewUrl);
         });
     }
 })();

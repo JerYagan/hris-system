@@ -131,12 +131,14 @@ $buildQuery = static function (array $params): string {
         $isRead = (bool)($notification['is_read'] ?? false);
         $category = (string)($notification['category'] ?? 'General');
       ?>
-      <div class="px-6 py-4 hover:bg-gray-50 transition-colors duration-150 flex items-start gap-4 <?= $isRead ? '' : 'bg-green-50' ?>" data-notification-item data-notification-id="<?= $escape((string)($notification['id'] ?? '')) ?>" data-is-read="<?= $isRead ? '1' : '0' ?>">
-        <span class="material-icons mt-1 text-daGreen"><?= $escape($categoryIcon($category)) ?></span>
+      <div class="cursor-pointer overflow-hidden px-6 py-4 transition-colors duration-150 hover:bg-gray-50 <?= $isRead ? '' : 'bg-green-50' ?>" data-notification-item data-notification-id="<?= $escape((string)($notification['id'] ?? '')) ?>" data-is-read="<?= $isRead ? '1' : '0' ?>">
+        <div class="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
+          <div class="flex w-0 flex-1 items-start gap-4 overflow-hidden">
+            <span class="material-icons mt-1 shrink-0 text-daGreen"><?= $escape($categoryIcon($category)) ?></span>
 
         <button
           type="button"
-          class="flex-1 text-left rounded-lg p-1 -m-1 hover:bg-gray-100 transition-colors duration-150"
+          class="block w-0 flex-1 overflow-hidden text-left rounded-lg p-1 -m-1 hover:bg-gray-100 transition-colors duration-150"
           data-open-notification
           data-notification-id="<?= $escape((string)($notification['id'] ?? '')) ?>"
           data-notification-title="<?= $escape((string)($notification['title'] ?? 'Notification')) ?>"
@@ -146,34 +148,19 @@ $buildQuery = static function (array $params): string {
           data-notification-link="<?= $escape((string)($notification['link_url'] ?? '')) ?>"
           data-notification-is-read="<?= $isRead ? '1' : '0' ?>"
         >
-          <p class="font-medium"><?= $escape((string)($notification['title'] ?? 'Notification')) ?></p>
-          <p class="text-sm text-gray-600"><?= $escape((string)($notification['body'] ?? '')) ?></p>
-          <p class="text-xs text-gray-500 mt-1"><?= $escape(formatNotificationCategoryLabel($category)) ?> · <?= $escape($formatPstDateTime((string)($notification['created_at'] ?? ''))) ?></p>
+          <div class="flex min-w-0 flex-wrap items-start justify-between gap-2">
+            <p class="block w-full min-w-0 truncate font-medium sm:w-auto sm:max-w-[calc(100%-8rem)]"><?= $escape((string)($notification['title'] ?? 'Notification')) ?></p>
+            <span class="shrink-0 text-xs text-gray-500"><?= $escape($formatPstDateTime((string)($notification['created_at'] ?? ''))) ?></span>
+          </div>
+          <p class="mt-1 block w-full min-w-0 text-sm text-gray-600" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?= $escape((string)($notification['body'] ?? '')) ?></p>
+          <p class="mt-1 block w-full min-w-0 truncate text-xs text-gray-500"><?= $escape(formatNotificationCategoryLabel($category)) ?></p>
         </button>
+          </div>
 
-        <div class="flex items-center gap-2">
-          <button
-            type="button"
-            class="border px-2 py-1 rounded text-xs inline-flex items-center gap-1 hover:bg-gray-50"
-            data-open-notification
-            data-notification-id="<?= $escape((string)($notification['id'] ?? '')) ?>"
-            data-notification-title="<?= $escape((string)($notification['title'] ?? 'Notification')) ?>"
-            data-notification-body="<?= $escape((string)($notification['body'] ?? '')) ?>"
-            data-notification-category="<?= $escape(formatNotificationCategoryLabel($category)) ?>"
-            data-notification-created="<?= $escape($formatPstDateTime((string)($notification['created_at'] ?? ''))) ?>"
-            data-notification-link="<?= $escape((string)($notification['link_url'] ?? '')) ?>"
-            data-notification-is-read="<?= $isRead ? '1' : '0' ?>"
-          >
-            <span class="material-icons text-xs">preview</span>Quick View
-          </button>
+        <div class="flex min-w-0 flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">
           <span class="w-2 h-2 bg-daGreen rounded-full <?= $isRead ? 'hidden' : '' ?>" title="Unread" data-notification-unread-dot></span>
-          <form method="post" data-notification-mark-form class="<?= $isRead ? 'hidden' : '' ?>">
-              <input type="hidden" name="csrf_token" value="<?= $escape(ensureCsrfToken()) ?>">
-              <input type="hidden" name="action" value="mark_notification_read">
-              <input type="hidden" name="notification_id" value="<?= $escape((string)($notification['id'] ?? '')) ?>">
-              <button type="submit" class="border px-2 py-1 rounded text-xs inline-flex items-center gap-1"><span class="material-icons text-xs">done</span>Mark Read</button>
-          </form>
           <span class="text-xs text-gray-500 <?= $isRead ? '' : 'hidden' ?>" data-notification-read-label>Read</span>
+        </div>
         </div>
       </div>
     <?php endforeach; ?>

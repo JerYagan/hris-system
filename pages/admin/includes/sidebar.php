@@ -14,14 +14,11 @@ $isDocumentSection = in_array($activePage, $documentPages, true);
                  -translate-x-full flex flex-col bg-slate-900"
 >
     <div class="px-4 pb-4">
-        <div class="admin-brand-wrap flex items-center justify-between gap-3">
-            <div class="flex items-center gap-3 min-w-0">
-                <div class="w-10 h-10 rounded-xl bg-slate-900/90 flex items-center justify-center shrink-0">
-                    <img src="../../assets/images/icon.png" alt="DA-ATI HRIS" class="w-6 h-6 object-contain">
-                </div>
+        <div class="admin-brand-wrap flex items-start justify-between gap-3">
+            <div class="min-w-0 flex-1">
                 <div class="admin-brand-text">
                     <h1 class="text-sm font-semibold text-slate-100 leading-tight tracking-wide">Admin Panel</h1>
-                    <p class="text-xs text-slate-400">DA-ATI HRIS</p>
+                    <p class="mt-1 text-xs text-slate-400">DA-ATI HRIS</p>
                 </div>
             </div>
             <button id="sidebarClose" type="button" class="admin-top-chip w-8 h-8 inline-flex items-center justify-center text-slate-300 hover:text-white focus:outline-none" aria-label="Close sidebar">
@@ -45,39 +42,57 @@ $isDocumentSection = in_array($activePage, $documentPages, true);
         </div>
 
         <div>
-            <button type="button" class="admin-category-toggle" data-cat-toggle="core-modules" aria-expanded="true">
-                <span class="admin-section-label text-[10px] font-semibold uppercase tracking-wider">Core Modules</span>
+            <button type="button" class="admin-category-toggle" data-cat-toggle="people-records" aria-expanded="true">
+                <span class="admin-section-label text-[10px] font-semibold uppercase tracking-wider">People and Records</span>
                 <span class="material-symbols-outlined admin-category-chevron text-[16px]">expand_more</span>
             </button>
-            <div class="mt-2 space-y-1" data-cat-content="core-modules">
-                <div class="space-y-1">
-                    <a href="recruitment.php" class="admin-nav-link <?= $isRecruitmentSection ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
-                        <span class="admin-nav-icon material-symbols-outlined text-[18px]">person_search</span>
-                        <span class="admin-link-label">Recruitment</span>
-                    </a>
-                    <a href="applicants.php" class="admin-nav-link ml-7 <?= $activePage === 'applicants.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
-                        <span class="admin-nav-icon material-symbols-outlined text-[18px]">badge</span>
-                        <span class="admin-link-label text-[13px]">Applicants Registration</span>
-                    </a>
-                    <a href="applicant-tracking.php" class="admin-nav-link ml-7 <?= $activePage === 'applicant-tracking.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
-                        <span class="admin-nav-icon material-symbols-outlined text-[18px]">track_changes</span>
-                        <span class="admin-link-label text-[13px]">Applicant Tracking</span>
-                    </a>
-                    <a href="evaluation.php" class="admin-nav-link ml-7 <?= $activePage === 'evaluation.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
-                        <span class="admin-nav-icon material-symbols-outlined text-[18px]">rule</span>
-                        <span class="admin-link-label text-[13px]">Evaluation</span>
-                    </a>
-                </div>
-                <div class="space-y-1">
-                    <a href="document-management.php" class="admin-nav-link <?= $isDocumentSection ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
-                        <span class="admin-nav-icon material-symbols-outlined text-[18px]">folder_open</span>
-                        <span class="admin-link-label">Document Management</span>
-                    </a>
-                    <a href="personal-information.php" class="admin-nav-link <?= $activePage === 'personal-information.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
-                        <span class="admin-nav-icon material-symbols-outlined text-[18px]">badge</span>
-                        <span class="admin-link-label">Personal Information</span>
-                    </a>
-                </div>
+            <div class="mt-2 space-y-1" data-cat-content="people-records">
+                <a href="personal-information.php" class="admin-nav-link <?= $activePage === 'personal-information.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
+                    <span class="admin-nav-icon material-symbols-outlined text-[18px]">badge</span>
+                    <span class="admin-link-label">Personal Information</span>
+                </a>
+                <a href="document-management.php" class="admin-nav-link <?= $isDocumentSection ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
+                    <span class="admin-nav-icon material-symbols-outlined text-[18px]">folder_open</span>
+                    <span class="admin-link-label">Document Management</span>
+                </a>
+                <a href="user-management.php" class="admin-nav-link <?= $activePage === 'user-management.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
+                    <span class="admin-nav-icon material-symbols-outlined text-[18px]">group</span>
+                    <span class="admin-link-label">User Management</span>
+                </a>
+            </div>
+        </div>
+
+        <div>
+            <button type="button" class="admin-category-toggle" data-cat-toggle="recruitment" aria-expanded="true">
+                <span class="admin-section-label text-[10px] font-semibold uppercase tracking-wider">Recruitment</span>
+                <span class="material-symbols-outlined admin-category-chevron text-[16px]">expand_more</span>
+            </button>
+            <div class="mt-2 space-y-1" data-cat-content="recruitment">
+                <a href="recruitment.php" class="admin-nav-link <?= $activePage === 'recruitment.php' || ($isRecruitmentSection && $activePage === 'recruitment.php') ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
+                    <span class="admin-nav-icon material-symbols-outlined text-[18px]">person_search</span>
+                    <span class="admin-link-label">Job Postings</span>
+                </a>
+                <a href="applicants.php" class="admin-nav-link <?= $activePage === 'applicants.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
+                    <span class="admin-nav-icon material-symbols-outlined text-[18px]">badge</span>
+                    <span class="admin-link-label">Applicant Registration</span>
+                </a>
+                <a href="applicant-tracking.php" class="admin-nav-link <?= $activePage === 'applicant-tracking.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
+                    <span class="admin-nav-icon material-symbols-outlined text-[18px]">track_changes</span>
+                    <span class="admin-link-label">Applicant Tracking</span>
+                </a>
+                <a href="evaluation.php" class="admin-nav-link <?= $activePage === 'evaluation.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
+                    <span class="admin-nav-icon material-symbols-outlined text-[18px]">rule</span>
+                    <span class="admin-link-label">Evaluation</span>
+                </a>
+            </div>
+        </div>
+
+        <div>
+            <button type="button" class="admin-category-toggle" data-cat-toggle="operations" aria-expanded="true">
+                <span class="admin-section-label text-[10px] font-semibold uppercase tracking-wider">Operations</span>
+                <span class="material-symbols-outlined admin-category-chevron text-[16px]">expand_more</span>
+            </button>
+            <div class="mt-2 space-y-1" data-cat-content="operations">
                 <a href="timekeeping.php" class="admin-nav-link <?= $activePage === 'timekeeping.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
                     <span class="admin-nav-icon material-symbols-outlined text-[18px]">schedule</span>
                     <span class="admin-link-label">Timekeeping</span>
@@ -90,37 +105,19 @@ $isDocumentSection = in_array($activePage, $documentPages, true);
                     <span class="admin-nav-icon material-symbols-outlined text-[18px]">analytics</span>
                     <span class="admin-link-label">Reports and Analytics</span>
                 </a>
-            </div>
-        </div>
-
-        <div>
-            <button type="button" class="admin-category-toggle" data-cat-toggle="administration" aria-expanded="true">
-                <span class="admin-section-label text-[10px] font-semibold uppercase tracking-wider">Administration</span>
-                <span class="material-symbols-outlined admin-category-chevron text-[16px]">expand_more</span>
-            </button>
-            <div class="mt-2 space-y-1" data-cat-content="administration">
                 <a href="learning-and-development.php" class="admin-nav-link <?= $activePage === 'learning-and-development.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
                     <span class="admin-nav-icon material-symbols-outlined text-[18px]">school</span>
                     <span class="admin-link-label">Learning and Development</span>
                 </a>
-                <a href="user-management.php" class="admin-nav-link <?= $activePage === 'user-management.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
-                    <span class="admin-nav-icon material-symbols-outlined text-[18px]">group</span>
-                    <span class="admin-link-label">User Management</span>
-                </a>
             </div>
         </div>
 
         <div>
-            <button type="button" class="admin-category-toggle" data-cat-toggle="account" aria-expanded="true">
-                <span class="admin-section-label text-[10px] font-semibold uppercase tracking-wider">Account</span>
+            <button type="button" class="admin-category-toggle" data-cat-toggle="system" aria-expanded="true">
+                <span class="admin-section-label text-[10px] font-semibold uppercase tracking-wider">System and Account</span>
                 <span class="material-symbols-outlined admin-category-chevron text-[16px]">expand_more</span>
             </button>
-            <div class="mt-2 space-y-1" data-cat-content="account">
-                <a href="profile.php" class="admin-nav-link <?= $activePage === 'profile.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
-                    <span class="admin-nav-icon material-symbols-outlined text-[18px]">person</span>
-                    <span class="admin-link-label">My Profile</span>
-                </a>
-
+            <div class="mt-2 space-y-1" data-cat-content="system">
                 <a href="settings.php" class="admin-nav-link <?= $activePage === 'settings.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
                     <span class="admin-nav-icon material-symbols-outlined text-[18px]">settings</span>
                     <span class="admin-link-label">Settings</span>
@@ -129,6 +126,11 @@ $isDocumentSection = in_array($activePage, $documentPages, true);
                 <a href="support.php" class="admin-nav-link <?= $activePage === 'support.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
                     <span class="admin-nav-icon material-symbols-outlined text-[18px]">support_agent</span>
                     <span class="admin-link-label">Support</span>
+                </a>
+
+                <a href="profile.php" class="admin-nav-link <?= $activePage === 'profile.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
+                    <span class="admin-nav-icon material-symbols-outlined text-[18px]">person</span>
+                    <span class="admin-link-label">My Profile</span>
                 </a>
 
                 <a href="/hris-system/pages/auth/logout.php" class="admin-nav-link text-rose-300 hover:text-rose-200">

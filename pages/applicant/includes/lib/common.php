@@ -182,6 +182,40 @@ if (!function_exists('redirectWithState')) {
     }
 }
 
+if (!function_exists('logApiRequestPerformance')) {
+    function logApiRequestPerformance(string $method, string $url, int $statusCode, int $durationMs, mixed $data, ?string $error = null): void
+    {
+        $enabledRaw = strtolower(trim((string)($_ENV['HRIS_PERF_LOGGING'] ?? $_SERVER['HRIS_PERF_LOGGING'] ?? '1')));
+        if (in_array($enabledRaw, ['0', 'false', 'off', 'no'], true)) {
+            return;
+        }
+
+        $thresholdMs = (int)($_ENV['HRIS_PERF_SLOW_MS'] ?? $_SERVER['HRIS_PERF_SLOW_MS'] ?? 300);
+        if ($thresholdMs < 0) {
+            $thresholdMs = 300;
+        }
+
+        if ($durationMs < $thresholdMs) {
+            return;
+        }
+
+        $requestPath = (string)parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+        $endpointPath = (string)parse_url($url, PHP_URL_PATH);
+        $rowCount = is_array($data) ? count($data) : 0;
+
+        error_log(sprintf(
+            '[HRIS][PERF][applicant] page=%s method=%s endpoint=%s status=%d duration_ms=%d rows=%d error=%s',
+            $requestPath !== '' ? $requestPath : 'unknown',
+            strtoupper($method),
+            $endpointPath !== '' ? $endpointPath : $url,
+            $statusCode,
+            $durationMs,
+            $rowCount,
+            $error !== null && $error !== '' ? $error : '-'
+        ));
+    }
+}
+
 if (!function_exists('apiRequest')) {
     function apiRequest(string $method, string $url, array $headers, ?array $body = null): array
     {
@@ -196,8 +230,11 @@ if (!function_exists('apiRequest')) {
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
         }
 
+        $startedAt = microtime(true);
         $responseBody = curl_exec($ch);
         $statusCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        $durationMs = (int)round((microtime(true) - $startedAt) * 1000);
         curl_close($ch);
 
         $decoded = is_string($responseBody) ? json_decode($responseBody, true) : null;
@@ -205,10 +242,14 @@ if (!function_exists('apiRequest')) {
             $decoded = [];
         }
 
+        logApiRequestPerformance($method, $url, $statusCode, $durationMs, $decoded, $error !== '' ? $error : null);
+
         return [
             'status' => $statusCode,
             'data' => $decoded,
             'raw' => (string)$responseBody,
+            'error' => $error !== '' ? $error : null,
+            'duration_ms' => $durationMs,
         ];
     }
 }

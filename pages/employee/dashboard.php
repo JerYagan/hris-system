@@ -71,11 +71,24 @@ $formatDateTime = static function (?string $dateTime): string {
     <p class="text-xs text-gray-400 mt-1"><?= $escape($dashboardSummary['open_requests_detail'] ?? 'No pending requests') ?></p>
   </div>
 
-  <!-- PRAISE -->
+  <!-- LEAVE CARD -->
   <div class="bg-white rounded-xl shadow p-5">
-    <p class="text-sm text-gray-500">PRAISE Status</p>
-    <p class="text-2xl font-bold mt-1 <?= $escape($dashboardSummary['praise_status_class'] ?? 'text-gray-700') ?>"><?= $escape($dashboardSummary['praise_status'] ?? 'No active evaluation') ?></p>
-    <p class="text-xs text-gray-400 mt-1"><?= $escape($dashboardSummary['praise_detail'] ?? 'No submitted cycle yet') ?></p>
+    <p class="text-sm text-gray-500">Leave/CTO Points</p>
+    <div class="mt-3 grid grid-cols-3 gap-3 text-center">
+      <div class="rounded-lg bg-sky-50 px-3 py-3">
+        <p class="text-[11px] font-semibold uppercase tracking-wide text-sky-700">SL</p>
+        <p class="mt-1 text-lg font-bold text-sky-800"><?= $escape(number_format((float)($dashboardSummary['leave_points']['sl'] ?? 0), 2)) ?></p>
+      </div>
+      <div class="rounded-lg bg-emerald-50 px-3 py-3">
+        <p class="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">VL</p>
+        <p class="mt-1 text-lg font-bold text-emerald-800"><?= $escape(number_format((float)($dashboardSummary['leave_points']['vl'] ?? 0), 2)) ?></p>
+      </div>
+      <div class="rounded-lg bg-amber-50 px-3 py-3">
+        <p class="text-[11px] font-semibold uppercase tracking-wide text-amber-700">CTO</p>
+        <p class="mt-1 text-lg font-bold text-amber-800"><?= $escape(number_format((float)($dashboardSummary['leave_points']['cto'] ?? 0), 2)) ?></p>
+      </div>
+    </div>
+    <p class="text-xs text-gray-400 mt-3">Visual summary of accumulated SL, VL, and CTO points based on admin-posted balance records.</p>
   </div>
 
 </div>
@@ -123,16 +136,16 @@ $formatDateTime = static function (?string $dateTime): string {
     <h2 class="font-semibold mb-4">Quick Actions</h2>
 
     <div class="grid grid-cols-1 gap-3 text-sm">
-      <a href="/hris-system/assets/Leave_Card_Template.xlsx" download class="inline-flex items-center justify-between border rounded-lg px-4 py-3 hover:bg-gray-50">
-        <span class="inline-flex items-center gap-2"><span class="material-icons text-daGreen text-base">download</span>Download Leave Card Template</span>
+      <a href="timekeeping.php#leave-balance" class="inline-flex items-center justify-between border rounded-lg px-4 py-3 hover:bg-gray-50">
+        <span class="inline-flex items-center gap-2"><span class="material-icons text-daGreen text-base">visibility</span>View Leave Card</span>
         <span class="material-icons text-gray-400 text-base">arrow_forward</span>
       </a>
       <a href="document-management.php?quick_action=upload-document" class="inline-flex items-center justify-between border rounded-lg px-4 py-3 hover:bg-gray-50">
         <span class="inline-flex items-center gap-2"><span class="material-icons text-daGreen text-base">upload_file</span>Upload Document</span>
         <span class="material-icons text-gray-400 text-base">arrow_forward</span>
       </a>
-      <a href="personal-reports.php?quick_action=generate-report" class="inline-flex items-center justify-between border rounded-lg px-4 py-3 hover:bg-gray-50">
-        <span class="inline-flex items-center gap-2"><span class="material-icons text-daGreen text-base">description</span>Generate Report</span>
+      <a href="personal-reports.php#available-downloads" class="inline-flex items-center justify-between border rounded-lg px-4 py-3 hover:bg-gray-50">
+        <span class="inline-flex items-center gap-2"><span class="material-icons text-daGreen text-base">description</span>Download Reports</span>
         <span class="material-icons text-gray-400 text-base">arrow_forward</span>
       </a>
     </div>

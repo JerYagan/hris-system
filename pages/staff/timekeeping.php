@@ -213,13 +213,12 @@ ob_start();
                     <th class="text-left px-4 py-3">Days</th>
                     <th class="text-left px-4 py-3">Status</th>
                     <th class="text-left px-4 py-3">Requested</th>
-                    <th class="text-left px-4 py-3">Action</th>
                 </tr>
             </thead>
             <tbody class="divide-y">
                 <?php if (empty($leaveRequestRows)): ?>
                     <tr>
-                        <td class="px-4 py-3 text-gray-500" colspan="7">No leave requests found.</td>
+                        <td class="px-4 py-3 text-gray-500" colspan="6">No leave requests found.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($leaveRequestRows as $row): ?>
@@ -233,27 +232,11 @@ ob_start();
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['days_count'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)($row['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($row['status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['requested_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3">
-                                <button
-                                    type="button"
-                                    data-open-leave-modal
-                                    data-request-id="<?= htmlspecialchars((string)($row['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                    data-employee-name="<?= htmlspecialchars((string)($row['employee_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                    data-current-status="<?= htmlspecialchars((string)($row['status_raw'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                    data-current-status-label="<?= htmlspecialchars((string)($row['status_label'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                    data-date-range="<?= htmlspecialchars((string)($row['date_range'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                    data-reason="<?= htmlspecialchars((string)($row['reason'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
-                                    class="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-md border border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
-                                >
-                                    <span class="material-symbols-outlined text-sm">fact_check</span>
-                                    Review
-                                </button>
-                            </td>
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
                 <tr id="leaveFilterEmptyRow" class="hidden">
-                    <td class="px-4 py-3 text-gray-500" colspan="7">No leave requests match your search/filter criteria.</td>
+                    <td class="px-4 py-3 text-gray-500" colspan="6">No leave requests match your search/filter criteria.</td>
                 </tr>
             </tbody>
         </table>

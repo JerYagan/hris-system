@@ -15,7 +15,7 @@ ob_start();
 
 <div class="mb-6">
     <h1 class="text-2xl font-bold text-gray-800">Applicant Registration</h1>
-    <p class="text-sm text-gray-500">Review incoming applications and submit verification-forwarding decisions.</p>
+    <p class="text-sm text-gray-500">Read-only applicant registration review for profile and document checking.</p>
 </div>
 
 <?php if ($state && $message): ?>
@@ -114,10 +114,8 @@ ob_start();
                 <button type="button" data-registration-modal-close="registrationModal" class="text-slate-500 hover:text-slate-700">✕</button>
             </div>
 
-            <form id="registrationForm" method="POST" action="applicant-registration.php" class="flex-1 min-h-0 flex flex-col">
-                <input type="hidden" name="form_action" value="save_applicant_decision">
-                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
-                <input type="hidden" name="application_id" id="registrationApplicationId" value="" required>
+            <div id="registrationForm" class="flex-1 min-h-0 flex flex-col">
+                <input type="hidden" id="registrationApplicationId" value="">
 
                 <div class="flex-1 min-h-0 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <div class="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-4">
@@ -128,29 +126,8 @@ ob_start();
                         <p id="registrationApplicationRef" class="text-xs text-slate-500 mt-1">-</p>
                     </div>
 
-                    <div>
-                        <label class="text-slate-600">Decision</label>
-                        <select id="registrationDecision" name="decision" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
-                            <option value="approve_for_next_stage">Approve for next stage</option>
-                            <option value="disqualify_application">Disqualify application</option>
-                            <option value="return_for_compliance">Return for compliance</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="text-slate-600">Decision Date</label>
-                        <input type="date" name="decision_date" value="<?= date('Y-m-d') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
-                    </div>
-                    <div>
-                        <label class="text-slate-600">Basis</label>
-                        <select name="basis" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
-                            <option value="Meets Minimum Qualification Standards">Meets Minimum Qualification Standards</option>
-                            <option value="Incomplete Documentary Requirements">Incomplete Documentary Requirements</option>
-                            <option value="Did Not Meet Required Eligibility">Did Not Meet Required Eligibility</option>
-                        </select>
-                    </div>
-                    <div class="md:col-span-2">
-                        <label class="text-slate-600">Notes</label>
-                        <textarea id="registrationDecisionNotes" name="remarks" rows="3" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Add notes for your decision"></textarea>
+                    <div class="md:col-span-2 rounded-lg border border-slate-200 bg-blue-50 px-4 py-3 text-slate-700">
+                        Staff access is read-only in applicant registration. Review the applicant profile and submitted documents only.
                     </div>
 
                     <div class="md:col-span-2">
@@ -159,14 +136,13 @@ ob_start();
                             <table class="w-full text-sm">
                                 <thead class="bg-slate-50 text-slate-600">
                                     <tr>
-                                        <th class="text-left px-3 py-2">Document Type</th>
                                         <th class="text-left px-3 py-2">File Name</th>
                                         <th class="text-left px-3 py-2">Uploaded</th>
                                         <th class="text-left px-3 py-2">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="registrationDocumentsBody" class="divide-y divide-slate-100">
-                                    <tr><td class="px-3 py-3 text-slate-500" colspan="4">No document selected.</td></tr>
+                                    <tr><td class="px-3 py-3 text-slate-500" colspan="3">No document selected.</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -174,10 +150,9 @@ ob_start();
                 </div>
 
                 <div class="px-6 py-4 border-t border-slate-200 bg-white sticky bottom-0 flex justify-end gap-3">
-                    <button type="button" data-registration-modal-close="registrationModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button>
-                    <button type="submit" id="registrationSubmit" class="px-5 py-2 rounded-md bg-green-700 text-white hover:bg-green-800">Save Decision</button>
+                    <button type="button" data-registration-modal-close="registrationModal" class="px-4 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Close</button>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 </div>

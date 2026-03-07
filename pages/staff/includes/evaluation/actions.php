@@ -10,6 +10,8 @@ if (!isValidCsrfToken($_POST['csrf_token'] ?? null)) {
     redirectWithState('error', 'Invalid request token. Please refresh and try again.');
 }
 
+redirectWithState('error', 'Staff evaluation is now read-only. Decision actions are unavailable.');
+
 $isAdminScope = strtolower((string)($staffRoleKey ?? '')) === 'admin';
 $resolvedStaffOfficeId = cleanText($staffOfficeId ?? null) ?? '';
 

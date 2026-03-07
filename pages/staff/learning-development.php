@@ -231,7 +231,7 @@ ob_start();
                             <td class="px-4 py-3\"><?= htmlspecialchars((string)$enrollmentRow['provider'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3\"><?= htmlspecialchars((string)$enrollmentRow['location'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3">
-                                <span class="inline-flex items-center justify-center min-w-[96px] px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($statusPillClass((string)$enrollmentRow['attendance_status']), ENT_QUOTES, 'UTF-8') ?>\"><?= htmlspecialchars((string)$enrollmentRow['attendance_status'], ENT_QUOTES, 'UTF-8') ?></span>
+                                <span class="inline-flex items-center justify-center min-w-[96px] px-2.5 py-1 text-xs font-medium rounded-full <?= htmlspecialchars($statusPillClass((string)$enrollmentRow['attendance_status']), ENT_QUOTES, 'UTF-8') ?>\"><?= htmlspecialchars((string)$enrollmentRow['attendance_status'], ENT_QUOTES, 'UTF-8') ?></span>
                             </td>
                             <td class="px-4 py-3">
                                 <?php if ($isManager): ?>

@@ -101,22 +101,6 @@ const initEmployeeNotificationsPage = () => {
     return result;
   };
 
-  document.querySelectorAll('[data-notification-mark-form]').forEach((form) => {
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const formElement = event.currentTarget;
-      if (!(formElement instanceof HTMLFormElement)) return;
-
-      const row = formElement.closest('[data-notification-item]');
-      const notificationId = row?.getAttribute('data-notification-id') || '';
-      const result = await markNotificationAsRead(notificationId);
-      if (!result) return;
-
-      applyReadUIState(row);
-      updateCountersAfterRead(Number.parseInt(String(result.unread_count ?? ''), 10));
-    });
-  });
-
   document.querySelectorAll('[data-open-notification]').forEach((button) => {
     button.addEventListener('click', async () => {
       if (!modal) return;
@@ -156,6 +140,35 @@ const initEmployeeNotificationsPage = () => {
         }
       }
     });
+  });
+
+  document.querySelectorAll('[data-notification-item]').forEach((row) => {
+    row.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof Element) || target.closest('a, button, form, input, select, textarea')) {
+        return;
+      }
+
+      row.querySelector('[data-open-notification]')?.dispatchEvent(new Event('click'));
+    });
+
+    row.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') {
+        return;
+      }
+
+      const target = event.target;
+      if (target instanceof Element && target.closest('a, button, form, input, select, textarea')) {
+        return;
+      }
+
+      event.preventDefault();
+      row.querySelector('[data-open-notification]')?.dispatchEvent(new Event('click'));
+    });
+
+    if (!row.hasAttribute('tabindex')) {
+      row.setAttribute('tabindex', '0');
+    }
   });
 
   document.querySelectorAll('[data-close-notification]').forEach((button) => {

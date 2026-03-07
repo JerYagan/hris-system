@@ -339,8 +339,79 @@ const initActionConfirmations = () => {
   });
 };
 
+const initLiveLeaveBalance = () => {
+  const getSection = () => document.getElementById('leave-balance');
+  const initialSection = getSection();
+  const refreshUrl = initialSection?.getAttribute('data-refresh-url');
+
+  if (!initialSection || !refreshUrl) {
+    return;
+  }
+
+  let isRefreshing = false;
+
+  const refreshSection = async () => {
+    const currentSection = getSection();
+    if (!currentSection || isRefreshing) {
+      return;
+    }
+
+    isRefreshing = true;
+
+    try {
+      const response = await window.fetch(refreshUrl, {
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        credentials: 'same-origin',
+      });
+
+      if (!response.ok) {
+        return;
+      }
+
+      const html = await response.text();
+      if (!html.trim()) {
+        return;
+      }
+
+      const parser = new window.DOMParser();
+      const documentFragment = parser.parseFromString(html, 'text/html');
+      const nextSection = documentFragment.getElementById('leave-balance') || documentFragment.body.firstElementChild;
+
+      if (!nextSection) {
+        return;
+      }
+
+      currentSection.replaceWith(nextSection);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      isRefreshing = false;
+    }
+  };
+
+  window.setInterval(refreshSection, 60000);
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      void refreshSection();
+    }
+  });
+
+  window.addEventListener('focus', () => {
+    void refreshSection();
+  });
+};
+
 const initEmployeeTimekeepingPage = async () => {
   runPageStatePass({ pageKey: 'employee-timekeeping' });
+
+  wireModal({
+    openSelector: '[data-open-attendance-export]',
+    closeSelector: '[data-close-attendance-export]',
+    modalId: 'attendanceExportModal',
+  });
 
   wireModal({
     openSelector: '[data-open-ob]',
@@ -358,11 +429,12 @@ const initEmployeeTimekeepingPage = async () => {
   await initFilterDatePickers();
   initGlobalTableFilters();
   initActionConfirmations();
+  initLiveLeaveBalance();
 
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
 
-    ['obModal', 'adjustmentModal'].forEach((modalId) => {
+    ['attendanceExportModal', 'obModal', 'adjustmentModal'].forEach((modalId) => {
       const modal = document.getElementById(modalId);
       if (modal && !modal.classList.contains('hidden')) {
         toggleModal(modal, false);

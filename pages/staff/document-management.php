@@ -123,7 +123,8 @@ ob_start();
                                             data-current-status="<?= htmlspecialchars((string)($row['status_label'] ?? 'Draft'), ENT_QUOTES, 'UTF-8') ?>"
                                             data-previous-recommendation="<?= htmlspecialchars((string)($row['previous_recommendation'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                             data-previous-notes="<?= htmlspecialchars((string)($row['previous_recommendation_notes'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                            data-document-view-url="<?= htmlspecialchars((string)($row['view_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                            data-document-view-url="<?= htmlspecialchars((string)($row['preview_url'] ?? $row['view_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                            data-document-download-url="<?= htmlspecialchars((string)($row['download_url'] ?? $row['view_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                             class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
                                         >
                                             <span class="material-symbols-outlined text-[14px]">fact_check</span>
@@ -231,7 +232,8 @@ ob_start();
                                         data-current-status="<?= htmlspecialchars((string)($row['status_label'] ?? 'Draft'), ENT_QUOTES, 'UTF-8') ?>"
                                         data-previous-recommendation="<?= htmlspecialchars((string)($row['previous_recommendation'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                         data-previous-notes="<?= htmlspecialchars((string)($row['previous_recommendation_notes'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                        data-document-view-url="<?= htmlspecialchars((string)($row['view_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-document-view-url="<?= htmlspecialchars((string)($row['preview_url'] ?? $row['view_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-document-download-url="<?= htmlspecialchars((string)($row['download_url'] ?? $row['view_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                         class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
                                     >
                                         <span class="material-symbols-outlined text-[14px]">fact_check</span>
@@ -466,16 +468,14 @@ ob_start();
             </div>
 
             <div>
-                <a
+                <button
+                    type="button"
                     id="reviewViewDocumentButton"
-                    href="#"
-                    target="_blank"
-                    rel="noopener noreferrer"
                     class="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                 >
                     <span class="material-symbols-outlined text-[15px]">visibility</span>
                     View Document
-                </a>
+                </button>
             </div>
 
             <div>
@@ -588,6 +588,33 @@ ob_start();
 
         <div class="px-6 py-4 border-t flex justify-end">
             <button type="button" id="uploaderDocumentsModalCancel" class="px-4 py-2 rounded-md bg-green-700 text-white text-sm hover:bg-green-800">Close</button>
+        </div>
+    </div>
+</div>
+
+<div id="documentPreviewModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/50 px-4">
+    <div class="w-full max-w-6xl max-h-[92vh] rounded-xl bg-white border shadow-lg overflow-hidden flex flex-col">
+        <div class="flex items-center justify-between px-6 py-4 border-b gap-4">
+            <div class="min-w-0">
+                <h3 id="documentPreviewTitle" class="text-lg font-semibold text-gray-800 truncate">Document Preview</h3>
+                <p class="text-xs text-gray-500 mt-1">Preview supported files without leaving the page.</p>
+            </div>
+            <button type="button" id="documentPreviewModalClose" class="text-gray-500 hover:text-gray-700" aria-label="Close preview modal">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <div class="px-6 py-3 border-b flex items-center justify-between gap-3">
+            <p id="documentPreviewStatusText" class="text-xs text-gray-500">Loading preview…</p>
+            <a id="documentPreviewDownloadButton" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-md border border-green-200 bg-green-50 text-green-700 hover:bg-green-100">
+                <span class="material-symbols-outlined text-[15px]">download</span>
+                Download File
+            </a>
+        </div>
+        <div class="flex-1 min-h-0 bg-slate-50">
+            <iframe id="documentPreviewFrame" class="w-full h-full border-0 bg-white" title="Document Preview"></iframe>
+        </div>
+        <div class="px-6 py-4 border-t flex justify-end">
+            <button type="button" id="documentPreviewModalCancel" class="px-4 py-2 rounded-md bg-slate-800 text-white text-sm hover:bg-slate-900">Close</button>
         </div>
     </div>
 </div>

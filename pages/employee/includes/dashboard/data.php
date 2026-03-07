@@ -25,6 +25,11 @@ $dashboardSummary = [
     'praise_detail' => 'No submitted cycle yet',
     'unread_notifications_count' => 0,
     'upcoming_leave_requests_count' => 0,
+    'leave_points' => [
+        'sl' => 0.0,
+        'vl' => 0.0,
+        'cto' => 0.0,
+    ],
 ];
 
 $dashboardWelcomeName = 'Employee';
@@ -151,6 +156,19 @@ $documentsResponse = apiRequest(
     . '&order=updated_at.desc&limit=25',
     $headers
 );
+
+$leaveBalanceResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/leave_balances?select=remaining_credits,leave_type:leave_types(leave_name,leave_code)'
+    . '&person_id=eq.' . rawurlencode((string)$employeePersonId)
+    . '&order=updated_at.desc&limit=500',
+    $headers
+);
+
+if (isSuccessful($leaveBalanceResponse)) {
+    $dashboardSummary['leave_points'] = resolveEmployeeLeavePointSummary((array)($leaveBalanceResponse['data'] ?? []));
+}
 
 $pendingDocumentCount = 0;
 if (isSuccessful($documentsResponse)) {
