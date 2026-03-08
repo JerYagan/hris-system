@@ -991,9 +991,7 @@ Fatal error: Uncaught Error: Call to undefined function isValidUuid() in D:\xamp
 - [x] Users with the role of admin cannot be disabled and limit the amount of users with the role of admin to 2
 
 ## Admin All modules:
-- [ ] Standardize action icons across all modules for consistency and better user experience. See photo.
-- [ ] Can you make the action menu go above the table instead of below it? The menu gets cut off when the table is at the bottom of the page, and it also provides a more consistent user experience across all modules to have the action menu appear above the table instead of below it.
-- [ ] Standardize action menu UI across all modules for consistency and better user experience.
+- [ ] Revert back the action menu, make it at the bottom of the page but also make sure that it doesn't get cut off when the table is at the bottom of the page. This will provide a more consistent user experience across all modules for admin users, allowing them to access the action menu without any issues regardless of their position on the page. Consider implementing a sticky action menu that remains visible and accessible as users scroll through the page, ensuring that they can easily access the actions they need without having to scroll back up to the top of the page.
 
 ## Landing Page revision:
 - [x] Hardcode the careers listed here instead of pulling from the database, this is because the careers listed here are just a selection of featured careers that we want to highlight to applicants, and they may not necessarily reflect all the careers available in the system.

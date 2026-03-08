@@ -386,16 +386,22 @@ $loadAdminDataTables = in_array($adminActivePage, $adminDataTablePages, true);
   }
 
   .admin-action-menu {
-    position: absolute;
-    right: 0;
-    bottom: calc(100% + 0.5rem);
-    z-index: 30;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 70;
     padding: 0.35rem;
     border: 1px solid rgb(226 232 240);
     border-radius: 1rem;
     background: rgba(255, 255, 255, 0.98);
     box-shadow: 0 18px 36px rgba(15, 23, 42, 0.16);
     backdrop-filter: blur(10px);
+    transform-origin: top right;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .admin-action-menu[data-menu-placement="top"] {
     transform-origin: bottom right;
   }
 

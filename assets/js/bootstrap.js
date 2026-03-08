@@ -31,6 +31,9 @@ const initAdminActionMenus = () => {
     return;
   }
 
+  const MENU_OFFSET = 8;
+  const VIEWPORT_MARGIN = 12;
+
   const getMenus = () => Array.from(document.querySelectorAll('[data-admin-action-menu]'));
 
   const setExpanded = (scope, expanded) => {
@@ -43,7 +46,57 @@ const initAdminActionMenus = () => {
   const closeAllMenus = () => {
     getMenus().forEach((menu) => {
       menu.classList.add('hidden');
+      menu.style.top = '';
+      menu.style.left = '';
+      menu.style.maxHeight = '';
+      menu.dataset.menuPlacement = 'bottom';
       setExpanded(menu.closest('[data-admin-action-scope]'), false);
+    });
+  };
+
+  const positionMenu = (scope, menu) => {
+    const toggle = scope?.querySelector('[data-admin-action-menu-toggle]');
+    if (!(toggle instanceof HTMLElement) || !(menu instanceof HTMLElement)) {
+      return;
+    }
+
+    const toggleRect = toggle.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const menuWidth = menuRect.width;
+    const preferredMenuHeight = menuRect.height;
+    const availableBelow = Math.max(0, viewportHeight - toggleRect.bottom - MENU_OFFSET - VIEWPORT_MARGIN);
+    const availableAbove = Math.max(0, toggleRect.top - MENU_OFFSET - VIEWPORT_MARGIN);
+    const placeBelow = availableBelow >= preferredMenuHeight || availableBelow >= availableAbove;
+    const availableHeight = placeBelow ? availableBelow : availableAbove;
+    const boundedLeft = Math.max(
+      VIEWPORT_MARGIN,
+      Math.min(toggleRect.right - menuWidth, viewportWidth - menuWidth - VIEWPORT_MARGIN)
+    );
+    const boundedTop = placeBelow
+      ? Math.max(
+          VIEWPORT_MARGIN,
+          Math.min(toggleRect.bottom + MENU_OFFSET, viewportHeight - Math.min(preferredMenuHeight, availableHeight) - VIEWPORT_MARGIN)
+        )
+      : Math.max(
+          VIEWPORT_MARGIN,
+          toggleRect.top - MENU_OFFSET - Math.min(preferredMenuHeight, availableHeight)
+        );
+
+    menu.dataset.menuPlacement = placeBelow ? 'bottom' : 'top';
+    menu.style.left = `${Math.round(boundedLeft)}px`;
+    menu.style.top = `${Math.round(boundedTop)}px`;
+    menu.style.maxHeight = `${Math.max(0, Math.floor(availableHeight))}px`;
+  };
+
+  const refreshOpenMenus = () => {
+    getMenus().forEach((menu) => {
+      if (menu.classList.contains('hidden')) {
+        return;
+      }
+
+      positionMenu(menu.closest('[data-admin-action-scope]'), menu);
     });
   };
 
@@ -67,10 +120,14 @@ const initAdminActionMenus = () => {
       closeAllMenus();
       if (willOpen) {
         menu.classList.remove('hidden');
+        positionMenu(scope, menu);
         setExpanded(scope, true);
       }
     });
   });
+
+  window.addEventListener('resize', refreshOpenMenus);
+  window.addEventListener('scroll', refreshOpenMenus, true);
 
   document.addEventListener('click', (event) => {
     if (!(event.target instanceof Element) || event.target.closest('[data-admin-action-scope]')) {

@@ -417,7 +417,7 @@ $rolePill = static function (string $roleKey): array {
                             <td class="px-4 py-3"><span class="inline-flex items-center justify-center min-w-[90px] px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td class="px-4 py-3">
                                 <div data-person-action-scope data-admin-action-scope class="relative inline-block text-left">
-                                    <button type="button" data-admin-action-menu-toggle aria-haspopup="menu" aria-expanded="false" class="admin-action-button w-full min-w-[160px]">
+                                    <button type="button" data-admin-action-menu-toggle aria-haspopup="menu" aria-expanded="false" class="admin-action-button">
                                         <span class="admin-action-button-label">
                                             <span class="material-symbols-outlined">more_horiz</span>
                                             Actions
