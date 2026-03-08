@@ -792,7 +792,6 @@ $loginTotalPages = max(1, (int)ceil($loginHistoryTotal / $loginPerPage));
 $loginPage = min($loginPage, $loginTotalPages);
 $loginOffset = ($loginPage - 1) * $loginPerPage;
 $loginHistoryRows = array_slice($loginHistoryRowsFiltered, $loginOffset, $loginPerPage);
-
 $loginEventOptions = array_keys($loginEventOptions);
 sort($loginEventOptions);
 $loginDeviceOptions = array_keys($loginDeviceOptions);

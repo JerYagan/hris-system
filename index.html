@@ -227,30 +227,54 @@
         <div class="max-w-7xl mx-auto px-6">
             <div class="mb-10">
                 <h2 class="text-3xl font-bold">Careers</h2>
-                <p class="text-gray-600 mt-2">Current ATI opportunities aligned with the active recruitment postings in the system.</p>
+                <p class="text-gray-600 mt-2">Featured ATI career opportunities highlighted for prospective applicants.</p>
             </div>
 
             <div id="careersGrid" class="grid md:grid-cols-3 gap-6">
-                <article class="rounded-2xl border border-gray-200 bg-gray-50 p-6 animate-pulse">
-                    <div class="h-3 w-24 rounded bg-gray-200 mb-4"></div>
-                    <div class="h-6 w-3/4 rounded bg-gray-200 mb-3"></div>
-                    <div class="h-4 w-full rounded bg-gray-200 mb-2"></div>
-                    <div class="h-4 w-5/6 rounded bg-gray-200 mb-6"></div>
-                    <div class="h-4 w-2/3 rounded bg-gray-200"></div>
+                <article class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                    <p class="text-xs uppercase tracking-wide text-daGreen font-semibold mb-3">Featured Career</p>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">Administrative Aide VI</h3>
+                    <p class="text-sm leading-relaxed text-gray-600 mb-5">Provides frontline administrative and records support for office operations, prepares official correspondence, maintains document tracking, and helps ensure timely coordination of internal and external transactions.</p>
+                    <dl class="space-y-2 text-sm text-gray-600">
+                        <div class="flex items-center justify-between gap-4">
+                            <dt class="font-medium text-gray-900">Posting date</dt>
+                            <dd>Mar 3, 2026</dd>
+                        </div>
+                        <div class="flex items-center justify-between gap-4">
+                            <dt class="font-medium text-gray-900">Closing date</dt>
+                            <dd>Mar 18, 2026</dd>
+                        </div>
+                    </dl>
                 </article>
-                <article class="rounded-2xl border border-gray-200 bg-gray-50 p-6 animate-pulse">
-                    <div class="h-3 w-24 rounded bg-gray-200 mb-4"></div>
-                    <div class="h-6 w-3/4 rounded bg-gray-200 mb-3"></div>
-                    <div class="h-4 w-full rounded bg-gray-200 mb-2"></div>
-                    <div class="h-4 w-5/6 rounded bg-gray-200 mb-6"></div>
-                    <div class="h-4 w-2/3 rounded bg-gray-200"></div>
+                <article class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                    <p class="text-xs uppercase tracking-wide text-daGreen font-semibold mb-3">Featured Career</p>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">Training Specialist I</h3>
+                    <p class="text-sm leading-relaxed text-gray-600 mb-5">Supports learning and development initiatives by coordinating training schedules, assisting with curriculum delivery logistics, consolidating attendance and evaluation records, and preparing activity documentation.</p>
+                    <dl class="space-y-2 text-sm text-gray-600">
+                        <div class="flex items-center justify-between gap-4">
+                            <dt class="font-medium text-gray-900">Posting date</dt>
+                            <dd>Mar 5, 2026</dd>
+                        </div>
+                        <div class="flex items-center justify-between gap-4">
+                            <dt class="font-medium text-gray-900">Closing date</dt>
+                            <dd>Mar 20, 2026</dd>
+                        </div>
+                    </dl>
                 </article>
-                <article class="rounded-2xl border border-gray-200 bg-gray-50 p-6 animate-pulse">
-                    <div class="h-3 w-24 rounded bg-gray-200 mb-4"></div>
-                    <div class="h-6 w-3/4 rounded bg-gray-200 mb-3"></div>
-                    <div class="h-4 w-full rounded bg-gray-200 mb-2"></div>
-                    <div class="h-4 w-5/6 rounded bg-gray-200 mb-6"></div>
-                    <div class="h-4 w-2/3 rounded bg-gray-200"></div>
+                <article class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                    <p class="text-xs uppercase tracking-wide text-daGreen font-semibold mb-3">Featured Career</p>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">Accountant I</h3>
+                    <p class="text-sm leading-relaxed text-gray-600 mb-5">Handles accounting support functions such as voucher and disbursement review, financial report preparation, account reconciliation, and compliance with government budgeting and auditing standards.</p>
+                    <dl class="space-y-2 text-sm text-gray-600">
+                        <div class="flex items-center justify-between gap-4">
+                            <dt class="font-medium text-gray-900">Posting date</dt>
+                            <dd>Mar 7, 2026</dd>
+                        </div>
+                        <div class="flex items-center justify-between gap-4">
+                            <dt class="font-medium text-gray-900">Closing date</dt>
+                            <dd>Mar 24, 2026</dd>
+                        </div>
+                    </dl>
                 </article>
             </div>
 
@@ -287,87 +311,6 @@
             mobileMenu.classList.toggle("hidden");
         });
 
-        const careersGrid = document.getElementById("careersGrid");
-
-        const formatDate = (value) => {
-            if (!value) {
-                return "-";
-            }
-
-            const parsed = new Date(`${value}T00:00:00`);
-            if (Number.isNaN(parsed.getTime())) {
-                return value;
-            }
-
-            return parsed.toLocaleDateString("en-PH", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-            });
-        };
-
-        const truncateText = (value, maxLength = 180) => {
-            if (!value) {
-                return "Please log in to view the full posting details and application requirements.";
-            }
-
-            return value.length > maxLength ? `${value.slice(0, maxLength).trim()}…` : value;
-        };
-
-        const renderCareers = async () => {
-            if (!careersGrid) {
-                return;
-            }
-
-            try {
-                const response = await fetch("./api/public-careers.php", {
-                    headers: {
-                        "Accept": "application/json"
-                    }
-                });
-
-                const payload = await response.json();
-                const items = Array.isArray(payload.items) ? payload.items : [];
-
-                if (!items.length) {
-                    careersGrid.innerHTML = `
-                        <article class="md:col-span-3 rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
-                            <span class="material-icons text-4xl text-daGreen">work_outline</span>
-                            <h3 class="mt-4 text-xl font-semibold text-gray-900">No open positions at the moment</h3>
-                            <p class="mt-2 text-sm text-gray-600">Please check back soon or log in to monitor future recruitment postings.</p>
-                        </article>
-                    `;
-                    return;
-                }
-
-                careersGrid.innerHTML = items.map((item) => `
-                    <article class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-                        <p class="text-xs uppercase tracking-wide text-daGreen font-semibold mb-3">${item.plantilla_item_no ? `Plantilla ${item.plantilla_item_no}` : 'Career Opportunity'}</p>
-                        <h3 class="text-xl font-semibold text-gray-900 mb-3">${item.title}</h3>
-                        <p class="text-sm leading-relaxed text-gray-600 mb-5">${truncateText(item.description)}</p>
-                        <dl class="space-y-2 text-sm text-gray-600">
-                            <div class="flex items-center justify-between gap-4">
-                                <dt class="font-medium text-gray-900">Posting date</dt>
-                                <dd>${formatDate(item.open_date)}</dd>
-                            </div>
-                            <div class="flex items-center justify-between gap-4">
-                                <dt class="font-medium text-gray-900">Closing date</dt>
-                                <dd>${formatDate(item.close_date)}</dd>
-                            </div>
-                        </dl>
-                    </article>
-                `).join("");
-            } catch (error) {
-                careersGrid.innerHTML = `
-                    <article class="md:col-span-3 rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
-                        <span class="material-icons text-4xl text-red-500">error_outline</span>
-                        <h3 class="mt-4 text-xl font-semibold text-gray-900">Unable to load careers right now</h3>
-                        <p class="mt-2 text-sm text-gray-600">Please refresh the page or log in to view recruitment postings.</p>
-                    </article>
-                `;
-            }
-        };
-
         new Swiper(".heroSwiper", {
             loop: true,
             speed: 800,
@@ -384,8 +327,6 @@
                 prevEl: ".swiper-button-prev",
             },
         });
-
-        renderCareers();
     </script>
 </body>
 
