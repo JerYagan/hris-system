@@ -68,6 +68,66 @@ if (!function_exists('userManagementPrimaryRoleKey')) {
     }
 }
 
+if (!function_exists('userManagementActiveAdminUserIds')) {
+    function userManagementActiveAdminUserIds(string $supabaseUrl, array $headers): array
+    {
+        $adminRoleId = userManagementAdminRoleId($supabaseUrl, $headers);
+        if ($adminRoleId === '') {
+            return [];
+        }
+
+        $adminAssignmentsResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/user_role_assignments?select=user_id&role_id=eq.' . $adminRoleId . '&expires_at=is.null&limit=2000',
+            $headers
+        );
+
+        if (!isSuccessful($adminAssignmentsResponse)) {
+            return [];
+        }
+
+        $adminUserIds = [];
+        foreach ((array)($adminAssignmentsResponse['data'] ?? []) as $assignment) {
+            $assignedUserId = strtolower(trim((string)($assignment['user_id'] ?? '')));
+            if ($assignedUserId !== '') {
+                $adminUserIds[$assignedUserId] = true;
+            }
+        }
+
+        return $adminUserIds;
+    }
+}
+
+if (!function_exists('userManagementUserHasActiveAdminRole')) {
+    function userManagementUserHasActiveAdminRole(string $targetUserId, string $supabaseUrl, array $headers): bool
+    {
+        if (!userManagementIsValidUuid($targetUserId)) {
+            return false;
+        }
+
+        $adminUserIds = userManagementActiveAdminUserIds($supabaseUrl, $headers);
+        return isset($adminUserIds[strtolower(trim($targetUserId))]);
+    }
+}
+
+if (!function_exists('userManagementCanAssignAdminRole')) {
+    function userManagementCanAssignAdminRole(string $targetUserId, string $supabaseUrl, array $headers): bool
+    {
+        if (!userManagementIsValidUuid($targetUserId)) {
+            return false;
+        }
+
+        $adminUserIds = userManagementActiveAdminUserIds($supabaseUrl, $headers);
+        $targetKey = strtolower(trim($targetUserId));
+
+        if (isset($adminUserIds[$targetKey])) {
+            return true;
+        }
+
+        return count($adminUserIds) < 2;
+    }
+}
+
 if (!function_exists('userManagementCreateEmployeeAccount')) {
     function userManagementCreateEmployeeAccount(
         string $email,
@@ -190,43 +250,11 @@ if (!function_exists('userManagementCreateEmployeeAccount')) {
 if (!function_exists('userManagementIsProtectedAdminTarget')) {
     function userManagementIsProtectedAdminTarget(string $targetUserId, string $adminUserId, string $supabaseUrl, array $headers): bool
     {
-        if ($targetUserId === '' || $adminUserId === '') {
+        if ($targetUserId === '') {
             return false;
         }
 
-        if (strcasecmp($targetUserId, $adminUserId) === 0) {
-            return true;
-        }
-
-        $adminRoleId = userManagementAdminRoleId($supabaseUrl, $headers);
-        if ($adminRoleId === '') {
-            return false;
-        }
-
-        $adminAssignmentsResponse = apiRequest(
-            'GET',
-            $supabaseUrl . '/rest/v1/user_role_assignments?select=user_id&role_id=eq.' . $adminRoleId . '&is_primary=eq.true&expires_at=is.null&limit=2000',
-            $headers
-        );
-
-        if (!isSuccessful($adminAssignmentsResponse)) {
-            return false;
-        }
-
-        $adminUserIds = [];
-        foreach ((array)($adminAssignmentsResponse['data'] ?? []) as $assignment) {
-            $assignedUserId = strtolower(trim((string)($assignment['user_id'] ?? '')));
-            if ($assignedUserId !== '') {
-                $adminUserIds[$assignedUserId] = true;
-            }
-        }
-
-        $targetKey = strtolower(trim($targetUserId));
-        if (!isset($adminUserIds[$targetKey])) {
-            return false;
-        }
-
-        return count($adminUserIds) <= 1;
+        return userManagementUserHasActiveAdminRole($targetUserId, $supabaseUrl, $headers);
     }
 }
 
@@ -687,6 +715,10 @@ if ($action === 'role') {
     $assignableRolePolicy = array_flip(userManagementAssignableRolePolicy());
     if ($selectedRoleKey === '' || !isset($assignableRolePolicy[$selectedRoleKey])) {
         redirectWithState('error', 'Selected role is not assignable based on current privilege policy.');
+    }
+
+    if ($selectedRoleKey === 'admin' && !userManagementCanAssignAdminRole($userId, $supabaseUrl, $headers)) {
+        redirectWithState('error', 'Only 2 active admin accounts are allowed. Reassign an existing admin before promoting another user.');
     }
 
     $assignedAt = $effectivityDate ? ($effectivityDate . 'T00:00:00Z') : gmdate('c');

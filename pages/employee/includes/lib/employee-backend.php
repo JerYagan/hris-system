@@ -28,6 +28,9 @@ if (!function_exists('resolveEmployeeIdentityContext')) {
             'role_assignment_id' => null,
             'employee_role_assigned_at' => null,
             'person_id' => null,
+            'first_name' => null,
+            'surname' => null,
+            'display_name' => null,
             'employment_id' => null,
             'office_id' => null,
             'office_name' => null,
@@ -84,7 +87,12 @@ if (!function_exists('resolveEmployeeIdentityContext')) {
             $context['error'] = 'Employee person profile could not be resolved.';
             return $context;
         }
+        $firstName = cleanText($personRow['first_name'] ?? null);
+        $surname = cleanText($personRow['surname'] ?? null);
         $context['person_id'] = $personId;
+        $context['first_name'] = $firstName;
+        $context['surname'] = $surname;
+        $context['display_name'] = cleanText(trim((string)$firstName . ' ' . (string)$surname));
 
         $employmentResponse = apiRequest(
             'GET',
@@ -116,6 +124,44 @@ if (!function_exists('resolveEmployeeIdentityContext')) {
         $context['position_title'] = cleanText($employmentRow['position']['position_title'] ?? null);
         $context['is_valid'] = true;
         $context['error'] = null;
+
+        return $context;
+    }
+}
+
+if (!function_exists('resolveEmployeeIdentityContextCached')) {
+    function resolveEmployeeIdentityContextCached(string $supabaseUrl, array $headers, string $employeeUserId, int $ttlSeconds = 45): array
+    {
+        $cache = isset($_SESSION['employee_identity_context_cache']) && is_array($_SESSION['employee_identity_context_cache'])
+            ? (array)$_SESSION['employee_identity_context_cache']
+            : [];
+
+        $cacheUserId = (string)($cache['user_id'] ?? '');
+        $cachedAt = (int)($cache['cached_at'] ?? 0);
+        $cachedContext = isset($cache['context']) && is_array($cache['context'])
+            ? (array)$cache['context']
+            : [];
+
+        $cacheIsFresh = $cacheUserId !== ''
+            && $cacheUserId === $employeeUserId
+            && $cachedAt > 0
+            && (time() - $cachedAt) <= max(5, $ttlSeconds)
+            && !empty($cachedContext)
+            && (bool)($cachedContext['is_valid'] ?? false);
+
+        if ($cacheIsFresh) {
+            return $cachedContext;
+        }
+
+        $context = resolveEmployeeIdentityContext($supabaseUrl, $headers, $employeeUserId);
+
+        if ((bool)($context['is_valid'] ?? false)) {
+            $_SESSION['employee_identity_context_cache'] = [
+                'user_id' => $employeeUserId,
+                'cached_at' => time(),
+                'context' => $context,
+            ];
+        }
 
         return $context;
     }

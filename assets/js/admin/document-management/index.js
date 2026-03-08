@@ -523,31 +523,6 @@ const initDatePickers = async () => {
   });
 };
 
-const renderDocumentPreview = (url, extension) => {
-  const content = document.getElementById('documentViewerContent');
-  if (!content) {
-    return;
-  }
-
-  const ext = String(extension || '').toLowerCase();
-  if (!url) {
-    content.innerHTML = '<p class="text-sm text-slate-500">Preview is unavailable for this document.</p>';
-    return;
-  }
-
-  if (['pdf'].includes(ext)) {
-    content.innerHTML = `<iframe src="${escapeHtml(url)}" class="w-full h-full rounded-lg border border-slate-200" title="Document Preview"></iframe>`;
-    return;
-  }
-
-  if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(ext)) {
-    content.innerHTML = `<img src="${escapeHtml(url)}" alt="Document Preview" class="max-h-full max-w-full rounded-lg border border-slate-200 bg-white p-2" />`;
-    return;
-  }
-
-  content.innerHTML = '<p class="text-sm text-slate-500">Inline preview is not supported for this file type. Use Open in New Tab.</p>';
-};
-
 const initDocumentActions = () => {
   document.querySelectorAll('[data-doc-review]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -567,28 +542,6 @@ const initDocumentActions = () => {
       setValue('archiveDocumentTitle', button.getAttribute('data-document-title') || '-');
       setValue('archiveCurrentStatus', button.getAttribute('data-current-status') || '-');
       openModal('archiveDocumentModal');
-    });
-  });
-
-  document.querySelectorAll('[data-doc-view]').forEach((button) => {
-    button.addEventListener('click', () => {
-      closeAllActionMenus();
-      const title = button.getAttribute('data-document-title') || 'Document Viewer';
-      const bucket = button.getAttribute('data-document-bucket') || '-';
-      const path = button.getAttribute('data-document-path') || '-';
-      const url = button.getAttribute('data-document-url') || '';
-      const extension = String(path).split('.').pop() || '';
-
-      setText('documentViewerTitle', title);
-      setText('documentViewerMeta', `${bucket}/${path}`);
-
-      const openLink = document.getElementById('documentViewerOpenLink');
-      if (openLink) {
-        openLink.setAttribute('href', url || '#');
-      }
-
-      renderDocumentPreview(url, extension);
-      openModal('documentViewerModal');
     });
   });
 
@@ -614,7 +567,8 @@ const initDocumentActions = () => {
           const category = escapeHtml(item.category || '-');
           const status = escapeHtml(item.status || '-');
           const updated = escapeHtml(item.updated || '-');
-          const url = escapeHtml(item.url || '#');
+          const previewUrl = escapeHtml(item.preview_url || '#');
+          const downloadUrl = escapeHtml(item.download_url || item.url || '#');
           return `
             <tr>
               <td class="px-4 py-3">${title}</td>
@@ -623,10 +577,10 @@ const initDocumentActions = () => {
               <td class="px-4 py-3">${updated}</td>
               <td class="px-4 py-3">
                 <div class="inline-flex items-center gap-2">
-                  <a href="${url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">
+                  <a href="${previewUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">
                     <span class="material-symbols-outlined text-[14px]">visibility</span>View
                   </a>
-                  <a href="${url}" download class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
+                  <a href="${downloadUrl}" download class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
                     <span class="material-symbols-outlined text-[14px]">download</span>Download
                   </a>
                 </div>

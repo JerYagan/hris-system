@@ -272,8 +272,8 @@ foreach ($documents as $document) {
 
     $bucket = trim((string)($document['storage_bucket'] ?? ''));
     $path = trim((string)($document['storage_path'] ?? ''));
-    $storageLabel = trim(($bucket !== '' ? ($bucket . '/') : '') . $path);
     $documentUrl = $buildStoragePublicUrl((string)$supabaseUrl, $bucket, $path);
+    $previewUrl = '/hris-system/pages/admin/document-preview.php?document_id=' . rawurlencode($documentId) . '&return_to=' . rawurlencode('/hris-system/pages/admin/document-management.php');
 
     $documentReviews = $reviewsByDocument[$documentId] ?? [];
     $latestReview = $documentReviews[0] ?? null;
@@ -314,7 +314,8 @@ foreach ($documents as $document) {
         'latest_review_notes' => (string)($latestReview['notes'] ?? ''),
         'storage_bucket' => $bucket,
         'storage_path' => $path,
-        'storage_label' => $storageLabel,
+        'preview_url' => $previewUrl,
+        'download_url' => $documentUrl,
         'document_url' => $documentUrl,
     ];
 
@@ -379,7 +380,8 @@ foreach ($documents as $document) {
         'updated_at' => $updatedAt,
         'storage_bucket' => $bucket,
         'storage_path' => $path,
-        'storage' => $storageLabel,
+        'preview_url' => $previewUrl,
+        'download_url' => $documentUrl,
         'url' => $documentUrl,
     ];
 }

@@ -9,8 +9,8 @@
 
       <div class="flex items-center gap-3 min-w-0">
         <div class="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 shadow-sm">
-          <img src="/hris-system/assets/images/Bagong_Pilipinas_logo.png" alt="Bagong Pilipinas" class="h-8 w-auto object-contain" loading="lazy">
-          <img src="/hris-system/assets/images/DA_logo.png" alt="Department of Agriculture" class="h-8 w-8 object-contain" loading="lazy">
+          <img src="<?= htmlspecialchars(systemAppPath('/assets/images/Bagong_Pilipinas_logo.png'), ENT_QUOTES, 'UTF-8') ?>" alt="Bagong Pilipinas" class="h-8 w-auto object-contain" loading="lazy">
+          <img src="<?= htmlspecialchars(systemAppPath('/assets/images/DA_logo.png'), ENT_QUOTES, 'UTF-8') ?>" alt="Department of Agriculture" class="h-8 w-8 object-contain" loading="lazy">
         </div>
         <div class="leading-tight min-w-0">
           <div class="text-[10px] font-semibold uppercase tracking-[0.24em] text-gray-500">Bagong Pilipinas</div>
@@ -182,7 +182,7 @@
           <div class="mx-2 border-t border-slate-100"></div>
 
           <div class="p-2">
-            <a href="/hris-system/pages/auth/logout.php" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-rose-600 transition hover:bg-rose-50">
+            <a href="<?= htmlspecialchars(systemAppPath('/pages/auth/logout.php'), ENT_QUOTES, 'UTF-8') ?>" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-rose-600 transition hover:bg-rose-50">
               <span class="material-icons text-[18px]">logout</span>
               <span>Logout</span>
             </a>
@@ -193,4 +193,4 @@
   </div>
 </header>
 
-<script src="/hris-system/assets/js/shared/topnav-notifications.js" defer></script>
+<script src="<?= htmlspecialchars(systemAppPath('/assets/js/shared/topnav-notifications.js'), ENT_QUOTES, 'UTF-8') ?>" defer></script>

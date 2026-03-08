@@ -28,6 +28,7 @@ Rules applied while consolidating:
 - [ ] Apply ATI branding updates and Bagong Pilipinas logo.
 - [ ] Implement localized JS by role/page via `assets/js/bootstrap.js` dynamic imports.
 - [ ] Enforce loading/skeleton/empty/filter-empty/error/success states for data-driven pages.
+- [ ] Enforce staged shell-first async loading on slow pages: render shell immediately, load visible summary first, defer secondary widgets/tabs/history panels to follow-up requests.
 - [ ] Enforce server-side pagination/filter/sort for large lists.
 - [ ] Apply admin list/modal baseline design on all review tables:
   - [ ] Header with title + helper text
@@ -956,21 +957,6 @@ Fatal error: Uncaught Error: Call to undefined function isValidUuid() in D:\xamp
 
 ---
 
-To dos
-Applicant side:
-Change application timeline design
-Audit UI
-
-Add a modal for notifications in all users, when opening a notification it should open a modal that shows the details of the notification, it'll also mark the notifications as read. This will improve the user experience by providing a more visually appealing interface for viewing notifications and allowing users to easily manage their notifications without having to navigate away from the current page. The modal should also include any relevant information related to the notification, such as links or attachments, to provide users with all the necessary context when viewing their notifications.
-
-Change the sidebar behavior to overlay instead of pushing the content when opened in the staff and employee side.
-
-Add utility/tool pages in admin, such as OCR for document processing, setting up RFID for timekeeping, setting up email templates for notifications, etc. This will provide the admin with additional tools and functionalities to manage and maintain the system more effectively, and it will also help streamline various processes such as document processing, timekeeping setup, and notification management within the system.
-
-change timekeeping CTO filing to match the excel sent by the client
-
----
-
 ## 23) Additional Revisions Identified from Notes
 
 ### Applicant Module
@@ -992,62 +978,19 @@ change timekeeping CTO filing to match the excel sent by the client
 
 ---
 
-## Additional Revisions
+## Admin Document Management revision
+- [x] In the Document Management module, when viewing files, it should open up a new tab with a fullscreen view of the document, without any buttons or other elements on the page, just the document itself. If the file type is not supported for preview, it should show a message that says "File type not supported for preview. Please download the file to view its contents." instead of showing a placeholder text or redirecting to the login page. This will provide a more immersive and focused experience for admin users when viewing documents in the Document Management module, allowing them to easily view the contents of the document without any distractions or unnecessary elements on the screen. The new tab should also have a clear and intuitive way to close it and return to the previous page, such as a close button or a keyboard shortcut, to ensure a seamless user experience when viewing documents in the system.
 
-### Admin
-- [ ] Support module: Topnav profile menu doesn't open when in this page
-- [ ] Timekeeping module: Add fields for SL, VL, and CTO points for logging employee leave and CTO requests, and ensure that these points are properly calculated and reflected in the employee's leave card and dashboard. (In the "Log Leave from Leave Card section")
-- [ ] When the user is in the Support Page, the sidebar doesn't work. Also the topnav profile menu doesn't open
-- [ ] There's an error when opening Learning and Development module
-- [ ] Notification Modal in topnav should close when opening the profile menu and vise versa, and the same applies when opening the sidebar. This will help prevent overlapping UI elements and ensure a smoother user experience when interacting with the top navigation and sidebar, allowing users to focus on one element at a time without confusion or visual clutter.
+## Admin Personal Information module revision:
+- [ ] In the Staff & Employee section, limit the scope of users to display to only staff and employees respectively. Avoid showing all users in the system such as the admin and 
 
-### Staff
-- [x] Document Management module: When viewing files, it should open up a new tab with a fullscreen view of the document, without any buttons or other elements on the page, just the document itself. If the file type is not supported for preview, it should show a message that says "File type not supported for preview. Please download the file to view its contents." instead of showing a placeholder text or redirecting to the login page.
+## Admin Document Management revision:
+- [x] Remove any indication of the file path or bucket name across the system when viewing documents, and ensure that the document viewing experience is seamless and does not expose any technical details about the file storage or management in the backend.
 
-- [x] Applicant Registration module: When viewing files, it should open up a new tab with a fullscreen view of the document, without any buttons or other elements on the page, just the document itself. If the file type is not supported for preview, it should show a message that says "File type not supported for preview. Please download the file to view its contents." instead of showing a placeholder text or redirecting to the login page.
+## Admin User Management module revision:
+- [x] Users with the role of admin cannot be disabled and limit the amount of users with the role of admin to 2
 
-### Employee
-- [ ] Fix the Employee Profile not persisting, just copy the logic from staff and make sure that the profile updates are properly saved and reflected in the employee's profile. This will ensure that employees can successfully update their profile information and have it persist in the system, allowing them to maintain accurate and up-to-date personal information in their profiles.
-- [x] Profile Module: Remove Approved Spouse Entries and Spouse Entry Requests sections
-- [x] Remove the Notifications link in sidebar
-- [x] In the Dashboard, change the Leave Card stat card to "Add Visual Points of Employee (e.g SL, VL, CTO points)", and in the quick action change the "Download Leave Card Template" to " View Leave Card" which shows leave points and cto points
-- [x] Timekeeping module: change the "Download Leave Card Template" to "View Leave Card" but the functionality will be the same as the download leave card template.
-- [x] Timekeeping module: Remove the Action column in Leave/CTO Requests section and change the header text to Leave Status
-- [x] Timekeeping module: Change the Leave Balance header into Leave/CTO Balance and verify if the data shown here matches the data inserted by the admin.
-
-- [x] Verify if the SL, VL, CTO points are properly implemented and reflected in the employee's leave card and dashboard, ensuring that the points are accurately calculated based on the employee's leave entitlements and usage, and that they are displayed correctly in the respective sections of the system for employees to easily track their leave balances and points.
-- [x] Timekeeping module: In Attendance Records section, add a button that downloads/exports the record in a pdf format, the employee should be able to select the date range for the attendance record they want to download, and the downloaded pdf should include the employee's name, the date range selected, a table of their attendance records for that period, and a space for the employee's signature and the date of signing. This will provide employees with a convenient way to keep a record of their attendance and have a formal document that they can use for various purposes such as leave applications, performance reviews, or personal record-keeping.
-
-- [x] Timekeeping Module: The Leave/CTO Balance section in timekeeping module should show the current balance of leave and CTO points for the employee, and it should be updated in real-time based on any leave or CTO requests that the employee submits or any adjustments made by the admin. This will allow employees to easily track their leave and CTO balances and make informed decisions when applying for leave or requesting CTO, ensuring that they have accurate information about their available points at all times.
-- [x] Timekeeping Module: Remove Request Time Adjustment button at the top
-### Employee
-- [ ] In My Reports module: Employee should be able to download their own reports without requesting it
-- [ ] My Reports Module: Standardize status badge colors to match the rest of the system.
-- [ ] My Reports Module: Remove Performance Summary Report
- 4501843091
-
-
-- [x] Applicant registration module, Can you make the view page fullscreen with the only the file name, back button, and download file button visible? don't add any padding to the main container and make the file viewer takes the full width and height of the screen, this will provide a more immersive and focused experience for staff members when viewing documents in the Document Management module, allowing them to easily view the contents of the document without any distractions or unnecessary elements on the screen. The back button should allow them to easily return to the previous page, while the download button should provide a convenient way for them to download the document if needed.
-- [x] Can you do the same in Document management module in all sections where viewing files opens up a new tab.
-- [x] In viewing applicant profile remove the document type column, and make the document viewing works because it result in 404 bucket not found. This is in Applicant Registration module
-- [x] Remove Access column in Recruitment module and sub modules.
-- [x] Can you make the document preview a modal instead of opening the file in a new tab? This will provide a more seamless and integrated user experience for staff members when viewing documents in the Document Management module, allowing them to easily view the contents of the document without having to navigate away from the current page or open a new tab. The modal should also include options for downloading the document or closing the preview, providing staff with convenient access to the document while maintaining their workflow within the system.
-- [x] In Recruitment/Applicant Registration/Applicant Tracking/Evaluation, remove all decisions. Staff should be read-only in these modules, with no decision-making capabilities. This will help clarify the role of staff in the recruitment and applicant management process, ensuring that they are focused on supporting the admin and providing necessary information without being involved in the decision-making aspects of the recruitment process.
-- [x] In document manegement module, all sections, all file viewing results in a placeholder text and some are redirecting to login page. I think some of the files are not supported for viewing. Is there a way to show a message that says "File type not supported for preview. Please download the file to view its contents." instead of showing the placeholder text or redirecting to the login page when the file type is not supported for preview? This will provide a clearer and more user-friendly message to staff members when they encounter unsupported file types in the Document Management module, improving the overall user experience and reducing confusion when trying to view uploaded documents.
-- [x] In Staff view, Learning and Development module, Employee Training Records, change the status text colors to match the badge color instead of just plain black text
-- [x] In Staff view, Document Management module, Document Uploaders section. When viewing the documents uploaded by the user, it results in a placeholder text (see image) and some are redirecting to login page. I think some of the files are not supported for viewing. Is there a way to show a message that says "File type not supported for preview. Please download the file to view its contents." instead of showing the placeholder text or redirecting to the login page when the file type is not supported for preview? This will provide a clearer and more user-friendly message to staff members when they encounter unsupported file types in the Document Uploaders section, improving the overall user experience and reducing confusion when trying to view uploaded documents.
-
-
-
-
-
-- [x] In Admin Dashboard remove, pending leave requests and view notifications section
-- [x] In Staff view, timekeeping module, remove the action column on Leave/CTO Requests section
-- [x] In Staff view, personal information module, in the pending admin approval section, shorten the status to "Pending" instead of "Pending Admin Action"
-- [x] In Employee view, Dashboard, remove Praise Status in statcard and change it to leave card download link (See timekeeping module in employee view for reference)
-
-Admin Timekeeping:
-- [ ] Logging Leave Entry should pop up a sweetalert confirmation
-
-Employee Dashboard:
-- [ ] There shouldn't be an "Earned" or limi to SL and Vl for employees, it should just be a total accumulation of points based on the amount of points the admin inserted for the employee. For example if the admin inserted 10 SL points for the employee, the employee's dashboard should reflect 10 SL points, and if the admin later inserts 5 more SL points, the employee's dashboard should update to show 15 SL points. The same applies to VL and CTO points as well. This will allow employees to easily track their total accumulated leave points without any confusion or limitations on the number of points they can earn. So make sure this change reflects in the timekeeping and dashboard module for employees
+## Admin All modules:
+- [ ] Standardize action icons across all modules for consistency and better user experience. See photo.
+- [ ] Can you make the action menu go above the table instead of below it? The menu gets cut off when the table is at the bottom of the page, and it also provides a more consistent user experience across all modules to have the action menu appear above the table instead of below it.
+- [ ] Standardize action menu UI across all modules for consistency and better user experience.

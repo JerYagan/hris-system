@@ -102,6 +102,16 @@ $staffRecommendationsResponse = apiRequest(
     $headers
 );
 
+$employeeRoleAssignmentsResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/user_role_assignments?select=user_id,role:roles!inner(role_key)'
+    . '&role.role_key=eq.employee'
+    . '&expires_at=is.null'
+    . '&limit=10000',
+    $headers
+);
+
 $employeeOptionsResponse = apiRequest(
     'GET',
     $supabaseUrl
@@ -129,6 +139,7 @@ $dataLoadError = $appendError($dataLoadError, 'CTO', $ctoRequestsResponse);
 $dataLoadError = $appendError($dataLoadError, 'Holidays', $holidaysResponse);
 $dataLoadError = $appendError($dataLoadError, 'Holiday payroll policy', $holidayPolicyResponse);
 $dataLoadError = $appendError($dataLoadError, 'Staff recommendations', $staffRecommendationsResponse);
+$dataLoadError = $appendError($dataLoadError, 'Employee role assignments', $employeeRoleAssignmentsResponse);
 $dataLoadError = $appendError($dataLoadError, 'Employees', $employeeOptionsResponse);
 $dataLoadError = $appendError($dataLoadError, 'Leave types', $leaveTypeOptionsResponse);
 
@@ -145,11 +156,26 @@ $staffRecommendationRows = [];
 $employeeOptions = [];
 $leaveTypeOptions = [];
 
+$employeeRoleUserIds = [];
+if (isSuccessful($employeeRoleAssignmentsResponse)) {
+    foreach ((array)$employeeRoleAssignmentsResponse['data'] as $assignmentRaw) {
+        $assignment = (array)$assignmentRaw;
+        $userId = trim((string)($assignment['user_id'] ?? ''));
+        if ($userId !== '') {
+            $employeeRoleUserIds[$userId] = true;
+        }
+    }
+}
+
 if (isSuccessful($employeeOptionsResponse)) {
     foreach ((array)$employeeOptionsResponse['data'] as $personRaw) {
         $person = (array)$personRaw;
         $personId = trim((string)($person['id'] ?? ''));
+        $userId = trim((string)($person['user_id'] ?? ''));
         if ($personId === '') {
+            continue;
+        }
+        if ($userId === '' || !isset($employeeRoleUserIds[$userId])) {
             continue;
         }
 
@@ -166,7 +192,7 @@ if (isSuccessful($employeeOptionsResponse)) {
             'label' => $displayLabel,
             'name' => $fullName,
             'employee_code' => $employeeCode,
-            'user_id' => (string)($person['user_id'] ?? ''),
+            'user_id' => $userId,
         ];
     }
 }
@@ -179,10 +205,20 @@ if (isSuccessful($leaveTypeOptionsResponse)) {
             continue;
         }
 
+        $leaveCode = strtolower(trim((string)($type['leave_code'] ?? '')));
+        if (!in_array($leaveCode, ['sl', 'vl', 'cto'], true)) {
+            continue;
+        }
+
+        $leaveName = (string)($type['leave_name'] ?? 'Leave');
+        if ($leaveCode === 'cto') {
+            $leaveName = 'Others';
+        }
+
         $leaveTypeOptions[] = [
             'id' => $typeId,
-            'leave_name' => (string)($type['leave_name'] ?? 'Leave'),
-            'leave_code' => strtolower(trim((string)($type['leave_code'] ?? ''))),
+            'leave_name' => $leaveName,
+            'leave_code' => $leaveCode,
         ];
     }
 }

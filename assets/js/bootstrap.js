@@ -26,6 +26,85 @@ const adminModuleMap = {
   support: () => import('/hris-system/assets/js/admin/support/index.js'),
 };
 
+const initAdminActionMenus = () => {
+  if (document.body?.dataset?.adminActionMenusInitialized === 'true') {
+    return;
+  }
+
+  const getMenus = () => Array.from(document.querySelectorAll('[data-admin-action-menu]'));
+
+  const setExpanded = (scope, expanded) => {
+    const toggle = scope?.querySelector('[data-admin-action-menu-toggle]');
+    if (toggle instanceof HTMLElement) {
+      toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    }
+  };
+
+  const closeAllMenus = () => {
+    getMenus().forEach((menu) => {
+      menu.classList.add('hidden');
+      setExpanded(menu.closest('[data-admin-action-scope]'), false);
+    });
+  };
+
+  document.querySelectorAll('[data-admin-action-menu-toggle]').forEach((toggle) => {
+    if (!(toggle instanceof HTMLElement)) {
+      return;
+    }
+
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const scope = toggle.closest('[data-admin-action-scope]');
+      const menu = scope?.querySelector('[data-admin-action-menu]');
+      if (!(menu instanceof HTMLElement)) {
+        return;
+      }
+
+      const willOpen = menu.classList.contains('hidden');
+      closeAllMenus();
+      if (willOpen) {
+        menu.classList.remove('hidden');
+        setExpanded(scope, true);
+      }
+    });
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!(event.target instanceof Element) || event.target.closest('[data-admin-action-scope]')) {
+      return;
+    }
+
+    closeAllMenus();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeAllMenus();
+    }
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!(event.target instanceof Element)) {
+      return;
+    }
+
+    const menu = event.target.closest('[data-admin-action-menu]');
+    if (!menu || event.target.closest('[data-admin-action-menu-toggle]')) {
+      return;
+    }
+
+    const actionable = event.target.closest('a, button, [role="menuitem"]');
+    if (actionable) {
+      closeAllMenus();
+    }
+  });
+
+  document.body.dataset.adminActionMenusInitialized = 'true';
+};
+
 const init = async () => {
   const role = document.body?.dataset?.role || '';
   const page = document.body?.dataset?.page || '';
@@ -33,6 +112,8 @@ const init = async () => {
   if (role !== 'admin') {
     return;
   }
+
+  initAdminActionMenus();
 
   const loader = adminModuleMap[page];
   if (!loader) {

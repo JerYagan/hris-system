@@ -11,6 +11,87 @@ if (!function_exists('array_is_list')) {
     }
 }
 
+if (!function_exists('systemEnvValue')) {
+    function systemEnvValue(string $key): ?string
+    {
+        $value = $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key);
+        if ($value === false || $value === null) {
+            return null;
+        }
+
+        $trimmed = trim((string)$value);
+        return $trimmed === '' ? null : $trimmed;
+    }
+}
+
+if (!function_exists('systemNormalizeBasePath')) {
+    function systemNormalizeBasePath(?string $path): string
+    {
+        $value = trim((string)$path);
+        if ($value === '' || $value === '/') {
+            return '';
+        }
+
+        $normalized = '/' . trim(str_replace('\\', '/', $value), '/');
+        return $normalized === '/' ? '' : $normalized;
+    }
+}
+
+if (!function_exists('systemAppBasePath')) {
+    function systemAppBasePath(): string
+    {
+        static $cachedBasePath = null;
+        if ($cachedBasePath !== null) {
+            return $cachedBasePath;
+        }
+
+        $configuredUrl = systemEnvValue('APP_BASE_URL');
+        if ($configuredUrl !== null) {
+            $parsedPath = parse_url($configuredUrl, PHP_URL_PATH);
+            if (is_string($parsedPath)) {
+                return $cachedBasePath = systemNormalizeBasePath($parsedPath);
+            }
+        }
+
+        $candidates = [
+            (string)parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH),
+            (string)($_SERVER['SCRIPT_NAME'] ?? ''),
+            (string)($_SERVER['PHP_SELF'] ?? ''),
+        ];
+
+        foreach ($candidates as $candidate) {
+            $normalizedCandidate = str_replace('\\', '/', trim($candidate));
+            if ($normalizedCandidate === '') {
+                continue;
+            }
+
+            foreach (['/pages/', '/api/', '/storage/', '/assets/'] as $marker) {
+                $markerPosition = strpos($normalizedCandidate, $marker);
+                if ($markerPosition === false) {
+                    continue;
+                }
+
+                return $cachedBasePath = systemNormalizeBasePath(substr($normalizedCandidate, 0, $markerPosition));
+            }
+        }
+
+        return $cachedBasePath = '/hris-system';
+    }
+}
+
+if (!function_exists('systemAppPath')) {
+    function systemAppPath(string $path = ''): string
+    {
+        $basePath = systemAppBasePath();
+        $suffix = '/' . ltrim($path, '/');
+        if ($suffix === '/') {
+            $suffix = '';
+        }
+
+        return ($basePath === '' ? '' : $basePath) . $suffix;
+    }
+}
+
 if (!function_exists('formatDateTimeForPhilippines')) {
     function formatDateTimeForPhilippines(?string $dateTime, string $format = 'M j, Y g:i A'): string
     {

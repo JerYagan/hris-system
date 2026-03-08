@@ -12,9 +12,19 @@ Reduce the slowest page loads first with the smallest, safest changes before dee
 
 1. Fix **shared request overhead** first
 2. Reduce **initial payload size** on the heaviest admin/staff pages
-3. Split **detail-heavy pages** into on-demand/lazy sections
+3. Split **detail-heavy pages** into staged shell-first, summary-first, and on-demand/lazy sections
 4. Replace **fetch-then-count** and broad scans with summaries/aggregates
 5. Only then tune lower-impact employee/applicant pages
+
+## Standard Slow-Page Loading Pattern
+
+Apply this to every page listed in the slow-pages checklist unless a simpler server-side-only optimization is clearly sufficient:
+
+1. Return the page shell immediately with visible section skeletons.
+2. Load the visible summary region first through a deferred partial or endpoint.
+3. Load secondary widgets, tabs, side panels, history blocks, and exports in a second pass or on interaction.
+4. Keep retry and error states per async region, not only at full-page level.
+5. Avoid reusing one giant data loader for every partial; split query work by section so the second pass actually defers backend cost.
 
 ---
 
@@ -218,6 +228,10 @@ Reduce the slowest page loads first with the smallest, safest changes before dee
 ## Phase 3 - Important dashboards and data-heavy operational pages
 
 ### 10. Simplify Admin, Staff, and Employee dashboards
+**Status**
+- In progress
+- Employee dashboard staged summary-first async hydration completed on 2026-03-08 in [pages/employee/dashboard.php](pages/employee/dashboard.php), [pages/employee/includes/dashboard/data.php](pages/employee/includes/dashboard/data.php), [pages/employee/includes/dashboard/content.php](pages/employee/includes/dashboard/content.php), and [assets/js/employee/dashboard/index.js](assets/js/employee/dashboard/index.js)
+
 **Files to change first**
 - [pages/admin/includes/dashboard/data.php](pages/admin/includes/dashboard/data.php)
 - [pages/staff/includes/dashboard/data.php](pages/staff/includes/dashboard/data.php)
@@ -232,9 +246,24 @@ Reduce the slowest page loads first with the smallest, safest changes before dee
 **Target outcome**
 - Faster first paint on landing pages for all roles
 
+**Completed in this pass**
+- Employee dashboard now returns a lightweight shell immediately instead of blocking the full page on all dashboard queries
+- Employee dashboard summary cards now load before announcements, requests, trainings, and recent activity through staged deferred partials
+- Dashboard query work is now split by stage in [pages/employee/includes/dashboard/data.php](pages/employee/includes/dashboard/data.php) so the secondary pass defers real backend work instead of only delaying render
+- Employee dashboard now reuses short-lived employee context and dashboard payload caches, and the redundant summary-stage profile lookup has been removed
+- Employee dashboard now batches independent Supabase reads in parallel for summary and secondary stages to reduce cold-load wall time
+- Syntax smoke test passed on 2026-03-08 for [pages/employee/dashboard.php](pages/employee/dashboard.php), [pages/employee/includes/dashboard/data.php](pages/employee/includes/dashboard/data.php), [pages/employee/includes/dashboard/content.php](pages/employee/includes/dashboard/content.php), and [assets/js/employee/dashboard/index.js](assets/js/employee/dashboard/index.js); authenticated browser smoke test remains pending
+
+**Rollout rule for remaining slow pages**
+- Apply the same staged shell-first pattern to [pages/admin/personal-information.php](pages/admin/personal-information.php), [pages/admin/payroll-management.php](pages/admin/payroll-management.php), [pages/admin/recruitment.php](pages/admin/recruitment.php), [pages/staff/payroll-management.php](pages/staff/payroll-management.php), [pages/employee/personal-information.php](pages/employee/personal-information.php), [pages/staff/personal-information.php](pages/staff/personal-information.php), [pages/applicant/apply.php](pages/applicant/apply.php), [pages/applicant/job-view.php](pages/applicant/job-view.php), [pages/applicant/job-list.php](pages/applicant/job-list.php), and [pages/applicant/profile.php](pages/applicant/profile.php)
+
 ---
 
 ### 11. Simplify Admin User Management
+**Status**
+- In progress
+- Completed safe metadata caching and dead-query removal on 2026-03-07 in [pages/admin/includes/user-management/data.php](pages/admin/includes/user-management/data.php)
+
 **Files to change first**
 - [pages/admin/user-management.php](pages/admin/user-management.php)
 - [pages/admin/includes/user-management/data.php](pages/admin/includes/user-management/data.php)
@@ -243,6 +272,10 @@ Reduce the slowest page loads first with the smallest, safest changes before dee
 1. Paginate user list
 2. Load roles/offices/positions metadata once and cache briefly
 3. Move hired-applicant conversion helper data to modal or async endpoint
+
+**Completed in this pass**
+- Added brief session caching for relatively static user-management metadata: roles, active offices, office directory, and positions
+- Removed the unused organizations query from initial load
 
 ---
 

@@ -56,7 +56,7 @@ $resolveProfilePhotoUrl = static function (?string $rawPath): ?string {
     }
 
     $encoded = implode('/', array_map('rawurlencode', $segments));
-    return '/hris-system/storage/document/' . $encoded;
+    return systemAppPath('/storage/document/' . $encoded);
 };
 
 if ($adminTopnavCacheIsFresh) {
@@ -177,8 +177,8 @@ if ($topnavInitialSource !== '') {
 
         <div class="hidden md:flex items-center gap-3 rounded-xl bg-white/5 px-3 py-1.5">
             <div class="flex items-center gap-2">
-                <img src="/hris-system/assets/images/DA_logo.png" alt="Department of Agriculture" class="h-8 w-8 object-contain" loading="lazy">
-                <img src="/hris-system/assets/images/Bagong_Pilipinas_logo.png" alt="Bagong Pilipinas" class="h-8 w-auto object-contain" loading="lazy">
+                <img src="<?= htmlspecialchars(systemAppPath('/assets/images/DA_logo.png'), ENT_QUOTES, 'UTF-8') ?>" alt="Department of Agriculture" class="h-8 w-8 object-contain" loading="lazy">
+                <img src="<?= htmlspecialchars(systemAppPath('/assets/images/Bagong_Pilipinas_logo.png'), ENT_QUOTES, 'UTF-8') ?>" alt="Bagong Pilipinas" class="h-8 w-auto object-contain" loading="lazy">
             </div>
             <div class="leading-tight">
                 <span class="block text-[10px] uppercase tracking-[0.24em] text-slate-300">Bagong Pilipinas</span>
@@ -379,7 +379,7 @@ if ($topnavInitialSource !== '') {
                 <div class="mx-2 border-t border-slate-100"></div>
 
                 <div class="p-2">
-                    <a href="/hris-system/pages/auth/logout.php" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-rose-600 transition hover:bg-rose-50 whitespace-nowrap">
+                    <a href="<?= htmlspecialchars(systemAppPath('/pages/auth/logout.php'), ENT_QUOTES, 'UTF-8') ?>" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-rose-600 transition hover:bg-rose-50 whitespace-nowrap">
                         <span class="material-symbols-outlined text-[18px]">logout</span>
                         <span>Logout</span>
                     </a>
@@ -389,4 +389,4 @@ if ($topnavInitialSource !== '') {
     </div>
 </header>
 
-<script src="/hris-system/assets/js/shared/topnav-notifications.js" defer></script>
+<script src="<?= htmlspecialchars(systemAppPath('/assets/js/shared/topnav-notifications.js'), ENT_QUOTES, 'UTF-8') ?>" defer></script>

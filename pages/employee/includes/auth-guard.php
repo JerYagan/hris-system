@@ -9,6 +9,6 @@ $currentRole = strtolower((string)($_SESSION['user']['role_key'] ?? $_SESSION['u
 $allowedRoles = ['employee', 'admin'];
 
 if (!isset($_SESSION['user']) || !in_array($currentRole, $allowedRoles, true)) {
-  header('Location: /hris-system/pages/auth/login.php');
+  header('Location: ../auth/login.php');
   exit;
 }

@@ -3949,15 +3949,13 @@
         const documentTitle = button.getAttribute('data-document-title') || 'Document Viewer';
         const documentUrl = button.getAttribute('data-document-url') || '';
         const extension = button.getAttribute('data-document-extension') || '';
-        const bucket = button.getAttribute('data-document-bucket') || '-';
-        const path = button.getAttribute('data-document-path') || '-';
 
         if (documentViewerTitle) {
           documentViewerTitle.textContent = documentTitle;
         }
         if (documentViewerMeta) {
           const extLabel = extension ? extension.toUpperCase() : 'UNKNOWN';
-          documentViewerMeta.textContent = `Type: ${extLabel} • ${bucket}/${path}`;
+          documentViewerMeta.textContent = `Document type: ${extLabel}`;
         }
         if (documentViewerOpenLink) {
           documentViewerOpenLink.setAttribute('href', documentUrl || '#');
@@ -4010,14 +4008,14 @@
               const category = escapeHtml(doc.category || 'Uncategorized');
               const status = escapeHtml((doc.status || 'draft').replace(/_/g, ' '));
               const updated = escapeHtml(doc.updated || '-');
-              const bucket = escapeHtml(doc.storage_bucket || '-');
-              const path = escapeHtml(doc.storage_path || '-');
+              const extension = String(doc.storage_path || doc.title || '').split('.').pop().trim().toUpperCase();
+              const fileType = escapeHtml(extension || 'FILE');
               return `<tr>
                 <td class="px-4 py-3 text-slate-800 font-medium">${title}</td>
                 <td class="px-4 py-3 text-slate-700">${category}</td>
                 <td class="px-4 py-3 text-slate-700">${status}</td>
                 <td class="px-4 py-3 text-slate-700">${updated}</td>
-                <td class="px-4 py-3 text-slate-500 text-xs">${bucket}/${path}</td>
+                <td class="px-4 py-3 text-slate-500 text-xs">${fileType}</td>
               </tr>`;
             }).join('');
           }

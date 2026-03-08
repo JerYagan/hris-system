@@ -24,6 +24,11 @@ $postedLeavePointSummary = [
     'vl' => 0.0,
     'cto' => 0.0,
 ];
+$usedLeavePointSummary = [
+    'sl' => 0.0,
+    'vl' => 0.0,
+    'cto' => 0.0,
+];
 $leavePointSummary = [
     'sl' => 0.0,
     'vl' => 0.0,
@@ -37,11 +42,12 @@ $pendingLeavePointSummary = [
 $leaveBalanceLastUpdatedAt = null;
 $leaveBalanceRefreshUrl = 'timekeeping.php?partial=leave-balance';
 $leaveTypeOptions = [];
+$leaveTypeMetaById = [];
 $leaveRequestRows = [];
 $timeAdjustmentRows = [];
 $overtimeRows = [];
 
-$aggregateLeaveBalanceRows = static function (array $rows, array $pendingDeductionByTypeId = []): array {
+$aggregateLeaveBalanceRows = static function (array $rows, array $approvedDeductionByTypeId = [], array $pendingDeductionByTypeId = []): array {
     $aggregated = [];
 
     foreach ($rows as $rowRaw) {
@@ -66,12 +72,11 @@ $aggregateLeaveBalanceRows = static function (array $rows, array $pendingDeducti
             ];
         }
 
+        $earnedCredits = (float)($row['earned_credits'] ?? 0);
         $usedCredits = (float)($row['used_credits'] ?? 0);
         $remainingCredits = (float)($row['remaining_credits'] ?? 0);
 
-        $aggregated[$key]['admin_posted_total'] += max(0, $usedCredits + $remainingCredits);
-        $aggregated[$key]['used_credits'] += $usedCredits;
-        $aggregated[$key]['remaining_credits'] += $remainingCredits;
+        $aggregated[$key]['admin_posted_total'] += max($earnedCredits, max(0, $usedCredits + $remainingCredits));
 
         if ($updatedAt !== null) {
             $existingUpdatedAt = cleanText($aggregated[$key]['updated_at'] ?? null);
@@ -82,11 +87,14 @@ $aggregateLeaveBalanceRows = static function (array $rows, array $pendingDeducti
     }
 
     foreach ($aggregated as &$row) {
+        $approvedDeduction = (float)($approvedDeductionByTypeId[(string)($row['leave_type_id'] ?? '')] ?? 0);
         $pendingDeduction = (float)($pendingDeductionByTypeId[(string)($row['leave_type_id'] ?? '')] ?? 0);
-        $remainingCredits = (float)($row['remaining_credits'] ?? 0);
+        $adminPostedTotal = (float)($row['admin_posted_total'] ?? 0);
 
+        $row['used_credits'] = $approvedDeduction;
+        $row['remaining_credits'] = $adminPostedTotal - $approvedDeduction;
         $row['pending_deduction'] = $pendingDeduction;
-        $row['projected_remaining'] = $remainingCredits - $pendingDeduction;
+        $row['projected_remaining'] = $adminPostedTotal - $approvedDeduction - $pendingDeduction;
     }
     unset($row);
 
@@ -299,9 +307,8 @@ if (isSuccessful($leaveBalancesResponse)) {
         ];
     }
 
-    $postedLeavePointSummary = resolveEmployeeLeavePointSummary($leaveBalanceEntries);
-    $leaveBalanceRows = $aggregateLeaveBalanceRows($leaveBalanceEntries);
-    $leavePointSummary = resolveEmployeeLeavePointSummary($leaveBalanceRows);
+    $postedLeavePointSummary = resolveEmployeeLeavePointSummary($leaveBalanceEntries, 'admin_posted_total');
+    $leavePointSummary = $postedLeavePointSummary;
 }
 
 $leaveTypesResponse = apiRequest(
@@ -322,6 +329,10 @@ if (isSuccessful($leaveTypesResponse)) {
             'leave_name' => (string)($leaveType['leave_name'] ?? ''),
             'leave_code' => (string)($leaveType['leave_code'] ?? ''),
         ];
+        $leaveTypeMetaById[$leaveTypeId] = [
+            'leave_name' => (string)($leaveType['leave_name'] ?? ''),
+            'leave_code' => (string)($leaveType['leave_code'] ?? ''),
+        ];
     }
 }
 
@@ -335,6 +346,9 @@ $leaveRequestsResponse = apiRequest(
 );
 
 $pendingDeductionByTypeId = [];
+$approvedDeductionByTypeId = [];
+$approvedPointRows = [];
+$pendingPointRows = [];
 
 if (isSuccessful($leaveRequestsResponse)) {
     foreach ((array)($leaveRequestsResponse['data'] ?? []) as $requestRaw) {
@@ -343,15 +357,31 @@ if (isSuccessful($leaveRequestsResponse)) {
         $leaveStatus = strtolower((string)($request['status'] ?? 'pending'));
         $leaveTypeId = (string)($request['leave_type_id'] ?? '');
         $daysCount = (float)($request['days_count'] ?? 0);
+        $leaveName = (string)($leaveType['leave_name'] ?? ($leaveTypeMetaById[$leaveTypeId]['leave_name'] ?? 'Leave'));
+        $leaveCode = (string)($leaveType['leave_code'] ?? ($leaveTypeMetaById[$leaveTypeId]['leave_code'] ?? ''));
 
         if ($leaveStatus === 'pending' && $leaveTypeId !== '' && $daysCount > 0) {
             $pendingDeductionByTypeId[$leaveTypeId] = ($pendingDeductionByTypeId[$leaveTypeId] ?? 0.0) + $daysCount;
+            $pendingPointRows[] = [
+                'leave_type_id' => $leaveTypeId,
+                'leave_name' => $leaveName,
+                'leave_code' => $leaveCode,
+                'points' => $daysCount,
+            ];
+        } elseif ($leaveStatus === 'approved' && $leaveTypeId !== '' && $daysCount > 0) {
+            $approvedDeductionByTypeId[$leaveTypeId] = ($approvedDeductionByTypeId[$leaveTypeId] ?? 0.0) + $daysCount;
+            $approvedPointRows[] = [
+                'leave_type_id' => $leaveTypeId,
+                'leave_name' => $leaveName,
+                'leave_code' => $leaveCode,
+                'points' => $daysCount,
+            ];
         }
 
         $leaveRequestRows[] = [
             'id' => (string)($request['id'] ?? ''),
             'leave_type_id' => $leaveTypeId,
-            'leave_name' => (string)($leaveType['leave_name'] ?? 'Leave'),
+            'leave_name' => $leaveName,
             'date_from' => (string)($request['date_from'] ?? ''),
             'date_to' => (string)($request['date_to'] ?? ''),
             'days_count' => $daysCount,
@@ -407,6 +437,15 @@ if (isSuccessful($overtimeResponse)) {
             $ctoBalanceTypeIds[] = (string)($balanceRow['leave_type_id'] ?? '');
         }
     }
+    foreach ($leaveTypeMetaById as $leaveTypeId => $leaveTypeMeta) {
+        $leaveCode = strtolower(trim((string)($leaveTypeMeta['leave_code'] ?? '')));
+        $leaveName = strtolower(trim((string)($leaveTypeMeta['leave_name'] ?? '')));
+        if ($leaveCode === 'cto' || str_contains($leaveName, 'cto') || str_contains($leaveName, 'compensatory')) {
+            $ctoBalanceTypeIds[] = (string)$leaveTypeId;
+        }
+    }
+    $ctoBalanceTypeIds = array_values(array_unique(array_filter($ctoBalanceTypeIds, static fn ($id): bool => $id !== '')));
+    $primaryCtoTypeId = $ctoBalanceTypeIds[0] ?? '';
 
     foreach ((array)($overtimeResponse['data'] ?? []) as $overtimeRaw) {
         $overtime = (array)$overtimeRaw;
@@ -417,12 +456,25 @@ if (isSuccessful($overtimeResponse)) {
             $requestStatus = strtolower((string)($overtime['status'] ?? 'pending'));
             $hoursRequested = (float)($overtime['hours_requested'] ?? 0);
             if ($requestStatus === 'pending' && $hoursRequested > 0) {
-                foreach ($ctoBalanceTypeIds as $ctoBalanceTypeId) {
-                    if ($ctoBalanceTypeId === '') {
-                        continue;
-                    }
-                    $pendingDeductionByTypeId[$ctoBalanceTypeId] = ($pendingDeductionByTypeId[$ctoBalanceTypeId] ?? 0.0) + $hoursRequested;
+                if ($primaryCtoTypeId !== '') {
+                    $pendingDeductionByTypeId[$primaryCtoTypeId] = ($pendingDeductionByTypeId[$primaryCtoTypeId] ?? 0.0) + $hoursRequested;
                 }
+                $pendingPointRows[] = [
+                    'leave_type_id' => $primaryCtoTypeId,
+                    'leave_name' => 'CTO',
+                    'leave_code' => 'cto',
+                    'points' => $hoursRequested,
+                ];
+            } elseif ($requestStatus === 'approved' && $hoursRequested > 0) {
+                if ($primaryCtoTypeId !== '') {
+                    $approvedDeductionByTypeId[$primaryCtoTypeId] = ($approvedDeductionByTypeId[$primaryCtoTypeId] ?? 0.0) + $hoursRequested;
+                }
+                $approvedPointRows[] = [
+                    'leave_type_id' => $primaryCtoTypeId,
+                    'leave_name' => 'CTO',
+                    'leave_code' => 'cto',
+                    'points' => $hoursRequested,
+                ];
             }
             continue;
         }
@@ -442,12 +494,10 @@ if (isSuccessful($overtimeResponse)) {
     }
 }
 
+$usedLeavePointSummary = resolveEmployeeLeavePointSummary($approvedPointRows, 'points');
+$pendingLeavePointSummary = resolveEmployeeLeavePointSummary($pendingPointRows, 'points');
+
 if (!empty($leaveBalanceEntries)) {
-    $leaveBalanceRows = $aggregateLeaveBalanceRows($leaveBalanceEntries, $pendingDeductionByTypeId);
-    $leavePointSummary = resolveEmployeeLeavePointSummary($leaveBalanceRows);
-    $pendingLeavePointSummary = [
-        'sl' => (float)($postedLeavePointSummary['sl'] ?? 0) - (float)($leavePointSummary['sl'] ?? 0),
-        'vl' => (float)($postedLeavePointSummary['vl'] ?? 0) - (float)($leavePointSummary['vl'] ?? 0),
-        'cto' => (float)($postedLeavePointSummary['cto'] ?? 0) - (float)($leavePointSummary['cto'] ?? 0),
-    ];
+    $leaveBalanceRows = $aggregateLeaveBalanceRows($leaveBalanceEntries, $approvedDeductionByTypeId, $pendingDeductionByTypeId);
+    $leavePointSummary = $postedLeavePointSummary;
 }

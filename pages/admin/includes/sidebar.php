@@ -133,7 +133,7 @@ $isDocumentSection = in_array($activePage, $documentPages, true);
                     <span class="admin-link-label">My Profile</span>
                 </a>
 
-                <a href="/hris-system/pages/auth/logout.php" class="admin-nav-link text-rose-300 hover:text-rose-200">
+                <a href="<?= htmlspecialchars(systemAppPath('/pages/auth/logout.php'), ENT_QUOTES, 'UTF-8') ?>" class="admin-nav-link text-rose-300 hover:text-rose-200">
                     <span class="admin-nav-icon material-symbols-outlined text-[18px]">logout</span>
                     <span class="admin-link-label">Logout</span>
                 </a>

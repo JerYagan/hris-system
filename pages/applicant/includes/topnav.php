@@ -41,7 +41,7 @@ if ($cacheIsFresh) {
     if ($cachedPhotoPath !== '') {
         $applicantTopnavPhotoUrl = preg_match('#^https?://#i', $cachedPhotoPath) === 1 || str_starts_with($cachedPhotoPath, '/')
             ? $cachedPhotoPath
-            : '/hris-system/storage/document/' . ltrim($cachedPhotoPath, '/');
+            : systemAppPath('/storage/document/' . ltrim($cachedPhotoPath, '/'));
     }
     $unreadNotificationCount = max(0, (int)($topnavCache['unread_count'] ?? 0));
     $topnavNotificationsPreview = (array)($topnavCache['notifications_preview'] ?? []);
@@ -73,7 +73,7 @@ if (!$cacheIsFresh && $topnavSupabaseUrl !== '' && $topnavApplicantUserId !== ''
             $profilePhotoCachePath = $profilePhotoPath;
             $applicantTopnavPhotoUrl = preg_match('#^https?://#i', $profilePhotoPath) === 1 || str_starts_with($profilePhotoPath, '/')
                 ? $profilePhotoPath
-                : '/hris-system/storage/document/' . ltrim($profilePhotoPath, '/');
+                : systemAppPath('/storage/document/' . ltrim($profilePhotoPath, '/'));
         }
     }
 
@@ -191,8 +191,8 @@ $allMobileLinks = array_merge($primaryLinks, $recruitmentLinks, $accountLinks);
             <div class="flex min-w-0 items-center gap-3 lg:gap-5">
                 <a href="dashboard.php" class="flex items-center gap-2.5 shrink-0">
                     <div class="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 shadow-sm">
-                        <img src="/hris-system/assets/images/Bagong_Pilipinas_logo.png" alt="Bagong Pilipinas" class="h-8 w-auto object-contain" loading="lazy">
-                        <img src="/hris-system/assets/images/DA_logo.png" alt="Department of Agriculture" class="h-8 w-8 object-contain" loading="lazy">
+                        <img src="<?= htmlspecialchars(systemAppPath('/assets/images/Bagong_Pilipinas_logo.png'), ENT_QUOTES, 'UTF-8') ?>" alt="Bagong Pilipinas" class="h-8 w-auto object-contain" loading="lazy">
+                        <img src="<?= htmlspecialchars(systemAppPath('/assets/images/DA_logo.png'), ENT_QUOTES, 'UTF-8') ?>" alt="Department of Agriculture" class="h-8 w-8 object-contain" loading="lazy">
                     </div>
                     <div class="hidden sm:block leading-tight">
                         <p class="text-xs text-gray-500">Applicant Portal · Bagong Pilipinas</p>
@@ -402,7 +402,7 @@ $allMobileLinks = array_merge($primaryLinks, $recruitmentLinks, $accountLinks);
                         <div class="mx-2 border-t border-slate-100"></div>
 
                         <div class="p-2">
-                            <a href="/hris-system/pages/auth/logout.php"
+                            <a href="<?= htmlspecialchars(systemAppPath('/pages/auth/logout.php'), ENT_QUOTES, 'UTF-8') ?>"
                                class="flex items-center gap-3 rounded-xl px-3 py-2 font-medium text-rose-600 transition hover:bg-rose-50">
                                 <span class="material-symbols-outlined text-[18px]">logout</span>
                                 <span>Logout</span>
@@ -461,7 +461,7 @@ $allMobileLinks = array_merge($primaryLinks, $recruitmentLinks, $accountLinks);
     </div>
 </header>
 
-<script src="/hris-system/assets/js/shared/topnav-notifications.js" defer></script>
+<script src="<?= htmlspecialchars(systemAppPath('/assets/js/shared/topnav-notifications.js'), ENT_QUOTES, 'UTF-8') ?>" defer></script>
 
 <script>
     (function () {

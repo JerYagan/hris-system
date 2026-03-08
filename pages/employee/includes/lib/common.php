@@ -212,6 +212,91 @@ if (!function_exists('apiRequest')) {
     }
 }
 
+if (!function_exists('apiRequestBatch')) {
+    function apiRequestBatch(array $requests, array $headers): array
+    {
+        if (empty($requests)) {
+            return [];
+        }
+
+        $multiHandle = curl_multi_init();
+        $handles = [];
+        $results = [];
+
+        foreach ($requests as $key => $request) {
+            $method = strtoupper((string)($request['method'] ?? 'GET'));
+            $url = (string)($request['url'] ?? '');
+            $body = isset($request['body']) && is_array($request['body']) ? (array)$request['body'] : null;
+
+            if ($url === '') {
+                $results[$key] = [
+                    'status' => 0,
+                    'data' => [],
+                    'raw' => '',
+                    'error' => 'Missing request URL.',
+                    'duration_ms' => 0,
+                ];
+                continue;
+            }
+
+            $handle = curl_init($url);
+            curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($handle, CURLOPT_CUSTOMREQUEST, $method);
+            curl_setopt($handle, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($handle, CURLOPT_CONNECTTIMEOUT, 5);
+            curl_setopt($handle, CURLOPT_TIMEOUT, 20);
+
+            if ($body !== null) {
+                curl_setopt($handle, CURLOPT_POSTFIELDS, json_encode($body));
+            }
+
+            curl_multi_add_handle($multiHandle, $handle);
+            $handles[(string)$key] = [
+                'handle' => $handle,
+                'method' => $method,
+                'url' => $url,
+                'started_at' => microtime(true),
+            ];
+        }
+
+        do {
+            $status = curl_multi_exec($multiHandle, $running);
+            if ($running > 0) {
+                curl_multi_select($multiHandle, 1.0);
+            }
+        } while ($running > 0 && $status === CURLM_OK);
+
+        foreach ($handles as $key => $meta) {
+            $handle = $meta['handle'];
+            $raw = curl_multi_getcontent($handle);
+            $status = (int)curl_getinfo($handle, CURLINFO_HTTP_CODE);
+            $error = curl_error($handle);
+            $durationMs = (int)round((microtime(true) - (float)$meta['started_at']) * 1000);
+            $decoded = is_string($raw) ? json_decode($raw, true) : null;
+            if (!is_array($decoded)) {
+                $decoded = [];
+            }
+
+            logApiRequestPerformance((string)$meta['method'], (string)$meta['url'], $status, $durationMs, $decoded, $error !== '' ? $error : null);
+
+            $results[$key] = [
+                'status' => $status,
+                'data' => $decoded,
+                'raw' => (string)$raw,
+                'error' => $error !== '' ? $error : null,
+                'duration_ms' => $durationMs,
+            ];
+
+            curl_multi_remove_handle($multiHandle, $handle);
+            curl_close($handle);
+        }
+
+        curl_multi_close($multiHandle);
+
+        return $results;
+    }
+}
+
 if (!function_exists('isSuccessful')) {
     function isSuccessful(array $response): bool
     {
@@ -277,7 +362,7 @@ if (!function_exists('resolveStorageFilePath')) {
 }
 
 if (!function_exists('resolveEmployeeLeavePointSummary')) {
-    function resolveEmployeeLeavePointSummary(array $balanceRows): array
+    function resolveEmployeeLeavePointSummary(array $balanceRows, ?string $valueField = null): array
     {
         $summary = [
             'sl' => 0.0,
@@ -293,22 +378,32 @@ if (!function_exists('resolveEmployeeLeavePointSummary')) {
 
             $leaveCode = strtolower(trim((string)($balance['leave_code'] ?? ($leaveType['leave_code'] ?? ''))));
             $leaveName = strtolower(trim((string)($balance['leave_name'] ?? ($leaveType['leave_name'] ?? ''))));
-            $remainingCredits = array_key_exists('projected_remaining', $balance)
-                ? (float)($balance['projected_remaining'] ?? 0)
-                : (float)($balance['remaining_credits'] ?? 0);
+            if ($valueField === 'admin_posted_total') {
+                $earnedCredits = (float)($balance['earned_credits'] ?? 0);
+                $legacyDerivedTotal = max(0.0, (float)($balance['used_credits'] ?? 0) + (float)($balance['remaining_credits'] ?? 0));
+                $pointValue = array_key_exists('admin_posted_total', $balance)
+                    ? (float)($balance['admin_posted_total'] ?? 0)
+                    : max($earnedCredits, $legacyDerivedTotal);
+            } elseif ($valueField !== null) {
+                $pointValue = (float)($balance[$valueField] ?? 0);
+            } else {
+                $pointValue = array_key_exists('projected_remaining', $balance)
+                    ? (float)($balance['projected_remaining'] ?? 0)
+                    : (float)($balance['remaining_credits'] ?? 0);
+            }
 
             if ($leaveCode === 'sl' || str_contains($leaveName, 'sick')) {
-                $summary['sl'] += $remainingCredits;
+                $summary['sl'] += $pointValue;
                 continue;
             }
 
             if ($leaveCode === 'vl' || str_contains($leaveName, 'vacation')) {
-                $summary['vl'] += $remainingCredits;
+                $summary['vl'] += $pointValue;
                 continue;
             }
 
             if ($leaveCode === 'cto' || str_contains($leaveName, 'cto') || str_contains($leaveName, 'compensatory')) {
-                $summary['cto'] += $remainingCredits;
+                $summary['cto'] += $pointValue;
             }
         }
 

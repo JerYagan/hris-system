@@ -160,6 +160,9 @@ if ($action === 'log_leave_from_card') {
     $dateFrom = cleanText($_POST['date_from'] ?? null) ?? '';
     $dateTo = cleanText($_POST['date_to'] ?? null) ?? '';
     $reference = cleanText($_POST['reference'] ?? null);
+    $slPoints = max(0, (float)($_POST['sl_points'] ?? 0));
+    $vlPoints = max(0, (float)($_POST['vl_points'] ?? 0));
+    $ctoPoints = max(0, (float)($_POST['cto_points'] ?? 0));
 
     if (!isValidUuid($personId) || !isValidUuid($leaveTypeId) || !$isValidDate($dateFrom) || !$isValidDate($dateTo)) {
         redirectWithState('error', 'Employee, leave type, and valid date range are required.');
@@ -186,6 +189,10 @@ if ($action === 'log_leave_from_card') {
         redirectWithState('error', 'Leave days must be greater than zero.');
     }
 
+    if (($slPoints + $vlPoints + $ctoPoints) <= 0) {
+        redirectWithState('error', 'Enter at least one SL, VL, or CTO point value to add for this employee.');
+    }
+
     $personResponse = apiRequest(
         'GET',
         $supabaseUrl . '/rest/v1/people?select=id,user_id,first_name,surname&id=eq.' . rawurlencode($personId) . '&limit=1',
@@ -210,7 +217,11 @@ if ($action === 'log_leave_from_card') {
 
     $leaveTypeName = (string)($leaveTypeRow['leave_name'] ?? 'Leave');
     $leaveTypeCode = (string)($leaveTypeRow['leave_code'] ?? '');
-    $leavePointBreakdown = $resolveLeavePointBreakdown($leaveTypeCode, $leaveTypeName, $daysCount);
+    $leavePointBreakdown = [
+        'sl' => round($slPoints, 2),
+        'vl' => round($vlPoints, 2),
+        'cto' => round($ctoPoints, 2),
+    ];
 
     $overlapResponse = apiRequest(
         'GET',
@@ -281,56 +292,112 @@ if ($action === 'log_leave_from_card') {
         redirectWithState('error', 'Failed to log leave card entry.');
     }
 
-    $balanceResponse = apiRequest(
+    $allLeaveTypesResponse = apiRequest(
         'GET',
-        $supabaseUrl
-        . '/rest/v1/leave_balances?select=id,earned_credits,used_credits'
-        . '&person_id=eq.' . rawurlencode($personId)
-        . '&leave_type_id=eq.' . rawurlencode($leaveTypeId)
-        . '&year=eq.' . $fromYear
-        . '&limit=1',
+        $supabaseUrl . '/rest/v1/leave_types?select=id,leave_name,leave_code,is_active&is_active=eq.true&limit=200',
         $headers
     );
 
-    $now = gmdate('c');
-    $existingBalance = (array)(($balanceResponse['data'] ?? [])[0] ?? []);
-    if ($existingBalance !== []) {
-        $earnedCredits = (float)($existingBalance['earned_credits'] ?? 0);
-        $usedCredits = (float)($existingBalance['used_credits'] ?? 0) + $daysCount;
-        $remainingCredits = $earnedCredits - $usedCredits;
+    if (!isSuccessful($allLeaveTypesResponse)) {
+        redirectWithState('error', 'Leave entry was saved, but the accumulated leave types could not be resolved.');
+    }
 
-        $updateBalanceResponse = apiRequest(
-            'PATCH',
-            $supabaseUrl . '/rest/v1/leave_balances?id=eq.' . rawurlencode((string)($existingBalance['id'] ?? '')),
-            array_merge($headers, ['Prefer: return=minimal']),
-            [
-                'used_credits' => $usedCredits,
-                'remaining_credits' => $remainingCredits,
-                'updated_at' => $now,
-            ]
-        );
-
-        if (!isSuccessful($updateBalanceResponse)) {
-            redirectWithState('error', 'Leave was logged, but failed to update leave balances.');
+    $bucketTypeByKey = [];
+    foreach ((array)($allLeaveTypesResponse['data'] ?? []) as $typeRaw) {
+        $type = (array)$typeRaw;
+        $typeId = trim((string)($type['id'] ?? ''));
+        if ($typeId === '') {
+            continue;
         }
-    } else {
-        $insertBalanceResponse = apiRequest(
-            'POST',
-            $supabaseUrl . '/rest/v1/leave_balances',
-            array_merge($headers, ['Prefer: return=minimal']),
-            [[
-                'person_id' => $personId,
-                'leave_type_id' => $leaveTypeId,
-                'year' => $fromYear,
-                'earned_credits' => 0,
-                'used_credits' => $daysCount,
-                'remaining_credits' => -$daysCount,
-                'updated_at' => $now,
-            ]]
+
+        $bucket = '';
+        $candidateBreakdown = $resolveLeavePointBreakdown(
+            (string)($type['leave_code'] ?? ''),
+            (string)($type['leave_name'] ?? ''),
+            1
+        );
+        foreach ($candidateBreakdown as $candidateKey => $candidateValue) {
+            if ((float)$candidateValue > 0) {
+                $bucket = $candidateKey;
+                break;
+            }
+        }
+
+        if ($bucket !== '' && !isset($bucketTypeByKey[$bucket])) {
+            $bucketTypeByKey[$bucket] = [
+                'id' => $typeId,
+                'leave_name' => (string)($type['leave_name'] ?? 'Leave'),
+                'leave_code' => (string)($type['leave_code'] ?? ''),
+            ];
+        }
+    }
+
+    $now = gmdate('c');
+    foreach ($leavePointBreakdown as $pointKey => $pointValue) {
+        $normalizedPointValue = max(0, (float)$pointValue);
+        if ($normalizedPointValue <= 0) {
+            continue;
+        }
+
+        $bucketType = $bucketTypeByKey[$pointKey] ?? null;
+        if (!is_array($bucketType) || !isValidUuid((string)($bucketType['id'] ?? ''))) {
+            redirectWithState('error', 'Leave entry was saved, but the ' . strtoupper($pointKey) . ' balance type is not configured.');
+        }
+
+        $bucketLeaveTypeId = (string)$bucketType['id'];
+        $balanceResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/leave_balances?select=id,earned_credits,used_credits,remaining_credits'
+            . '&person_id=eq.' . rawurlencode($personId)
+            . '&leave_type_id=eq.' . rawurlencode($bucketLeaveTypeId)
+            . '&year=eq.' . $fromYear
+            . '&limit=1',
+            $headers
         );
 
-        if (!isSuccessful($insertBalanceResponse)) {
-            redirectWithState('error', 'Leave was logged, but failed to create leave balance record.');
+        if (!isSuccessful($balanceResponse)) {
+            redirectWithState('error', 'Leave entry was saved, but failed to load the ' . strtoupper($pointKey) . ' balance record.');
+        }
+
+        $existingBalance = (array)(($balanceResponse['data'] ?? [])[0] ?? []);
+        if ($existingBalance !== []) {
+            $earnedCredits = (float)($existingBalance['earned_credits'] ?? 0) + $normalizedPointValue;
+            $remainingCredits = (float)($existingBalance['remaining_credits'] ?? 0) + $normalizedPointValue;
+
+            $updateBalanceResponse = apiRequest(
+                'PATCH',
+                $supabaseUrl . '/rest/v1/leave_balances?id=eq.' . rawurlencode((string)($existingBalance['id'] ?? '')),
+                array_merge($headers, ['Prefer: return=minimal']),
+                [
+                    'earned_credits' => $earnedCredits,
+                    'remaining_credits' => $remainingCredits,
+                    'updated_at' => $now,
+                ]
+            );
+
+            if (!isSuccessful($updateBalanceResponse)) {
+                redirectWithState('error', 'Leave entry was saved, but failed to update the ' . strtoupper($pointKey) . ' balance.');
+            }
+        } else {
+            $insertBalanceResponse = apiRequest(
+                'POST',
+                $supabaseUrl . '/rest/v1/leave_balances',
+                array_merge($headers, ['Prefer: return=minimal']),
+                [[
+                    'person_id' => $personId,
+                    'leave_type_id' => $bucketLeaveTypeId,
+                    'year' => $fromYear,
+                    'earned_credits' => $normalizedPointValue,
+                    'used_credits' => 0,
+                    'remaining_credits' => $normalizedPointValue,
+                    'updated_at' => $now,
+                ]]
+            );
+
+            if (!isSuccessful($insertBalanceResponse)) {
+                redirectWithState('error', 'Leave entry was saved, but failed to create the ' . strtoupper($pointKey) . ' balance.');
+            }
         }
     }
 
@@ -372,7 +439,7 @@ if ($action === 'log_leave_from_card') {
         ]]
     );
 
-    redirectWithState('success', 'Leave card entry logged successfully and leave balance updated.');
+    redirectWithState('success', 'Leave card entry logged successfully and accumulated SL/VL/CTO points were updated.');
 }
 
 if ($action === 'review_time_adjustment') {

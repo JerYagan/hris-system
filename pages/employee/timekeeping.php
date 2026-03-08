@@ -11,6 +11,7 @@ require_once __DIR__ . '/includes/timekeeping/data.php';
 $leaveBalanceRows = $leaveBalanceRows ?? [];
 $leavePointSummary = $leavePointSummary ?? ['sl' => 0.0, 'vl' => 0.0, 'cto' => 0.0];
 $postedLeavePointSummary = $postedLeavePointSummary ?? ['sl' => 0.0, 'vl' => 0.0, 'cto' => 0.0];
+$usedLeavePointSummary = $usedLeavePointSummary ?? ['sl' => 0.0, 'vl' => 0.0, 'cto' => 0.0];
 $pendingLeavePointSummary = $pendingLeavePointSummary ?? ['sl' => 0.0, 'vl' => 0.0, 'cto' => 0.0];
 $leaveBalanceLastUpdatedAt = $leaveBalanceLastUpdatedAt ?? null;
 $leaveBalanceRefreshUrl = $leaveBalanceRefreshUrl ?? 'timekeeping.php?partial=leave-balance';
@@ -91,8 +92,8 @@ $renderLeaveBalanceSection = static function () use (
 <section id="leave-balance" data-refresh-url="<?= $escape($leaveBalanceRefreshUrl ?? 'timekeeping.php?partial=leave-balance') ?>" class="bg-white rounded-xl shadow p-6 mb-6">
   <div class="flex flex-col gap-2 mb-4 md:flex-row md:items-start md:justify-between">
     <div>
-      <h2 class="text-lg font-bold">Leave/CTO <span class="text-daGreen">Balance</span></h2>
-      <p class="text-xs text-gray-500 mt-1">Live available points auto-refresh from accumulated admin-posted balances and reserve pending leave/CTO requests so you can see your running totals clearly.</p>
+      <h2 class="text-lg font-bold">Accumulated Leave/CTO <span class="text-daGreen">Points</span></h2>
+      <p class="text-xs text-gray-500 mt-1">This section shows only the total accumulated SL, VL, and CTO points based on what Admin inserted for your record.</p>
     </div>
     <div class="text-xs text-gray-500 md:text-right">
       <p class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700"><span class="h-2 w-2 rounded-full bg-emerald-500"></span>Live sync enabled</p>
@@ -105,17 +106,14 @@ $renderLeaveBalanceSection = static function () use (
     <div class="rounded-lg bg-sky-50 px-4 py-3 border border-sky-100">
       <p class="text-xs font-semibold uppercase tracking-wide text-sky-700">SL Points</p>
       <p class="mt-1 text-xl font-bold text-sky-800"><?= $escape(number_format((float)($leavePointSummary['sl'] ?? 0), 2)) ?></p>
-      <p class="mt-1 text-xs text-sky-700">Admin posted: <?= $escape(number_format((float)($postedLeavePointSummary['sl'] ?? 0), 2)) ?> · Pending reserved: <?= $escape(number_format(max(0, (float)($pendingLeavePointSummary['sl'] ?? 0)), 2)) ?></p>
     </div>
     <div class="rounded-lg bg-emerald-50 px-4 py-3 border border-emerald-100">
       <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">VL Points</p>
       <p class="mt-1 text-xl font-bold text-emerald-800"><?= $escape(number_format((float)($leavePointSummary['vl'] ?? 0), 2)) ?></p>
-      <p class="mt-1 text-xs text-emerald-700">Admin posted: <?= $escape(number_format((float)($postedLeavePointSummary['vl'] ?? 0), 2)) ?> · Pending reserved: <?= $escape(number_format(max(0, (float)($pendingLeavePointSummary['vl'] ?? 0)), 2)) ?></p>
     </div>
     <div class="rounded-lg bg-amber-50 px-4 py-3 border border-amber-100">
       <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">CTO Points</p>
       <p class="mt-1 text-xl font-bold text-amber-800"><?= $escape(number_format((float)($leavePointSummary['cto'] ?? 0), 2)) ?></p>
-      <p class="mt-1 text-xs text-amber-700">Admin posted: <?= $escape(number_format((float)($postedLeavePointSummary['cto'] ?? 0), 2)) ?> · Pending reserved: <?= $escape(number_format(max(0, (float)($pendingLeavePointSummary['cto'] ?? 0)), 2)) ?></p>
     </div>
   </div>
 
@@ -124,25 +122,17 @@ $renderLeaveBalanceSection = static function () use (
       <thead>
         <tr class="border-b text-gray-500">
           <th class="text-left py-3">Leave Type</th>
-          <th class="text-left py-3">Admin Posted Total</th>
-          <th class="text-left py-3">Approved/Used</th>
-          <th class="text-left py-3">Pending Deduction</th>
-          <th class="text-left py-3">Posted Balance</th>
-          <th class="text-left py-3">Current Available</th>
+          <th class="text-left py-3">Total Accumulated Points</th>
         </tr>
       </thead>
       <tbody>
         <?php if (empty($leaveBalanceRows)): ?>
-          <tr><td class="py-3 text-gray-500" colspan="6">No accumulated leave balance records found yet.</td></tr>
+          <tr><td class="py-3 text-gray-500" colspan="2">No accumulated leave point records found yet.</td></tr>
         <?php else: ?>
           <?php foreach ($leaveBalanceRows as $balance): ?>
             <tr class="border-b">
               <td class="py-3"><?= $escape((string)($balance['leave_name'] ?? '-')) ?></td>
               <td class="py-3"><?= $escape(number_format((float)($balance['admin_posted_total'] ?? 0), 2)) ?></td>
-              <td class="py-3"><?= $escape(number_format((float)($balance['used_credits'] ?? 0), 2)) ?></td>
-              <td class="py-3"><?= $escape(number_format((float)($balance['pending_deduction'] ?? 0), 2)) ?></td>
-              <td class="py-3 font-medium"><?= $escape(number_format((float)($balance['remaining_credits'] ?? 0), 2)) ?></td>
-              <td class="py-3 font-medium <?= ((float)($balance['projected_remaining'] ?? 0) < 0) ? 'text-red-700' : '' ?>"><?= $escape(number_format((float)($balance['projected_remaining'] ?? 0), 2)) ?></td>
             </tr>
           <?php endforeach; ?>
         <?php endif; ?>

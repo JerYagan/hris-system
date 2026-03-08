@@ -159,6 +159,7 @@ This checklist prioritizes slow pages across the HRIS based on:
   - [ ] Load person detail relations only when opening a record
   - [ ] Move audit/history panels to async fetches
   - [ ] Replace broad preload with targeted modal/detail endpoints
+  - [ ] Add a loading state to avoid rendering empty tables while waiting for data
 
 ### [ ] Admin Payroll Management
 - **Estimated severity**: P1
@@ -238,14 +239,24 @@ This checklist prioritizes slow pages across the HRIS based on:
 - **Estimated severity**: P1
 - **Approximate backend cost**: 12 requests
 - **Likely reason**: dashboard tries to render attendance, documents, leave balances, requests, training, praise, notifications, leave forecast, and recent activity all at once.
+- **Optimization status**: Staged async hydration completed on 2026-03-08; first paint now renders immediately with dashboard skeletons, summary cards load first, and announcements/requests/trainings/activity load in a second deferred pass.
+- **Backend cache status**: Brief employee-context and dashboard summary/secondary session caches added on 2026-03-08, and the extra employee profile lookup was removed from the summary stage.
+- **Backend batching status**: Independent summary and secondary Supabase reads were batched in parallel on 2026-03-08 to reduce cold-load round-trip time.
+- **Smoke test status**: Passed syntax smoke test on 2026-03-08 with PHP lint on [pages/employee/dashboard.php](pages/employee/dashboard.php), [pages/employee/includes/dashboard/data.php](pages/employee/includes/dashboard/data.php), and [pages/employee/includes/dashboard/content.php](pages/employee/includes/dashboard/content.php), plus JS syntax check on [assets/js/employee/dashboard/index.js](assets/js/employee/dashboard/index.js). Full authenticated browser smoke test is still pending.
 - **Entry page**:
   - [pages/employee/dashboard.php](pages/employee/dashboard.php)
 - **Main data file**:
   - [pages/employee/includes/dashboard/data.php](pages/employee/includes/dashboard/data.php)
+- **Deferred content partial**:
+  - [pages/employee/includes/dashboard/content.php](pages/employee/includes/dashboard/content.php)
+- **Localized frontend module**:
+  - [assets/js/employee/dashboard/index.js](assets/js/employee/dashboard/index.js)
 - **Checklist**:
-  - [ ] Render core summary first, lazy-load secondary cards
-  - [ ] Merge open-request queries where possible
-  - [ ] Cache stable data such as profile and leave balances briefly
+  - [x] Render an immediate shell and skeleton state, then async-load the dashboard body after first paint
+  - [x] Render core summary first, lazy-load secondary cards
+  - [x] Reuse cached open-request detail rows across dashboard stages when available
+  - [x] Cache stable data such as employee context and dashboard summary/secondary payloads briefly
+  - [x] Batch independent summary/secondary queries in parallel instead of serial request chaining
   - [ ] Reduce dashboard payload to top 3-5 items per widget
 
 ---
@@ -292,11 +303,14 @@ This checklist prioritizes slow pages across the HRIS based on:
 - **Estimated severity**: P2
 - **Approximate backend cost**: 11 requests
 - **Frontend modularization status**: Admin localized page module completed on 2026-03-07; backend payload reduction still pending.
+- **Backend optimization status**: Safe metadata caching and dead-query removal completed on 2026-03-07; deeper pagination/refactor still pending.
 - **Entry page**:
   - [pages/admin/user-management.php](pages/admin/user-management.php)
 - **Main data file**:
   - [pages/admin/includes/user-management/data.php](pages/admin/includes/user-management/data.php)
 - **Checklist**:
+  - [x] Cache roles/offices/positions metadata briefly in session instead of re-querying every page load
+  - [x] Remove unused organizations query from initial page load
   - [ ] Load user list separately from roles/offices/positions metadata
   - [ ] Paginate user list
   - [ ] Avoid loading all hired applications on first render
@@ -439,6 +453,10 @@ This checklist prioritizes slow pages across the HRIS based on:
 ### [ ] Replace fetch-and-count patterns with true count or summary queries
 - **Seen in** dashboards, notifications, job list, open jobs, and many admin/staff list pages
 - **Goal**: stop downloading thousands of IDs just to call `count()` in PHP
+
+### [ ] Roll out staged shell-first deferred loading to all slow pages
+- **Seen in** dashboards, personal information, payroll, recruitment, reports, applicant profile, and job/apply flows
+- **Goal**: return the page shell immediately, show section-matched skeletons, load summary/visible content first, then defer secondary panels/history/widgets to follow-up requests
 
 ### [ ] Reduce `limit=5000+` and `limit=10000+` reads
 - **Seen heavily in** admin payroll/recruitment/personal info, staff payroll/reports, applicant apply/job flows

@@ -12,7 +12,9 @@ if ($supabaseUrl === '' || $serviceRoleKey === '') {
     redirectWithState('error', 'Supabase credentials are missing. Check your .env file.', 'dashboard.php');
 }
 
-$employeeContext = resolveEmployeeIdentityContext($supabaseUrl, $headers, $employeeUserId);
+$employeeContext = function_exists('resolveEmployeeIdentityContextCached')
+    ? resolveEmployeeIdentityContextCached($supabaseUrl, $headers, $employeeUserId)
+    : resolveEmployeeIdentityContext($supabaseUrl, $headers, $employeeUserId);
 $employeeContextResolved = (bool)($employeeContext['is_valid'] ?? false);
 $employeeContextError = cleanText($employeeContext['error'] ?? null);
 

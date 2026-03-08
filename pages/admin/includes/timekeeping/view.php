@@ -154,18 +154,18 @@ $formatTime = static function (?string $raw): string {
         </div>
         <div>
             <label class="text-slate-600">SL Points</label>
-            <input id="leaveLogSlPoints" type="number" min="0" step="0.01" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" placeholder="0.00" readonly>
-            <p class="text-[11px] text-slate-500 mt-1">Auto-calculated point impact for Sick Leave postings.</p>
+            <input id="leaveLogSlPoints" name="sl_points" type="number" min="0" step="0.01" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="0.00" value="0.00">
+            <p class="text-[11px] text-slate-500 mt-1">Editable accumulated Sick Leave points to add for this employee.</p>
         </div>
         <div>
             <label class="text-slate-600">VL Points</label>
-            <input id="leaveLogVlPoints" type="number" min="0" step="0.01" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" placeholder="0.00" readonly>
-            <p class="text-[11px] text-slate-500 mt-1">Auto-calculated point impact for Vacation Leave postings.</p>
+            <input id="leaveLogVlPoints" name="vl_points" type="number" min="0" step="0.01" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="0.00" value="0.00">
+            <p class="text-[11px] text-slate-500 mt-1">Editable accumulated Vacation Leave points to add for this employee.</p>
         </div>
         <div>
             <label class="text-slate-600">CTO Points</label>
-            <input id="leaveLogCtoPoints" type="number" min="0" step="0.01" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" placeholder="0.00" readonly>
-            <p class="text-[11px] text-slate-500 mt-1">Auto-calculated point impact for CTO/Compensatory leave postings.</p>
+            <input id="leaveLogCtoPoints" name="cto_points" type="number" min="0" step="0.01" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="0.00" value="0.00">
+            <p class="text-[11px] text-slate-500 mt-1">Editable accumulated CTO or other leave points to add for this employee.</p>
         </div>
         <div class="md:col-span-3">
             <label class="text-slate-600">Reference / Notes</label>
@@ -884,6 +884,18 @@ $formatTime = static function (?string $raw): string {
     leaveDateTo?.addEventListener('change', computeLeaveDays);
     leaveTypeSelect?.addEventListener('change', syncLeavePointFields);
 
+    const resolveManualPointTotal = () => {
+        const slValue = Number.parseFloat(leaveLogSlPoints?.value || '0');
+        const vlValue = Number.parseFloat(leaveLogVlPoints?.value || '0');
+        const ctoValue = Number.parseFloat(leaveLogCtoPoints?.value || '0');
+
+        return {
+            sl: Number.isFinite(slValue) ? Math.max(0, slValue) : 0,
+            vl: Number.isFinite(vlValue) ? Math.max(0, vlValue) : 0,
+            cto: Number.isFinite(ctoValue) ? Math.max(0, ctoValue) : 0,
+        };
+    };
+
     leaveLogForm?.addEventListener('submit', (event) => {
         if (!employeeHiddenInput || !employeeSearchInput) return;
         if (!employeeHiddenInput.value) {
@@ -895,7 +907,6 @@ $formatTime = static function (?string $raw): string {
         }
         employeeSearchInput.setCustomValidity('');
         computeLeaveDays();
-        syncLeavePointFields();
 
         const totalDays = Number.parseFloat(leaveDays?.value || '0');
         if (!Number.isFinite(totalDays) || totalDays <= 0) {
@@ -905,6 +916,21 @@ $formatTime = static function (?string $raw): string {
                     icon: 'warning',
                     title: 'Incomplete leave entry',
                     text: 'Please provide a valid leave date range before logging the leave card entry.',
+                    confirmButtonColor: '#16a34a',
+                });
+            }
+            return;
+        }
+
+        const manualPoints = resolveManualPointTotal();
+        const hasAnyPoints = manualPoints.sl > 0 || manualPoints.vl > 0 || manualPoints.cto > 0;
+        if (!hasAnyPoints) {
+            event.preventDefault();
+            if (window.Swal && typeof window.Swal.fire === 'function') {
+                window.Swal.fire({
+                    icon: 'warning',
+                    title: 'No leave points entered',
+                    text: 'Enter at least one SL, VL, or CTO point value before logging this employee leave entry.',
                     confirmButtonColor: '#16a34a',
                 });
             }
@@ -925,6 +951,11 @@ $formatTime = static function (?string $raw): string {
         const leaveTypeLabel = selectedLeaveOption instanceof HTMLOptionElement
             ? (selectedLeaveOption.dataset.leaveName || selectedLeaveOption.textContent || 'Leave')
             : 'Leave';
+        const pointSummary = [
+            `SL: <strong>${manualPoints.sl.toFixed(2)}</strong>`,
+            `VL: <strong>${manualPoints.vl.toFixed(2)}</strong>`,
+            `CTO: <strong>${manualPoints.cto.toFixed(2)}</strong>`,
+        ].join(' · ');
 
         const submitForm = () => {
             leaveLogForm.dataset.confirmed = 'true';
@@ -935,7 +966,7 @@ $formatTime = static function (?string $raw): string {
             window.Swal.fire({
                 icon: 'question',
                 title: 'Log leave entry?',
-                html: `You are about to log <strong>${String(totalDays.toFixed(2))}</strong> day(s) of <strong>${leaveTypeLabel}</strong> for <strong>${selectedEmployeeLabel}</strong>.`,
+                html: `You are about to log <strong>${String(totalDays.toFixed(2))}</strong> day(s) of <strong>${leaveTypeLabel}</strong> for <strong>${selectedEmployeeLabel}</strong>.<br><br>${pointSummary}`,
                 showCancelButton: true,
                 confirmButtonText: 'Yes, log leave',
                 cancelButtonText: 'Cancel',

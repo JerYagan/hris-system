@@ -1,76 +1,89 @@
 # Temporary Deployment Plan (Free Hosting)
 
 **Project:** DA HRIS  
-**Date:** February 28, 2026  
-**Purpose:** Get a temporary online deployment for demo/testing while keeping cost at zero (or near-zero free tier).
+**Date:** March 7, 2026  
+**Purpose:** Get a temporary public deployment for demo/testing with minimal cost while matching the current PHP + Supabase architecture.
 
 ---
 
-## 1) Quick Reality Check
+## 1) Current Reality Check
 
-This project is **PHP-rendered** (`pages/.../*.php`) and uses Composer libraries (`dompdf`, `phpoffice/phpspreadsheet`, `phpmailer`).
+This project is a traditional PHP application with multi-role pages under `pages/` and Composer dependencies for PDF, spreadsheet, and mail features.
 
-- **Netlify/Vercel** are best for static/Jamstack apps.
-- They are **not ideal for full traditional PHP hosting** without significant rewrite/workarounds.
-- For a temporary full-system deployment, use a host that supports **PHP + file uploads + MySQL/Supabase integration**.
+Important current-state facts:
+
+- The runtime is now **Supabase-first**, not MySQL-first.
+- Multiple modules load credentials from the root `.env` file.
+- Several pages assume the app is hosted under the `/hris-system` base path.
+- The app writes files to local `storage/` directories for documents, payslips, and reports.
+- Free static hosts like Netlify/Vercel are still not a fit for the full app.
+
+Implication:
+
+- A temporary deployment still needs **PHP + cURL + writable storage + Composer libraries + outbound HTTPS to Supabase**.
+- A free host may be acceptable for demo use, but it is not a stable production option.
 
 ---
 
 ## 2) Hosting Options (Free Tier)
 
-## Option A — **Recommended (Fastest for Full PHP Demo): InfinityFree**
+## Option A — Shared Free PHP Hosting (Fastest Demo Path)
 
-Use this when you want to run existing PHP pages with minimal refactor.
+Use this when the goal is to publish the current PHP app with the least rewrite.
 
 **Pros**
-- Native PHP hosting
-- Free MySQL databases
-- Fastest path for a temporary live URL
+- Runs existing PHP pages directly
+- Usually supports FTP/File Manager upload
+- Lowest-effort path for a temporary live demo
 
 **Cons / Limits**
-- Free-tier performance and reliability limits
-- Strict limits for background jobs and large uploads
-- Not ideal for production security/performance
+- Performance and uptime are inconsistent
+- Composer CLI may be unavailable, so `vendor/` must usually be uploaded from local
+- Large uploads, long-running requests, SMTP, and generated files may hit host limits
+- Public folder hardening is weaker than on a managed platform
 
-## Option B — Netlify or Vercel (Frontend-only Demo)
+## Option B — Free-Tier PaaS with Container/Runtime Support
 
-Use this only if you want a **UI showcase** and can avoid PHP server logic.
-
-**Pros**
-- Very easy CI/CD from GitHub
-- Good CDN and preview URLs
-
-**Cons**
-- Requires converting PHP pages to static output or separate backend APIs
-- Not suitable for current full PHP architecture as-is
-
-## Option C — Other Free-Tier PaaS (Render/Koyeb/Fly/Railway)
-
-Use if you can containerize and are okay with setup complexity.
+Use this if you can spend more setup effort for a cleaner upgrade path later.
 
 **Pros**
-- More modern deployment model
-- Better migration path to paid production later
+- Better fit for app/runtime configuration
+- Easier future migration to a paid plan
+- Cleaner environment handling than many shared free hosts
 
 **Cons**
-- Free-tier rules change often
-- Cold starts/sleeping apps/resources limits
-- More DevOps work than shared PHP hosting
+- More setup complexity than shared PHP hosting
+- Free tiers often sleep, cold start, or change limits
+- Persistent local file storage may still be weak or ephemeral depending on platform
 
-> **Recommendation for now:** Start with **Option A (InfinityFree)** for a temporary full-system demo, then migrate later to paid VPS/PaaS.
+## Option C — Netlify or Vercel (Frontend-only Demo)
+
+Use this only for a UI showcase, not for the current full system.
+
+**Pros**
+- Fast previews and CDN delivery
+- Simple Git-based deployment
+
+**Cons**
+- Not suitable for the current PHP-rendered architecture
+- Would require major adaptation or a split frontend/backend deployment
+
+> **Recommendation for now:** Use a PHP-capable free host only for a short-lived demo, and treat it as disposable infrastructure.
 
 ---
 
 ## 3) Temporary Target Architecture
 
-- **Web App:** InfinityFree (PHP app)
-- **Data Layer:**
-  - If current modules already use Supabase: continue Supabase (recommended for speed)
-  - If not yet integrated: use InfinityFree MySQL temporarily
-- **File Storage:**
-  - Keep uploads small and temporary on host storage, or
-  - Use Supabase Storage for better reliability
-- **Mail:** Keep `PHPMailer` disabled or sandboxed for demo unless SMTP is configured
+- **Web App:** PHP host for the current application files
+- **Data Layer:** Supabase only
+- **Environment Configuration:** root `.env` file on the server
+- **File Storage:** local `storage/` directories for temporary hosting, with the option to shift document flows toward Supabase Storage later
+- **Mail:** optional for demo; disable or sandbox if SMTP cannot be verified
+
+Notes:
+
+- Do not plan around host MySQL unless you intentionally rewrite parts of the app.
+- Supabase URL, service role key, and anon key must be treated as required environment inputs.
 
 ---
 
@@ -78,68 +91,89 @@ Use if you can containerize and are okay with setup complexity.
 
 ## Phase 0 — Pre-deploy Hardening (Local)
 
-1. Create a deploy branch: `deploy/temp-free-hosting`.
-2. Add environment-based config file (e.g., `config/env.php`) for:
-   - DB credentials
-   - Supabase URL/keys
-   - App URL
-   - Upload limits
-3. Disable debug output in deployed environment:
+1. Create a deploy branch such as `deploy/temp-free-hosting`.
+2. Review the current root `.env` usage and prepare a deployment-safe `.env` for the host.
+3. Confirm required environment values exist:
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `SUPABASE_ANON_KEY`
+4. Disable visible PHP errors in the deployed environment:
    - `display_errors=Off`
-   - Log errors to file only
-4. Confirm writable folders exist and permissions are correct:
+   - `log_errors=On`
+5. Confirm writable directories exist:
    - `storage/document/`
    - `storage/payslips/`
    - `storage/reports/`
-5. Remove dev-only tools from public access (`tools/`, debug scripts) via routing or server rules.
+6. Restrict public access to dev and operational scripts:
+   - `tools/`
+   - debug runners
+   - ad hoc migration/validation scripts
+7. Audit hardcoded `/hris-system` paths and decide one of these approaches:
+   - deploy the app under `/hris-system`, or
+   - patch the app to use a configurable base path before go-live
 
 ## Phase 1 — Hosting Setup
 
-1. Create InfinityFree account and temporary domain/subdomain.
-2. Create MySQL DB (if using host DB) and save credentials.
-3. Upload project via File Manager/FTP.
-4. Set document root to project root (or `public` folder if you introduce one).
-5. Ensure Composer dependencies are present:
-   - Prefer uploading `vendor/` from local if composer CLI is unavailable on host.
+1. Create the temporary hosting account and domain/subdomain.
+2. Upload the project files through FTP or File Manager.
+3. Upload the full `vendor/` directory from local if Composer cannot run on the host.
+4. Place the root `.env` file on the server outside public download exposure if the host allows it.
+5. Verify PHP extensions/features required by the app are available:
+   - cURL
+   - JSON
+   - mbstring
+   - OpenSSL
+   - file uploads
+6. Confirm the document root matches the intended deployed path.
 
 ## Phase 2 — Configuration
 
-1. Set production-like env values in `config/env.php`.
-2. Update base URL references for assets and links.
-3. If using Supabase, set correct anon/service keys by role scope.
-4. Validate include paths and file path separators for Linux hosting (`/`).
+1. Set production-like values in the root `.env` file.
+2. Verify the host can reach Supabase over HTTPS.
+3. Validate Linux path behavior and file permissions.
+4. Confirm sessions, CSRF behavior, and cookie handling work on the public domain.
+5. If the host path is not `/hris-system`, patch base-path assumptions before proceeding.
 
 ## Phase 3 — Data and Storage Validation
 
-1. Run schema migration/import (MySQL or Supabase SQL scripts as needed).
-2. Create at least one test account per role:
-   - admin, staff, employee, applicant
-3. Test upload/download flow for:
-   - Documents
-   - Payslips
-   - Reports
-4. Verify max upload size limits and graceful error messages.
+1. Confirm Supabase schema and policies already required by the app are in place.
+2. Create or verify at least one test account per role:
+   - admin
+   - staff
+   - employee
+   - applicant
+3. Test upload and access flows for:
+   - profile photos
+   - applicant/employee documents
+   - payslips
+   - generated reports
+4. Validate PDF and spreadsheet generation on the host.
+5. Verify graceful handling of upload size or timeout failures.
 
 ## Phase 4 — Smoke Test (Live URL)
 
 1. Authentication pages load and submit correctly.
-2. Role-based access controls are enforced.
-3. Payroll pages render and data actions work.
-4. PDF/Excel generation works (`dompdf`, `phpspreadsheet`).
-5. No critical PHP warnings/notices visible in browser.
-6. Basic mobile responsiveness check on key pages.
+2. Public API endpoints that depend on Supabase respond correctly.
+3. Role-based access controls are enforced.
+4. Dashboard pages load without visible warnings/notices.
+5. Payroll, reports, and document previews work end-to-end.
+6. SMTP-backed features are either verified or intentionally disabled.
+7. Basic mobile responsiveness is checked on core pages.
 
 ## Phase 5 — Temporary Operations
 
-1. Add a `DEPLOYMENT_NOTES.md` with:
-   - Live URL
-   - Credentials ownership
-   - DB location
-   - Known limits/issues
-2. Schedule lightweight backup routine:
-   - DB export weekly
-   - Critical uploaded files backup weekly
-3. Track known free-tier constraints for team expectations.
+1. Add a `DEPLOYMENT_NOTES.md` containing:
+   - live URL
+   - deployment date
+   - hosting provider
+   - owner of credentials
+   - current base path assumption
+   - known broken or disabled features
+2. Schedule lightweight backup steps:
+   - `.env` backup in secure private storage
+   - Supabase export/backup routine as appropriate
+   - backup of critical generated/uploaded files if still stored locally
+3. Record free-tier constraints so the team expects interruptions or suspensions.
 
 ---
 
@@ -147,46 +181,56 @@ Use if you can containerize and are okay with setup complexity.
 
 If deployment fails:
 
-1. Keep local XAMPP as fallback demo environment.
-2. Repoint demo to local LAN/tunnel (temporary) if public host breaks.
-3. Restore previous stable upload package from backup zip.
+1. Keep the local XAMPP environment as the fallback demo environment.
+2. Switch the demo back to local LAN/tunnel access if public hosting becomes unstable.
+3. Restore the last known-good uploaded package.
+4. Revert any host-only environment changes and rotate secrets if exposure is suspected.
 
 ---
 
-## 6) Risk Notes (Temporary Hosting)
+## 6) Main Risks for This Repo
 
-- Free hosts can suspend inactive or resource-heavy apps.
-- Performance may be inconsistent during peak times.
-- Security controls are limited compared to managed production hosting.
-- Email deliverability is often restricted on free plans.
+- Free hosts may suspend inactive or resource-heavy applications.
+- Generated PDF/XLSX and large uploads may exceed free-tier limits.
+- SMTP may be blocked or unreliable.
+- Public `tools/` exposure is a real risk if server rules are not added.
+- Hardcoded `/hris-system` paths can break assets, storage links, and downloads when deployed at a different base path.
+- If `.env` placement is careless, Supabase credentials become a major security issue.
 
 ---
 
-## 7) Recommended Next Upgrade Path (After Temporary Demo)
+## 7) Recommended Next Upgrade Path After Demo
 
-1. Move to paid VPS/PaaS (stable CPU/RAM, SSL, cron, logs).
-2. Separate app and storage concerns (object storage + DB backups).
-3. Add CI/CD from GitHub with staged environments.
-4. Formalize secrets management and monitoring.
+1. Move to a paid PHP host, VPS, or app platform with predictable uptime and logs.
+2. Introduce proper environment management and a configurable application base URL.
+3. Reduce dependence on local host storage for user files where practical.
+4. Add CI/CD with a repeatable deploy process.
+5. Formalize monitoring, backups, and secret rotation.
 
 ---
 
 ## 8) Minimal Go-Live Checklist
 
-- [ ] App loads from public URL
-- [ ] Login works for all main roles
-- [ ] Critical CRUD paths pass smoke test
-- [ ] Upload and report exports are functional
-- [ ] Error display disabled in production
-- [ ] Backup export completed and documented
+- [ ] Public URL loads correctly
+- [ ] Root `.env` is present and not publicly exposed
+- [ ] Supabase-backed authentication works for all main roles
+- [ ] `/hris-system` path assumption is satisfied or patched
+- [ ] Upload, preview, and download flows work for critical files
+- [ ] PDF/Excel exports work on the live host
+- [ ] Error display is disabled in production
+- [ ] `tools/` and debug scripts are not publicly accessible
+- [ ] Backup/export notes are documented
 
 ---
 
 ## 9) Decision Summary
 
-For **immediate temporary deployment**, choose:
+For an **immediate temporary deployment**, the best practical choice is still a **PHP-capable free host**, but only with the following expectations:
 
-- **Primary:** InfinityFree (full PHP app, least rewrite)
-- **Alternative:** Netlify/Vercel only for frontend-only demo build
+- This is for demo/testing only.
+- Supabase is required.
+- Root `.env` handling must be correct.
+- Base-path assumptions must be respected.
+- Some features such as SMTP or larger generated files may need to be disabled.
 
-This keeps delivery fast now and preserves a clean path to proper production hosting later.
+This keeps delivery fast for a short demo while preserving a cleaner path to a proper paid deployment later.

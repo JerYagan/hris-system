@@ -3,41 +3,49 @@
 $employmentClassificationOptions = userManagementEmploymentClassificationPolicy();
 $assignableRolePolicy = array_flip(userManagementAssignableRolePolicy());
 
+$userManagementMetaCacheKey = 'admin_user_management_meta_cache';
+$userManagementMetaCacheTtl = 300;
+$userManagementMetaCache = $_SESSION[$userManagementMetaCacheKey] ?? null;
+$userManagementMetaCacheValid = is_array($userManagementMetaCache)
+    && isset($userManagementMetaCache['cached_at'])
+    && ((time() - (int)$userManagementMetaCache['cached_at']) < $userManagementMetaCacheTtl);
+
 $usersResponse = apiRequest(
     'GET',
     $supabaseUrl . '/rest/v1/user_accounts?select=id,email,account_status,created_at,people(first_name,surname)&order=created_at.desc&limit=1000',
     $headers
 );
 
-$rolesResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/roles?select=id,role_key,role_name&order=role_name.asc',
-    $headers
-);
+$rolesResponse = null;
+$officesResponse = null;
+$officesDirectoryResponse = null;
+$positionsResponse = null;
 
-$officesResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/offices?select=id,office_name,office_code,is_active&is_active=eq.true&order=office_name.asc',
-    $headers
-);
+if (!$userManagementMetaCacheValid) {
+    $rolesResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/roles?select=id,role_key,role_name&order=role_name.asc',
+        $headers
+    );
 
-$officesDirectoryResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/offices?select=id,office_name,office_code,is_active&order=office_name.asc&limit=2000',
-    $headers
-);
+    $officesResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/offices?select=id,office_name,office_code,is_active&is_active=eq.true&order=office_name.asc',
+        $headers
+    );
 
-$positionsResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/job_positions?select=id,position_title,is_active&order=position_title.asc&limit=2000',
-    $headers
-);
+    $officesDirectoryResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/offices?select=id,office_name,office_code,is_active&order=office_name.asc&limit=2000',
+        $headers
+    );
 
-$organizationsResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/organizations?select=id,name,code,is_active&is_active=eq.true&order=name.asc&limit=200',
-    $headers
-);
+    $positionsResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/job_positions?select=id,position_title,is_active&order=position_title.asc&limit=2000',
+        $headers
+    );
+}
 
 $primaryRolesResponse = apiRequest(
     'GET',
@@ -58,6 +66,13 @@ $employeeRoleAssignmentsResponse = apiRequest(
     $headers
 );
 
+$activeAdminAssignmentsResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/user_role_assignments?select=user_id,role:roles!inner(role_key)&role.role_key=eq.admin&expires_at=is.null&limit=2000',
+    $headers
+);
+
 $employmentResponse = apiRequest(
     'GET',
     $supabaseUrl
@@ -75,14 +90,37 @@ $hiredApplicationsResponse = apiRequest(
 );
 
 $users = isSuccessful($usersResponse) ? $usersResponse['data'] : [];
-$roles = isSuccessful($rolesResponse) ? $rolesResponse['data'] : [];
-$offices = isSuccessful($officesResponse) ? $officesResponse['data'] : [];
-$officesDirectory = isSuccessful($officesDirectoryResponse) ? $officesDirectoryResponse['data'] : [];
-$positions = isSuccessful($positionsResponse) ? $positionsResponse['data'] : [];
-$organizations = isSuccessful($organizationsResponse) ? $organizationsResponse['data'] : [];
+$roles = [];
+$offices = [];
+$officesDirectory = [];
+$positions = [];
+
+if ($userManagementMetaCacheValid) {
+    $roles = (array)($userManagementMetaCache['roles'] ?? []);
+    $offices = (array)($userManagementMetaCache['offices'] ?? []);
+    $officesDirectory = (array)($userManagementMetaCache['offices_directory'] ?? []);
+    $positions = (array)($userManagementMetaCache['positions'] ?? []);
+} else {
+    $roles = isSuccessful($rolesResponse) ? (array)$rolesResponse['data'] : [];
+    $offices = isSuccessful($officesResponse) ? (array)$officesResponse['data'] : [];
+    $officesDirectory = isSuccessful($officesDirectoryResponse) ? (array)$officesDirectoryResponse['data'] : [];
+    $positions = isSuccessful($positionsResponse) ? (array)$positionsResponse['data'] : [];
+
+    if (isSuccessful($rolesResponse) && isSuccessful($officesResponse) && isSuccessful($officesDirectoryResponse) && isSuccessful($positionsResponse)) {
+        $_SESSION[$userManagementMetaCacheKey] = [
+            'cached_at' => time(),
+            'roles' => $roles,
+            'offices' => $offices,
+            'offices_directory' => $officesDirectory,
+            'positions' => $positions,
+        ];
+    }
+}
+
 $primaryRoles = isSuccessful($primaryRolesResponse) ? $primaryRolesResponse['data'] : [];
 $primaryOfficeAssignments = isSuccessful($primaryOfficeAssignmentsResponse) ? $primaryOfficeAssignmentsResponse['data'] : [];
 $employeeRoleAssignments = isSuccessful($employeeRoleAssignmentsResponse) ? $employeeRoleAssignmentsResponse['data'] : [];
+$activeAdminAssignments = isSuccessful($activeAdminAssignmentsResponse) ? $activeAdminAssignmentsResponse['data'] : [];
 $employmentRows = isSuccessful($employmentResponse) ? $employmentResponse['data'] : [];
 
 $filteredRoles = [];
@@ -113,6 +151,18 @@ foreach ((array)$employeeRoleAssignments as $assignmentRow) {
 
     $hasEmployeeRoleByUserId[$userId] = true;
 }
+
+$activeAdminUserIdSet = [];
+foreach ((array)$activeAdminAssignments as $assignmentRow) {
+    $userId = strtolower(trim((string)($assignmentRow['user_id'] ?? '')));
+    if ($userId === '') {
+        continue;
+    }
+
+    $activeAdminUserIdSet[$userId] = true;
+}
+
+$activeAdminCount = count($activeAdminUserIdSet);
 
 $hasCurrentEmploymentByUserId = [];
 foreach ((array)$employmentRows as $employmentRow) {

@@ -132,12 +132,12 @@ $roleResponse = authHttpJsonRequest(
 
 $roleKey = strtolower((string)($roleResponse['data'][0]['role']['role_key'] ?? ''));
 $redirectMap = [
-  'admin' => '/hris-system/pages/admin/dashboard.php',
-  'hr_officer' => '/hris-system/pages/staff/dashboard.php',
-  'supervisor' => '/hris-system/pages/staff/dashboard.php',
-  'staff' => '/hris-system/pages/staff/dashboard.php',
-  'employee' => '/hris-system/pages/employee/dashboard.php',
-  'applicant' => '/hris-system/pages/applicant/dashboard.php',
+  'admin' => '../admin/dashboard.php',
+  'hr_officer' => '../staff/dashboard.php',
+  'supervisor' => '../staff/dashboard.php',
+  'staff' => '../staff/dashboard.php',
+  'employee' => '../employee/dashboard.php',
+  'applicant' => '../applicant/dashboard.php',
 ];
 
 if ($roleKey === '' || !isset($redirectMap[$roleKey])) {

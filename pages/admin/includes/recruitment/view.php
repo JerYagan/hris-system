@@ -80,24 +80,29 @@
                             <td class="px-4 py-3"><span class="inline-flex items-center justify-center min-w-[110px] px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars((string)$row['status_class'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$row['status_label'], ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)$row['updated_label'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3">
-                                <details class="relative inline-block" data-recruitment-action-menu>
-                                    <summary class="list-none inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 cursor-pointer">
-                                        <span>Actions</span>
-                                        <span class="material-symbols-outlined text-[14px]">expand_more</span>
-                                    </summary>
-                                    <div class="absolute right-0 mt-1 w-44 rounded-lg border border-slate-200 bg-white shadow-lg z-20 p-1.5">
+                                <div class="relative inline-block text-left" data-recruitment-action-menu data-admin-action-scope>
+                                    <button type="button" data-admin-action-menu-toggle aria-haspopup="menu" aria-expanded="false" class="admin-action-button">
+                                        <span class="admin-action-button-label">
+                                            <span class="material-symbols-outlined">more_horiz</span>
+                                            Actions
+                                        </span>
+                                        <span class="material-symbols-outlined admin-action-chevron">expand_more</span>
+                                    </button>
+                                    <div data-admin-action-menu role="menu" class="admin-action-menu hidden w-48">
                                         <button
                                             type="button"
-                                            class="w-full inline-flex items-center gap-2 text-left px-3 py-2 text-xs rounded-md hover:bg-slate-100 text-slate-700"
+                                            role="menuitem"
+                                            class="admin-action-item"
                                             data-recruitment-job-view
                                             data-posting-id="<?= htmlspecialchars((string)$row['id'], ENT_QUOTES, 'UTF-8') ?>"
                                         >
-                                            <span class="material-symbols-outlined text-[14px]">visibility</span>
+                                            <span class="material-symbols-outlined">visibility</span>
                                             View
                                         </button>
                                         <button
                                             type="button"
-                                            class="w-full inline-flex items-center gap-2 text-left px-3 py-2 text-xs rounded-md hover:bg-slate-100 text-slate-700"
+                                            role="menuitem"
+                                            class="admin-action-item"
                                             data-recruitment-job-edit
                                             data-posting-id="<?= htmlspecialchars((string)$row['id'], ENT_QUOTES, 'UTF-8') ?>"
                                             data-title="<?= htmlspecialchars((string)$row['title'], ENT_QUOTES, 'UTF-8') ?>"
@@ -120,21 +125,22 @@
                                             data-close-date="<?= htmlspecialchars((string)$row['close_date'], ENT_QUOTES, 'UTF-8') ?>"
                                             data-posting-status="<?= htmlspecialchars((string)$row['status_raw'], ENT_QUOTES, 'UTF-8') ?>"
                                         >
-                                            <span class="material-symbols-outlined text-[14px]">edit_square</span>
+                                            <span class="material-symbols-outlined">edit_square</span>
                                             Edit
                                         </button>
                                         <button
                                             type="button"
-                                            class="w-full inline-flex items-center gap-2 text-left px-3 py-2 text-xs rounded-md hover:bg-rose-50 text-rose-700"
+                                            role="menuitem"
+                                            class="admin-action-item admin-action-item-danger"
                                             data-recruitment-job-archive
                                             data-posting-id="<?= htmlspecialchars((string)$row['id'], ENT_QUOTES, 'UTF-8') ?>"
                                             data-title="<?= htmlspecialchars((string)$row['position_title'], ENT_QUOTES, 'UTF-8') ?>"
                                         >
-                                            <span class="material-symbols-outlined text-[14px]">archive</span>
+                                            <span class="material-symbols-outlined">archive</span>
                                             Archive
                                         </button>
                                     </div>
-                                </details>
+                                </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>

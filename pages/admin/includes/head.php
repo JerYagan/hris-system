@@ -334,6 +334,138 @@ $loadAdminDataTables = in_array($adminActivePage, $adminDataTablePages, true);
     opacity: 0.95;
   }
 
+  .admin-action-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 2.25rem;
+    padding: 0.5rem 0.8rem;
+    border: 1px solid rgb(203 213 225);
+    border-radius: 0.85rem;
+    background: linear-gradient(180deg, rgb(255 255 255) 0%, rgb(248 250 252) 100%);
+    color: rgb(51 65 85);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
+  }
+
+  .admin-action-button:hover {
+    background: linear-gradient(180deg, rgb(255 255 255) 0%, rgb(241 245 249) 100%);
+    border-color: rgb(148 163 184);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1);
+    transform: translateY(-1px);
+  }
+
+  .admin-action-button:focus-visible {
+    outline: 0;
+    border-color: rgb(148 163 184);
+    box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.2);
+  }
+
+  .admin-action-button-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
+  .admin-action-button .material-symbols-outlined {
+    font-size: 18px;
+  }
+
+  .admin-action-chevron {
+    color: rgb(100 116 139);
+    transition: transform 0.18s ease;
+  }
+
+  .admin-action-button[aria-expanded="true"] .admin-action-chevron {
+    transform: rotate(180deg);
+  }
+
+  .admin-action-menu {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 0.5rem);
+    z-index: 30;
+    padding: 0.35rem;
+    border: 1px solid rgb(226 232 240);
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 18px 36px rgba(15, 23, 42, 0.16);
+    backdrop-filter: blur(10px);
+    transform-origin: bottom right;
+  }
+
+  .admin-action-item {
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.7rem 0.85rem;
+    border: 0;
+    border-radius: 0.8rem;
+    background: transparent;
+    color: rgb(51 65 85);
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.2;
+    text-align: left;
+    text-decoration: none;
+    transition: background-color 0.16s ease, color 0.16s ease;
+  }
+
+  .admin-action-item:hover {
+    background: rgb(248 250 252);
+  }
+
+  .admin-action-item:focus-visible {
+    outline: 0;
+    background: rgb(241 245 249);
+  }
+
+  .admin-action-item .material-symbols-outlined {
+    font-size: 18px;
+    opacity: 0.74;
+  }
+
+  .admin-action-item-warning {
+    color: rgb(180 83 9);
+  }
+
+  .admin-action-item-warning:hover,
+  .admin-action-item-warning:focus-visible {
+    background: rgb(255 251 235);
+  }
+
+  .admin-action-item-danger {
+    color: rgb(190 24 93);
+  }
+
+  .admin-action-item-danger:hover,
+  .admin-action-item-danger:focus-visible {
+    background: rgb(255 241 242);
+  }
+
+  .admin-action-item-disabled,
+  .admin-action-item:disabled {
+    color: rgb(148 163 184);
+    cursor: not-allowed;
+  }
+
+  .admin-action-item-disabled:hover,
+  .admin-action-item:disabled:hover {
+    background: transparent;
+  }
+
+  .admin-action-divider {
+    height: 1px;
+    margin: 0.3rem 0;
+    background: rgb(226 232 240);
+  }
+
   .flatpickr-calendar {
     border-radius: 0.75rem;
     box-shadow: 0 12px 26px rgba(2, 6, 23, 0.18);

@@ -247,33 +247,40 @@ foreach ($documentOwnerOptions as $owner) {
                                 <div class="mt-1"><span class="inline-flex items-center justify-center min-w-[80px] px-2 py-0.5 text-xs rounded-full <?= htmlspecialchars($accountClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($accountLabel, ENT_QUOTES, 'UTF-8') ?></span></div>
                             </td>
                             <td class="px-4 py-3">
-                                <div class="relative inline-flex" data-doc-action-wrap>
-                                    <button type="button" data-doc-action-toggle class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">
-                                        <span class="material-symbols-outlined text-[15px]">more_horiz</span>Actions
+                                <div class="relative inline-flex text-left" data-doc-action-wrap data-admin-action-scope>
+                                    <button type="button" data-admin-action-menu-toggle aria-haspopup="menu" aria-expanded="false" class="admin-action-button">
+                                        <span class="admin-action-button-label">
+                                            <span class="material-symbols-outlined">more_horiz</span>
+                                            Actions
+                                        </span>
+                                        <span class="material-symbols-outlined admin-action-chevron">expand_more</span>
                                     </button>
-                                    <div data-doc-action-menu class="hidden absolute right-0 top-full z-20 mt-1 w-44 rounded-lg border border-slate-200 bg-white shadow-lg p-1.5">
+                                    <div data-doc-action-menu data-admin-action-menu role="menu" class="admin-action-menu hidden w-44">
                                         <a
-                                            href="<?= htmlspecialchars((string)($row['document_url'] ?? '#'), ENT_QUOTES, 'UTF-8') ?>"
+                                            href="<?= htmlspecialchars((string)($row['preview_url'] ?? '#'), ENT_QUOTES, 'UTF-8') ?>"
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            class="w-full inline-flex items-center gap-1.5 px-2.5 py-2 text-xs rounded-md text-slate-700 hover:bg-slate-50"
-                                        ><span class="material-symbols-outlined text-[15px]">open_in_new</span>View</a>
+                                            role="menuitem"
+                                            class="admin-action-item"
+                                        ><span class="material-symbols-outlined">open_in_new</span>View</a>
                                         <button
                                             type="button"
                                             data-doc-review
                                             data-document-id="<?= htmlspecialchars((string)($row['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                             data-document-title="<?= htmlspecialchars((string)($row['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
                                             data-current-status="<?= htmlspecialchars($statusText, ENT_QUOTES, 'UTF-8') ?>"
-                                            class="w-full inline-flex items-center gap-1.5 px-2.5 py-2 text-xs rounded-md text-emerald-700 hover:bg-emerald-50"
-                                        ><span class="material-symbols-outlined text-[15px]">fact_check</span>Review</button>
+                                            role="menuitem"
+                                            class="admin-action-item"
+                                        ><span class="material-symbols-outlined">fact_check</span>Review</button>
                                         <button
                                             type="button"
                                             data-doc-archive
                                             data-document-id="<?= htmlspecialchars((string)($row['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                             data-document-title="<?= htmlspecialchars((string)($row['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
                                             data-current-status="<?= htmlspecialchars($statusText, ENT_QUOTES, 'UTF-8') ?>"
-                                            class="w-full inline-flex items-center gap-1.5 px-2.5 py-2 text-xs rounded-md text-rose-700 hover:bg-rose-50"
-                                        ><span class="material-symbols-outlined text-[15px]">inventory_2</span>Archive</button>
+                                            role="menuitem"
+                                            class="admin-action-item admin-action-item-danger"
+                                        ><span class="material-symbols-outlined">inventory_2</span>Archive</button>
                                     </div>
                                 </div>
                             </td>
@@ -593,7 +600,6 @@ foreach ($documentOwnerOptions as $owner) {
                         >
                             <td class="px-4 py-3">
                                 <div class="font-medium text-slate-700"><?= htmlspecialchars((string)($row['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>
-                                <div class="text-xs text-slate-500 mt-1"><?= htmlspecialchars((string)($row['storage_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>
                             </td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['owner_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['category'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
@@ -660,26 +666,6 @@ foreach ($documentOwnerOptions as $owner) {
                     <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Save Review</button>
                 </div>
             </form>
-        </div>
-    </div>
-</div>
-
-<div id="documentViewerModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
-    <div class="absolute inset-0 bg-slate-900/60" data-modal-close="documentViewerModal"></div>
-    <div class="relative w-full h-full flex items-center justify-center p-3 md:p-6">
-        <div class="w-[min(96vw,1200px)] h-[92vh] bg-white rounded-2xl border border-slate-200 shadow-xl flex flex-col overflow-hidden">
-            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
-                <div>
-                    <h3 id="documentViewerTitle" class="text-lg font-semibold text-slate-800">Document Viewer</h3>
-                    <p id="documentViewerMeta" class="text-xs text-slate-500 mt-1">-</p>
-                </div>
-                <button type="button" data-modal-close="documentViewerModal" class="text-slate-500 hover:text-slate-700">✕</button>
-            </div>
-            <div id="documentViewerContent" class="flex-1 p-3 md:p-4 bg-slate-50 overflow-auto flex items-center justify-center text-sm text-slate-500">Select a document to preview.</div>
-            <div class="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
-                <a id="documentViewerOpenLink" href="#" target="_blank" rel="noopener noreferrer" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Open in New Tab</a>
-                <button type="button" data-modal-close="documentViewerModal" class="px-4 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Close</button>
-            </div>
         </div>
     </div>
 </div>

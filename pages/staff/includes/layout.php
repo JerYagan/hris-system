@@ -29,7 +29,7 @@ $resolveProfilePhotoUrl = static function (?string $rawPath): ?string {
         return $path;
     }
 
-    return '/hris-system/storage/document/' . ltrim($path, '/');
+    return systemAppPath('/storage/document/' . ltrim($path, '/'));
 };
 
 if (function_exists('staffBackendContext')) {

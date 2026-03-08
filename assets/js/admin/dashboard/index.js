@@ -1,4 +1,4 @@
-import { initAdminShellInteractions, initModalSystem, initStatusChangeConfirmations, openModal } from '/hris-system/assets/js/shared/admin-core.js';
+import { initAdminShellInteractions, initModalSystem, initStatusChangeConfirmations, openModal } from '/assets/js/shared/admin-core.js';
 
 const parseJsonArray = (value) => {
   try {

@@ -69,8 +69,64 @@ const initAccountPrefill = () => {
   const accountEmailInput = document.getElementById('accountEmailInput');
   const accountFullNameInput = document.getElementById('accountFullNameInput');
   const roleUserSelect = document.getElementById('roleUserSelect');
+  const roleSelect = document.getElementById('roleSelect');
   const roleOfficeSelect = document.getElementById('roleOfficeSelect');
+  const roleAdminGuardHint = document.getElementById('roleAdminGuardHint');
   const credentialUserSelect = document.getElementById('credentialUserSelect');
+  const credentialActionSelect = document.getElementById('credentialActionSelect');
+  const credentialActionHelp = document.getElementById('credentialActionHelp');
+
+  const updateRoleAdminGuard = () => {
+    if (!(roleUserSelect instanceof HTMLSelectElement) || !(roleSelect instanceof HTMLSelectElement)) {
+      return;
+    }
+
+    const selectedUserOption = roleUserSelect.options[roleUserSelect.selectedIndex] || null;
+    const selectedUserIsAdmin = selectedUserOption?.getAttribute('data-is-admin') === '1';
+    const activeAdminCount = Number(roleSelect.dataset.activeAdminCount || '0');
+    const adminRoleOption = roleSelect.querySelector('option[data-role-key="admin"]');
+    const capReached = activeAdminCount >= 2 && !selectedUserIsAdmin;
+
+    if (adminRoleOption instanceof HTMLOptionElement) {
+      adminRoleOption.disabled = capReached;
+      if (capReached && roleSelect.value === adminRoleOption.value) {
+        roleSelect.value = '';
+      }
+    }
+
+    if (roleAdminGuardHint instanceof HTMLElement) {
+      roleAdminGuardHint.textContent = capReached
+        ? 'Admin assignment is unavailable because 2 active admin-role users already exist.'
+        : 'Assigning Admin is allowed only while there are fewer than 2 active admin-role users.';
+      roleAdminGuardHint.classList.toggle('text-amber-600', capReached);
+      roleAdminGuardHint.classList.toggle('text-slate-500', !capReached);
+    }
+  };
+
+  const updateCredentialAdminGuard = () => {
+    if (!(credentialUserSelect instanceof HTMLSelectElement) || !(credentialActionSelect instanceof HTMLSelectElement)) {
+      return;
+    }
+
+    const selectedUserOption = credentialUserSelect.options[credentialUserSelect.selectedIndex] || null;
+    const selectedUserIsAdmin = selectedUserOption?.getAttribute('data-is-admin') === '1';
+    const disableLoginOption = credentialActionSelect.querySelector('option[value="disable_login"]');
+
+    if (disableLoginOption instanceof HTMLOptionElement) {
+      disableLoginOption.disabled = selectedUserIsAdmin;
+      if (selectedUserIsAdmin && credentialActionSelect.value === 'disable_login') {
+        credentialActionSelect.value = 'reset_password';
+      }
+    }
+
+    if (credentialActionHelp instanceof HTMLElement) {
+      credentialActionHelp.textContent = selectedUserIsAdmin
+        ? 'Admin accounts cannot be disabled from User Management. Reset and unlock actions remain available where policy allows.'
+        : 'Reset Password is limited to Employee and Staff accounts. The temporary password is emailed with change-password instructions.';
+      credentialActionHelp.classList.toggle('text-amber-600', selectedUserIsAdmin);
+      credentialActionHelp.classList.toggle('text-slate-500', !selectedUserIsAdmin);
+    }
+  };
 
   document.querySelectorAll('[data-fill-role]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -93,8 +149,12 @@ const initAccountPrefill = () => {
         roleOfficeSelect.value = officeId;
         roleOfficeSelect.dispatchEvent(new Event('change'));
       }
+
+      updateRoleAdminGuard();
     });
   }
+
+  updateRoleAdminGuard();
 
   document.querySelectorAll('[data-fill-credential]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -108,6 +168,14 @@ const initAccountPrefill = () => {
       openModal('credentialModal');
     });
   });
+
+  if (credentialUserSelect instanceof HTMLSelectElement) {
+    credentialUserSelect.addEventListener('change', () => {
+      updateCredentialAdminGuard();
+    });
+  }
+
+  updateCredentialAdminGuard();
 
   document.querySelectorAll('[data-prepare-archive]').forEach((button) => {
     button.addEventListener('click', () => {

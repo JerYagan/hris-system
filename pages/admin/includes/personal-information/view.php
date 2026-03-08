@@ -416,35 +416,35 @@ $rolePill = static function (string $roleKey): array {
                             <td class="px-4 py-3"><?= htmlspecialchars((string)$row['position'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><span class="inline-flex items-center justify-center min-w-[90px] px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td class="px-4 py-3">
-                                <div data-person-action-scope class="relative inline-block text-left">
-                                    <button type="button" data-person-action-menu-toggle class="w-full inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300">
-                                        <span class="inline-flex items-center gap-2">
-                                            <span class="material-symbols-outlined text-[18px]">more_horiz</span>
+                                <div data-person-action-scope data-admin-action-scope class="relative inline-block text-left">
+                                    <button type="button" data-admin-action-menu-toggle aria-haspopup="menu" aria-expanded="false" class="admin-action-button w-full min-w-[160px]">
+                                        <span class="admin-action-button-label">
+                                            <span class="material-symbols-outlined">more_horiz</span>
                                             Actions
                                         </span>
-                                        <span class="material-symbols-outlined text-[18px]">expand_more</span>
+                                        <span class="material-symbols-outlined admin-action-chevron">expand_more</span>
                                     </button>
 
-                                    <div data-person-action-menu class="hidden absolute right-0 z-20 mt-2 w-72 origin-top-right rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
-                                        <button type="button" data-action-menu-item data-action-target="edit-profile" class="w-full text-left px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50 inline-flex items-center gap-2">
-                                            <span class="material-symbols-outlined text-[18px] text-slate-500">edit</span>
+                                    <div data-person-action-menu data-admin-action-menu role="menu" class="admin-action-menu hidden w-72">
+                                        <button type="button" data-action-menu-item data-action-target="edit-profile" role="menuitem" class="admin-action-item">
+                                            <span class="material-symbols-outlined">edit</span>
                                             Edit Employee Profile
                                         </button>
-                                        <button type="button" data-action-menu-item data-action-target="assign" class="w-full text-left px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50 inline-flex items-center gap-2">
-                                            <span class="material-symbols-outlined text-[18px] text-slate-500">person_add</span>
+                                        <button type="button" data-action-menu-item data-action-target="assign" role="menuitem" class="admin-action-item">
+                                            <span class="material-symbols-outlined">person_add</span>
                                             Assign Division and Position
                                         </button>
-                                        <button type="button" data-action-menu-item data-action-target="manage-status" class="w-full text-left px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50 inline-flex items-center gap-2">
-                                            <span class="material-symbols-outlined text-[18px] text-slate-500">manage_accounts</span>
+                                        <button type="button" data-action-menu-item data-action-target="manage-status" role="menuitem" class="admin-action-item">
+                                            <span class="material-symbols-outlined">manage_accounts</span>
                                             Manage Employee Status
                                         </button>
-                                        <button type="button" data-action-menu-item data-action-target="merge-duplicate" class="w-full text-left px-3 py-2.5 rounded-lg text-sm text-amber-700 hover:bg-amber-50 inline-flex items-center gap-2">
-                                            <span class="material-symbols-outlined text-[18px] text-amber-600">merge_type</span>
+                                        <button type="button" data-action-menu-item data-action-target="merge-duplicate" role="menuitem" class="admin-action-item admin-action-item-warning">
+                                            <span class="material-symbols-outlined">merge_type</span>
                                             Merge/Delete Duplicate Profile
                                         </button>
-                                        <div class="my-1 h-px bg-slate-200"></div>
-                                        <button type="button" data-action-menu-item data-action-target="archive" class="w-full text-left px-3 py-2.5 rounded-lg text-sm text-rose-700 hover:bg-rose-50 inline-flex items-center gap-2">
-                                            <span class="material-symbols-outlined text-[18px] text-rose-600">archive</span>
+                                        <div class="admin-action-divider"></div>
+                                        <button type="button" data-action-menu-item data-action-target="archive" role="menuitem" class="admin-action-item admin-action-item-danger">
+                                            <span class="material-symbols-outlined">archive</span>
                                             Archive Employee Profile
                                         </button>
                                     </div>

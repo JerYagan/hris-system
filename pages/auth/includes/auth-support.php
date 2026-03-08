@@ -31,6 +31,20 @@ if (!function_exists('authLoadEnvFileIfPresent')) {
     }
 }
 
+if (!function_exists('authProjectRoot')) {
+    function authProjectRoot(): string
+    {
+        return dirname(__DIR__, 3);
+    }
+}
+
+if (!function_exists('authLoadProjectEnv')) {
+    function authLoadProjectEnv(): void
+    {
+        authLoadEnvFileIfPresent(authProjectRoot() . DIRECTORY_SEPARATOR . '.env');
+    }
+}
+
 if (!function_exists('authEnvValue')) {
     function authEnvValue(string $key): ?string
     {
@@ -40,6 +54,37 @@ if (!function_exists('authEnvValue')) {
         }
 
         return (string)$value;
+    }
+}
+
+if (!function_exists('authAppBasePath')) {
+    function authAppBasePath(): string
+    {
+        authLoadProjectEnv();
+
+        $configuredUrl = trim((string)(authEnvValue('APP_BASE_URL') ?? ''));
+        if ($configuredUrl !== '') {
+            $parsedPath = parse_url($configuredUrl, PHP_URL_PATH);
+            if (is_string($parsedPath)) {
+                $normalized = '/' . trim($parsedPath, '/');
+                return $normalized === '/' ? '' : $normalized;
+            }
+        }
+
+        return '/hris-system';
+    }
+}
+
+if (!function_exists('authAppPath')) {
+    function authAppPath(string $path = ''): string
+    {
+        $basePath = authAppBasePath();
+        $suffix = '/' . ltrim($path, '/');
+        if ($suffix === '/') {
+            $suffix = '';
+        }
+
+        return ($basePath === '' ? '' : $basePath) . $suffix;
     }
 }
 

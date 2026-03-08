@@ -59,7 +59,7 @@
                 Assign Role
             </button>
         </header>
-        <p class="px-4 pt-3 text-xs text-slate-500">Assignable roles are policy-scoped (Admin, Staff, Employee, Applicant) to keep support-ticket routing and role access aligned.</p>
+        <p class="px-4 pt-3 text-xs text-slate-500">Assignable roles are policy-scoped (Admin, Staff, Employee, Applicant) to keep support-ticket routing and role access aligned. Active admin-role users are capped at 2.</p>
         <div class="max-h-72 overflow-auto">
             <table class="w-full text-sm">
                 <thead class="bg-slate-50 text-slate-600 sticky top-0">
@@ -264,6 +264,7 @@
                             $mobileNo = '-';
                         }
                         $primaryRole = (string)($primaryRoleMap[(string)($user['id'] ?? '')] ?? 'Unassigned');
+                        $isAdminUser = isset($activeAdminUserIdSet[strtolower(trim((string)($user['id'] ?? '')))]);
                         $created = (string)($user['created_at'] ?? '');
                         $createdLabel = $created !== '' ? date('M d, Y', strtotime($created)) : '-';
                         $searchText = strtolower(trim($displayName . ' ' . (string)($user['email'] ?? '') . ' ' . $mobileNo . ' ' . $primaryRole . ' ' . $statusLabel . ' ' . $createdLabel));
@@ -276,23 +277,25 @@
                             <td class="px-4 py-3" data-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>"><span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($createdLabel, ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3">
-                                <div class="relative inline-block text-left" data-person-action-scope>
-                                    <button type="button" data-person-action-menu-toggle class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm">
-                                        <span class="material-symbols-outlined text-[15px]">widgets</span>
-                                        Actions
-                                        <span class="material-symbols-outlined text-[15px]">expand_more</span>
+                                <div class="relative inline-block text-left" data-person-action-scope data-admin-action-scope>
+                                    <button type="button" data-admin-action-menu-toggle aria-haspopup="menu" aria-expanded="false" class="admin-action-button">
+                                        <span class="admin-action-button-label">
+                                            <span class="material-symbols-outlined">more_horiz</span>
+                                            Actions
+                                        </span>
+                                        <span class="material-symbols-outlined admin-action-chevron">expand_more</span>
                                     </button>
-                                    <div data-person-action-menu class="hidden absolute right-0 z-20 mt-2 w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
-                                        <button type="button" data-action-menu-item data-action-target="manage-role" class="w-full text-left px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50 inline-flex items-center gap-2">
-                                            <span class="material-symbols-outlined text-[16px]">badge</span>
+                                    <div data-person-action-menu data-admin-action-menu role="menu" class="admin-action-menu hidden w-52">
+                                        <button type="button" data-action-menu-item data-action-target="manage-role" role="menuitem" class="admin-action-item">
+                                            <span class="material-symbols-outlined">badge</span>
                                             Manage Role
                                         </button>
-                                        <button type="button" data-action-menu-item data-action-target="credentials" class="w-full text-left px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50 inline-flex items-center gap-2">
-                                            <span class="material-symbols-outlined text-[16px]">vpn_key</span>
+                                        <button type="button" data-action-menu-item data-action-target="credentials" role="menuitem" class="admin-action-item">
+                                            <span class="material-symbols-outlined">vpn_key</span>
                                             Credentials
                                         </button>
-                                        <button type="button" data-action-menu-item data-action-target="archive-account" class="w-full text-left px-3 py-2.5 rounded-lg text-sm text-rose-700 hover:bg-rose-50 inline-flex items-center gap-2">
-                                            <span class="material-symbols-outlined text-[16px]">archive</span>
+                                        <button type="button" data-action-menu-item data-action-target="archive-account" role="menuitem" class="<?= $isAdminUser ? 'admin-action-item admin-action-item-disabled' : 'admin-action-item admin-action-item-danger' ?>" <?= $isAdminUser ? 'disabled title="Admin accounts cannot be archived from User Management."' : '' ?>>
+                                            <span class="material-symbols-outlined">archive</span>
                                             Archive
                                         </button>
                                     </div>
@@ -456,20 +459,22 @@
                             }
                             ?>
                             <?php $userOfficeId = (string)($userOfficeMap[(string)($user['id'] ?? '')] ?? ''); ?>
-                            <option value="<?= htmlspecialchars((string)($user['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-office-id="<?= htmlspecialchars($userOfficeId, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($displayName . ' (' . (string)($user['email'] ?? '') . ')', ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php $isAdminUser = isset($activeAdminUserIdSet[strtolower(trim((string)($user['id'] ?? '')))]); ?>
+                            <option value="<?= htmlspecialchars((string)($user['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-office-id="<?= htmlspecialchars($userOfficeId, ENT_QUOTES, 'UTF-8') ?>" data-is-admin="<?= $isAdminUser ? '1' : '0' ?>"><?= htmlspecialchars($displayName . ' (' . (string)($user['email'] ?? '') . ')', ENT_QUOTES, 'UTF-8') ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
                 <div>
                     <label class="text-slate-600">Role</label>
-                    <select name="role_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                    <select id="roleSelect" name="role_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" data-active-admin-count="<?= htmlspecialchars((string)$activeAdminCount, ENT_QUOTES, 'UTF-8') ?>" required>
                         <option value="">Select role</option>
                         <?php foreach ($roles as $role): ?>
-                            <option value="<?= htmlspecialchars((string)($role['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                            <option value="<?= htmlspecialchars((string)($role['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-role-key="<?= htmlspecialchars(strtolower((string)($role['role_key'] ?? '')), ENT_QUOTES, 'UTF-8') ?>">
                                 <?= htmlspecialchars((string)($role['role_name'] ?? $role['role_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
+                    <p id="roleAdminGuardHint" class="mt-1 text-xs text-slate-500">Assigning Admin is allowed only while there are fewer than 2 active admin-role users.</p>
                 </div>
                 <div>
                     <label class="text-slate-600">Division</label>
@@ -516,18 +521,19 @@
                                 $displayName = (string)($user['email'] ?? 'Unknown User');
                             }
                             ?>
-                            <option value="<?= htmlspecialchars((string)($user['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($displayName . ' (' . (string)($user['email'] ?? '') . ')', ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php $isAdminUser = isset($activeAdminUserIdSet[strtolower(trim((string)($user['id'] ?? '')))]); ?>
+                            <option value="<?= htmlspecialchars((string)($user['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-is-admin="<?= $isAdminUser ? '1' : '0' ?>"><?= htmlspecialchars($displayName . ' (' . (string)($user['email'] ?? '') . ')', ENT_QUOTES, 'UTF-8') ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
                 <div>
                     <label class="text-slate-600">Credential Action</label>
-                    <select name="credential_action" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                    <select id="credentialActionSelect" name="credential_action" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
                         <option value="reset_password">Reset Password</option>
                         <option value="unlock_account">Unlock Account</option>
                         <option value="disable_login">Disable Login Access</option>
                     </select>
-                    <p class="mt-1 text-xs text-slate-500">Reset Password is limited to Employee and Staff accounts. The temporary password is emailed with change-password instructions.</p>
+                    <p id="credentialActionHelp" class="mt-1 text-xs text-slate-500">Reset Password is limited to Employee and Staff accounts. The temporary password is emailed with change-password instructions.</p>
                 </div>
                 <div>
                     <label class="text-slate-600">Temporary Password (if reset)</label>
