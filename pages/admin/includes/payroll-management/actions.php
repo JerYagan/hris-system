@@ -71,13 +71,16 @@ if (!function_exists('payrollSmtpSendEmailWithAttachment')) {
                 $mailer->SMTPAutoTLS = false;
             }
 
+            $renderedHtmlContent = hrisEmailDecorateHtml($subject, $htmlContent, $fromName);
+            $plainTextContent = hrisEmailBuildPlainText($renderedHtmlContent);
+
             $mailer->CharSet = 'UTF-8';
             $mailer->setFrom($fromEmail, $fromName !== '' ? $fromName : $fromEmail);
             $mailer->addAddress($toEmail, $toName !== '' ? $toName : $toEmail);
             $mailer->isHTML(true);
             $mailer->Subject = $subject;
-            $mailer->Body = $htmlContent;
-            $mailer->AltBody = trim(strip_tags(str_replace(['<br>', '<br/>', '<br />'], "\n", $htmlContent)));
+            $mailer->Body = $renderedHtmlContent;
+            $mailer->AltBody = $plainTextContent;
 
             $mailer->addAttachment($attachmentPath, $attachmentName !== '' ? $attachmentName : basename($attachmentPath));
 
@@ -344,7 +347,7 @@ if (!function_exists('payrollGeneratePayslipDocument')) {
         $lateMinutes = (int)($payload['late_minutes'] ?? 0);
         $undertimeHours = (float)($payload['undertime_hours'] ?? 0);
         $absentDays = (int)($payload['absent_days'] ?? 0);
-        $generatedAt = gmdate('Y-m-d H:i:s') . ' UTC';
+        $generatedAt = hrisEmailFormatPhilippinesDateTime(gmdate('c'));
 
         $exportsDir = $projectRoot . '/storage/payslips';
         payrollEnsureDirectory($exportsDir);

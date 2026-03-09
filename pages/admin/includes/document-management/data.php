@@ -20,7 +20,7 @@ $categoriesResponse = apiRequest(
 
 $ownersResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/people?select=id,first_name,surname,profile_photo_url,user:user_accounts(email)&order=surname.asc,first_name.asc&limit=3000',
+    $supabaseUrl . '/rest/v1/people?select=id,user_id,first_name,surname,profile_photo_url,user:user_accounts(email)&order=surname.asc,first_name.asc&limit=3000',
     $headers
 );
 
@@ -71,6 +71,36 @@ foreach ($roleAssignments as $assignment) {
         $roleKeyByUserId[$userId] = $roleKey;
     }
 }
+
+$resolveProfilePhotoUrl = static function (string $rawPath): string {
+    $normalized = trim($rawPath);
+    if ($normalized === '') {
+        return '';
+    }
+
+    if (str_starts_with($normalized, 'http://') || str_starts_with($normalized, 'https://') || str_starts_with($normalized, '/')) {
+        return $normalized;
+    }
+
+    return '/hris-system/storage/document/' . ltrim($normalized, '/');
+};
+
+$filteredOwnerOptions = [];
+foreach ($documentOwnerOptions as $owner) {
+    $ownerId = trim((string)($owner['id'] ?? ''));
+    $ownerUserId = strtolower(trim((string)($owner['user_id'] ?? ($owner['user']['id'] ?? ''))));
+    $ownerRoleKey = $ownerUserId !== '' ? strtolower(trim((string)($roleKeyByUserId[$ownerUserId] ?? ''))) : '';
+
+    if ($ownerId === '' || !in_array($ownerRoleKey, ['employee', 'staff'], true)) {
+        continue;
+    }
+
+    $owner['role_key'] = $ownerRoleKey;
+    $owner['resolved_profile_photo_url'] = $resolveProfilePhotoUrl((string)($owner['profile_photo_url'] ?? ''));
+    $filteredOwnerOptions[] = $owner;
+}
+
+$documentOwnerOptions = $filteredOwnerOptions;
 
 $canonicalCategories = [
     'violation' => 'Violation',

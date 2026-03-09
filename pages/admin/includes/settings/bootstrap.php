@@ -18,6 +18,7 @@ $settingsCatalog = [
     'backup_scope' => ['type' => 'text', 'default' => 'Full System Backup'],
     'backup_schedule' => ['type' => 'text', 'default' => 'Daily'],
     'restore_file' => ['type' => 'text', 'default' => ''],
+    'employee_id_prefix' => ['type' => 'text', 'default' => 'DA-EMP-'],
     'password_min_length' => ['type' => 'number', 'default' => '10'],
     'login_lockout_threshold' => ['type' => 'number', 'default' => '5'],
     'session_timeout_minutes' => ['type' => 'number', 'default' => '30'],

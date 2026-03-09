@@ -172,8 +172,21 @@ const initPaginatedFilterTable = ({
   const pageInfo = pageInfoId ? document.getElementById(pageInfoId) : null;
   const prevButton = prevButtonId ? document.getElementById(prevButtonId) : null;
   const nextButton = nextButtonId ? document.getElementById(nextButtonId) : null;
+  const tbody = table.querySelector('tbody');
 
   let currentPage = 1;
+  let initialized = false;
+
+  const columnCount = Array.from(table.querySelectorAll('thead th')).length || 1;
+  let emptyRow = tbody?.querySelector('[data-learning-filter-empty="true"]') || null;
+
+  if (!emptyRow && tbody && rows.length > 0) {
+    emptyRow = document.createElement('tr');
+    emptyRow.dataset.learningFilterEmpty = 'true';
+    emptyRow.className = 'hidden';
+    emptyRow.innerHTML = `<td class="px-4 py-3 text-slate-500" colspan="${columnCount}">No entries match your search/filter criteria.</td>`;
+    tbody.appendChild(emptyRow);
+  }
 
   const getPageSize = () => {
     const value = Number(pageSizeSelect?.value || defaultPageSize);
@@ -212,10 +225,14 @@ const initPaginatedFilterTable = ({
       row.style.display = '';
     });
 
+    if (emptyRow) {
+      emptyRow.classList.toggle('hidden', filteredRows.length !== 0);
+    }
+
     if (pageInfo) {
       pageInfo.textContent = totalPages === 0
-        ? 'Page 0 of 0'
-        : `Page ${currentPage} of ${totalPages}`;
+        ? 'Showing 0 to 0 of 0 entries'
+        : `Showing ${start + 1} to ${Math.min(end, filteredRows.length)} of ${filteredRows.length} entries`;
     }
 
     if (prevButton) {
@@ -228,22 +245,34 @@ const initPaginatedFilterTable = ({
   };
 
   searchInput?.addEventListener('input', () => {
+    if (!initialized) {
+      return;
+    }
+
     currentPage = 1;
     run();
   });
 
   statusInput?.addEventListener('change', () => {
+    if (!initialized) {
+      return;
+    }
+
     currentPage = 1;
     run();
   });
 
   pageSizeSelect?.addEventListener('change', () => {
+    if (!initialized) {
+      return;
+    }
+
     currentPage = 1;
     run();
   });
 
   prevButton?.addEventListener('click', () => {
-    if (currentPage <= 1) {
+    if (!initialized || currentPage <= 1) {
       return;
     }
 
@@ -252,11 +281,41 @@ const initPaginatedFilterTable = ({
   });
 
   nextButton?.addEventListener('click', () => {
+    if (!initialized) {
+      return;
+    }
+
     currentPage += 1;
     run();
   });
 
-  run();
+  const initialize = () => {
+    if (initialized) {
+      return;
+    }
+
+    initialized = true;
+    run();
+  };
+
+  if (typeof window.IntersectionObserver !== 'function') {
+    initialize();
+    return;
+  }
+
+  const scope = table.closest('section') || table.parentElement || table;
+  const observer = new window.IntersectionObserver((entries) => {
+    if (!entries.some((entry) => entry.isIntersecting)) {
+      return;
+    }
+
+    observer.disconnect();
+    initialize();
+  }, {
+    rootMargin: '240px 0px',
+  });
+
+  observer.observe(scope);
 };
 
 const initLearningAttendanceUpdateModal = () => {

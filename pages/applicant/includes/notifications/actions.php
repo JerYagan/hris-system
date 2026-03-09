@@ -63,7 +63,7 @@ $loadTopnavItems = static function () use ($supabaseUrl, $headers, $applicantUse
             'category' => (string)($row['category'] ?? 'general'),
             'is_read' => (bool)($row['is_read'] ?? false),
             'created_at' => $createdAt,
-            'created_at_label' => $createdAt !== '' ? date('M d, Y h:i A', strtotime($createdAt)) : '-',
+            'created_at_label' => $createdAt !== '' ? formatDateTimeForPhilippines($createdAt, 'M d, Y h:i A') . ' PST' : '-',
         ];
     }, array_values((array)($response['data'] ?? [])));
 };

@@ -123,6 +123,28 @@ $isValidDate = static function (?string $value): bool {
     return $ts !== false && date('Y-m-d', $ts) === $value;
 };
 
+$extractApiErrorMessage = static function (array $response, string $fallback): string {
+    $data = $response['data'] ?? null;
+    if (is_array($data)) {
+        $message = trim((string)($data['message'] ?? $data['error_description'] ?? $data['hint'] ?? ''));
+        if ($message !== '') {
+            return $message;
+        }
+    }
+
+    $raw = trim((string)($response['raw'] ?? ''));
+    if ($raw !== '') {
+        return $raw;
+    }
+
+    $error = trim((string)($response['error'] ?? ''));
+    if ($error !== '') {
+        return $error;
+    }
+
+    return $fallback;
+};
+
 $resolveLeavePointBreakdown = static function (string $leaveTypeCode, string $leaveTypeName, float $points): array {
     $normalizedCode = strtolower(trim($leaveTypeCode));
     $normalizedName = strtolower(trim($leaveTypeName));
@@ -153,6 +175,186 @@ $resolveLeavePointBreakdown = static function (string $leaveTypeCode, string $le
 
     return $breakdown;
 };
+
+if ($action === 'log_employee_attendance') {
+    $personId = cleanText($_POST['attendance_person_id'] ?? null) ?? '';
+    $attendanceDate = cleanText($_POST['attendance_date'] ?? null) ?? '';
+    $entryType = strtolower((string)(cleanText($_POST['attendance_entry_type'] ?? null) ?? ''));
+    $attendanceTimeRaw = cleanText($_POST['attendance_time'] ?? null) ?? '';
+    $reference = cleanText($_POST['attendance_reference'] ?? null);
+
+    if (!isValidUuid($personId) || !$isValidDate($attendanceDate)) {
+        redirectWithState('error', 'Employee and a valid attendance date are required.');
+    }
+
+    if (!in_array($entryType, ['time_in', 'time_out'], true)) {
+        redirectWithState('error', 'Select whether you are logging a time-in or time-out entry.');
+    }
+
+    if (!preg_match('/^\d{2}:\d{2}$/', $attendanceTimeRaw)) {
+        redirectWithState('error', 'Attendance time must use HH:MM format.');
+    }
+
+    $attendanceDateTime = DateTimeImmutable::createFromFormat(
+        'Y-m-d H:i',
+        $attendanceDate . ' ' . $attendanceTimeRaw,
+        new DateTimeZone('Asia/Manila')
+    );
+
+    if (!($attendanceDateTime instanceof DateTimeImmutable)) {
+        redirectWithState('error', 'Invalid attendance date/time supplied.');
+    }
+
+    $attendanceTimestamp = $attendanceDateTime->format('c');
+    $personResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/people?select=id,user_id,first_name,surname&id=eq.' . rawurlencode($personId) . '&limit=1',
+        $headers
+    );
+
+    $personRow = (array)(($personResponse['data'] ?? [])[0] ?? []);
+    if (!isSuccessful($personResponse) || $personRow === []) {
+        redirectWithState('error', 'Selected employee was not found.');
+    }
+
+    $existingLogResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/attendance_logs?select=id,time_in,time_out,attendance_status'
+        . '&person_id=eq.' . rawurlencode($personId)
+        . '&attendance_date=eq.' . rawurlencode($attendanceDate)
+        . '&order=created_at.desc&limit=1',
+        $headers
+    );
+
+    if (!isSuccessful($existingLogResponse)) {
+        redirectWithState('error', $extractApiErrorMessage($existingLogResponse, 'Failed to load the employee attendance record.'));
+    }
+
+    $existingLog = (array)(($existingLogResponse['data'] ?? [])[0] ?? []);
+    $existingLogId = (string)($existingLog['id'] ?? '');
+    $existingTimeIn = cleanText($existingLog['time_in'] ?? null);
+    $existingTimeOut = cleanText($existingLog['time_out'] ?? null);
+
+    $lateMinutes = 0;
+    $lateReference = DateTimeImmutable::createFromFormat(
+        'Y-m-d H:i:s',
+        $attendanceDate . ' 09:00:00',
+        new DateTimeZone('Asia/Manila')
+    );
+    if ($lateReference instanceof DateTimeImmutable && $attendanceDateTime > $lateReference) {
+        $lateMinutes = (int)floor(($attendanceDateTime->getTimestamp() - $lateReference->getTimestamp()) / 60);
+    }
+
+    if ($entryType === 'time_in') {
+        if ($existingTimeIn !== null) {
+            redirectWithState('error', 'A time-in entry already exists for this employee on the selected date.');
+        }
+
+        if ($existingTimeOut !== null && strtotime($existingTimeOut) <= strtotime($attendanceTimestamp)) {
+            redirectWithState('error', 'Time-in must be earlier than the existing time-out entry.');
+        }
+
+        $attendancePayload = [
+            'attendance_date' => $attendanceDate,
+            'time_in' => $attendanceTimestamp,
+            'attendance_status' => $lateMinutes > 0 ? 'late' : 'present',
+            'late_minutes' => $lateMinutes,
+            'source' => 'manual',
+        ];
+
+        if ($existingLogId !== '') {
+            $saveResponse = apiRequest(
+                'PATCH',
+                $supabaseUrl . '/rest/v1/attendance_logs?id=eq.' . rawurlencode($existingLogId),
+                array_merge($headers, ['Prefer: return=minimal']),
+                $attendancePayload
+            );
+            $savedAttendanceId = $existingLogId;
+        } else {
+            $saveResponse = apiRequest(
+                'POST',
+                $supabaseUrl . '/rest/v1/attendance_logs',
+                array_merge($headers, ['Prefer: return=representation']),
+                [[
+                    'person_id' => $personId,
+                    'attendance_date' => $attendanceDate,
+                    'time_in' => $attendanceTimestamp,
+                    'attendance_status' => $lateMinutes > 0 ? 'late' : 'present',
+                    'late_minutes' => $lateMinutes,
+                    'source' => 'manual',
+                ]]
+            );
+            $savedAttendanceId = (string)((($saveResponse['data'] ?? [])[0]['id'] ?? ''));
+        }
+
+        if (!isSuccessful($saveResponse)) {
+            redirectWithState('error', $extractApiErrorMessage($saveResponse, 'Failed to log employee time-in.'));
+        }
+    } else {
+        if ($existingLogId === '') {
+            redirectWithState('error', 'Log a time-in entry first before adding a time-out.');
+        }
+
+        if ($existingTimeIn === null) {
+            redirectWithState('error', 'The selected attendance record has no time-in yet. Log time-in first.');
+        }
+
+        if ($existingTimeOut !== null) {
+            redirectWithState('error', 'A time-out entry already exists for this employee on the selected date.');
+        }
+
+        if (strtotime($attendanceTimestamp) <= strtotime($existingTimeIn)) {
+            redirectWithState('error', 'Time-out must be later than the existing time-in entry.');
+        }
+
+        $hoursWorked = round((strtotime($attendanceTimestamp) - strtotime($existingTimeIn)) / 3600, 2);
+        $saveResponse = apiRequest(
+            'PATCH',
+            $supabaseUrl . '/rest/v1/attendance_logs?id=eq.' . rawurlencode($existingLogId),
+            array_merge($headers, ['Prefer: return=minimal']),
+            [
+                'time_out' => $attendanceTimestamp,
+                'hours_worked' => max(0, $hoursWorked),
+            ]
+        );
+        $savedAttendanceId = $existingLogId;
+
+        if (!isSuccessful($saveResponse)) {
+            redirectWithState('error', $extractApiErrorMessage($saveResponse, 'Failed to log employee time-out.'));
+        }
+    }
+
+    $employeeName = trim((string)($personRow['first_name'] ?? '') . ' ' . (string)($personRow['surname'] ?? ''));
+    if ($employeeName === '') {
+        $employeeName = 'Selected employee';
+    }
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $adminUserId !== '' ? $adminUserId : null,
+            'module_name' => 'timekeeping',
+            'entity_name' => 'attendance_logs',
+            'entity_id' => $savedAttendanceId !== '' ? $savedAttendanceId : null,
+            'action_name' => 'log_employee_attendance',
+            'new_data' => [
+                'person_id' => $personId,
+                'attendance_date' => $attendanceDate,
+                'entry_type' => $entryType,
+                'attendance_time' => $attendanceTimestamp,
+                'reference' => $reference,
+            ],
+        ]]
+    );
+
+    redirectWithState(
+        'success',
+        ucfirst(str_replace('_', '-', $entryType)) . ' logged successfully for ' . $employeeName . '.'
+    );
+}
 
 if ($action === 'log_leave_from_card') {
     $personId = cleanText($_POST['person_id'] ?? null) ?? '';

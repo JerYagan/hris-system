@@ -220,11 +220,32 @@ if (!function_exists('apiRequest')) {
     function apiRequest(string $method, string $url, array $headers, ?array $body = null): array
     {
         $ch = curl_init($url);
+        $responseHeaders = [];
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, strtoupper($method));
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
         curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+        curl_setopt(
+            $ch,
+            CURLOPT_HEADERFUNCTION,
+            static function ($curlHandle, string $headerLine) use (&$responseHeaders): int {
+                $length = strlen($headerLine);
+                $header = trim($headerLine);
+                if ($header === '' || !str_contains($header, ':')) {
+                    return $length;
+                }
+
+                [$name, $value] = explode(':', $header, 2);
+                $normalizedName = strtolower(trim($name));
+                $normalizedValue = trim($value);
+                if ($normalizedName !== '') {
+                    $responseHeaders[$normalizedName] = $normalizedValue;
+                }
+
+                return $length;
+            }
+        );
 
         if ($body !== null) {
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
@@ -250,7 +271,38 @@ if (!function_exists('apiRequest')) {
             'raw' => (string)$responseBody,
             'error' => $error !== '' ? $error : null,
             'duration_ms' => $durationMs,
+            'response_headers' => $responseHeaders,
         ];
+    }
+}
+
+if (!function_exists('getResponseHeaderValue')) {
+    function getResponseHeaderValue(array $response, string $headerName): ?string
+    {
+        $headers = $response['response_headers'] ?? null;
+        if (!is_array($headers) || $headerName === '') {
+            return null;
+        }
+
+        $normalizedName = strtolower(trim($headerName));
+        $value = $headers[$normalizedName] ?? null;
+        return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+}
+
+if (!function_exists('getSupabaseExactCount')) {
+    function getSupabaseExactCount(array $response): ?int
+    {
+        $contentRange = getResponseHeaderValue($response, 'content-range');
+        if ($contentRange === null) {
+            return null;
+        }
+
+        if (!preg_match('/\/(\d+)$/', $contentRange, $matches)) {
+            return null;
+        }
+
+        return isset($matches[1]) ? (int)$matches[1] : null;
     }
 }
 

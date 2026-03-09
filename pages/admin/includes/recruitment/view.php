@@ -444,7 +444,7 @@
                                 <select name="office_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
                                     <option value="">Select division</option>
                                     <?php foreach ($officeOptions as $office): ?>
-                                        <option value="<?= htmlspecialchars((string)($office['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($office['office_name'] ?? 'Office'), ENT_QUOTES, 'UTF-8') ?></option>
+                                        <option value="<?= htmlspecialchars((string)($office['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($office['office_name'] ?? 'Division'), ENT_QUOTES, 'UTF-8') ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
@@ -612,7 +612,7 @@
                                 <select id="recruitmentEditOfficeId" name="office_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
                                     <option value="">Select division</option>
                                     <?php foreach ($officeOptions as $office): ?>
-                                        <option value="<?= htmlspecialchars((string)($office['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($office['office_name'] ?? 'Office'), ENT_QUOTES, 'UTF-8') ?></option>
+                                        <option value="<?= htmlspecialchars((string)($office['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($office['office_name'] ?? 'Division'), ENT_QUOTES, 'UTF-8') ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>

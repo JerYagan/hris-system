@@ -1049,7 +1049,7 @@ foreach ($postings as $posting) {
 
     $title = (string)($posting['title'] ?? 'Untitled Posting');
     $positionTitle = (string)($posting['position']['position_title'] ?? $title);
-    $officeName = (string)($posting['office']['office_name'] ?? 'Unassigned Office');
+    $officeName = (string)($posting['office']['office_name'] ?? 'Unassigned Division');
     $classification = (string)($posting['position']['employment_classification'] ?? '');
     $employmentType = $employmentTypeLabel($classification);
     $employmentTypeRaw = $employmentTypeKey($classification);

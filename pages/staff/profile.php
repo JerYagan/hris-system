@@ -94,7 +94,7 @@ ob_start();
                     <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($profileSummary['mobile_no'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
                 </div>
                 <div>
-                    <p class="text-gray-500">Office</p>
+                    <p class="text-gray-500">Division</p>
                     <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($profileSummary['office_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
                 </div>
                 <div>
@@ -233,12 +233,22 @@ ob_start();
 
                 <div>
                     <label class="text-slate-600">Current Password</label>
-                    <input type="password" name="current_password" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                    <div class="relative mt-1">
+                        <input type="password" id="staffCurrentPasswordInput" name="current_password" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-12" required>
+                        <button type="button" data-password-toggle="staffCurrentPasswordInput" class="absolute inset-y-0 right-0 inline-flex items-center px-3 text-slate-500 hover:text-slate-700" aria-label="Show current password">
+                            <span class="material-symbols-outlined text-[18px]">visibility</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div>
                     <label class="text-slate-600">New Password</label>
-                    <input type="password" id="staffNewPasswordInput" name="new_password" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                    <div class="relative mt-1">
+                        <input type="password" id="staffNewPasswordInput" name="new_password" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-12" required>
+                        <button type="button" data-password-toggle="staffNewPasswordInput" class="absolute inset-y-0 right-0 inline-flex items-center px-3 text-slate-500 hover:text-slate-700" aria-label="Show new password">
+                            <span class="material-symbols-outlined text-[18px]">visibility</span>
+                        </button>
+                    </div>
                     <div class="mt-2">
                         <div class="h-2 w-full rounded-full bg-slate-200">
                             <div id="staffPasswordStrengthBar" class="h-2 w-0 rounded-full bg-slate-300 transition-all duration-150"></div>
@@ -250,11 +260,13 @@ ob_start();
 
                 <div>
                     <label class="text-slate-600">Confirm New Password</label>
-                    <input type="password" name="confirm_new_password" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
-                </div>
-
-                <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                    After sending the verification code, you will immediately proceed to the code verification modal.
+                    <div class="relative mt-1">
+                        <input type="password" id="staffConfirmPasswordInput" name="confirm_new_password" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-12" required>
+                        <button type="button" data-password-toggle="staffConfirmPasswordInput" class="absolute inset-y-0 right-0 inline-flex items-center px-3 text-slate-500 hover:text-slate-700" aria-label="Show confirm password">
+                            <span class="material-symbols-outlined text-[18px]">visibility</span>
+                        </button>
+                    </div>
+                    <p id="staffPasswordMatchIndicator" class="mt-2 text-xs text-slate-500">Enter and confirm your new password.</p>
                 </div>
 
                 <div class="flex justify-end gap-3 mt-2">
@@ -349,7 +361,7 @@ ob_start();
                 <input name="mobile_no" type="text" value="<?= htmlspecialchars((string)($profileSummary['mobile_no'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="w-full mt-1 border rounded-md px-3 py-2">
             </div>
             <div>
-                <label class="text-gray-500">Office</label>
+                <label class="text-gray-500">Division</label>
                 <input type="text" value="<?= htmlspecialchars((string)($profileSummary['office_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="w-full mt-1 border rounded-md px-3 py-2 bg-gray-50" disabled>
             </div>
         </div>
@@ -447,9 +459,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    const currentPasswordInput = document.getElementById('staffCurrentPasswordInput');
     const passwordInput = document.getElementById('staffNewPasswordInput');
+    const confirmPasswordInput = document.getElementById('staffConfirmPasswordInput');
     const strengthBar = document.getElementById('staffPasswordStrengthBar');
     const strengthText = document.getElementById('staffPasswordStrengthText');
+    const passwordMatchIndicator = document.getElementById('staffPasswordMatchIndicator');
 
     const scorePassword = (value) => {
         let score = 0;
@@ -487,8 +502,74 @@ document.addEventListener('DOMContentLoaded', () => {
             const value = passwordInput.value || '';
             const score = value.length === 0 ? 0 : scorePassword(value);
             applyStrengthUi(score);
+            updatePasswordMatchUi();
         });
     }
+
+    const updatePasswordMatchUi = () => {
+        if (!(passwordInput instanceof HTMLInputElement) || !(confirmPasswordInput instanceof HTMLInputElement) || !passwordMatchIndicator) {
+            return;
+        }
+
+        const newPassword = passwordInput.value || '';
+        const confirmPassword = confirmPasswordInput.value || '';
+
+        passwordMatchIndicator.classList.remove('text-slate-500', 'text-emerald-700', 'text-rose-700');
+        confirmPasswordInput.classList.remove('border-emerald-400', 'border-rose-400');
+
+        if (newPassword === '' && confirmPassword === '') {
+            passwordMatchIndicator.textContent = 'Enter and confirm your new password.';
+            passwordMatchIndicator.classList.add('text-slate-500');
+            return;
+        }
+
+        if (confirmPassword === '') {
+            passwordMatchIndicator.textContent = 'Confirm your new password to check if it matches.';
+            passwordMatchIndicator.classList.add('text-slate-500');
+            return;
+        }
+
+        if (newPassword === confirmPassword) {
+            passwordMatchIndicator.textContent = 'Passwords match.';
+            passwordMatchIndicator.classList.add('text-emerald-700');
+            confirmPasswordInput.classList.add('border-emerald-400');
+            return;
+        }
+
+        passwordMatchIndicator.textContent = 'Passwords do not match.';
+        passwordMatchIndicator.classList.add('text-rose-700');
+        confirmPasswordInput.classList.add('border-rose-400');
+    };
+
+    if (confirmPasswordInput instanceof HTMLInputElement) {
+        confirmPasswordInput.addEventListener('input', updatePasswordMatchUi);
+        updatePasswordMatchUi();
+    }
+
+    document.querySelectorAll('[data-password-toggle]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const inputId = button.getAttribute('data-password-toggle');
+            if (!inputId) {
+                return;
+            }
+
+            const input = document.getElementById(inputId);
+            if (!(input instanceof HTMLInputElement)) {
+                return;
+            }
+
+            const nextType = input.type === 'password' ? 'text' : 'password';
+            input.type = nextType;
+
+            const icon = button.querySelector('.material-symbols-outlined');
+            if (icon) {
+                icon.textContent = nextType === 'password' ? 'visibility' : 'visibility_off';
+            }
+
+            const label = nextType === 'password' ? 'Show' : 'Hide';
+            button.setAttribute('aria-label', `${label} ${input.name.replaceAll('_', ' ')}`);
+        });
+    });
 
     const requestModal = document.getElementById('staffPasswordRequestModal');
     const verifyModal = document.getElementById('staffPasswordVerifyModal');

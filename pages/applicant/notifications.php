@@ -107,7 +107,13 @@ ob_start();
                 <?php
                 $notificationTitle = (string)($notification['title'] ?? 'Notification');
                 $notificationBody = (string)($notification['body'] ?? '');
-                $notificationCreated = !empty($notification['created_at']) ? date('M j, Y · g:i A', strtotime((string)$notification['created_at'])) : '-';
+                $notificationCreated = '-';
+                if (!empty($notification['created_at'])) {
+                    $formattedCreatedAt = function_exists('formatDateTimeForPhilippines')
+                        ? formatDateTimeForPhilippines((string)$notification['created_at'], 'M j, Y · g:i A')
+                        : date('M j, Y · g:i A', strtotime((string)$notification['created_at']));
+                    $notificationCreated = $formattedCreatedAt !== '-' ? ($formattedCreatedAt . ' PST') : '-';
+                }
                 $notificationStatus = !$notification['is_read'] ? 'Unread' : 'Read';
                 ?>
                 <article

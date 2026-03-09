@@ -122,7 +122,7 @@ foreach ($employeeRows as $employee) {
         $employeeName = 'Unnamed Employee';
     }
 
-    $officeName = cleanText($employee['office']['office_name'] ?? null) ?? 'Unassigned Office';
+    $officeName = cleanText($employee['office']['office_name'] ?? null) ?? 'Unassigned Division';
     $employeeNomineeOptions[] = [
         'person_id' => $personId,
         'label' => $employeeName . ' - ' . $officeName,

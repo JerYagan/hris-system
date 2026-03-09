@@ -24,7 +24,7 @@
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Create Announcement</h2>
-        <p class="text-sm text-slate-500 mt-1">Announcements are org-wide broadcast messages. Use the Notifications module for user-level notification actions.</p>
+        <p class="text-sm text-slate-500 mt-1">Announcements are org-wide broadcast messages. This is the authoritative admin workflow for publishing and delivery reporting.</p>
     </header>
 
     <form id="createAnnouncementForm" action="create-announcement.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -133,7 +133,7 @@
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Delivery Snapshot</h2>
-        <p class="text-sm text-slate-500 mt-1">Live totals based on recent published announcements.</p>
+        <p class="text-sm text-slate-500 mt-1">Live totals based on the same published announcement activity shown on the dashboard.</p>
     </header>
 
     <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -339,7 +339,7 @@
 <section class="bg-white border border-slate-200 rounded-2xl">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Recent Announcement Activity</h2>
-        <p class="text-sm text-slate-500 mt-1">Audit trail of recent publish actions and delivery counts.</p>
+        <p class="text-sm text-slate-500 mt-1">Audit trail of recent publish actions and delivery counts used as the shared announcement source of truth.</p>
     </header>
 
     <div class="p-6 overflow-x-auto">

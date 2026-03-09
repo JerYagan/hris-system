@@ -123,7 +123,6 @@
         <div class="space-y-3">
             <div><p class="text-slate-500">Requester</p><p class="font-medium text-slate-800"><?php echo htmlspecialchars((string)($selectedTicket['requester_label'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?> (<?php echo htmlspecialchars(ucfirst((string)($selectedTicket['requester_role'] ?? '-')), ENT_QUOTES, 'UTF-8'); ?>)</p></div>
             <div><p class="text-slate-500">Category</p><p class="font-medium text-slate-800"><?php echo htmlspecialchars(ucwords(str_replace('_', ' ', (string)($selectedTicket['category'] ?? 'general'))), ENT_QUOTES, 'UTF-8'); ?></p></div>
-            <div><p class="text-slate-500">Request Type</p><p class="font-medium text-slate-800"><?php echo htmlspecialchars(ucwords(str_replace('_', ' ', (string)($selectedTicket['request_type'] ?? '-'))), ENT_QUOTES, 'UTF-8'); ?></p></div>
             <div><p class="text-slate-500">Subject</p><p class="font-medium text-slate-800"><?php echo htmlspecialchars((string)($selectedTicket['subject'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></p></div>
             <div><p class="text-slate-500">Message</p><p class="font-medium text-slate-800 whitespace-pre-line"><?php echo htmlspecialchars((string)($selectedTicket['message'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></p></div>
             <?php if (!empty($selectedTicket['attachment_path'])): ?>

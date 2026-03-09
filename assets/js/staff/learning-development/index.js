@@ -210,8 +210,6 @@
     const courseViewTitle = byId('staffLearningCourseViewTitle');
     const courseViewStatus = byId('staffLearningCourseViewStatus');
     const courseViewProvider = byId('staffLearningCourseViewProvider');
-    const courseViewType = byId('staffLearningCourseViewType');
-    const courseViewCategory = byId('staffLearningCourseViewCategory');
     const courseViewMode = byId('staffLearningCourseViewMode');
     const courseViewSchedule = byId('staffLearningCourseViewSchedule');
     const courseViewVenue = byId('staffLearningCourseViewVenue');
@@ -243,8 +241,6 @@
             setText(courseViewTitle, payload.title);
             setText(courseViewStatus, payload.status_label);
             setText(courseViewProvider, payload.provider);
-            setText(courseViewType, payload.training_type);
-            setText(courseViewCategory, payload.training_category);
             setText(courseViewMode, payload.mode);
             setText(courseViewSchedule, payload.schedule);
             setText(courseViewVenue, payload.venue);

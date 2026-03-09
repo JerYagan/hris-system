@@ -79,39 +79,25 @@ $isAdminScope = strtolower((string)($staffRoleKey ?? '')) === 'admin';
 $scopeFilter = (!$isAdminScope && isValidUuid((string)$staffOfficeId))
     ? '&office_id=eq.' . rawurlencode((string)$staffOfficeId)
     : '';
+$todayDate = gmdate('Y-m-d');
+$today = strtotime($todayDate);
 
 $postingResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/job_postings?select=id,title,office_id,position_id,description,qualifications,responsibilities,required_documents,posting_status,open_date,close_date,updated_at,office:offices(office_name),position:job_positions(position_title,employment_classification)'
-    . $scopeFilter
+    . '/rest/v1/job_postings?select=id,title,office_id,position_id,plantilla_item_no,description,qualifications,responsibilities,required_documents,posting_status,open_date,close_date,updated_at,office:offices(office_name),position:job_positions(position_title,employment_classification)'
     . '&order=updated_at.desc&limit=500',
     $headers
 );
 $appendDataError('Job postings', $postingResponse);
 $postingRows = isSuccessful($postingResponse) ? (array)($postingResponse['data'] ?? []) : [];
 
-if (!$isAdminScope && isValidUuid((string)$staffOfficeId) && empty($postingRows) && isSuccessful($postingResponse)) {
-    $fallbackPostingResponse = apiRequest(
-        'GET',
-        $supabaseUrl
-        . '/rest/v1/job_postings?select=id,title,office_id,position_id,description,qualifications,responsibilities,required_documents,posting_status,open_date,close_date,updated_at,office:offices(office_name),position:job_positions(position_title,employment_classification)'
-        . '&posting_status=eq.published'
-        . '&order=updated_at.desc&limit=500',
-        $headers
-    );
-    $appendDataError('Published job postings fallback', $fallbackPostingResponse);
-    if (isSuccessful($fallbackPostingResponse)) {
-        $postingRows = (array)($fallbackPostingResponse['data'] ?? []);
-    }
-}
-
 $officeResponse = apiRequest(
     'GET',
     $supabaseUrl . '/rest/v1/offices?select=id,office_name&is_active=eq.true&order=office_name.asc&limit=500',
     $headers
 );
-$appendDataError('Offices', $officeResponse);
+$appendDataError('Divisions', $officeResponse);
 $officeOptions = isSuccessful($officeResponse) ? (array)($officeResponse['data'] ?? []) : [];
 
 $positionResponse = apiRequest(
@@ -405,9 +391,36 @@ $recommendationLabel = static function (int $score): array {
     return ['Low', 'bg-slate-200 text-slate-700'];
 };
 
+$isActivePublishedPosting = static function (array $posting) use ($todayDate): bool {
+    $statusRaw = strtolower((string)(cleanText($posting['posting_status'] ?? null) ?? 'draft'));
+    if ($statusRaw !== 'published') {
+        return false;
+    }
+
+    $openDate = cleanText($posting['open_date'] ?? null) ?? '';
+    $closeDate = cleanText($posting['close_date'] ?? null) ?? '';
+
+    if ($openDate !== '' && $openDate > $todayDate) {
+        return false;
+    }
+
+    if ($closeDate !== '' && $closeDate < $todayDate) {
+        return false;
+    }
+
+    return true;
+};
+
+$activeRecruitmentStatusOptions = [];
+
 foreach ($postingRows as $posting) {
     $postingId = cleanText($posting['id'] ?? null) ?? '';
     if (!isValidUuid($postingId)) {
+        continue;
+    }
+
+    $postingOfficeId = cleanText($posting['office_id'] ?? null) ?? '';
+    if (!$isAdminScope && isValidUuid((string)$staffOfficeId) && strtolower($postingOfficeId) !== strtolower((string)$staffOfficeId)) {
         continue;
     }
 
@@ -415,7 +428,7 @@ foreach ($postingRows as $posting) {
     [$statusLabel, $statusClass] = $statusPill($statusRaw);
 
     $title = cleanText($posting['title'] ?? null) ?? 'Untitled Posting';
-    $officeName = cleanText($posting['office']['office_name'] ?? null) ?? 'Unassigned Office';
+    $officeName = cleanText($posting['office']['office_name'] ?? null) ?? 'Unassigned Division';
     $positionTitle = cleanText($posting['position']['position_title'] ?? null) ?? 'Unassigned Position';
     $employmentType = $employmentTypeLabel(cleanText($posting['position']['employment_classification'] ?? null));
     $description = cleanText($posting['description'] ?? null) ?? '-';
@@ -527,11 +540,11 @@ foreach ($postingRows as $posting) {
         $archivedRecruitmentRows[] = $row;
     } else {
         $activeRecruitmentRows[] = $row;
+        $activeRecruitmentStatusOptions[$statusRaw] = $statusLabel;
     }
 
     $closeDateRaw = cleanText($posting['close_date'] ?? null) ?? '';
     $closeDateTimestamp = $closeDateRaw !== '' ? strtotime($closeDateRaw) : false;
-    $today = strtotime(gmdate('Y-m-d'));
     if (
         $statusRaw === 'published'
         && $closeDateTimestamp !== false
@@ -555,6 +568,8 @@ foreach ($postingRows as $posting) {
 usort($applicationDeadlineRows, static function (array $left, array $right): int {
     return ($left['days_remaining'] ?? 0) <=> ($right['days_remaining'] ?? 0);
 });
+
+asort($activeRecruitmentStatusOptions);
 
 $hiredApplicationsResponse = apiRequest(
     'GET',
@@ -584,7 +599,7 @@ foreach ($hiredRows as $hiredRow) {
 
     $archivedFilledPositionRows[] = [
         'position_title' => cleanText($positionRow['position_title'] ?? null) ?? (cleanText($jobRow['title'] ?? null) ?? 'Position'),
-        'office_name' => cleanText($officeRow['office_name'] ?? null) ?? 'Unassigned Office',
+        'office_name' => cleanText($officeRow['office_name'] ?? null) ?? 'Unassigned Division',
         'date_filled_label' => formatDateTimeForPhilippines(cleanText($hiredRow['updated_at'] ?? null), 'M d, Y'),
         'employee_name' => cleanText($applicantRow['full_name'] ?? null) ?? 'Unknown Employee',
     ];

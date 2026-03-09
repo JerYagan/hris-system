@@ -156,7 +156,7 @@ ob_start();
                         <p class="font-medium text-gray-800"><?= htmlspecialchars((string)$selectedApplication['job_title'], ENT_QUOTES, 'UTF-8') ?></p>
                     </div>
                     <div>
-                        <p class="text-gray-500">Office</p>
+                        <p class="text-gray-500">Division</p>
                         <p class="font-medium text-gray-800"><?= htmlspecialchars((string)$selectedApplication['office_name'], ENT_QUOTES, 'UTF-8') ?></p>
                     </div>
                     <div>
@@ -174,7 +174,6 @@ ob_start();
                             <span class="material-symbols-outlined text-sm">fact_check</span>
                             View Feedback
                         </a>
-                        <a href="notifications.php" class="inline-flex items-center gap-1 rounded-md border px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Notifications</a>
                     </div>
                 </div>
             <?php endif; ?>
@@ -192,7 +191,7 @@ ob_start();
                 <div class="p-6 text-sm text-gray-600">No interview schedule has been posted yet for this application.</div>
             <?php else: ?>
                 <div class="space-y-3 p-6">
-                    <?php foreach ($selectedInterviewSchedules as $interviewSchedule): ?>
+                    <?php foreach ($selectedInterviewSchedulesPreview as $interviewSchedule): ?>
                         <article class="rounded-lg border bg-gray-50 p-4 text-sm">
                             <div class="flex items-start justify-between gap-2">
                                 <div>
@@ -201,15 +200,23 @@ ob_start();
                                     <p class="mt-1 text-xs text-gray-600">Interviewer: <?= htmlspecialchars((string)($interviewSchedule['interviewer'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
                                     <p class="mt-1 text-xs text-gray-600">Location / Mode: <?= htmlspecialchars((string)($interviewSchedule['location'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
                                 </div>
-                                <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium <?= htmlspecialchars((string)($interviewSchedule['status_class'] ?? 'bg-gray-100 text-gray-700'), ENT_QUOTES, 'UTF-8') ?>">
-                                    <?= htmlspecialchars((string)($interviewSchedule['status'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?>
-                                </span>
+                                <?php if (strtolower((string)($interviewSchedule['status'] ?? 'pending')) !== 'pending'): ?>
+                                    <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium <?= htmlspecialchars((string)($interviewSchedule['status_class'] ?? 'bg-gray-100 text-gray-700'), ENT_QUOTES, 'UTF-8') ?>">
+                                        <?= htmlspecialchars((string)($interviewSchedule['status'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                                    </span>
+                                <?php endif; ?>
                             </div>
                             <?php if (!empty($interviewSchedule['remarks'])): ?>
                                 <p class="mt-2 text-xs text-gray-600">Remarks: <?= htmlspecialchars((string)$interviewSchedule['remarks'], ENT_QUOTES, 'UTF-8') ?></p>
                             <?php endif; ?>
                         </article>
                     <?php endforeach; ?>
+                    <?php if (count($selectedInterviewSchedules) > 3): ?>
+                        <button type="button" data-history-modal-open="interviewHistoryModal" class="inline-flex items-center gap-1 rounded-md border px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                            <span class="material-symbols-outlined text-sm">visibility</span>
+                            View More
+                        </button>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
         </section>
@@ -223,7 +230,7 @@ ob_start();
                 <?php if (empty($applicationTimeline)): ?>
                     <p class="text-sm text-gray-600">No timeline entries yet.</p>
                 <?php else: ?>
-                    <?php foreach ($applicationTimeline as $event): ?>
+                    <?php foreach ($applicationTimelinePreview as $event): ?>
                         <?php $timelineMeta = (array)($statusMeta[strtolower((string)$event['status'])] ?? ['label' => 'Pending', 'timeline' => 'bg-gray-400 text-white']); ?>
                         <article class="flex items-start gap-3 rounded-lg border bg-gray-50 p-4">
                             <span class="inline-flex h-7 w-7 items-center justify-center rounded-full <?= htmlspecialchars((string)$timelineMeta['timeline'], ENT_QUOTES, 'UTF-8') ?>">
@@ -233,16 +240,147 @@ ob_start();
                                 <h4 class="font-medium text-gray-800"><?= htmlspecialchars((string)$timelineMeta['label'], ENT_QUOTES, 'UTF-8') ?></h4>
                                 <p class="text-sm text-gray-600"><?= htmlspecialchars((string)($event['notes'] ?? 'Status updated.'), ENT_QUOTES, 'UTF-8') ?></p>
                                 <?php if (!empty($event['created_at'])): ?>
-                                    <p class="mt-1 text-xs text-gray-500"><?= htmlspecialchars(date('M j, Y g:i A', strtotime((string)$event['created_at'])), ENT_QUOTES, 'UTF-8') ?></p>
+                                    <p class="mt-1 text-xs text-gray-500"><?= htmlspecialchars(formatDateTimeForPhilippines((string)$event['created_at'], 'M j, Y g:i A') . ' PST', ENT_QUOTES, 'UTF-8') ?></p>
                                 <?php endif; ?>
                             </div>
                         </article>
                     <?php endforeach; ?>
+                    <?php if (count($applicationTimeline) > 3): ?>
+                        <button type="button" data-history-modal-open="timelineHistoryModal" class="inline-flex items-center gap-1 rounded-md border px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                            <span class="material-symbols-outlined text-sm">visibility</span>
+                            View More
+                        </button>
+                    <?php endif; ?>
                 <?php endif; ?>
             </div>
         </section>
     </aside>
 </section>
+
+<?php if ($selectedApplication !== null && count($selectedInterviewSchedules) > 3): ?>
+<div id="interviewHistoryModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 px-4 py-6" data-history-modal>
+    <div class="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div class="flex items-center justify-between border-b px-6 py-4">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800">Interview Schedule History</h3>
+                <p class="text-sm text-gray-500">Showing the complete interview history in descending order.</p>
+            </div>
+            <button type="button" data-history-modal-close class="rounded-md border px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">Close</button>
+        </div>
+        <div class="max-h-[calc(90vh-88px)] space-y-3 overflow-y-auto p-6">
+            <?php foreach ($selectedInterviewSchedules as $interviewSchedule): ?>
+                <article class="rounded-lg border bg-gray-50 p-4 text-sm">
+                    <div class="flex items-start justify-between gap-2">
+                        <div>
+                            <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($interviewSchedule['stage'] ?? 'Interview'), ENT_QUOTES, 'UTF-8') ?></p>
+                            <p class="mt-1 text-xs text-gray-600">Date &amp; Time: <?= htmlspecialchars((string)($interviewSchedule['scheduled_display'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                            <p class="mt-1 text-xs text-gray-600">Interviewer: <?= htmlspecialchars((string)($interviewSchedule['interviewer'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                            <p class="mt-1 text-xs text-gray-600">Location / Mode: <?= htmlspecialchars((string)($interviewSchedule['location'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                        </div>
+                        <?php if (strtolower((string)($interviewSchedule['status'] ?? 'pending')) !== 'pending'): ?>
+                            <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium <?= htmlspecialchars((string)($interviewSchedule['status_class'] ?? 'bg-gray-100 text-gray-700'), ENT_QUOTES, 'UTF-8') ?>">
+                                <?= htmlspecialchars((string)($interviewSchedule['status'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                            </span>
+                        <?php endif; ?>
+                    </div>
+                    <?php if (!empty($interviewSchedule['remarks'])): ?>
+                        <p class="mt-2 text-xs text-gray-600">Remarks: <?= htmlspecialchars((string)$interviewSchedule['remarks'], ENT_QUOTES, 'UTF-8') ?></p>
+                    <?php endif; ?>
+                </article>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if ($selectedApplication !== null && count($applicationTimeline) > 3): ?>
+<div id="timelineHistoryModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 px-4 py-6" data-history-modal>
+    <div class="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div class="flex items-center justify-between border-b px-6 py-4">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800">Status Timeline History</h3>
+                <p class="text-sm text-gray-500">Showing the complete status timeline in descending order.</p>
+            </div>
+            <button type="button" data-history-modal-close class="rounded-md border px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">Close</button>
+        </div>
+        <div class="max-h-[calc(90vh-88px)] space-y-3 overflow-y-auto p-6">
+            <?php foreach ($applicationTimeline as $event): ?>
+                <?php $timelineMeta = (array)($statusMeta[strtolower((string)$event['status'])] ?? ['label' => 'Pending', 'timeline' => 'bg-gray-400 text-white']); ?>
+                <article class="flex items-start gap-3 rounded-lg border bg-gray-50 p-4">
+                    <span class="inline-flex h-7 w-7 items-center justify-center rounded-full <?= htmlspecialchars((string)$timelineMeta['timeline'], ENT_QUOTES, 'UTF-8') ?>">
+                        <span class="material-symbols-outlined text-[15px]">task_alt</span>
+                    </span>
+                    <div>
+                        <h4 class="font-medium text-gray-800"><?= htmlspecialchars((string)$timelineMeta['label'], ENT_QUOTES, 'UTF-8') ?></h4>
+                        <p class="text-sm text-gray-600"><?= htmlspecialchars((string)($event['notes'] ?? 'Status updated.'), ENT_QUOTES, 'UTF-8') ?></p>
+                        <?php if (!empty($event['created_at'])): ?>
+                            <p class="mt-1 text-xs text-gray-500"><?= htmlspecialchars(formatDateTimeForPhilippines((string)$event['created_at'], 'M j, Y g:i A') . ' PST', ENT_QUOTES, 'UTF-8') ?></p>
+                        <?php endif; ?>
+                    </div>
+                </article>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<script>
+(() => {
+    const closeModal = (modal) => {
+        if (!modal) {
+            return;
+        }
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.classList.remove('overflow-hidden');
+    };
+
+    const openModal = (modal) => {
+        if (!modal) {
+            return;
+        }
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.classList.add('overflow-hidden');
+    };
+
+    document.querySelectorAll('[data-history-modal-open]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const modalId = button.getAttribute('data-history-modal-open');
+            if (!modalId) {
+                return;
+            }
+            openModal(document.getElementById(modalId));
+        });
+    });
+
+    document.querySelectorAll('[data-history-modal-close]').forEach((button) => {
+        button.addEventListener('click', () => {
+            closeModal(button.closest('[data-history-modal]'));
+        });
+    });
+
+    document.querySelectorAll('[data-history-modal]').forEach((modal) => {
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                closeModal(modal);
+            }
+        });
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') {
+            return;
+        }
+
+        document.querySelectorAll('[data-history-modal]').forEach((modal) => {
+            if (!modal.classList.contains('hidden')) {
+                closeModal(modal);
+            }
+        });
+    });
+})();
+</script>
 
 <?php
 $content = ob_get_clean();

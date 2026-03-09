@@ -91,7 +91,7 @@ ob_start();
             </div>
 
             <div>
-                <label class="text-gray-500">Office / Department</label>
+                <label class="text-gray-500">Division</label>
                 <input type="text" value="<?= htmlspecialchars((string)$jobData['office_name'], ENT_QUOTES, 'UTF-8') ?>" readonly class="mt-1 w-full rounded-md border bg-gray-100 px-3 py-2">
             </div>
 

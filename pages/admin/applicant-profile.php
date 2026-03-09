@@ -26,6 +26,33 @@ $profilePhotoUrl = '';
 $qualificationSnapshot = [];
 $personId = '';
 
+$resolveProfilePhotoUrl = static function (?string $rawPath): string {
+    $path = trim((string)$rawPath);
+    if ($path === '') {
+        return '';
+    }
+
+    if (preg_match('#^https?://#i', $path) === 1 || str_starts_with($path, '/')) {
+        return $path;
+    }
+
+    $normalized = str_replace('\\', '/', ltrim($path, '/'));
+    if (str_starts_with($normalized, 'storage/document/')) {
+        $normalized = substr($normalized, strlen('storage/document/'));
+    }
+
+    if (str_starts_with($normalized, 'document/')) {
+        $normalized = substr($normalized, strlen('document/'));
+    }
+
+    $segments = array_values(array_filter(explode('/', $normalized), static fn(string $segment): bool => $segment !== ''));
+    if (empty($segments)) {
+        return '';
+    }
+
+    return '/hris-system/storage/document/' . implode('/', array_map('rawurlencode', $segments));
+};
+
 $resolveDocumentUrl = static function (?string $rawUrl) use ($supabaseUrl): string {
     $value = trim((string)$rawUrl);
     if ($value === '') {
@@ -458,7 +485,7 @@ if (!$isUuid($applicationId)) {
 
             if (isSuccessful($peopleResponse) && !empty($peopleResponse['data'][0])) {
                 $personId = trim((string)($peopleResponse['data'][0]['id'] ?? ''));
-                $profilePhotoUrl = trim((string)($peopleResponse['data'][0]['profile_photo_url'] ?? ''));
+                $profilePhotoUrl = $resolveProfilePhotoUrl((string)($peopleResponse['data'][0]['profile_photo_url'] ?? ''));
             }
         }
 
@@ -790,7 +817,7 @@ ob_start();
                 <div class="rounded-xl border border-slate-200 p-4">
                     <h3 class="text-base font-semibold text-slate-800">Applied Position</h3>
                     <p class="text-sm text-slate-700 mt-1"><?= htmlspecialchars((string)($jobPosition['position_title'] ?? $job['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                    <p class="text-sm text-slate-500 mt-1">Office: <?= htmlspecialchars((string)($jobOffice['office_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                    <p class="text-sm text-slate-500 mt-1">Division: <?= htmlspecialchars((string)($jobOffice['office_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
                     <p class="text-sm text-slate-500">Submitted: <?= htmlspecialchars(formatDateTimeForPhilippines(cleanText($applicationRow['submitted_at'] ?? null), 'M d, Y h:i A'), ENT_QUOTES, 'UTF-8') ?></p>
                 </div>
 

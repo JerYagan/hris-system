@@ -218,7 +218,7 @@ ob_start();
             </header>
             <div class="space-y-3 p-4 text-sm sm:p-6">
                 <div>
-                    <p class="text-gray-500">Office / Department</p>
+                    <p class="text-gray-500">Division</p>
                     <p class="font-medium text-gray-800"><?= htmlspecialchars((string)$jobData['office_name'], ENT_QUOTES, 'UTF-8') ?></p>
                 </div>
                 <div>

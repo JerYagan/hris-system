@@ -54,6 +54,10 @@ $employeeStatusPill = static function (string $status): string {
     </div>
 <?php endif; ?>
 
+<?php if (!empty($reportAnalyticsChartPayloadJson)): ?>
+    <script id="reportAnalyticsChartPayload" type="application/json"><?= $reportAnalyticsChartPayloadJson ?></script>
+<?php endif; ?>
+
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Employee Statistics Dashboard</h2>
@@ -93,6 +97,31 @@ $employeeStatusPill = static function (string $status): string {
             <p class="text-xs uppercase text-slate-500">New Hires (Last 30 Days)</p>
             <p class="font-semibold text-slate-800 mt-2"><?= htmlspecialchars((string)$newHiresLast30Days, ENT_QUOTES, 'UTF-8') ?> New Employee Record<?= $newHiresLast30Days === 1 ? '' : 's' ?></p>
             <p class="text-xs text-slate-500 mt-1">Based on `hire_date` in current records.</p>
+        </article>
+    </div>
+
+    <div class="px-6 pb-6 grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <article class="rounded-xl border border-slate-200 p-4">
+            <div class="flex items-start justify-between gap-3 mb-4">
+                <div>
+                    <h3 class="text-sm font-semibold text-slate-800">Workforce Status Mix</h3>
+                    <p class="text-xs text-slate-500 mt-1">Current active, leave, and inactive employee distribution.</p>
+                </div>
+            </div>
+            <div class="relative h-72">
+                <canvas id="reportEmployeeStatusChart"></canvas>
+            </div>
+        </article>
+        <article class="rounded-xl border border-slate-200 p-4">
+            <div class="flex items-start justify-between gap-3 mb-4">
+                <div>
+                    <h3 class="text-sm font-semibold text-slate-800">Largest Divisions</h3>
+                    <p class="text-xs text-slate-500 mt-1">Top headcount concentrations based on current employment records.</p>
+                </div>
+            </div>
+            <div class="relative h-72">
+                <canvas id="reportDivisionHeadcountChart"></canvas>
+            </div>
         </article>
     </div>
 
@@ -175,6 +204,20 @@ $employeeStatusPill = static function (string $status): string {
         <p class="text-sm text-slate-500 mt-1">Detailed demographic distribution of active employees per division.</p>
     </header>
 
+    <div class="px-6 pt-6">
+        <article class="rounded-xl border border-slate-200 p-4">
+            <div class="flex items-start justify-between gap-3 mb-4">
+                <div>
+                    <h3 class="text-sm font-semibold text-slate-800">Division Demographics Snapshot</h3>
+                    <p class="text-xs text-slate-500 mt-1">Top divisions by active headcount, grouped by reported sex at birth.</p>
+                </div>
+            </div>
+            <div class="relative h-80">
+                <canvas id="reportDemographicsChart"></canvas>
+            </div>
+        </article>
+    </div>
+
     <div class="px-6 pt-4">
         <label class="text-sm text-slate-600" for="reportDemographicsSearch">Search</label>
         <input id="reportDemographicsSearch" type="search" class="w-full md:w-1/2 mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search division, totals, gender counts, or average age">
@@ -231,6 +274,20 @@ $employeeStatusPill = static function (string $status): string {
         <h2 class="text-lg font-semibold text-slate-800">Turnover and Training Effectiveness by Division</h2>
         <p class="text-sm text-slate-500 mt-1">Division-level view of headcount movement and training completion trends.</p>
     </header>
+
+    <div class="px-6 pt-6">
+        <article class="rounded-xl border border-slate-200 p-4">
+            <div class="flex items-start justify-between gap-3 mb-4">
+                <div>
+                    <h3 class="text-sm font-semibold text-slate-800">Turnover and Training Trendline</h3>
+                    <p class="text-xs text-slate-500 mt-1">Hires and separations over the last 365 days, with turnover and training completion rates.</p>
+                </div>
+            </div>
+            <div class="relative h-80">
+                <canvas id="reportTurnoverTrainingChart"></canvas>
+            </div>
+        </article>
+    </div>
 
     <div class="px-6 pt-4">
         <label class="text-sm text-slate-600" for="reportTurnoverSearch">Search</label>
@@ -339,11 +396,11 @@ $employeeStatusPill = static function (string $status): string {
 
     <div class="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 text-sm">
         <article class="rounded-xl border border-slate-200 p-4 bg-slate-50">
-            <p class="text-xs uppercase tracking-wide text-slate-500">Attendance Logs</p>
+            <p class="text-xs uppercase tracking-wide text-slate-500">Attendance Logs (60 Days)</p>
             <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)($crossModuleKpis['attendance_logs'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
         </article>
         <article class="rounded-xl border border-slate-200 p-4 bg-emerald-50">
-            <p class="text-xs uppercase tracking-wide text-emerald-700">Payroll Items</p>
+            <p class="text-xs uppercase tracking-wide text-emerald-700">Payroll Items (60 Days)</p>
             <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)($crossModuleKpis['payroll_items'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
         </article>
         <article class="rounded-xl border border-slate-200 p-4 bg-indigo-50">
@@ -393,6 +450,20 @@ $employeeStatusPill = static function (string $status): string {
             <p class="text-xs uppercase tracking-wide text-violet-700">Admin/Staff Activity (30 Days)</p>
             <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)(($advancedAdminAnalytics['admin_activity_30_days'] ?? 0) + ($advancedAdminAnalytics['staff_activity_30_days'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></p>
             <p class="text-xs text-slate-500 mt-1">Admin: <?= htmlspecialchars((string)($advancedAdminAnalytics['admin_activity_30_days'] ?? 0), ENT_QUOTES, 'UTF-8') ?> · Staff: <?= htmlspecialchars((string)($advancedAdminAnalytics['staff_activity_30_days'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
+        </article>
+    </div>
+
+    <div class="px-6 pb-6">
+        <article class="rounded-xl border border-slate-200 p-4">
+            <div class="flex items-start justify-between gap-3 mb-4">
+                <div>
+                    <h3 class="text-sm font-semibold text-slate-800">Module Activity Mix</h3>
+                    <p class="text-xs text-slate-500 mt-1">Top recent modules by admin and staff activity over the last 30 days.</p>
+                </div>
+            </div>
+            <div class="relative h-80">
+                <canvas id="reportActivityByModuleChart"></canvas>
+            </div>
         </article>
     </div>
 

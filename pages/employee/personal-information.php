@@ -29,6 +29,14 @@ $formatDate = static function (?string $value): string {
     return $ts === false ? '-' : date('M j, Y', $ts);
 };
 
+$isBlankProfileValue = static function (mixed $value): bool {
+  return trim((string)$value) === '';
+};
+
+$canEditMiddleName = $isBlankProfileValue($employeeProfile['middle_name'] ?? '');
+$canEditDateOfBirth = $isBlankProfileValue($employeeProfile['date_of_birth'] ?? '');
+$canEditPlaceOfBirth = $isBlankProfileValue($employeeProfile['place_of_birth'] ?? '');
+
   $profileInitials = strtoupper(substr((string)($employeeProfile['first_name'] ?? 'E'), 0, 1) . substr((string)($employeeProfile['last_name'] ?? 'M'), 0, 1));
 ?>
 
@@ -58,7 +66,7 @@ $formatDate = static function (?string $value): string {
 <section class="bg-white border border-slate-200 rounded-2xl mb-6 overflow-hidden">
   <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
     <div>
-      <h2 class="text-lg font-semibold text-slate-800">Personal <span class="text-daGreen">Profile</span></h2>
+      <h2 class="text-lg font-semibold text-slate-800">Personal Information</h2>
       <p class="text-sm text-slate-500 mt-1">View your profile summary and update editable details.</p>
     </div>
     <div class="flex items-center gap-2">
@@ -111,7 +119,7 @@ $formatDate = static function (?string $value): string {
         </div>
         <div>
           <p class="text-xs uppercase tracking-wide text-slate-500">Date of Birth</p>
-          <p class="mt-1 font-medium text-slate-800"><?= $escape($employeeProfile['date_of_birth'] ?? '-') ?></p>
+          <p class="mt-1 font-medium text-slate-800"><?= $escape($formatDate($employeeProfile['date_of_birth'] ?? null)) ?></p>
         </div>
         <div class="md:col-span-2">
           <p class="text-xs uppercase tracking-wide text-slate-500">Address</p>
@@ -210,11 +218,14 @@ $formatDate = static function (?string $value): string {
   </div>
 </section>
 
-<section class="bg-white rounded-xl shadow p-6">
-  <h2 class="text-lg font-bold mb-6">Employment <span class="text-daGreen">Details</span></h2>
-  <div class="grid md:grid-cols-3 gap-4 text-sm">
+<section class="bg-white border border-slate-200 rounded-2xl mb-6 overflow-hidden">
+  <header class="px-6 py-4 border-b border-slate-200">
+    <h2 class="text-lg font-semibold text-slate-800">Employment Details</h2>
+    <p class="text-sm text-slate-500 mt-1">Read-only employment information based on your current appointment.</p>
+  </header>
+  <div class="p-6 grid md:grid-cols-3 gap-4 text-sm">
     <div><label class="text-gray-500">Position</label><input disabled value="<?= $escape($employeeProfile['employment_position_title'] ?? '') ?>" class="w-full mt-1 p-2 bg-gray-100 rounded-lg"></div>
-    <div><label class="text-gray-500">Office</label><input disabled value="<?= $escape($employeeProfile['employment_office_name'] ?? '') ?>" class="w-full mt-1 p-2 bg-gray-100 rounded-lg"></div>
+    <div><label class="text-gray-500">Division</label><input disabled value="<?= $escape($employeeProfile['employment_office_name'] ?? '') ?>" class="w-full mt-1 p-2 bg-gray-100 rounded-lg"></div>
     <div><label class="text-gray-500">Status</label><input disabled value="<?= $escape($employeeProfile['employment_status'] ?? '') ?>" class="w-full mt-1 p-2 bg-gray-100 rounded-lg"></div>
   </div>
 </section>
@@ -225,7 +236,7 @@ $formatDate = static function (?string $value): string {
     <div class="bg-white rounded-xl shadow-lg w-full max-w-6xl max-h-[92vh] overflow-hidden flex flex-col">
       <div class="px-6 py-4 border-b">
         <div class="flex justify-between items-center mb-3">
-          <h2 class="text-lg font-semibold">Edit Profile</h2>
+          <h2 class="text-lg font-semibold">Update Personal Information</h2>
           <button type="button" data-close-profile><span class="material-symbols-outlined">close</span></button>
         </div>
         <div class="grid grid-cols-3 text-sm border rounded-lg overflow-hidden">
@@ -235,7 +246,7 @@ $formatDate = static function (?string $value): string {
         </div>
       </div>
 
-      <form method="post" action="personal-information.php" class="flex-1 min-h-0 flex flex-col">
+      <form method="post" action="personal-information.php" class="flex-1 min-h-0 flex flex-col" id="employeeProfileForm">
         <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken ?? '') ?>">
         <input type="hidden" name="action" value="update_profile">
         <input type="hidden" name="address_id" value="<?= $escape($employeeProfile['address_id'] ?? '') ?>">
@@ -247,6 +258,7 @@ $formatDate = static function (?string $value): string {
           <section data-profile-section="personal" class="space-y-6">
             <section class="space-y-3">
               <h4 class="text-sm font-semibold text-slate-700">Basic Identity</h4>
+              <p class="text-xs text-slate-500">Middle name, date of birth, and place of birth can only be set once here. Use the <a href="support.php" class="font-medium text-daGreen hover:underline">Support Center</a> for later corrections.</p>
               <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <label class="text-slate-600">First Name</label>
@@ -254,7 +266,10 @@ $formatDate = static function (?string $value): string {
                 </div>
                 <div>
                   <label class="text-slate-600">Middle Name</label>
-                  <input id="profileMiddleName" name="middle_name" type="text" value="<?= $escape($employeeProfile['middle_name'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-100" readonly>
+                  <input id="profileMiddleName" name="middle_name" type="text" value="<?= $escape($employeeProfile['middle_name'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 <?= $canEditMiddleName ? 'bg-white' : 'bg-slate-100' ?>" <?= $canEditMiddleName ? '' : 'readonly' ?>>
+                  <?php if (!$canEditMiddleName): ?>
+                    <p class="mt-1 text-xs text-slate-500">Already set. Request further changes through the Support Center.</p>
+                  <?php endif; ?>
                 </div>
                 <div>
                   <label class="text-slate-600">Last Name</label>
@@ -272,16 +287,22 @@ $formatDate = static function (?string $value): string {
               <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <label class="text-slate-600">Date of Birth</label>
-                  <input id="profileDateOfBirth" name="date_of_birth" type="date" value="<?= $escape($employeeProfile['date_of_birth'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-100" readonly>
+                  <input id="profileDateOfBirth" name="date_of_birth" type="date" value="<?= $escape($employeeProfile['date_of_birth'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 js-employee-profile-date <?= $canEditDateOfBirth ? 'bg-white' : 'bg-slate-100' ?>" <?= $canEditDateOfBirth ? '' : 'readonly' ?>>
+                  <?php if (!$canEditDateOfBirth): ?>
+                    <p class="mt-1 text-xs text-slate-500">Already set. Request further changes through the Support Center.</p>
+                  <?php endif; ?>
                 </div>
                 <div class="md:col-span-2">
                   <label class="text-slate-600">Place of Birth</label>
                   <div class="relative mt-1">
-                    <input id="profilePlaceOfBirth" name="place_of_birth" type="text" list="profilePlaceOfBirthList" autocomplete="off" data-modern-search="place_of_birth" value="<?= $escape($employeeProfile['place_of_birth'] ?? '') ?>" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-slate-100" required readonly>
+                    <input id="profilePlaceOfBirth" name="place_of_birth" type="text" list="profilePlaceOfBirthList" autocomplete="off" data-modern-search="place_of_birth" value="<?= $escape($employeeProfile['place_of_birth'] ?? '') ?>" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 <?= $canEditPlaceOfBirth ? 'bg-white' : 'bg-slate-100' ?>" required <?= $canEditPlaceOfBirth ? '' : 'readonly' ?>>
                     <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400">
                       <span class="material-symbols-outlined text-[18px]">expand_more</span>
                     </span>
                   </div>
+                  <?php if (!$canEditPlaceOfBirth): ?>
+                    <p class="mt-1 text-xs text-slate-500">Already set. Request further changes through the Support Center.</p>
+                  <?php endif; ?>
                 </div>
                 <div>
                   <label class="text-slate-600">Sex at Birth</label>
@@ -302,11 +323,11 @@ $formatDate = static function (?string $value): string {
                 </div>
                 <div>
                   <label class="text-slate-600">Height (m)</label>
-                  <input id="profileHeightM" name="height_m" type="number" min="0" step="0.01" value="<?= $escape($employeeProfile['height_m'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                  <input id="profileHeightM" name="height_m" type="number" min="0" max="3" step="0.01" value="<?= $escape($employeeProfile['height_m'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
                 </div>
                 <div>
                   <label class="text-slate-600">Weight (kg)</label>
-                  <input id="profileWeightKg" name="weight_kg" type="number" min="0" step="0.01" value="<?= $escape($employeeProfile['weight_kg'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                  <input id="profileWeightKg" name="weight_kg" type="number" min="0" max="999.99" step="0.01" value="<?= $escape($employeeProfile['weight_kg'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
                 </div>
                 <div>
                   <label class="text-slate-600">Blood Type</label>
@@ -449,15 +470,27 @@ $formatDate = static function (?string $value): string {
               <?php if (!empty($employeeChildren)): ?>
                 <?php foreach ($employeeChildren as $child): ?>
                   <div class="grid grid-cols-1 md:grid-cols-12 gap-2 child-row">
-                    <div class="md:col-span-8"><input name="children_full_name[]" value="<?= $escape($child['full_name'] ?? '') ?>" placeholder="Child Full Name" class="border rounded-lg p-2 w-full"></div>
-                    <div class="md:col-span-3"><input type="date" name="children_birth_date[]" value="<?= $escape($child['birth_date'] ?? '') ?>" class="border rounded-lg p-2 w-full"></div>
+                    <div class="md:col-span-8">
+                      <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Child Name</label>
+                      <input name="children_full_name[]" value="<?= $escape($child['full_name'] ?? '') ?>" placeholder="Child Full Name" class="border rounded-lg p-2 w-full">
+                    </div>
+                    <div class="md:col-span-3">
+                      <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Child Birthdate</label>
+                      <input type="date" name="children_birth_date[]" value="<?= $escape($child['birth_date'] ?? '') ?>" class="border rounded-lg p-2 w-full js-employee-profile-date">
+                    </div>
                     <div class="md:col-span-1"><button type="button" data-remove-child-row class="border rounded-lg px-2 py-2 w-full">×</button></div>
                   </div>
                 <?php endforeach; ?>
               <?php else: ?>
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-2 child-row">
-                  <div class="md:col-span-8"><input name="children_full_name[]" placeholder="Child Full Name" class="border rounded-lg p-2 w-full"></div>
-                  <div class="md:col-span-3"><input type="date" name="children_birth_date[]" class="border rounded-lg p-2 w-full"></div>
+                  <div class="md:col-span-8">
+                    <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Child Name</label>
+                    <input name="children_full_name[]" placeholder="Child Full Name" class="border rounded-lg p-2 w-full">
+                  </div>
+                  <div class="md:col-span-3">
+                    <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Child Birthdate</label>
+                    <input type="date" name="children_birth_date[]" class="border rounded-lg p-2 w-full js-employee-profile-date">
+                  </div>
                   <div class="md:col-span-1"><button type="button" data-remove-child-row class="border rounded-lg px-2 py-2 w-full">×</button></div>
                 </div>
               <?php endif; ?>
@@ -465,17 +498,18 @@ $formatDate = static function (?string $value): string {
 
             <h4 class="font-semibold pt-2">Father</h4>
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div><input name="father_surname" value="<?= $escape($employeeFather['surname'] ?? '') ?>" placeholder="Surname" class="border rounded-lg p-2 w-full"></div>
-              <div><input name="father_first_name" value="<?= $escape($employeeFather['first_name'] ?? '') ?>" placeholder="First Name" class="border rounded-lg p-2 w-full"></div>
-              <div><input name="father_name_extension" value="<?= $escape($employeeFather['extension_name'] ?? '') ?>" placeholder="Name Extension" class="border rounded-lg p-2 w-full"></div>
-              <div><input name="father_middle_name" value="<?= $escape($employeeFather['middle_name'] ?? '') ?>" placeholder="Middle Name" class="border rounded-lg p-2 w-full"></div>
+              <div><label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">First Name</label><input name="father_first_name" value="<?= $escape($employeeFather['first_name'] ?? '') ?>" placeholder="First Name" class="border rounded-lg p-2 w-full"></div>
+              <div><label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Middle Name</label><input name="father_middle_name" value="<?= $escape($employeeFather['middle_name'] ?? '') ?>" placeholder="Middle Name" class="border rounded-lg p-2 w-full"></div>
+              <div><label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Last Name</label><input name="father_surname" value="<?= $escape($employeeFather['surname'] ?? '') ?>" placeholder="Last Name" class="border rounded-lg p-2 w-full"></div>
+              <div><label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Suffix</label><input name="father_name_extension" value="<?= $escape($employeeFather['extension_name'] ?? '') ?>" placeholder="Suffix" class="border rounded-lg p-2 w-full"></div>
             </div>
 
             <h4 class="font-semibold">Mother</h4>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div><input name="mother_surname" value="<?= $escape($employeeMother['surname'] ?? '') ?>" placeholder="Maiden Surname" class="border rounded-lg p-2 w-full"></div>
-              <div><input name="mother_first_name" value="<?= $escape($employeeMother['first_name'] ?? '') ?>" placeholder="First Name" class="border rounded-lg p-2 w-full"></div>
-              <div><input name="mother_middle_name" value="<?= $escape($employeeMother['middle_name'] ?? '') ?>" placeholder="Middle Name" class="border rounded-lg p-2 w-full"></div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div><label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">First Name</label><input name="mother_first_name" value="<?= $escape($employeeMother['first_name'] ?? '') ?>" placeholder="First Name" class="border rounded-lg p-2 w-full"></div>
+              <div><label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Middle Name</label><input name="mother_middle_name" value="<?= $escape($employeeMother['middle_name'] ?? '') ?>" placeholder="Middle Name" class="border rounded-lg p-2 w-full"></div>
+              <div><label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Last Name</label><input name="mother_surname" value="<?= $escape($employeeMother['surname'] ?? '') ?>" placeholder="Last Name" class="border rounded-lg p-2 w-full"></div>
+              <div><label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Suffix</label><input name="mother_name_extension" value="<?= $escape($employeeMother['extension_name'] ?? '') ?>" placeholder="Suffix" class="border rounded-lg p-2 w-full"></div>
             </div>
           </section>
 
@@ -540,12 +574,22 @@ $formatDate = static function (?string $value): string {
 
         <div>
           <label class="text-slate-600">Current Password</label>
-          <input type="password" name="current_password" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+          <div class="relative mt-1">
+            <input type="password" id="employeeCurrentPasswordInput" name="current_password" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-12" required>
+            <button type="button" data-password-toggle="employeeCurrentPasswordInput" class="absolute inset-y-0 right-0 inline-flex items-center px-3 text-slate-500 hover:text-slate-700" aria-label="Show current password">
+              <span class="material-symbols-outlined text-[18px]">visibility</span>
+            </button>
+          </div>
         </div>
 
         <div>
           <label class="text-slate-600">New Password</label>
-          <input type="password" id="employeeNewPasswordInput" name="new_password" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+          <div class="relative mt-1">
+            <input type="password" id="employeeNewPasswordInput" name="new_password" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-12" required>
+            <button type="button" data-password-toggle="employeeNewPasswordInput" class="absolute inset-y-0 right-0 inline-flex items-center px-3 text-slate-500 hover:text-slate-700" aria-label="Show new password">
+              <span class="material-symbols-outlined text-[18px]">visibility</span>
+            </button>
+          </div>
           <div class="mt-2">
             <div class="h-2 w-full rounded-full bg-slate-200">
               <div id="employeePasswordStrengthBar" class="h-2 w-0 rounded-full bg-slate-300 transition-all duration-150"></div>
@@ -557,11 +601,13 @@ $formatDate = static function (?string $value): string {
 
         <div>
           <label class="text-slate-600">Confirm New Password</label>
-          <input type="password" name="confirm_new_password" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
-        </div>
-
-        <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-          After sending the verification code, you will immediately proceed to the code verification modal.
+          <div class="relative mt-1">
+            <input type="password" id="employeeConfirmPasswordInput" name="confirm_new_password" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-12" required>
+            <button type="button" data-password-toggle="employeeConfirmPasswordInput" class="absolute inset-y-0 right-0 inline-flex items-center px-3 text-slate-500 hover:text-slate-700" aria-label="Show confirm password">
+              <span class="material-symbols-outlined text-[18px]">visibility</span>
+            </button>
+          </div>
+          <p id="employeePasswordMatchIndicator" class="mt-2 text-xs text-slate-500">Enter and confirm your new password.</p>
         </div>
 
         <div class="flex justify-end gap-3 mt-2">
@@ -641,8 +687,14 @@ $formatDate = static function (?string $value): string {
 
 <template id="childRowTemplate">
   <div class="grid grid-cols-1 md:grid-cols-12 gap-2 child-row">
-    <div class="md:col-span-8"><input name="children_full_name[]" placeholder="Child Full Name" class="border rounded-lg p-2 w-full"></div>
-    <div class="md:col-span-3"><input type="date" name="children_birth_date[]" class="border rounded-lg p-2 w-full"></div>
+    <div class="md:col-span-8">
+      <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Child Name</label>
+      <input name="children_full_name[]" placeholder="Child Full Name" class="border rounded-lg p-2 w-full">
+    </div>
+    <div class="md:col-span-3">
+      <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Child Birthdate</label>
+      <input type="date" name="children_birth_date[]" class="border rounded-lg p-2 w-full js-employee-profile-date">
+    </div>
     <div class="md:col-span-1"><button type="button" data-remove-child-row class="border rounded-lg px-2 py-2 w-full">×</button></div>
   </div>
 </template>

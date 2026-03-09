@@ -39,7 +39,7 @@ $hasMoreTrainingHistory = count($trainingHistoryRows ?? []) > 3;
 
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 text-sm">
   <article class="bg-white border rounded-lg p-4">
-    <p class="text-gray-500">Assigned Trainings</p>
+    <p class="text-gray-500">Available Trainings</p>
     <p class="text-2xl font-semibold mt-1"><?= (int)($learningSummary['available_count'] ?? 0) ?></p>
   </article>
   <article class="bg-white border rounded-lg p-4">
@@ -118,7 +118,7 @@ $hasMoreTrainingHistory = count($trainingHistoryRows ?? []) > 3;
 <section id="lndTabAvailablePanel" data-lnd-tab-panel="available" class="mb-2">
   <div class="flex flex-wrap gap-3 items-end mb-4">
     <div class="flex-1 min-w-[220px]">
-      <label class="block text-sm text-gray-600 mb-1">Search Assigned Trainings</label>
+      <label class="block text-sm text-gray-600 mb-1">Search Available Trainings</label>
       <input id="lndAvailableSearch" type="search" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Search title, type, category, provider">
     </div>
     <div class="w-full sm:w-52">
@@ -134,7 +134,7 @@ $hasMoreTrainingHistory = count($trainingHistoryRows ?? []) > 3;
 
   <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" id="lndAvailableCardsContainer">
     <?php if (empty($availableTrainingRows)): ?>
-      <article class="bg-gray-50 border border-dashed border-gray-300 rounded-xl p-5 text-sm text-gray-500">No available trainings found.</article>
+      <article class="bg-gray-50 border border-dashed border-gray-300 rounded-xl p-5 text-sm text-gray-500">No active trainings are available right now.</article>
     <?php else: ?>
       <?php foreach ($availableTrainingRows as $training): ?>
         <article
@@ -148,8 +148,8 @@ $hasMoreTrainingHistory = count($trainingHistoryRows ?? []) > 3;
           data-category="<?= $escape((string)($training['training_category'] ?? '-')) ?>"
           data-schedule="<?= $escape((string)($training['date_label'] ?? '-')) ?>"
           data-program-status="<?= $escape((string)($training['status_raw'] ?? '-')) ?>"
-          data-enrollment-status="Admin Enrolled"
-          data-attendance="Pending"
+          data-enrollment-status="<?= $escape((string)($training['enrollment_status_label'] ?? 'Not Yet Enrolled')) ?>"
+          data-attendance="<?= $escape((string)($training['attendance_label'] ?? 'Pending')) ?>"
           tabindex="0"
           role="button"
           aria-label="View training details"
@@ -157,6 +157,9 @@ $hasMoreTrainingHistory = count($trainingHistoryRows ?? []) > 3;
         >
           <div class="flex items-start justify-between gap-3">
             <h3 class="text-sm font-semibold text-gray-900 leading-snug"><?= $escape((string)($training['title'] ?? '-')) ?></h3>
+            <span class="inline-flex min-w-[112px] justify-center px-2 py-1 text-xs rounded-full <?= $escape((string)($training['enrollment_status_class'] ?? 'bg-slate-100 text-slate-700')) ?>">
+              <?= $escape((string)($training['enrollment_status_label'] ?? 'Not Yet Enrolled')) ?>
+            </span>
           </div>
           <p class="text-xs text-gray-500 mt-1"><?= $escape((string)($training['provider'] ?? '-')) ?></p>
 
@@ -180,7 +183,7 @@ $hasMoreTrainingHistory = count($trainingHistoryRows ?? []) > 3;
           </dl>
 
           <div class="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between gap-2">
-            <span class="text-xs text-gray-500">Enrollment is managed by Admin.</span>
+            <span class="text-xs text-gray-500"><?= $escape((string)($training['cta_message'] ?? 'Enrollment is managed by Admin and HR staff.')) ?></span>
             <button type="button" data-lnd-view-details class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100">View Details</button>
           </div>
         </article>
@@ -188,7 +191,7 @@ $hasMoreTrainingHistory = count($trainingHistoryRows ?? []) > 3;
     <?php endif; ?>
   </div>
 
-  <div id="lndAvailableFilterEmpty" class="hidden bg-gray-50 border border-dashed border-gray-300 rounded-xl p-5 text-sm text-gray-500">No assigned trainings match your search/filter criteria.</div>
+  <div id="lndAvailableFilterEmpty" class="hidden bg-gray-50 border border-dashed border-gray-300 rounded-xl p-5 text-sm text-gray-500">No available trainings match your search or filter criteria.</div>
 
   <div class="px-1 pt-4 flex items-center justify-between gap-3 text-xs text-gray-600">
     <p id="lndAvailablePageInfo">Page 1 of 1</p>

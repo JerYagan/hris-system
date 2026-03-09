@@ -6,6 +6,8 @@ require_once __DIR__ . '/includes/personal-information/data.php';
 $pageTitle = 'Personal Information | Staff';
 $activePage = 'personal-information.php';
 $breadcrumbs = ['Personal Information'];
+$pageScripts = $pageScripts ?? [];
+$pageScripts[] = '/hris-system/assets/js/staff/personal-information/index.js';
 
 $state = cleanText($_GET['state'] ?? null);
 $message = cleanText($_GET['message'] ?? null);
@@ -36,14 +38,14 @@ ob_start();
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Employee Overview</h2>
-        <p class="text-sm text-slate-500 mt-1">Quick summary of office-scoped employee records, completion, and active status.</p>
+        <p class="text-sm text-slate-500 mt-1">Quick summary of division-scoped employee records, completion, and active status.</p>
     </header>
 
     <div class="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 text-sm">
         <article class="rounded-xl border border-slate-200 p-4 bg-slate-50">
             <p class="text-xs uppercase tracking-wide text-slate-500">Total Profiles</p>
             <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)$totalProfiles, ENT_QUOTES, 'UTF-8') ?></p>
-            <p class="text-xs text-slate-600 mt-1">Within your office scope</p>
+            <p class="text-xs text-slate-600 mt-1">Within your division scope</p>
         </article>
         <article class="rounded-xl border border-slate-200 p-4 bg-emerald-50">
             <p class="text-xs uppercase tracking-wide text-emerald-700">Complete Records</p>
@@ -165,12 +167,12 @@ ob_start();
     <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
         <div class="md:col-span-2">
             <label class="text-slate-600">Search Employee Records</label>
-            <input id="personalInfoRecordsSearchInput" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Search by employee ID, name, email, department, or position">
+            <input id="personalInfoRecordsSearchInput" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Search by employee ID, name, email, division, or position">
         </div>
         <div>
-            <label class="text-slate-600">Department Filter</label>
+            <label class="text-slate-600">Division Filter</label>
             <select id="personalInfoRecordsDepartmentFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
-                <option value="">All Departments</option>
+                <option value="">All Divisions</option>
                 <?php foreach ($departmentFilterOptions as $departmentName): ?>
                     <option value="<?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?></option>
                 <?php endforeach; ?>
@@ -193,7 +195,7 @@ ob_start();
                     <th class="text-left px-4 py-3">Employee ID</th>
                     <th class="text-left px-4 py-3">Full Name</th>
                     <th class="text-left px-4 py-3">Email</th>
-                    <th class="text-left px-4 py-3">Department</th>
+                    <th class="text-left px-4 py-3">Division</th>
                     <th class="text-left px-4 py-3">Position</th>
                     <th class="text-left px-4 py-3">Status</th>
                     <th class="text-left px-4 py-3">Action</th>
@@ -225,25 +227,25 @@ ob_start();
                             </td>
                             <td class="px-4 py-3">
                                 <div data-person-action-scope class="relative inline-block text-left w-full max-w-[240px]">
-                                    <button type="button" data-person-action-menu-toggle class="w-full inline-flex items-center justify-between gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300">
-                                        <span class="inline-flex items-center gap-2">
-                                            <span class="material-symbols-outlined text-[18px]">more_horiz</span>
+                                    <button type="button" data-person-action-menu-toggle aria-haspopup="menu" aria-expanded="false" class="admin-action-button w-full">
+                                        <span class="admin-action-button-label">
+                                            <span class="material-symbols-outlined">more_horiz</span>
                                             Actions
                                         </span>
-                                        <span class="material-symbols-outlined text-[18px]">expand_more</span>
+                                        <span class="material-symbols-outlined admin-action-chevron">expand_more</span>
                                     </button>
 
-                                    <div data-person-action-menu class="hidden absolute right-0 z-[70] mt-2 w-72 origin-top-right rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
-                                        <button type="button" data-action-menu-item data-action-target="edit-profile" class="w-full text-left px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50 inline-flex items-center gap-2">
-                                            <span class="material-symbols-outlined text-[18px] text-slate-500">edit</span>
+                                    <div data-person-action-menu role="menu" class="admin-action-menu hidden w-72">
+                                        <button type="button" data-action-menu-item data-action-target="edit-profile" role="menuitem" class="admin-action-item">
+                                            <span class="material-symbols-outlined">edit</span>
                                             Edit Employee Profile
                                         </button>
-                                        <button type="button" data-action-menu-item data-action-target="assign" class="w-full text-left px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50 inline-flex items-center gap-2">
-                                            <span class="material-symbols-outlined text-[18px] text-slate-500">person_add</span>
-                                            Assign Department and Position
+                                        <button type="button" data-action-menu-item data-action-target="assign" role="menuitem" class="admin-action-item">
+                                            <span class="material-symbols-outlined">person_add</span>
+                                            Assign Division and Position
                                         </button>
-                                        <button type="button" data-action-menu-item data-action-target="manage-status" class="w-full text-left px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50 inline-flex items-center gap-2">
-                                            <span class="material-symbols-outlined text-[18px] text-slate-500">manage_accounts</span>
+                                        <button type="button" data-action-menu-item data-action-target="manage-status" role="menuitem" class="admin-action-item">
+                                            <span class="material-symbols-outlined">manage_accounts</span>
                                             Manage Employee Status
                                         </button>
                                     </div>
@@ -811,9 +813,9 @@ ob_start();
                     <input id="personalInfoAssignmentEmployeeDisplay" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
                 </div>
                 <div>
-                    <label class="text-slate-600">Department</label>
+                    <label class="text-slate-600">Division</label>
                     <select id="personalInfoAssignmentOffice" name="office_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
-                        <option value="">Select department</option>
+                        <option value="">Select division</option>
                         <?php foreach ($assignmentOfficeOptions as $office): ?>
                             <option value="<?= htmlspecialchars((string)$office['id'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$office['office_name'], ENT_QUOTES, 'UTF-8') ?></option>
                         <?php endforeach; ?>
@@ -882,8 +884,6 @@ ob_start();
         </div>
     </div>
 </div>
-
-<script src="../../assets/js/staff/personal-information/index.js" defer></script>
 
 <?php
 $content = ob_get_clean();

@@ -129,6 +129,7 @@ const initUploadOwnerSearch = () => {
           name: String(owner?.name || '').trim(),
           email: String(owner?.email || '').trim(),
           photoUrl: String(owner?.photo_url || '').trim(),
+          roleKey: String(owner?.role_key || '').trim().toLowerCase(),
         }))
         .filter((owner) => owner.id && owner.name);
     } catch (_error) {
@@ -169,6 +170,7 @@ const initUploadOwnerSearch = () => {
           <span class="min-w-0">
             <span class="block text-sm font-medium text-slate-700 truncate">${escapeHtml(owner.name)}</span>
             <span class="block text-xs text-slate-500 truncate">${escapeHtml(owner.email || 'No email')}</span>
+            <span class="block text-[11px] text-slate-400 truncate">${escapeHtml(owner.roleKey === 'staff' ? 'Staff' : 'Employee')}</span>
           </span>
         </button>
       `;
@@ -187,14 +189,12 @@ const initUploadOwnerSearch = () => {
   const filterAndRender = () => {
     const query = String(ownerInput.value || '').trim().toLowerCase();
     if (!query) {
-      renderResultRows(ownerList.slice(0, 8));
+      renderResultRows(ownerList);
       syncOwnerFromInput();
       return;
     }
 
-    const filtered = ownerList
-      .filter((owner) => owner.name.toLowerCase().includes(query) || owner.email.toLowerCase().includes(query))
-      .slice(0, 12);
+    const filtered = ownerList.filter((owner) => owner.name.toLowerCase().includes(query) || owner.email.toLowerCase().includes(query));
     renderResultRows(filtered);
     syncOwnerFromInput();
   };

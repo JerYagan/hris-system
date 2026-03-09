@@ -16,6 +16,18 @@ $dashboardPendingApprovals = [];
 $dashboardRecentActivity = [];
 $dataLoadError = null;
 
+$staffDashboardQueryLimits = [
+    'active_employment' => 2500,
+    'employment_scope' => 2500,
+    'job_postings' => 150,
+    'applications' => 500,
+    'documents' => 1500,
+    'payroll_runs' => 250,
+    'timekeeping_queue' => 80,
+    'notifications' => 60,
+    'activity_logs' => 10,
+];
+
 $staffRoleKeyNormalized = strtolower((string)($staffRoleKey ?? ''));
 $isAdminDashboardScope = $staffRoleKeyNormalized === 'admin';
 $scopeOfficeId = cleanText($staffOfficeId ?? null);
@@ -39,7 +51,7 @@ $appendDashboardError = static function (string $label, array $response) use (&$
 
 $employmentActiveResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/employment_records?select=id,person_id&is_current=eq.true&employment_status=eq.active' . $officeFilter . '&limit=5000',
+    $supabaseUrl . '/rest/v1/employment_records?select=id,person_id&is_current=eq.true&employment_status=eq.active' . $officeFilter . '&limit=' . $staffDashboardQueryLimits['active_employment'],
     $headers
 );
 $appendDashboardError('Active employment', $employmentActiveResponse);
@@ -48,7 +60,7 @@ $dashboardMetrics['active_employees'] = count($employmentActiveRows);
 
 $employmentScopeResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/employment_records?select=person_id&is_current=eq.true' . $officeFilter . '&limit=5000',
+    $supabaseUrl . '/rest/v1/employment_records?select=person_id&is_current=eq.true' . $officeFilter . '&limit=' . $staffDashboardQueryLimits['employment_scope'],
     $headers
 );
 $appendDashboardError('Employment scope', $employmentScopeResponse);
@@ -67,7 +79,7 @@ $scopePersonIds = array_keys($scopePersonIds);
 
 $jobPostingsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/job_postings?select=id,title,posting_status,open_date,close_date,updated_at,created_at' . $officeFilter . '&order=updated_at.desc&limit=300',
+    $supabaseUrl . '/rest/v1/job_postings?select=id,title,posting_status,open_date,close_date,updated_at,created_at' . $officeFilter . '&order=updated_at.desc&limit=' . $staffDashboardQueryLimits['job_postings'],
     $headers
 );
 $appendDashboardError('Job postings', $jobPostingsResponse);
@@ -91,7 +103,7 @@ if (!empty($jobPostingIds)) {
         $supabaseUrl
         . '/rest/v1/applications?select=id,application_status,submitted_at,updated_at,job_posting_id,applicant:applicant_profiles(full_name),job:job_postings(title)'
         . '&job_posting_id=in.' . rawurlencode('(' . implode(',', $jobPostingIds) . ')')
-        . '&order=updated_at.desc&limit=1000',
+        . '&order=updated_at.desc&limit=' . $staffDashboardQueryLimits['applications'],
         $headers
     );
     $appendDashboardError('Applications', $applicationsResponse);
@@ -113,7 +125,7 @@ if (!empty($scopePersonIds)) {
         $supabaseUrl
         . '/rest/v1/documents?select=id,owner_person_id,document_status,updated_at,title,owner:people(first_name,surname)'
         . '&owner_person_id=in.' . rawurlencode('(' . implode(',', $scopePersonIds) . ')')
-        . '&document_status=eq.submitted&limit=5000',
+        . '&document_status=eq.submitted&limit=' . $staffDashboardQueryLimits['documents'],
         $headers
     );
     $appendDashboardError('Documents', $documentsResponse);
@@ -123,7 +135,7 @@ $dashboardMetrics['documents_for_verification'] = count($documentsRows);
 
 $payrollRunsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/payroll_runs?select=id,run_status,generated_at,created_at' . $officeFilter . '&run_status=in.(draft,computed,approved)&limit=1000',
+    $supabaseUrl . '/rest/v1/payroll_runs?select=id,run_status,generated_at,created_at' . $officeFilter . '&run_status=in.(draft,computed,approved)&limit=' . $staffDashboardQueryLimits['payroll_runs'],
     $headers
 );
 $appendDashboardError('Payroll runs', $payrollRunsResponse);
@@ -142,7 +154,7 @@ if (!empty($scopePersonIds)) {
         $supabaseUrl
         . '/rest/v1/leave_requests?select=id,status,created_at,person:people(first_name,surname),leave_type:leave_types(leave_name)'
         . $personFilter
-        . '&status=eq.pending&order=created_at.desc&limit=150',
+        . '&status=eq.pending&order=created_at.desc&limit=' . $staffDashboardQueryLimits['timekeeping_queue'],
         $headers
     );
     $appendDashboardError('Leave requests', $leaveResponse);
@@ -153,7 +165,7 @@ if (!empty($scopePersonIds)) {
         $supabaseUrl
         . '/rest/v1/overtime_requests?select=id,status,created_at,person:people(first_name,surname)'
         . $personFilter
-        . '&status=eq.pending&order=created_at.desc&limit=150',
+        . '&status=eq.pending&order=created_at.desc&limit=' . $staffDashboardQueryLimits['timekeeping_queue'],
         $headers
     );
     $appendDashboardError('Overtime requests', $overtimeResponse);
@@ -164,7 +176,7 @@ if (!empty($scopePersonIds)) {
         $supabaseUrl
         . '/rest/v1/time_adjustment_requests?select=id,status,created_at,person:people(first_name,surname)'
         . $personFilter
-        . '&status=eq.pending&order=created_at.desc&limit=150',
+        . '&status=eq.pending&order=created_at.desc&limit=' . $staffDashboardQueryLimits['timekeeping_queue'],
         $headers
     );
     $appendDashboardError('Time adjustments', $adjustmentResponse);
@@ -175,7 +187,7 @@ $dashboardMetrics['pending_timekeeping'] = count($leaveRows) + count($overtimeRo
 
 $notificationsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/notifications?select=id,title,body,link_url,category,is_read,created_at&recipient_user_id=eq.' . rawurlencode($staffUserId) . '&order=created_at.desc&limit=200',
+    $supabaseUrl . '/rest/v1/notifications?select=id,title,body,link_url,category,is_read,created_at&recipient_user_id=eq.' . rawurlencode($staffUserId) . '&order=created_at.desc&limit=' . $staffDashboardQueryLimits['notifications'],
     $headers
 );
 $appendDashboardError('Notifications', $notificationsResponse);
@@ -210,12 +222,9 @@ foreach ($notificationRows as $row) {
     ];
 }
 
-$dashboardAnnouncements = array_slice($dashboardAnnouncements, 0, 8);
-$dashboardRoleNotifications = array_slice($dashboardRoleNotifications, 0, 8);
-
 $activityLogsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/activity_logs?select=id,module_name,entity_name,action_name,created_at&actor_user_id=eq.' . rawurlencode($staffUserId) . '&order=created_at.desc&limit=20',
+    $supabaseUrl . '/rest/v1/activity_logs?select=id,module_name,entity_name,action_name,created_at&actor_user_id=eq.' . rawurlencode($staffUserId) . '&order=created_at.desc&limit=' . $staffDashboardQueryLimits['activity_logs'],
     $headers
 );
 $appendDashboardError('Activity logs', $activityLogsResponse);

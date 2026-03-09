@@ -23,47 +23,58 @@ $normalizeCompensationRow = static function (array $row): array {
     return $row;
 };
 
+$payrollManagementLimits = [
+    'employees' => 1000,
+    'compensations' => 2500,
+    'periods' => 180,
+    'runs' => 250,
+    'items' => 2500,
+    'payslips' => 2500,
+    'activity_logs' => 4000,
+    'adjustments' => 4000,
+];
+
 $employeesResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/employment_records?select=person_id,employment_status,person:people!employment_records_person_id_fkey(id,user_id,first_name,surname)&is_current=eq.true&limit=1000',
+    $supabaseUrl . '/rest/v1/employment_records?select=person_id,employment_status,person:people!employment_records_person_id_fkey(id,user_id,first_name,surname)&is_current=eq.true&limit=' . (int)$payrollManagementLimits['employees'],
     $headers
 );
 
 $compensationsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/employee_compensations?select=id,person_id,monthly_rate,pay_frequency,effective_from,effective_to,base_pay,allowance_total,tax_deduction,government_deductions,other_deductions,created_at&order=effective_from.desc,created_at.desc&limit=5000',
+    $supabaseUrl . '/rest/v1/employee_compensations?select=id,person_id,monthly_rate,pay_frequency,effective_from,effective_to,base_pay,allowance_total,tax_deduction,government_deductions,other_deductions,created_at&order=effective_from.desc,created_at.desc&limit=' . (int)$payrollManagementLimits['compensations'],
     $headers
 );
 
 if (!isSuccessful($compensationsResponse)) {
     $compensationsResponse = apiRequest(
         'GET',
-        $supabaseUrl . '/rest/v1/employee_compensations?select=id,person_id,monthly_rate,pay_frequency,effective_from,effective_to,created_at&order=effective_from.desc,created_at.desc&limit=5000',
+        $supabaseUrl . '/rest/v1/employee_compensations?select=id,person_id,monthly_rate,pay_frequency,effective_from,effective_to,created_at&order=effective_from.desc,created_at.desc&limit=' . (int)$payrollManagementLimits['compensations'],
         $headers
     );
 }
 
 $periodsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/payroll_periods?select=id,period_code,period_start,period_end,payout_date,status,created_at&order=period_end.desc&limit=300',
+    $supabaseUrl . '/rest/v1/payroll_periods?select=id,period_code,period_start,period_end,payout_date,status,created_at&order=period_end.desc&limit=' . (int)$payrollManagementLimits['periods'],
     $headers
 );
 
 $runsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/payroll_runs?select=id,payroll_period_id,run_status,approved_at,generated_at,created_at,payroll_period:payroll_periods(period_code,period_start,period_end,payout_date,status),office:offices(office_name)&order=created_at.desc&limit=800',
+    $supabaseUrl . '/rest/v1/payroll_runs?select=id,payroll_period_id,run_status,approved_at,generated_at,created_at,payroll_period:payroll_periods(period_code,period_start,period_end,payout_date,status),office:offices(office_name)&order=created_at.desc&limit=' . (int)$payrollManagementLimits['runs'],
     $headers
 );
 
 $itemsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/payroll_items?select=id,payroll_run_id,person_id,basic_pay,overtime_pay,allowances_total,gross_pay,deductions_total,net_pay,created_at,person:people(first_name,surname)&order=created_at.desc&limit=5000',
+    $supabaseUrl . '/rest/v1/payroll_items?select=id,payroll_run_id,person_id,basic_pay,overtime_pay,allowances_total,gross_pay,deductions_total,net_pay,created_at,person:people(first_name,surname)&order=created_at.desc&limit=' . (int)$payrollManagementLimits['items'],
     $headers
 );
 
 $payslipsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/payslips?select=id,payroll_item_id,payslip_no,pdf_storage_path,released_at,created_at&order=created_at.desc&limit=5000',
+    $supabaseUrl . '/rest/v1/payslips?select=id,payroll_item_id,payslip_no,pdf_storage_path,released_at,created_at&order=created_at.desc&limit=' . (int)$payrollManagementLimits['payslips'],
     $headers
 );
 
@@ -91,7 +102,7 @@ foreach ($employmentRecords as $record) {
 if (!empty($employmentUserIds)) {
     $roleAssignmentResponse = apiRequest(
         'GET',
-        $supabaseUrl . '/rest/v1/user_role_assignments?select=user_id,role:roles!user_role_assignments_role_id_fkey(role_key)&user_id=in.(' . implode(',', array_keys($employmentUserIds)) . ')&limit=5000',
+        $supabaseUrl . '/rest/v1/user_role_assignments?select=user_id,role:roles!user_role_assignments_role_id_fkey(role_key)&user_id=in.(' . implode(',', array_keys($employmentUserIds)) . ')&limit=' . (int)$payrollManagementLimits['compensations'],
         $headers
     );
 
@@ -132,7 +143,7 @@ if (!empty($itemIdsForBreakdown)) {
         . '&entity_name=eq.payroll_items'
         . '&action_name=eq.compute_item_breakdown'
         . '&entity_id=in.(' . $breakdownFilter . ')'
-        . '&order=created_at.desc&limit=10000',
+        . '&order=created_at.desc&limit=' . (int)$payrollManagementLimits['activity_logs'],
         $headers
     );
 
@@ -178,7 +189,7 @@ if (!empty($itemIdsForBreakdown)) {
         $supabaseUrl
         . '/rest/v1/payroll_adjustments?select=id,payroll_item_id,adjustment_type,amount'
         . '&payroll_item_id=in.(' . implode(',', array_keys($itemIdsForBreakdown)) . ')'
-        . '&limit=10000',
+        . '&limit=' . (int)$payrollManagementLimits['adjustments'],
         $headers
     );
 
@@ -203,7 +214,7 @@ if (!empty($itemIdsForBreakdown)) {
                 . '&entity_name=eq.payroll_adjustments'
                 . '&action_name=eq.review_payroll_adjustment'
                 . '&entity_id=in.(' . $adjustmentFilter . ')'
-                . '&order=created_at.desc&limit=10000',
+                . '&order=created_at.desc&limit=' . (int)$payrollManagementLimits['activity_logs'],
                 $headers
             );
 
@@ -327,7 +338,7 @@ if (isSuccessful($periodsResponse) && empty($periodRows)) {
 
         $periodsResponse = apiRequest(
             'GET',
-            $supabaseUrl . '/rest/v1/payroll_periods?select=id,period_code,period_start,period_end,payout_date,status,created_at&order=period_end.desc&limit=300',
+            $supabaseUrl . '/rest/v1/payroll_periods?select=id,period_code,period_start,period_end,payout_date,status,created_at&order=period_end.desc&limit=' . (int)$payrollManagementLimits['periods'],
             $headers
         );
 
@@ -556,7 +567,7 @@ if (!empty($runIds)) {
         . '&entity_name=eq.payroll_runs'
         . '&entity_id=in.' . rawurlencode('(' . implode(',', $runIds) . ')')
         . '&action_name=in.' . rawurlencode('(submit_batch_for_admin_approval,review_batch)')
-        . '&order=created_at.desc&limit=10000',
+            . '&order=created_at.desc&limit=' . (int)$payrollManagementLimits['activity_logs'],
         $headers
     );
 
@@ -718,8 +729,6 @@ foreach ($periodRows as $period) {
         'employee_count' => is_array($batch) ? (int)($batch['employee_count'] ?? 0) : 0,
     ];
 }
-
-$payrollEstimateHistoryRows = array_slice($payrollEstimateHistoryRows, 0, 8);
 
 $periodsWithExistingRun = [];
 foreach ($runRows as $run) {
@@ -1039,7 +1048,7 @@ $adjustmentsResponse = apiRequest(
     'GET',
     $supabaseUrl
     . '/rest/v1/payroll_adjustments?select=id,adjustment_type,adjustment_code,description,amount,created_at,item:payroll_items(id,payroll_run_id,person_id,person:people(id,first_name,middle_name,surname),run:payroll_runs(id,payroll_period_id,period:payroll_periods(period_code)))'
-    . '&order=created_at.desc&limit=5000',
+    . '&order=created_at.desc&limit=' . (int)$payrollManagementLimits['adjustments'],
     $headers
 );
 
@@ -1066,7 +1075,7 @@ if (isSuccessful($adjustmentsResponse)) {
             . '&entity_name=eq.payroll_adjustments'
             . '&action_name=eq.review_payroll_adjustment'
             . '&entity_id=in.(' . $adjustmentFilter . ')'
-            . '&order=created_at.desc&limit=10000',
+            . '&order=created_at.desc&limit=' . (int)$payrollManagementLimits['activity_logs'],
             $headers
         );
 
@@ -1094,7 +1103,7 @@ if (isSuccessful($adjustmentsResponse)) {
             . '&entity_name=eq.payroll_adjustments'
             . '&action_name=eq.recommend_payroll_adjustment'
             . '&entity_id=in.(' . $adjustmentFilter . ')'
-            . '&order=created_at.desc&limit=10000',
+            . '&order=created_at.desc&limit=' . (int)$payrollManagementLimits['activity_logs'],
             $headers
         );
 

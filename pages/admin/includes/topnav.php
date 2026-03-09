@@ -269,7 +269,13 @@ if ($topnavInitialSource !== '') {
                                 $itemBody = (string)($item['body'] ?? '');
                                 $itemLink = trim((string)($item['link_url'] ?? ''));
                                 $itemCreatedAtRaw = (string)($item['created_at'] ?? '');
-                                $itemCreatedAt = $itemCreatedAtRaw !== '' ? date('M d, Y h:i A', strtotime($itemCreatedAtRaw)) : '-';
+                                $itemCreatedAt = '-';
+                                if ($itemCreatedAtRaw !== '') {
+                                    $formattedCreatedAt = function_exists('formatDateTimeForPhilippines')
+                                        ? formatDateTimeForPhilippines($itemCreatedAtRaw, 'M d, Y h:i A')
+                                        : date('M d, Y h:i A', strtotime($itemCreatedAtRaw));
+                                    $itemCreatedAt = $formattedCreatedAt !== '-' ? ($formattedCreatedAt . ' PST') : '-';
+                                }
                                 ?>
                                 <button
                                     type="button"

@@ -450,6 +450,41 @@ export const initStatusChangeConfirmations = () => {
       text: 'Changes to status, dates, and details will apply immediately.',
       confirmButtonText: 'Save changes',
     },
+    save_applicant_decision: {
+      title: 'Save applicant decision?',
+      text: 'This will record the screening decision and move the applicant through the approved recruitment workflow.',
+      confirmButtonText: 'Save decision',
+    },
+    schedule_interview: {
+      title: 'Save interview schedule?',
+      text: 'This will record the interview schedule and continue the applicant tracking workflow.',
+      confirmButtonText: 'Save schedule',
+    },
+    convert_hired_to_employee: {
+      title: 'Add this hired applicant as employee?',
+      text: 'This will continue the approved hiring flow and provision the employee-side account records.',
+      confirmButtonText: 'Add as employee',
+    },
+    generate_system_recommendations: {
+      title: 'Generate system recommendations?',
+      text: 'This will refresh recommendation output using the current applicant data and evaluation rules.',
+      confirmButtonText: 'Generate recommendations',
+    },
+    run_rule_evaluation: {
+      title: 'Run rule-based evaluation?',
+      text: 'This will evaluate the current applicant pool using the approved criteria.',
+      confirmButtonText: 'Run evaluation',
+    },
+    save_evaluation_criteria: {
+      title: 'Save global evaluation criteria?',
+      text: 'This will update the recruitment evaluation rules used for applicant screening decisions.',
+      confirmButtonText: 'Save criteria',
+    },
+    save_position_criteria: {
+      title: 'Save position criteria?',
+      text: 'This will update the position-specific recruitment criteria used in applicant evaluation.',
+      confirmButtonText: 'Save position criteria',
+    },
     review_payroll_batch: {
       title: 'Submit payroll batch decision?',
       text: 'This updates payroll batch status and related approval fields.',
@@ -523,10 +558,48 @@ export const initStatusChangeConfirmations = () => {
     },
   };
 
-  document.querySelectorAll('form').forEach((form) => {
+  const parseBooleanData = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    return normalized === '1' || normalized === 'true' || normalized === 'yes';
+  };
+
+  const resolveFormConfirmationConfig = (form) => {
     const actionInput = form.querySelector('input[name="form_action"]');
     const actionName = String(actionInput?.value || '').trim();
-    const config = actionMap[actionName];
+    const actionConfig = actionMap[actionName] || null;
+    const hasDatasetConfig = [
+      'confirmTitle',
+      'confirmText',
+      'confirmButtonText',
+      'cancelButtonText',
+      'confirmButtonColor',
+      'confirmIcon',
+      'confirmReasonLabel',
+      'confirmReasonPlaceholder',
+      'confirmReasonValidationMessage',
+    ].some((key) => String(form.dataset[key] || '').trim() !== '') || form.hasAttribute('data-confirm-require-reason');
+
+    if (!actionConfig && !hasDatasetConfig) {
+      return null;
+    }
+
+    return {
+      ...(actionConfig || {}),
+      ...(String(form.dataset.confirmTitle || '').trim() !== '' ? { title: form.dataset.confirmTitle } : {}),
+      ...(String(form.dataset.confirmText || '').trim() !== '' ? { text: form.dataset.confirmText } : {}),
+      ...(String(form.dataset.confirmButtonText || '').trim() !== '' ? { confirmButtonText: form.dataset.confirmButtonText } : {}),
+      ...(String(form.dataset.cancelButtonText || '').trim() !== '' ? { cancelButtonText: form.dataset.cancelButtonText } : {}),
+      ...(String(form.dataset.confirmButtonColor || '').trim() !== '' ? { confirmButtonColor: form.dataset.confirmButtonColor } : {}),
+      ...(String(form.dataset.confirmIcon || '').trim() !== '' ? { icon: form.dataset.confirmIcon } : {}),
+      ...(String(form.dataset.confirmReasonLabel || '').trim() !== '' ? { reasonLabel: form.dataset.confirmReasonLabel } : {}),
+      ...(String(form.dataset.confirmReasonPlaceholder || '').trim() !== '' ? { reasonPlaceholder: form.dataset.confirmReasonPlaceholder } : {}),
+      ...(String(form.dataset.confirmReasonValidationMessage || '').trim() !== '' ? { reasonValidationMessage: form.dataset.confirmReasonValidationMessage } : {}),
+      ...(form.hasAttribute('data-confirm-require-reason') ? { requireReason: parseBooleanData(form.dataset.confirmRequireReason || 'true') } : {}),
+    };
+  };
+
+  document.querySelectorAll('form').forEach((form) => {
+    const config = resolveFormConfirmationConfig(form);
     if (!config) {
       return;
     }
@@ -544,10 +617,10 @@ export const initStatusChangeConfirmations = () => {
         const result = await Swal.fire({
           title: config.title,
           text: config.text,
-          icon: 'warning',
+          icon: config.icon || 'warning',
           showCancelButton: true,
           confirmButtonText: config.confirmButtonText || 'Confirm',
-          cancelButtonText: 'Cancel',
+          cancelButtonText: config.cancelButtonText || 'Cancel',
           confirmButtonColor: config.confirmButtonColor || '#0f172a',
           reverseButtons: true,
           input: requiresReason ? 'textarea' : undefined,

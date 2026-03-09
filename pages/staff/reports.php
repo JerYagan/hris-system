@@ -103,7 +103,7 @@ $employeeStatusPill = static function (string $status): string {
 
     <div class="px-6 pb-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
         <article class="rounded-xl border border-slate-200 p-4">
-            <p class="text-xs uppercase text-slate-500">Top Department Count</p>
+            <p class="text-xs uppercase text-slate-500">Top Division Count</p>
             <p class="font-semibold text-slate-800 mt-2"><?= htmlspecialchars($topDepartmentLabel, ENT_QUOTES, 'UTF-8') ?></p>
             <p class="text-xs text-slate-500 mt-1">Highest concentration by organizational unit.</p>
         </article>
@@ -117,13 +117,13 @@ $employeeStatusPill = static function (string $status): string {
     <div class="px-6 pb-3 flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
         <div class="w-full md:w-1/2">
             <label class="text-sm text-slate-600" for="staffReportEmployeesSearch">Search Employees</label>
-            <input id="staffReportEmployeesSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search by name, department, status, or employee ID">
+            <input id="staffReportEmployeesSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search by name, division, status, or employee ID">
         </div>
         <div class="w-full md:w-56">
-            <label class="text-sm text-slate-600" for="staffReportEmployeesDepartmentFilter">Department</label>
+            <label class="text-sm text-slate-600" for="staffReportEmployeesDepartmentFilter">Division</label>
             <select id="staffReportEmployeesDepartmentFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
-                <option value="">All Departments</option>
-                <?php foreach ($employeeDepartmentFilters as $departmentName): ?>
+                <option value="">All Divisions</option>
+                <?php foreach ($divisionFilterOptions as $departmentName): ?>
                     <option value="<?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?></option>
                 <?php endforeach; ?>
             </select>
@@ -145,7 +145,7 @@ $employeeStatusPill = static function (string $status): string {
                 <tr>
                     <th class="text-left px-4 py-3">Employee</th>
                     <th class="text-left px-4 py-3">Employee ID</th>
-                    <th class="text-left px-4 py-3">Department</th>
+                    <th class="text-left px-4 py-3">Division</th>
                     <th class="text-left px-4 py-3">Status</th>
                     <th class="text-left px-4 py-3">Hire Date</th>
                 </tr>
@@ -257,13 +257,13 @@ $employeeStatusPill = static function (string $status): string {
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Timekeeping Trends</h2>
-        <p class="text-sm text-slate-500 mt-1">Analyze attendance activity by date range, department, and attendance status.</p>
+        <p class="text-sm text-slate-500 mt-1">Analyze attendance activity by date range, division, and attendance status.</p>
     </header>
 
     <div class="px-6 pt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 text-sm">
         <div class="xl:col-span-2">
             <label class="text-slate-600" for="staffReportTimekeepingSearch">Search</label>
-            <input id="staffReportTimekeepingSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Search employee, department, status, or date">
+            <input id="staffReportTimekeepingSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Search employee, division, status, or date">
         </div>
         <div>
             <label class="text-slate-600" for="staffReportTimekeepingStartDate">Date From</label>
@@ -274,10 +274,10 @@ $employeeStatusPill = static function (string $status): string {
             <input id="staffReportTimekeepingEndDate" type="date" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
         </div>
         <div>
-            <label class="text-slate-600" for="staffReportTimekeepingDepartmentFilter">Department</label>
+            <label class="text-slate-600" for="staffReportTimekeepingDepartmentFilter">Division</label>
             <select id="staffReportTimekeepingDepartmentFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
-                <option value="">All Departments</option>
-                <?php foreach ($timekeepingDepartmentFilters as $departmentName): ?>
+                <option value="">All Divisions</option>
+                <?php foreach ($divisionFilterOptions as $departmentName): ?>
                     <option value="<?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?></option>
                 <?php endforeach; ?>
             </select>
@@ -299,7 +299,7 @@ $employeeStatusPill = static function (string $status): string {
                 <tr>
                     <th class="text-left px-4 py-3">Date</th>
                     <th class="text-left px-4 py-3">Employee</th>
-                    <th class="text-left px-4 py-3">Department</th>
+                    <th class="text-left px-4 py-3">Division</th>
                     <th class="text-left px-4 py-3">Status</th>
                     <th class="text-left px-4 py-3">Late (Minutes)</th>
                     <th class="text-left px-4 py-3">Hours Worked</th>
@@ -350,13 +350,13 @@ $employeeStatusPill = static function (string $status): string {
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Payroll Summaries</h2>
-        <p class="text-sm text-slate-500 mt-1">Track payroll totals and run progress with department and date filters.</p>
+        <p class="text-sm text-slate-500 mt-1">Track payroll totals and run progress with division and date filters.</p>
     </header>
 
     <div class="px-6 pt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 text-sm">
         <div class="xl:col-span-2">
             <label class="text-slate-600" for="staffReportPayrollSearch">Search</label>
-            <input id="staffReportPayrollSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Search employee, period, or department">
+            <input id="staffReportPayrollSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Search employee, period, or division">
         </div>
         <div>
             <label class="text-slate-600" for="staffReportPayrollStartDate">Date From</label>
@@ -367,10 +367,10 @@ $employeeStatusPill = static function (string $status): string {
             <input id="staffReportPayrollEndDate" type="date" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
         </div>
         <div>
-            <label class="text-slate-600" for="staffReportPayrollDepartmentFilter">Department</label>
+            <label class="text-slate-600" for="staffReportPayrollDepartmentFilter">Division</label>
             <select id="staffReportPayrollDepartmentFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
-                <option value="">All Departments</option>
-                <?php foreach ($payrollDepartmentFilters as $departmentName): ?>
+                <option value="">All Divisions</option>
+                <?php foreach ($divisionFilterOptions as $departmentName): ?>
                     <option value="<?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?></option>
                 <?php endforeach; ?>
             </select>
@@ -392,7 +392,7 @@ $employeeStatusPill = static function (string $status): string {
                 <tr>
                     <th class="text-left px-4 py-3">Period</th>
                     <th class="text-left px-4 py-3">Employee</th>
-                    <th class="text-left px-4 py-3">Department</th>
+                    <th class="text-left px-4 py-3">Division</th>
                     <th class="text-left px-4 py-3">Run Status</th>
                     <th class="text-left px-4 py-3">Gross Pay</th>
                     <th class="text-left px-4 py-3">Net Pay</th>
@@ -441,13 +441,13 @@ $employeeStatusPill = static function (string $status): string {
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Recruitment Metrics</h2>
-        <p class="text-sm text-slate-500 mt-1">Monitor recruitment pipeline activity with date range, department, and status filters.</p>
+        <p class="text-sm text-slate-500 mt-1">Monitor recruitment pipeline activity with date range, division, and status filters.</p>
     </header>
 
     <div class="px-6 pt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 text-sm">
         <div class="xl:col-span-2">
             <label class="text-slate-600" for="staffReportRecruitmentSearch">Search</label>
-            <input id="staffReportRecruitmentSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Search reference, applicant, position, or department">
+            <input id="staffReportRecruitmentSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Search reference, applicant, position, or division">
         </div>
         <div>
             <label class="text-slate-600" for="staffReportRecruitmentStartDate">Date From</label>
@@ -458,10 +458,10 @@ $employeeStatusPill = static function (string $status): string {
             <input id="staffReportRecruitmentEndDate" type="date" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
         </div>
         <div>
-            <label class="text-slate-600" for="staffReportRecruitmentDepartmentFilter">Department</label>
+            <label class="text-slate-600" for="staffReportRecruitmentDepartmentFilter">Division</label>
             <select id="staffReportRecruitmentDepartmentFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
-                <option value="">All Departments</option>
-                <?php foreach ($recruitmentDepartmentFilters as $departmentName): ?>
+                <option value="">All Divisions</option>
+                <?php foreach ($divisionFilterOptions as $departmentName): ?>
                     <option value="<?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?></option>
                 <?php endforeach; ?>
             </select>
@@ -485,7 +485,7 @@ $employeeStatusPill = static function (string $status): string {
                     <th class="text-left px-4 py-3">Reference No.</th>
                     <th class="text-left px-4 py-3">Applicant</th>
                     <th class="text-left px-4 py-3">Position</th>
-                    <th class="text-left px-4 py-3">Department</th>
+                    <th class="text-left px-4 py-3">Division</th>
                     <th class="text-left px-4 py-3">Status</th>
                 </tr>
             </thead>
@@ -577,17 +577,17 @@ $employeeStatusPill = static function (string $status): string {
             </select>
         </div>
         <div>
-            <label class="text-gray-600">Department Filter</label>
+            <label class="text-gray-600">Division Filter</label>
             <select name="department_filter" class="w-full mt-1 border rounded-md px-3 py-2">
-                <option value="all">All Departments</option>
-                <?php foreach ($departmentsForFilter as $departmentName): ?>
+                <option value="all">All Divisions</option>
+                <?php foreach ($divisionFilterOptions as $departmentName): ?>
                     <option value="<?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$departmentName, ENT_QUOTES, 'UTF-8') ?></option>
                 <?php endforeach; ?>
             </select>
         </div>
 
         <div class="md:col-span-4 flex flex-wrap gap-2 justify-end">
-            <button type="reset" class="px-4 py-2 border rounded-md hover:bg-gray-50">Reset</button>
+            <button id="staffReportExportReset" type="reset" class="px-4 py-2 border rounded-md hover:bg-gray-50">Reset</button>
             <button id="staffReportExportSubmit" type="submit" class="px-4 py-2 rounded-md bg-green-700 text-white hover:bg-green-800">Generate Export</button>
         </div>
     </form>

@@ -67,7 +67,7 @@ $statusPill = static function (string $status): array {
     </div>
 
     <div class="p-6 overflow-x-auto">
-        <table id="adminApplicantsTable" class="w-full text-sm">
+        <table id="adminApplicantsTable" data-simple-table="true" class="w-full text-sm">
             <thead class="bg-slate-50 text-slate-600">
                 <tr>
                     <th class="text-left px-4 py-3">Applicant</th>
@@ -95,6 +95,13 @@ $statusPill = static function (string $status): array {
                         $statusValue = (string)($application['application_status'] ?? 'submitted');
                         [$screeningLabel, $screeningClass] = $statusPill($statusValue);
                         $basisLabel = (string)($basisMap[$applicationId] ?? '-');
+                        $feedback = $feedbackMap[$applicationId] ?? null;
+                        $hasReviewDecision = is_array($feedback)
+                            && (
+                                trim((string)($feedback['decision'] ?? '')) !== ''
+                                || trim((string)($feedback['feedback_text'] ?? '')) !== ''
+                                || trim((string)($feedback['provided_at'] ?? '')) !== ''
+                            );
                         $profileDocuments = (array)($applicantProfileDataset[$applicationId]['documents'] ?? []);
                         $profileDocumentsJson = json_encode($profileDocuments, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
                         $searchText = strtolower(trim($fullName . ' ' . $email . ' ' . $position . ' ' . $submittedLabel . ' ' . $screeningLabel . ' ' . $basisLabel));
@@ -115,27 +122,47 @@ $statusPill = static function (string $status): array {
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm"
-                                    ><span class="material-symbols-outlined text-[16px]">person_search</span>View Profile</a>
-                                    <button
-                                        type="button"
-                                        data-applicant-open
-                                        data-application-id="<?= htmlspecialchars($applicationId, ENT_QUOTES, 'UTF-8') ?>"
-                                        data-applicant-name="<?= htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8') ?>"
-                                        data-applicant-email="<?= htmlspecialchars($email, ENT_QUOTES, 'UTF-8') ?>"
-                                        data-applicant-position="<?= htmlspecialchars($position, ENT_QUOTES, 'UTF-8') ?>"
-                                        data-applicant-submitted="<?= htmlspecialchars($submittedLabel, ENT_QUOTES, 'UTF-8') ?>"
-                                        data-applicant-screening="<?= htmlspecialchars($screeningLabel, ENT_QUOTES, 'UTF-8') ?>"
-                                        data-applicant-documents="<?= htmlspecialchars((string)($profileDocumentsJson ?: '[]'), ENT_QUOTES, 'UTF-8') ?>"
-                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 shadow-sm"
-                                    ><span class="material-symbols-outlined text-[16px]">fact_check</span>Review Decision</button>
+                                    ><span class="material-symbols-outlined text-[16px]">person_search</span>View</a>
+                                    <?php if (!$hasReviewDecision): ?>
+                                        <button
+                                            type="button"
+                                            data-applicant-open
+                                            data-application-id="<?= htmlspecialchars($applicationId, ENT_QUOTES, 'UTF-8') ?>"
+                                            data-applicant-name="<?= htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8') ?>"
+                                            data-applicant-email="<?= htmlspecialchars($email, ENT_QUOTES, 'UTF-8') ?>"
+                                            data-applicant-position="<?= htmlspecialchars($position, ENT_QUOTES, 'UTF-8') ?>"
+                                            data-applicant-submitted="<?= htmlspecialchars($submittedLabel, ENT_QUOTES, 'UTF-8') ?>"
+                                            data-applicant-screening="<?= htmlspecialchars($screeningLabel, ENT_QUOTES, 'UTF-8') ?>"
+                                            data-applicant-documents="<?= htmlspecialchars((string)($profileDocumentsJson ?: '[]'), ENT_QUOTES, 'UTF-8') ?>"
+                                            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 shadow-sm"
+                                        ><span class="material-symbols-outlined text-[16px]">fact_check</span>Review</button>
+                                    <?php else: ?>
+                                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-100 text-slate-500 shadow-sm cursor-not-allowed"><span class="material-symbols-outlined text-[16px]">task_alt</span>Reviewed</span>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>
+                    <tr id="adminApplicantsFilterEmpty" class="hidden">
+                        <td class="px-4 py-3 text-slate-500" colspan="6">No applicant records match the current filters.</td>
+                    </tr>
                 <?php endif; ?>
             </tbody>
         </table>
     </div>
+
+    <?php if (!empty($applications)): ?>
+        <div class="px-6 pb-6 flex items-center justify-between gap-3 text-sm text-slate-600">
+            <p id="adminApplicantsPaginationInfo">Showing 0 to 0 of 0 entries</p>
+            <div class="flex items-center gap-3">
+                <p id="adminApplicantsPageLabel">Page 1 of 1</p>
+                <div class="flex items-center gap-2">
+                    <button id="adminApplicantsPrevPage" type="button" class="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">Previous</button>
+                    <button id="adminApplicantsNextPage" type="button" class="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
 </section>
 
 <div id="applicantDecisionModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
@@ -184,15 +211,13 @@ $statusPill = static function (string $status): array {
                             <table class="w-full text-sm">
                                 <thead class="bg-slate-50 text-slate-600">
                                     <tr>
-                                        <th class="text-left px-3 py-2">Document Type</th>
                                         <th class="text-left px-3 py-2">File Name</th>
                                         <th class="text-left px-3 py-2">Uploaded</th>
-                                        <th class="text-left px-3 py-2">Status</th>
                                         <th class="text-left px-3 py-2">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="applicantDocumentsBody" class="divide-y divide-slate-100">
-                                    <tr><td class="px-3 py-3 text-slate-500" colspan="5">No document selected.</td></tr>
+                                    <tr><td class="px-3 py-3 text-slate-500" colspan="3">No document selected.</td></tr>
                                 </tbody>
                             </table>
                         </div>

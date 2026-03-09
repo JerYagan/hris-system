@@ -101,7 +101,7 @@ foreach ($peopleRows as $peopleRow) {
 
 $officeResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/offices?select=id,office_name&is_active=eq.true&limit=1000',
+    $supabaseUrl . '/rest/v1/offices?select=id,office_name&limit=1000',
     $headers
 );
 $appendLearningDataError('Offices', $officeResponse);
@@ -114,7 +114,7 @@ foreach ($officeRows as $officeRow) {
         continue;
     }
 
-    $officeNameById[$officeId] = cleanText($officeRow['office_name'] ?? null) ?? 'Unassigned Office';
+    $officeNameById[$officeId] = cleanText($officeRow['office_name'] ?? null) ?? 'Unassigned Division';
 }
 
 $employeeByPersonId = [];
@@ -133,7 +133,7 @@ foreach ($employmentRows as $employmentRow) {
     );
 
     $officeId = cleanText($employmentRow['office_id'] ?? null) ?? '';
-    $department = $officeNameById[$officeId] ?? 'Unassigned Office';
+    $department = $officeNameById[$officeId] ?? 'Unassigned Division';
 
     $isCurrent = filter_var($employmentRow['is_current'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
@@ -307,7 +307,7 @@ foreach ($enrollmentRecords as $enrollmentRecord) {
 
     $employee = $employeeByPersonId[$personId] ?? [
         'name' => (string)($peopleById[$personId] ?? 'Unknown Employee'),
-        'department' => 'Unassigned Office',
+        'department' => 'Unassigned Division',
     ];
     $enrollmentRows[] = [
         'id' => $enrollmentId,

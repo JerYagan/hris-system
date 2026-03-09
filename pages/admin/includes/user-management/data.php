@@ -2,8 +2,9 @@
 
 $employmentClassificationOptions = userManagementEmploymentClassificationPolicy();
 $assignableRolePolicy = array_flip(userManagementAssignableRolePolicy());
+$activeAdminLimit = function_exists('userManagementMaxActiveAdmins') ? userManagementMaxActiveAdmins() : 3;
 
-$userManagementMetaCacheKey = 'admin_user_management_meta_cache';
+$userManagementMetaCacheKey = 'admin_user_management_meta_cache_v3';
 $userManagementMetaCacheTtl = 300;
 $userManagementMetaCache = $_SESSION[$userManagementMetaCacheKey] ?? null;
 $userManagementMetaCacheValid = is_array($userManagementMetaCache)
@@ -12,7 +13,7 @@ $userManagementMetaCacheValid = is_array($userManagementMetaCache)
 
 $usersResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/user_accounts?select=id,email,account_status,created_at,people(first_name,surname)&order=created_at.desc&limit=1000',
+    $supabaseUrl . '/rest/v1/user_accounts?select=id,email,mobile_no,account_status,created_at,people(first_name,surname,mobile_no)&order=created_at.desc&limit=1000',
     $headers
 );
 
@@ -36,7 +37,7 @@ if (!$userManagementMetaCacheValid) {
 
     $officesDirectoryResponse = apiRequest(
         'GET',
-        $supabaseUrl . '/rest/v1/offices?select=id,office_name,office_code,is_active&order=office_name.asc&limit=2000',
+            $supabaseUrl . '/rest/v1/offices?select=id,office_name,office_code,is_active&is_active=eq.true&order=office_name.asc',
         $headers
     );
 
@@ -90,6 +91,30 @@ $hiredApplicationsResponse = apiRequest(
 );
 
 $users = isSuccessful($usersResponse) ? $usersResponse['data'] : [];
+
+$normalizeUserManagementPerson = static function (mixed $personValue): array {
+    if (!is_array($personValue)) {
+        return [];
+    }
+
+    $keys = array_keys($personValue);
+    $isList = $keys === range(0, count($keys) - 1);
+    if ($isList) {
+        return isset($personValue[0]) && is_array($personValue[0]) ? $personValue[0] : [];
+    }
+
+    return $personValue;
+};
+
+foreach ($users as $index => $userRow) {
+    if (!is_array($userRow)) {
+        continue;
+    }
+
+    $userRow['people'] = $normalizeUserManagementPerson($userRow['people'] ?? []);
+    $users[$index] = $userRow;
+}
+
 $roles = [];
 $offices = [];
 $officesDirectory = [];

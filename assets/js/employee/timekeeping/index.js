@@ -119,7 +119,7 @@ const initGlobalTableFilters = () => {
   const resetButton = document.getElementById('moduleFilterReset');
   const rows = Array.from(document.querySelectorAll('.js-module-filter-row'));
 
-  if (rows.length === 0) {
+  if (rows.length === 0 || (!searchInput && !tableFilter && !statusFilter && !dateFrom && !dateTo && !resetButton)) {
     return;
   }
 

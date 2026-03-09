@@ -15,7 +15,7 @@ ob_start();
 
 <div class="mb-6">
     <h1 class="text-2xl font-bold text-gray-800">Recruitment</h1>
-    <p class="text-sm text-gray-500">Read-only view of office-scoped job postings and applicant pipeline details.</p>
+    <p class="text-sm text-gray-500">Read-only view of division-scoped job postings and applicant pipeline details.</p>
 </div>
 
 <div id="recruitmentFlashState" class="hidden" data-state="<?= htmlspecialchars((string)$state, ENT_QUOTES, 'UTF-8') ?>" data-message="<?= htmlspecialchars((string)$message, ENT_QUOTES, 'UTF-8') ?>"></div>
@@ -49,7 +49,7 @@ ob_start();
     <header class="px-6 py-4 border-b flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
             <h2 class="text-lg font-semibold text-gray-800">Job Listings</h2>
-            <p class="text-sm text-gray-500 mt-1">Active job listings aligned with admin-side posting patterns.</p>
+            <p class="text-sm text-gray-500 mt-1">Active admin-posted job listings shown in read-only view.</p>
         </div>
         <span class="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-full bg-slate-100 text-slate-600">Staff read-only access</span>
     </header>
@@ -57,15 +57,15 @@ ob_start();
     <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-3 gap-3">
         <div class="md:col-span-2">
             <label for="recruitmentSearchInput" class="text-sm text-gray-600">Search Requests</label>
-            <input id="recruitmentSearchInput" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search by title, office, position, or status">
+            <input id="recruitmentSearchInput" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search by posting title, division, position, or status">
         </div>
         <div>
             <label for="recruitmentStatusFilter" class="text-sm text-gray-600">All Statuses</label>
             <select id="recruitmentStatusFilter" class="w-full mt-1 border rounded-md px-3 py-2 text-sm">
                 <option value="">All Statuses</option>
-                <option value="draft">Draft</option>
-                <option value="published">Open</option>
-                <option value="closed">Closed</option>
+                <?php foreach ($activeRecruitmentStatusOptions as $statusValue => $statusLabel): ?>
+                    <option value="<?= htmlspecialchars((string)$statusValue, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$statusLabel, ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
             </select>
         </div>
     </div>
@@ -75,7 +75,7 @@ ob_start();
             <thead class="bg-gray-50 text-gray-600">
                 <tr>
                     <th class="text-left px-4 py-3">Position</th>
-                    <th class="text-left px-4 py-3">Office</th>
+                    <th class="text-left px-4 py-3">Division</th>
                     <th class="text-left px-4 py-3">Employment Type</th>
                     <th class="text-left px-4 py-3">Open Date</th>
                     <th class="text-left px-4 py-3">Deadline</th>
@@ -86,7 +86,7 @@ ob_start();
             <tbody class="divide-y">
                 <?php if (empty($activeRecruitmentRows)): ?>
                     <tr>
-                        <td class="px-4 py-3 text-gray-500" colspan="7">No active job postings found in your scope.</td>
+                        <td class="px-4 py-3 text-gray-500" colspan="7">No active admin-posted job listings found.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($activeRecruitmentRows as $row): ?>
@@ -94,14 +94,6 @@ ob_start();
                             <td class="px-4 py-3">
                                 <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($row['position_title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
                                 <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars((string)($row['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                                <button
-                                    type="button"
-                                    data-open-posting-view-modal
-                                    data-posting-id="<?= htmlspecialchars((string)($row['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                    class="mt-2 px-3 py-1.5 text-xs rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
-                                >
-                                    View
-                                </button>
                             </td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['office_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['employment_type'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
@@ -116,10 +108,19 @@ ob_start();
                     <?php endforeach; ?>
                 <?php endif; ?>
                 <tr id="recruitmentFilterEmptyRow" class="hidden">
-                    <td class="px-4 py-3 text-gray-500" colspan="7">No active postings match your search/filter criteria.</td>
+                    <td class="px-4 py-3 text-gray-500" colspan="7">No active job listings match your search/filter criteria.</td>
                 </tr>
             </tbody>
         </table>
+    </div>
+
+    <div class="px-6 pb-6 flex items-center justify-between gap-3 text-sm text-slate-600">
+        <p id="recruitmentPaginationInfo">Showing 0 to 0 of 0 entries</p>
+        <div class="flex items-center gap-2">
+            <button type="button" id="recruitmentPrevPage" class="rounded-md border border-slate-300 px-3 py-1.5 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Previous</button>
+            <p id="recruitmentPageLabel" class="text-xs text-slate-500">Page 1 of 1</p>
+            <button type="button" id="recruitmentNextPage" class="rounded-md border border-slate-300 px-3 py-1.5 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Next</button>
+        </div>
     </div>
 </section>
 
@@ -134,7 +135,7 @@ ob_start();
             <thead class="bg-slate-100 text-slate-700">
                 <tr>
                     <th class="text-left px-4 py-3">Position</th>
-                    <th class="text-left px-4 py-3">Office</th>
+                    <th class="text-left px-4 py-3">Division</th>
                     <th class="text-left px-4 py-3">Employment Type</th>
                     <th class="text-left px-4 py-3">Archived Deadline</th>
                     <th class="text-left px-4 py-3">Status</th>
@@ -175,7 +176,7 @@ ob_start();
             <thead class="bg-gray-50 text-gray-600">
                 <tr>
                     <th class="text-left px-4 py-3">Job Posting</th>
-                    <th class="text-left px-4 py-3">Office</th>
+                    <th class="text-left px-4 py-3">Division</th>
                     <th class="text-left px-4 py-3">Deadline</th>
                     <th class="text-left px-4 py-3">Days Remaining</th>
                     <th class="text-left px-4 py-3">Priority</th>
@@ -221,7 +222,7 @@ ob_start();
                     <p id="postingViewPosition" class="font-medium text-gray-800">-</p>
                 </div>
                 <div>
-                    <p class="text-gray-500">Office</p>
+                    <p class="text-gray-500">Division</p>
                     <p id="postingViewOffice" class="font-medium text-gray-800">-</p>
                 </div>
                 <div>

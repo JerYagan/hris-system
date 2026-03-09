@@ -28,7 +28,7 @@ const bindPaginatedTable = ({
   nextId,
   pageLabelId,
   paginationInfoId,
-  pageSize = 20,
+  pageSize = 10,
 }) => {
   const table = document.getElementById(tableId);
   const searchInput = searchInputId ? document.getElementById(searchInputId) : null;
@@ -44,6 +44,7 @@ const bindPaginatedTable = ({
 
   const rows = Array.from(table.querySelectorAll('tbody tr')).filter((row) => !row.querySelector('td[colspan]'));
   let currentPage = 1;
+  let initialized = false;
 
   const apply = () => {
     const query = String(searchInput?.value || '').trim().toLowerCase();
@@ -96,6 +97,10 @@ const bindPaginatedTable = ({
   };
 
   const resetToFirstPage = () => {
+    if (!initialized) {
+      return;
+    }
+
     currentPage = 1;
     apply();
   };
@@ -105,18 +110,52 @@ const bindPaginatedTable = ({
     document.getElementById(elementId)?.addEventListener('change', resetToFirstPage);
   });
   prevButton.addEventListener('click', () => {
+    if (!initialized) {
+      return;
+    }
+
     if (currentPage > 1) {
       currentPage -= 1;
       apply();
     }
   });
   nextButton.addEventListener('click', () => {
+    if (!initialized) {
+      return;
+    }
+
     currentPage += 1;
     apply();
   });
 
-  apply();
-  table.dataset.datatableInitialized = 'true';
+  const initialize = () => {
+    if (initialized) {
+      return;
+    }
+
+    initialized = true;
+    apply();
+    table.dataset.datatableInitialized = 'true';
+  };
+
+  if (typeof window.IntersectionObserver !== 'function') {
+    initialize();
+    return;
+  }
+
+  const scope = table.closest('section') || table.parentElement || table;
+  const observer = new window.IntersectionObserver((entries) => {
+    if (!entries.some((entry) => entry.isIntersecting)) {
+      return;
+    }
+
+    observer.disconnect();
+    initialize();
+  }, {
+    rootMargin: '240px 0px',
+  });
+
+  observer.observe(scope);
 };
 
 const initReportCoverageToggle = () => {
@@ -140,6 +179,255 @@ const initReportCoverageToggle = () => {
   toggle();
 };
 
+const readReportChartPayload = () => {
+  const payloadNode = document.getElementById('reportAnalyticsChartPayload');
+  if (!(payloadNode instanceof HTMLScriptElement)) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(payloadNode.textContent || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const buildChart = (canvasId, config) => {
+  const chartFactory = window.Chart;
+  const canvas = document.getElementById(canvasId);
+  if (typeof chartFactory !== 'function' || !(canvas instanceof HTMLCanvasElement)) {
+    return;
+  }
+
+  const labels = Array.isArray(config?.data?.labels) ? config.data.labels : [];
+  if (labels.length === 0) {
+    return;
+  }
+
+  // eslint-disable-next-line no-new
+  new chartFactory(canvas, config);
+};
+
+const initReportCharts = () => {
+  const payload = readReportChartPayload();
+  if (!payload) {
+    return;
+  }
+
+  buildChart('reportEmployeeStatusChart', {
+    type: 'doughnut',
+    data: {
+      labels: payload.employeeStatus?.labels || [],
+      datasets: [{
+        data: payload.employeeStatus?.values || [],
+        backgroundColor: ['#047857', '#d97706', '#be123c'],
+        borderColor: '#ffffff',
+        borderWidth: 2,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+        },
+      },
+    },
+  });
+
+  buildChart('reportDivisionHeadcountChart', {
+    type: 'bar',
+    data: {
+      labels: payload.divisionHeadcount?.labels || [],
+      datasets: [{
+        label: 'Employees',
+        data: payload.divisionHeadcount?.values || [],
+        backgroundColor: '#0f766e',
+        borderRadius: 8,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y',
+      scales: {
+        x: {
+          beginAtZero: true,
+          ticks: {
+            precision: 0,
+          },
+        },
+      },
+      plugins: {
+        legend: {
+          display: false,
+        },
+      },
+    },
+  });
+
+  buildChart('reportDemographicsChart', {
+    type: 'bar',
+    data: {
+      labels: payload.demographicsByDivision?.labels || [],
+      datasets: [
+        {
+          label: 'Male',
+          data: payload.demographicsByDivision?.male || [],
+          backgroundColor: '#2563eb',
+          borderRadius: 6,
+        },
+        {
+          label: 'Female',
+          data: payload.demographicsByDivision?.female || [],
+          backgroundColor: '#db2777',
+          borderRadius: 6,
+        },
+        {
+          label: 'Unspecified',
+          data: payload.demographicsByDivision?.unspecified || [],
+          backgroundColor: '#94a3b8',
+          borderRadius: 6,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          stacked: true,
+        },
+        y: {
+          stacked: true,
+          beginAtZero: true,
+          ticks: {
+            precision: 0,
+          },
+        },
+      },
+      plugins: {
+        legend: {
+          position: 'bottom',
+        },
+      },
+    },
+  });
+
+  buildChart('reportTurnoverTrainingChart', {
+    type: 'bar',
+    data: {
+      labels: payload.turnoverTraining?.labels || [],
+      datasets: [
+        {
+          label: 'Hires (365d)',
+          data: payload.turnoverTraining?.hires || [],
+          backgroundColor: '#10b981',
+          borderRadius: 6,
+          yAxisID: 'y',
+        },
+        {
+          label: 'Separations (365d)',
+          data: payload.turnoverTraining?.separations || [],
+          backgroundColor: '#f97316',
+          borderRadius: 6,
+          yAxisID: 'y',
+        },
+        {
+          type: 'line',
+          label: 'Turnover Rate %',
+          data: payload.turnoverTraining?.turnoverRate || [],
+          borderColor: '#b91c1c',
+          backgroundColor: '#b91c1c',
+          tension: 0.35,
+          yAxisID: 'y1',
+        },
+        {
+          type: 'line',
+          label: 'Training Completion %',
+          data: payload.turnoverTraining?.trainingCompletionRate || [],
+          borderColor: '#1d4ed8',
+          backgroundColor: '#1d4ed8',
+          tension: 0.35,
+          yAxisID: 'y1',
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            precision: 0,
+          },
+        },
+        y1: {
+          beginAtZero: true,
+          position: 'right',
+          grid: {
+            drawOnChartArea: false,
+          },
+          ticks: {
+            callback: (value) => `${value}%`,
+          },
+        },
+      },
+      plugins: {
+        legend: {
+          position: 'bottom',
+        },
+      },
+    },
+  });
+
+  buildChart('reportActivityByModuleChart', {
+    type: 'bar',
+    data: {
+      labels: payload.activityByModule?.labels || [],
+      datasets: [
+        {
+          label: 'Admin',
+          data: payload.activityByModule?.admin || [],
+          backgroundColor: '#7c3aed',
+          borderRadius: 6,
+        },
+        {
+          label: 'Staff',
+          data: payload.activityByModule?.staff || [],
+          backgroundColor: '#0ea5e9',
+          borderRadius: 6,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y',
+      scales: {
+        x: {
+          stacked: true,
+          beginAtZero: true,
+          ticks: {
+            precision: 0,
+          },
+        },
+        y: {
+          stacked: true,
+        },
+      },
+      plugins: {
+        legend: {
+          position: 'bottom',
+        },
+      },
+    },
+  });
+};
+
 export default function initAdminReportAnalyticsPage() {
   if (document.body?.dataset?.adminReportAnalyticsInitialized === 'true') {
     return;
@@ -153,6 +441,7 @@ export default function initAdminReportAnalyticsPage() {
   initStatusChangeConfirmations();
   initDateInputs();
   initReportCoverageToggle();
+  initReportCharts();
 
   bindPaginatedTable({
     tableId: 'reportEmployeesTable',

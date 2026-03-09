@@ -116,6 +116,22 @@ if (!function_exists('formatDateTimeForPhilippines')) {
     }
 }
 
+if (!function_exists('formatUnixTimestampForPhilippines')) {
+    function formatUnixTimestampForPhilippines(int|string|null $timestamp, string $format = 'M j, Y g:i A'): string
+    {
+        if ($timestamp === null || $timestamp === '' || !is_numeric($timestamp)) {
+            return '-';
+        }
+
+        $integerTimestamp = (int)$timestamp;
+        if ($integerTimestamp <= 0) {
+            return '-';
+        }
+
+        return formatDateTimeForPhilippines(gmdate('c', $integerTimestamp), $format);
+    }
+}
+
 if (!function_exists('formatNotificationCategoryLabel')) {
     function formatNotificationCategoryLabel(?string $category): string
     {

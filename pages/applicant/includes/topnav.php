@@ -300,7 +300,7 @@ $allMobileLinks = array_merge($primaryLinks, $recruitmentLinks, $accountLinks);
                                         $itemLink = trim((string)($item['link_url'] ?? ''));
                                         $itemCategory = trim((string)($item['category'] ?? 'general'));
                                         $itemCreatedAtRaw = trim((string)($item['created_at'] ?? ''));
-                                        $itemCreatedAtLabel = $itemCreatedAtRaw !== '' ? date('M d, Y h:i A', strtotime($itemCreatedAtRaw)) : '-';
+                                        $itemCreatedAtLabel = $itemCreatedAtRaw !== '' ? formatDateTimeForPhilippines($itemCreatedAtRaw, 'M d, Y h:i A') . ' PST' : '-';
                                         $itemIsRead = (bool)($item['is_read'] ?? false);
                                         ?>
                                         <button

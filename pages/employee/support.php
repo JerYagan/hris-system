@@ -31,7 +31,7 @@ $buildQuery = static function (array $params): string {
 
 <div class="mb-6">
   <h1 class="text-2xl font-bold">Support Center</h1>
-  <p class="text-sm text-gray-500">Submit profile-related support requests and track your ticket updates.</p>
+  <p class="text-sm text-gray-500">Submit support requests and track your ticket updates.</p>
 </div>
 
 <div id="supportPageFeedback" class="hidden" data-state="<?= $escape((string)($state ?? '')) ?>" data-message="<?= $escape((string)($message ?? '')) ?>"></div>
@@ -82,17 +82,6 @@ $buildQuery = static function (array $params): string {
         <option value="documents_records">Documents and Records</option>
         <option value="timekeeping_attendance">Timekeeping and Attendance</option>
         <option value="other">Other</option>
-      </select>
-    </div>
-
-    <div>
-      <label for="supportRequestType" class="block text-xs font-semibold text-gray-600 mb-1">Request Type</label>
-      <select id="supportRequestType" name="request_type" class="w-full border rounded-lg px-3 py-2 text-sm" required>
-        <option value="name_change">Name Change</option>
-        <option value="marital_status_change">Marital Status Change</option>
-        <option value="civil_status_update">Civil Status Update</option>
-        <option value="contact_update">Contact Information Update</option>
-        <option value="other_profile_change">Other Profile Change</option>
       </select>
     </div>
 

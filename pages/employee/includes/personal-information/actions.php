@@ -393,10 +393,10 @@ if ($action === 'request_password_change_code') {
 
     $safeEmail = htmlspecialchars($email, ENT_QUOTES, 'UTF-8');
     $safeCode = htmlspecialchars($verificationCode, ENT_QUOTES, 'UTF-8');
-    $safeExpiry = htmlspecialchars(date('M d, Y h:i A', $expiresAt), ENT_QUOTES, 'UTF-8');
+    $safeExpiry = htmlspecialchars(formatUnixTimestampForPhilippines($expiresAt, 'M d, Y h:i A') . ' PST', ENT_QUOTES, 'UTF-8');
     $emailBody = '<p>Your DA-ATI HRIS password change verification code is:</p>'
         . '<p style="font-size:24px;font-weight:700;letter-spacing:2px;">' . $safeCode . '</p>'
-        . '<p>This code expires on <strong>' . $safeExpiry . '</strong> (server time).</p>'
+        . '<p>This code expires on <strong>' . $safeExpiry . '</strong>.</p>'
         . '<p>If you did not request a password change for ' . $safeEmail . ', ignore this email and contact support.</p>';
 
     $mailResponse = smtpSendTransactionalEmail(
@@ -528,12 +528,59 @@ $isValidDate = static function (?string $value): bool {
     return $ts !== false && date('Y-m-d', $ts) === $value;
 };
 
+$extractApiErrorMessage = static function (array $response): ?string {
+    $data = isset($response['data']) && is_array($response['data']) ? $response['data'] : [];
+    $candidates = [
+        $data['message'] ?? null,
+        $data['error_description'] ?? null,
+        $data['error'] ?? null,
+        $data['details'] ?? null,
+        $data['hint'] ?? null,
+        $response['error'] ?? null,
+    ];
+
+    foreach ($candidates as $candidate) {
+        $text = cleanText($candidate);
+        if ($text !== null) {
+            return $text;
+        }
+    }
+
+    return null;
+};
+
+$normalizeDecimalField = static function (?string $value, string $label, float $maxValue, int $scale = 2): ?float {
+    if ($value === null) {
+        return null;
+    }
+
+    $normalized = str_replace(',', '.', trim($value));
+    if ($normalized === '') {
+        return null;
+    }
+
+    if (!is_numeric($normalized)) {
+        redirectWithState('error', $label . ' must be numeric.', 'personal-information.php');
+    }
+
+    $number = round((float)$normalized, $scale);
+    if ($number < 0) {
+        redirectWithState('error', $label . ' cannot be negative.', 'personal-information.php');
+    }
+
+    if ($number > $maxValue) {
+        redirectWithState('error', $label . ' is too large. Please enter a smaller value.', 'personal-information.php');
+    }
+
+    return $number;
+};
+
 $upsertSingleById = static function (string $table, ?string $id, array $payload) use ($supabaseUrl, $headers): bool {
     if ($id !== null && isValidUuid($id)) {
         $response = apiRequest(
             'PATCH',
             $supabaseUrl . '/rest/v1/' . $table . '?id=eq.' . rawurlencode($id),
-            $headers,
+            array_merge($headers, ['Prefer: return=minimal']),
             $payload
         );
 
@@ -543,8 +590,8 @@ $upsertSingleById = static function (string $table, ?string $id, array $payload)
     $response = apiRequest(
         'POST',
         $supabaseUrl . '/rest/v1/' . $table,
-        $headers,
-        $payload
+        array_merge($headers, ['Prefer: return=minimal']),
+        [$payload]
     );
 
     return isSuccessful($response);
@@ -601,6 +648,7 @@ $motherId = $toNullable($_POST['mother_id'] ?? null, 36);
 $motherSurname = $toNullable($_POST['mother_surname'] ?? null, 120);
 $motherFirstName = $toNullable($_POST['mother_first_name'] ?? null, 120);
 $motherMiddleName = $toNullable($_POST['mother_middle_name'] ?? null, 120);
+$motherNameExtension = $toNullable($_POST['mother_name_extension'] ?? null, 30);
 
 $childrenNames = (array)($_POST['children_full_name'] ?? []);
 $childrenBirthDates = (array)($_POST['children_birth_date'] ?? []);
@@ -622,13 +670,8 @@ if ($sexAtBirth !== null && !in_array($sexAtBirth, ['male', 'female'], true)) {
     redirectWithState('error', 'Sex at birth must be male or female.', 'personal-information.php');
 }
 
-if ($heightM !== null && !is_numeric($heightM)) {
-    redirectWithState('error', 'Height must be numeric.', 'personal-information.php');
-}
-
-if ($weightKg !== null && !is_numeric($weightKg)) {
-    redirectWithState('error', 'Weight must be numeric.', 'personal-information.php');
-}
+$heightMValue = $normalizeDecimalField($heightM, 'Height', 3.0);
+$weightKgValue = $normalizeDecimalField($weightKg, 'Weight', 999.99);
 
 $beforeResponse = apiRequest(
     'GET',
@@ -644,9 +687,36 @@ if (!isSuccessful($beforeResponse) || empty((array)($beforeResponse['data'] ?? [
 }
 
 $beforeData = (array)$beforeResponse['data'][0];
-$middleName = cleanText($beforeData['middle_name'] ?? null);
-$dateOfBirth = cleanText($beforeData['date_of_birth'] ?? null);
-$placeOfBirth = cleanText($beforeData['place_of_birth'] ?? null);
+$beforeMiddleName = cleanText($beforeData['middle_name'] ?? null);
+$beforeDateOfBirth = cleanText($beforeData['date_of_birth'] ?? null);
+$beforePlaceOfBirth = cleanText($beforeData['place_of_birth'] ?? null);
+
+$requestedMiddleName = $toNullable($_POST['middle_name'] ?? null, 120);
+$requestedDateOfBirth = $toNullable($_POST['date_of_birth'] ?? null, 10);
+$requestedPlaceOfBirth = $toNullable($_POST['place_of_birth'] ?? null, 160);
+
+if ($requestedDateOfBirth !== null && !$isValidDate($requestedDateOfBirth)) {
+    redirectWithState('error', 'Date of birth must be a valid date.', 'personal-information.php');
+}
+
+$resolveFirstTimeSensitiveValue = static function (?string $currentValue, ?string $requestedValue, string $fieldLabel): ?string {
+    $current = cleanText($currentValue);
+    $requested = cleanText($requestedValue);
+
+    if ($current !== null && $current !== '') {
+        if ($requested !== null && $requested !== '' && $requested !== $current) {
+            redirectWithState('error', $fieldLabel . ' can only be updated once from Personal Information. Submit a support ticket for further changes.', 'personal-information.php');
+        }
+
+        return $current;
+    }
+
+    return $requested;
+};
+
+$middleName = $resolveFirstTimeSensitiveValue($beforeMiddleName, $requestedMiddleName, 'Middle name');
+$dateOfBirth = $resolveFirstTimeSensitiveValue($beforeDateOfBirth, $requestedDateOfBirth, 'Date of birth');
+$placeOfBirth = $resolveFirstTimeSensitiveValue($beforePlaceOfBirth, $requestedPlaceOfBirth, 'Place of birth');
 
 $peoplePayload = [
     'first_name' => $firstName ?? (string)($beforeData['first_name'] ?? ''),
@@ -657,8 +727,8 @@ $peoplePayload = [
     'place_of_birth' => $placeOfBirth,
     'sex_at_birth' => $sexAtBirth,
     'civil_status' => $civilStatus,
-    'height_m' => $heightM === null ? null : (float)$heightM,
-    'weight_kg' => $weightKg === null ? null : (float)$weightKg,
+    'height_m' => $heightMValue,
+    'weight_kg' => $weightKgValue,
     'blood_type' => $bloodType,
     'citizenship' => $citizenship,
     'dual_citizenship' => $dualCitizenship,
@@ -667,10 +737,10 @@ $peoplePayload = [
     'mobile_no' => $mobileNo,
     'personal_email' => $personalEmail,
     'agency_employee_no' => $agencyEmployeeNo,
+    'updated_at' => gmdate('c'),
 ];
 
-$updateHeaders = $headers;
-$updateHeaders[] = 'Prefer: return=representation';
+$updateHeaders = array_merge($headers, ['Prefer: return=minimal']);
 
 $peopleUpdateResponse = apiRequest(
     'PATCH',
@@ -680,7 +750,8 @@ $peopleUpdateResponse = apiRequest(
 );
 
 if (!isSuccessful($peopleUpdateResponse)) {
-    redirectWithState('error', 'Failed to update profile information. Please try again.', 'personal-information.php');
+    $apiErrorMessage = $extractApiErrorMessage($peopleUpdateResponse);
+    redirectWithState('error', $apiErrorMessage !== null ? 'Failed to update profile information: ' . $apiErrorMessage : 'Failed to update profile information. Please try again.', 'personal-information.php');
 }
 
 $residentialPayload = [
@@ -791,7 +862,7 @@ $parentsToSave = [
         'surname' => $motherSurname,
         'first_name' => $motherFirstName,
         'middle_name' => $motherMiddleName,
-        'extension_name' => null,
+        'extension_name' => $motherNameExtension,
     ],
 ];
 
@@ -848,7 +919,7 @@ foreach ($childrenNames as $index => $childNameRaw) {
 }
 
 if (!empty($childrenPayload)) {
-    $childrenInsertResponse = apiRequest('POST', $supabaseUrl . '/rest/v1/person_family_children', $headers, $childrenPayload);
+    $childrenInsertResponse = apiRequest('POST', $supabaseUrl . '/rest/v1/person_family_children', array_merge($headers, ['Prefer: return=minimal']), $childrenPayload);
     if (!isSuccessful($childrenInsertResponse)) {
         redirectWithState('error', 'Failed to save children records.', 'personal-information.php');
     }
@@ -896,7 +967,7 @@ foreach ($educationLevels as $index => $levelRaw) {
 }
 
 if (!empty($educationPayload)) {
-    $educationInsertResponse = apiRequest('POST', $supabaseUrl . '/rest/v1/person_educations', $headers, $educationPayload);
+    $educationInsertResponse = apiRequest('POST', $supabaseUrl . '/rest/v1/person_educations', array_merge($headers, ['Prefer: return=minimal']), $educationPayload);
     if (!isSuccessful($educationInsertResponse)) {
         redirectWithState('error', 'Failed to save educational background.', 'personal-information.php');
     }
@@ -919,8 +990,8 @@ if (isSuccessful($afterResponse) && !empty((array)($afterResponse['data'] ?? [])
 apiRequest(
     'POST',
     $supabaseUrl . '/rest/v1/activity_logs',
-    $headers,
-    [
+    array_merge($headers, ['Prefer: return=minimal']),
+    [[
         'actor_user_id' => $employeeUserId,
         'module_name' => 'employee',
         'entity_name' => 'personal_profile',
@@ -928,7 +999,7 @@ apiRequest(
         'action_name' => 'update_profile',
         'old_data' => $beforeData,
         'new_data' => $afterData,
-    ]
+    ]]
 );
 
 redirectWithState('success', 'Profile information updated successfully.', 'personal-information.php');

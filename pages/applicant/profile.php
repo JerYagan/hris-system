@@ -1,17 +1,27 @@
 <?php
 require_once __DIR__ . '/includes/profile/bootstrap.php';
+$_GET['partial'] = $_GET['partial'] ?? null;
+$requestedPartial = (string)(cleanText($_GET['partial'] ?? null) ?? '');
+$editMode = isset($_GET['edit']) && $_GET['edit'] === 'true';
+$profileShouldLoadDeferredSections = $requestedPartial === 'secondary-sections';
 require_once __DIR__ . '/includes/profile/actions.php';
 require_once __DIR__ . '/includes/profile/data.php';
 
 $csrfToken = ensureCsrfToken();
-
-$editMode = isset($_GET['edit']) && $_GET['edit'] === 'true';
 $profileSpouses = is_array($profileSpouses ?? null) ? $profileSpouses : [];
 $profileEducations = is_array($profileEducations ?? null) ? $profileEducations : [];
+$profileWorkExperiences = is_array($profileWorkExperiences ?? null) ? $profileWorkExperiences : [];
 $uploadedFiles = is_array($uploadedFiles ?? null) ? $uploadedFiles : [];
 
 $editableSpouseRows = !empty($profileSpouses) ? array_values($profileSpouses) : [[]];
 $editableEducationRows = !empty($profileEducations) ? array_values($profileEducations) : [[]];
+$editableWorkExperienceRows = !empty($profileWorkExperiences) ? array_values($profileWorkExperiences) : [[
+    'position_title' => '',
+    'office_company' => '',
+    'inclusive_date_from' => '',
+    'inclusive_date_to' => '',
+    'achievements' => '',
+]];
 
 $profileNameForInitials = trim((string)($profileData['full_name'] ?? 'Applicant User'));
 $profileNameParts = preg_split('/\s+/', $profileNameForInitials) ?: [];
@@ -21,6 +31,197 @@ $pageTitle = 'Profile | DA HRIS';
 $activePage = 'profile.php';
 $breadcrumbs = $editMode ? ['Profile', 'Edit'] : ['Profile'];
 $retryUrl = htmlspecialchars((string)($_SERVER['REQUEST_URI'] ?? 'profile.php'), ENT_QUOTES, 'UTF-8');
+$passwordModalTarget = (string)(cleanText($_GET['password_modal'] ?? null) ?? '');
+$deferredSectionsUrl = 'profile.php?' . http_build_query([
+    'partial' => 'secondary-sections',
+    'edit' => $editMode ? 'true' : null,
+]);
+
+$renderDeferredProfileViewSections = static function () use ($profileEducations, $profileWorkExperiences): void {
+?>
+<section class="mb-6 rounded-xl border bg-white">
+    <header class="border-b px-6 py-4">
+        <h2 class="text-lg font-semibold text-gray-800">Educational Background</h2>
+    </header>
+    <div class="p-4 text-sm sm:p-6">
+        <?php if (empty($profileEducations)): ?>
+            <p class="text-gray-600">No education records added yet.</p>
+        <?php else: ?>
+            <div class="space-y-3">
+                <?php foreach ($profileEducations as $education): ?>
+                    <article class="rounded-lg border bg-gray-50 p-4">
+                        <p class="font-medium text-gray-800"><?= htmlspecialchars(ucwords((string)($education['education_level'] ?? '')), ENT_QUOTES, 'UTF-8') ?: 'Education Entry' ?></p>
+                        <p class="mt-1 text-gray-600">School: <?= htmlspecialchars((string)($education['school_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                        <p class="text-gray-600">Course / Degree: <?= htmlspecialchars((string)($education['course_degree'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                        <p class="text-gray-600">Year Graduated: <?= htmlspecialchars((string)($education['year_graduated'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    </div>
+</section>
+
+<section class="mb-6 rounded-xl border bg-white">
+    <header class="border-b px-6 py-4">
+        <h2 class="text-lg font-semibold text-gray-800">Work Experience</h2>
+    </header>
+    <div class="p-4 text-sm sm:p-6">
+        <?php if (empty($profileWorkExperiences)): ?>
+            <p class="text-gray-600">No work experience records added yet.</p>
+        <?php else: ?>
+            <div class="space-y-3">
+                <?php foreach ($profileWorkExperiences as $workExperience): ?>
+                    <?php
+                        $startDateRaw = trim((string)($workExperience['inclusive_date_from'] ?? ''));
+                        $endDateRaw = trim((string)($workExperience['inclusive_date_to'] ?? ''));
+                        $startDateDisplay = $startDateRaw !== '' ? date('M j, Y', strtotime($startDateRaw)) : '-';
+                        $endDateDisplay = $endDateRaw !== '' ? date('M j, Y', strtotime($endDateRaw)) : 'Present';
+                    ?>
+                    <article class="rounded-lg border bg-gray-50 p-4">
+                        <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($workExperience['position_title'] ?? 'Work Experience Entry'), ENT_QUOTES, 'UTF-8') ?></p>
+                        <p class="mt-1 text-gray-600">Company: <?= htmlspecialchars((string)($workExperience['office_company'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                        <p class="text-gray-600">Inclusive Dates: <?= htmlspecialchars($startDateDisplay, ENT_QUOTES, 'UTF-8') ?> - <?= htmlspecialchars($endDateDisplay, ENT_QUOTES, 'UTF-8') ?></p>
+                        <p class="text-gray-600">Responsibilities: <?= htmlspecialchars((string)($workExperience['achievements'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    </div>
+</section>
+<?php
+};
+
+$renderDeferredProfileEditSections = static function () use ($editableEducationRows, $editableWorkExperienceRows): void {
+?>
+<section class="rounded-xl border bg-white">
+    <header class="border-b px-6 py-4">
+        <h2 class="text-lg font-semibold text-gray-800">Educational Background</h2>
+    </header>
+
+    <div class="space-y-4 p-4 text-sm sm:p-6">
+        <div id="educationRows" class="space-y-4">
+        <?php foreach ($editableEducationRows as $educationIndex => $educationRow): ?>
+            <div class="rounded-lg border bg-gray-50 p-4 education-row">
+                <div class="mb-3 flex items-center justify-between">
+                    <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Education Entry</p>
+                    <button type="button" class="education-remove rounded-md border px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 <?= $educationIndex === 0 ? 'hidden' : '' ?>">Remove</button>
+                </div>
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div>
+                    <label class="text-gray-500">Level</label>
+                    <?php $educationLevel = strtolower((string)($educationRow['education_level'] ?? '')); ?>
+                    <select name="education_level[]" class="mt-1 w-full rounded-md border px-3 py-2">
+                        <option value="">Select</option>
+                        <?php foreach (['elementary' => 'Elementary', 'secondary' => 'Secondary', 'vocational' => 'Vocational', 'college' => 'College', 'graduate' => 'Graduate / Post Graduate'] as $levelValue => $levelLabel): ?>
+                            <option value="<?= htmlspecialchars($levelValue, ENT_QUOTES, 'UTF-8') ?>" <?= $educationLevel === $levelValue ? 'selected' : '' ?>><?= htmlspecialchars($levelLabel, ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-gray-500">School</label>
+                    <input type="text" name="education_school_name[]" value="<?= htmlspecialchars((string)($educationRow['school_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                </div>
+                <div>
+                    <label class="text-gray-500">Course / Degree</label>
+                    <input type="text" name="education_course_degree[]" value="<?= htmlspecialchars((string)($educationRow['course_degree'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                </div>
+                <div>
+                    <label class="text-gray-500">Year Graduated</label>
+                    <input type="text" name="education_year_graduated[]" value="<?= htmlspecialchars((string)($educationRow['year_graduated'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2 js-profile-year-picker" placeholder="YYYY" inputmode="numeric">
+                </div>
+                <div>
+                    <label class="text-gray-500">Period From</label>
+                    <input type="text" name="education_period_from[]" value="<?= htmlspecialchars((string)($educationRow['period_from'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2 js-profile-year-picker" placeholder="YYYY" inputmode="numeric">
+                </div>
+                <div>
+                    <label class="text-gray-500">Period To</label>
+                    <input type="text" name="education_period_to[]" value="<?= htmlspecialchars((string)($educationRow['period_to'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2 js-profile-year-picker" placeholder="YYYY" inputmode="numeric">
+                </div>
+                <div>
+                    <label class="text-gray-500">Highest Units</label>
+                    <input type="text" name="education_units[]" value="<?= htmlspecialchars((string)($educationRow['highest_level_units'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                </div>
+                <div>
+                    <label class="text-gray-500">Honors</label>
+                    <input type="text" name="education_honors[]" value="<?= htmlspecialchars((string)($educationRow['honors_received'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                </div>
+            </div>
+            </div>
+        <?php endforeach; ?>
+        </div>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p class="text-xs text-gray-500">Start with one educational background and add more as needed.</p>
+            <button type="button" id="addEducationRowBtn" class="inline-flex items-center gap-1 rounded-md border px-3 py-2 text-xs text-gray-700 hover:bg-gray-50">
+                <span class="material-symbols-outlined text-sm">add</span>
+                Add education entry
+            </button>
+        </div>
+    </div>
+</section>
+
+<section class="rounded-xl border bg-white">
+    <header class="border-b px-6 py-4">
+        <h2 class="text-lg font-semibold text-gray-800">Work Experience</h2>
+    </header>
+
+    <div class="space-y-4 p-4 text-sm sm:p-6">
+        <div id="workExperienceRows" class="space-y-4">
+        <?php foreach ($editableWorkExperienceRows as $workIndex => $workRow): ?>
+            <div class="rounded-lg border bg-gray-50 p-4 work-row">
+                <div class="mb-3 flex items-center justify-between">
+                    <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Work Experience Entry</p>
+                    <button type="button" class="work-remove rounded-md border px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 <?= $workIndex === 0 ? 'hidden' : '' ?>">Remove</button>
+                </div>
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div>
+                        <label class="text-gray-500">Position Title</label>
+                        <input type="text" name="work_position_title_entry[]" value="<?= htmlspecialchars((string)($workRow['position_title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="text-gray-500">Company Name</label>
+                        <input type="text" name="work_company_name_entry[]" value="<?= htmlspecialchars((string)($workRow['office_company'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="text-gray-500">Start Date</label>
+                        <input type="text" name="work_start_date_entry[]" value="<?= htmlspecialchars((string)($workRow['inclusive_date_from'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2 js-profile-work-date js-profile-work-start-date" placeholder="YYYY-MM-DD" inputmode="numeric">
+                    </div>
+                    <div>
+                        <label class="text-gray-500">End Date</label>
+                        <input type="text" name="work_end_date_entry[]" value="<?= htmlspecialchars((string)($workRow['inclusive_date_to'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2 js-profile-work-date js-profile-work-end-date" placeholder="YYYY-MM-DD" inputmode="numeric">
+                    </div>
+                    <div class="sm:col-span-2 lg:col-span-4">
+                        <label class="text-gray-500">Brief Description of Responsibilities</label>
+                        <textarea name="work_responsibilities_entry[]" rows="3" class="mt-1 w-full rounded-md border px-3 py-2"><?= htmlspecialchars((string)($workRow['achievements'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
+                    </div>
+                </div>
+            </div>
+        <?php endforeach; ?>
+        </div>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+            <div>
+                <label class="text-gray-500">Years of Experience (Auto-computed preview)</label>
+                <input type="number" min="0" step="0.01" id="profileYearsExperiencePreview" class="mt-1 w-full rounded-md border px-3 py-2" readonly>
+            </div>
+            <button type="button" id="addWorkExperienceRowBtn" class="inline-flex items-center gap-1 rounded-md border px-3 py-2 text-xs text-gray-700 hover:bg-gray-50">
+                <span class="material-symbols-outlined text-sm">add</span>
+                Add work entry
+            </button>
+        </div>
+    </div>
+</section>
+<?php
+};
+
+if ($requestedPartial === 'secondary-sections') {
+    ob_start();
+    if ($editMode) {
+        $renderDeferredProfileEditSections();
+    } else {
+        $renderDeferredProfileViewSections();
+    }
+    echo ob_get_clean();
+    return;
+}
 
 ob_start();
 ?>
@@ -149,27 +350,22 @@ ob_start();
     </div>
 </section>
 
-<section class="mb-6 rounded-xl border bg-white">
-    <header class="border-b px-6 py-4">
-        <h2 class="text-lg font-semibold text-gray-800">Educational Background</h2>
-    </header>
-    <div class="p-4 text-sm sm:p-6">
-        <?php if (empty($profileEducations)): ?>
-            <p class="text-gray-600">No education records added yet.</p>
-        <?php else: ?>
-            <div class="space-y-3">
-                <?php foreach ($profileEducations as $education): ?>
-                    <article class="rounded-lg border bg-gray-50 p-4">
-                        <p class="font-medium text-gray-800"><?= htmlspecialchars(ucwords((string)($education['education_level'] ?? '')), ENT_QUOTES, 'UTF-8') ?: 'Education Entry' ?></p>
-                        <p class="mt-1 text-gray-600">School: <?= htmlspecialchars((string)($education['school_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                        <p class="text-gray-600">Course / Degree: <?= htmlspecialchars((string)($education['course_degree'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                        <p class="text-gray-600">Year Graduated: <?= htmlspecialchars((string)($education['year_graduated'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                    </article>
-                <?php endforeach; ?>
-            </div>
-        <?php endif; ?>
-    </div>
-</section>
+<div id="applicantDeferredSectionsHost" data-deferred-sections-url="<?= htmlspecialchars($deferredSectionsUrl, ENT_QUOTES, 'UTF-8') ?>" class="mb-8 space-y-6">
+    <section class="rounded-xl border bg-white">
+        <div class="space-y-3 p-4 sm:p-6">
+            <div class="h-6 w-48 rounded bg-slate-200 applicant-skeleton-pulse"></div>
+            <div class="h-24 rounded-lg bg-slate-100 applicant-skeleton-pulse"></div>
+            <div class="h-24 rounded-lg bg-slate-100 applicant-skeleton-pulse"></div>
+        </div>
+    </section>
+    <section class="rounded-xl border bg-white">
+        <div class="space-y-3 p-4 sm:p-6">
+            <div class="h-6 w-40 rounded bg-slate-200 applicant-skeleton-pulse"></div>
+            <div class="h-24 rounded-lg bg-slate-100 applicant-skeleton-pulse"></div>
+            <div class="h-24 rounded-lg bg-slate-100 applicant-skeleton-pulse"></div>
+        </div>
+    </section>
+</div>
 
 <section class="mb-8 rounded-xl border bg-white">
     <header class="flex flex-col gap-2 border-b px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -192,14 +388,14 @@ ob_start();
                                     • <?= htmlspecialchars((string)($uploadedFile['job_title'] ?? 'Untitled Position'), ENT_QUOTES, 'UTF-8') ?>
                                 </p>
                                 <p class="text-xs text-gray-500">
-                                    Uploaded: <?= !empty($uploadedFile['uploaded_at']) ? htmlspecialchars(date('M j, Y g:i A', strtotime((string)$uploadedFile['uploaded_at'])), ENT_QUOTES, 'UTF-8') : '-' ?>
+                                    Uploaded: <?= !empty($uploadedFile['uploaded_at']) ? htmlspecialchars(formatDateTimeForPhilippines((string)$uploadedFile['uploaded_at'], 'M j, Y g:i A') . ' PST', ENT_QUOTES, 'UTF-8') : '-' ?>
                                     • Size: <?= number_format(max(0, (int)($uploadedFile['file_size_bytes'] ?? 0)) / 1024, 1) ?> KB
                                 </p>
                             </div>
-                            <?php if (!empty($uploadedFile['file_url']) && preg_match('/^https?:\/\//i', (string)$uploadedFile['file_url'])): ?>
-                                <a href="<?= htmlspecialchars((string)$uploadedFile['file_url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100">
+                            <?php if (!empty($uploadedFile['view_url'])): ?>
+                                <a href="<?= htmlspecialchars((string)$uploadedFile['view_url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100">
                                     <span class="material-symbols-outlined text-sm">download</span>
-                                    Open Current File
+                                    View
                                 </a>
                             <?php endif; ?>
                         </div>
@@ -343,12 +539,22 @@ ob_start();
 
                 <div>
                     <label class="text-slate-600">Current Password</label>
-                    <input type="password" name="current_password" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" required>
+                    <div class="relative mt-1">
+                        <input type="password" id="applicantCurrentPasswordInput" name="current_password" class="w-full rounded-md border border-slate-300 px-3 py-2 pr-12" required>
+                        <button type="button" data-password-toggle="applicantCurrentPasswordInput" class="absolute inset-y-0 right-0 inline-flex items-center px-3 text-slate-500 hover:text-slate-700" aria-label="Show current password">
+                            <span class="material-symbols-outlined text-[18px]">visibility</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div>
                     <label class="text-slate-600">New Password</label>
-                    <input type="password" id="applicantNewPasswordInput" name="new_password" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" required>
+                    <div class="relative mt-1">
+                        <input type="password" id="applicantNewPasswordInput" name="new_password" class="w-full rounded-md border border-slate-300 px-3 py-2 pr-12" required>
+                        <button type="button" data-password-toggle="applicantNewPasswordInput" class="absolute inset-y-0 right-0 inline-flex items-center px-3 text-slate-500 hover:text-slate-700" aria-label="Show new password">
+                            <span class="material-symbols-outlined text-[18px]">visibility</span>
+                        </button>
+                    </div>
                     <div class="mt-2">
                         <div class="h-2 w-full rounded-full bg-slate-200">
                             <div id="applicantPasswordStrengthBar" class="h-2 w-0 rounded-full bg-slate-300 transition-all duration-150"></div>
@@ -360,11 +566,13 @@ ob_start();
 
                 <div>
                     <label class="text-slate-600">Confirm New Password</label>
-                    <input type="password" name="confirm_new_password" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" required>
-                </div>
-
-                <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                    After sending the verification code, you will immediately proceed to the code verification modal.
+                    <div class="relative mt-1">
+                        <input type="password" id="applicantConfirmPasswordInput" name="confirm_new_password" class="w-full rounded-md border border-slate-300 px-3 py-2 pr-12" required>
+                        <button type="button" data-password-toggle="applicantConfirmPasswordInput" class="absolute inset-y-0 right-0 inline-flex items-center px-3 text-slate-500 hover:text-slate-700" aria-label="Show confirm password">
+                            <span class="material-symbols-outlined text-[18px]">visibility</span>
+                        </button>
+                    </div>
+                    <p id="applicantPasswordMatchIndicator" class="mt-2 text-xs text-slate-500">Enter and confirm your new password.</p>
                 </div>
 
                 <div class="mt-2 flex justify-end gap-3">
@@ -423,11 +631,13 @@ ob_start();
     'has_pending_code' => !empty($passwordChangeStatus['is_pending']),
     'state' => (string)($state ?? ''),
     'message' => (string)($message ?? ''),
+    'target_modal' => $passwordModalTarget,
 ], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?></script>
 
 <?php else: ?>
 <form action="profile.php?edit=true" method="POST" class="space-y-6">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="deferred_sections_ready" id="applicantDeferredSectionsReady" value="0">
     <section class="rounded-xl border bg-white">
         <header class="border-b px-6 py-4">
             <h2 class="text-lg font-semibold text-gray-800">Update Personal Information</h2>
@@ -522,78 +732,30 @@ ob_start();
         </div>
     </section>
 
-    <section class="rounded-xl border bg-white">
-        <header class="border-b px-6 py-4">
-            <h2 class="text-lg font-semibold text-gray-800">Educational Background</h2>
-        </header>
-
-        <div class="space-y-4 p-4 text-sm sm:p-6">
-            <div id="educationRows" class="space-y-4">
-            <?php foreach ($editableEducationRows as $educationIndex => $educationRow): ?>
-                <div class="rounded-lg border bg-gray-50 p-4 education-row">
-                    <div class="mb-3 flex items-center justify-between">
-                        <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Education Entry</p>
-                        <button type="button" class="education-remove rounded-md border px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 <?= $educationIndex === 0 ? 'hidden' : '' ?>">Remove</button>
-                    </div>
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <div>
-                        <label class="text-gray-500">Level</label>
-                        <?php $educationLevel = strtolower((string)($educationRow['education_level'] ?? '')); ?>
-                        <select name="education_level[]" class="mt-1 w-full rounded-md border px-3 py-2">
-                            <option value="">Select</option>
-                            <?php foreach (['elementary' => 'Elementary', 'secondary' => 'Secondary', 'vocational' => 'Vocational', 'college' => 'College', 'graduate' => 'Graduate / Post Graduate'] as $levelValue => $levelLabel): ?>
-                                <option value="<?= htmlspecialchars($levelValue, ENT_QUOTES, 'UTF-8') ?>" <?= $educationLevel === $levelValue ? 'selected' : '' ?>><?= htmlspecialchars($levelLabel, ENT_QUOTES, 'UTF-8') ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="text-gray-500">School</label>
-                        <input type="text" name="education_school_name[]" value="<?= htmlspecialchars((string)($educationRow['school_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
-                    </div>
-                    <div>
-                        <label class="text-gray-500">Course / Degree</label>
-                        <input type="text" name="education_course_degree[]" value="<?= htmlspecialchars((string)($educationRow['course_degree'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
-                    </div>
-                    <div>
-                        <label class="text-gray-500">Year Graduated</label>
-                        <input type="text" name="education_year_graduated[]" value="<?= htmlspecialchars((string)($educationRow['year_graduated'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
-                    </div>
-                    <div>
-                        <label class="text-gray-500">Period From</label>
-                        <input type="text" name="education_period_from[]" value="<?= htmlspecialchars((string)($educationRow['period_from'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
-                    </div>
-                    <div>
-                        <label class="text-gray-500">Period To</label>
-                        <input type="text" name="education_period_to[]" value="<?= htmlspecialchars((string)($educationRow['period_to'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
-                    </div>
-                    <div>
-                        <label class="text-gray-500">Highest Units</label>
-                        <input type="text" name="education_units[]" value="<?= htmlspecialchars((string)($educationRow['highest_level_units'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
-                    </div>
-                    <div>
-                        <label class="text-gray-500">Honors</label>
-                        <input type="text" name="education_honors[]" value="<?= htmlspecialchars((string)($educationRow['honors_received'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
-                    </div>
-                </div>
-                </div>
-            <?php endforeach; ?>
+    <div id="applicantDeferredSectionsHost" data-deferred-sections-url="<?= htmlspecialchars($deferredSectionsUrl, ENT_QUOTES, 'UTF-8') ?>" class="space-y-6">
+        <section class="rounded-xl border bg-white">
+            <div class="space-y-3 p-4 sm:p-6">
+                <div class="h-6 w-48 rounded bg-slate-200 applicant-skeleton-pulse"></div>
+                <div class="h-24 rounded-lg bg-slate-100 applicant-skeleton-pulse"></div>
+                <div class="h-24 rounded-lg bg-slate-100 applicant-skeleton-pulse"></div>
             </div>
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p class="text-xs text-gray-500">Start with one educational background and add more as needed.</p>
-                <button type="button" id="addEducationRowBtn" class="inline-flex items-center gap-1 rounded-md border px-3 py-2 text-xs text-gray-700 hover:bg-gray-50">
-                    <span class="material-symbols-outlined text-sm">add</span>
-                    Add education entry
-                </button>
+        </section>
+        <section class="rounded-xl border bg-white">
+            <div class="space-y-3 p-4 sm:p-6">
+                <div class="h-6 w-40 rounded bg-slate-200 applicant-skeleton-pulse"></div>
+                <div class="h-24 rounded-lg bg-slate-100 applicant-skeleton-pulse"></div>
+                <div class="h-24 rounded-lg bg-slate-100 applicant-skeleton-pulse"></div>
             </div>
-        </div>
-    </section>
+        </section>
+    </div>
 
     <section class="rounded-xl border bg-white p-4 text-sm sm:p-6">
         <p class="mb-3 text-gray-600">Please review your changes carefully before submitting.</p>
+        <p id="applicantDeferredSectionsNotice" class="mb-3 text-xs text-slate-500">Loading education and work experience sections...</p>
 
         <div class="flex flex-wrap justify-end gap-3">
             <a href="profile.php" class="rounded-md border px-4 py-2 text-gray-700 hover:bg-gray-50">Cancel</a>
-            <button type="submit" class="inline-flex items-center gap-2 rounded-md bg-green-700 px-5 py-2 text-sm font-medium text-white hover:bg-green-800">
+            <button type="submit" id="applicantProfileSaveButton" class="inline-flex items-center gap-2 rounded-md bg-green-700 px-5 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60" disabled>
                 <span class="material-symbols-outlined text-sm">save</span>
                 Save Changes
             </button>
@@ -701,8 +863,124 @@ ob_start();
         });
 
         const passwordInput = document.getElementById('applicantNewPasswordInput');
+        const confirmPasswordInput = document.getElementById('applicantConfirmPasswordInput');
         const strengthBar = document.getElementById('applicantPasswordStrengthBar');
         const strengthText = document.getElementById('applicantPasswordStrengthText');
+        const passwordMatchIndicator = document.getElementById('applicantPasswordMatchIndicator');
+        const deferredSectionsHost = document.getElementById('applicantDeferredSectionsHost');
+        const deferredSectionsReady = document.getElementById('applicantDeferredSectionsReady');
+        const deferredSectionsNotice = document.getElementById('applicantDeferredSectionsNotice');
+        const applicantProfileSaveButton = document.getElementById('applicantProfileSaveButton');
+
+        window.initializeApplicantProfileFlatpickr = function (scope) {
+            if (!window.flatpickr) {
+                return;
+            }
+
+            const root = scope instanceof Element || scope instanceof Document ? scope : document;
+
+            root.querySelectorAll('.js-profile-work-date:not([data-flatpickr-initialized="true"])').forEach(function (input) {
+                window.flatpickr(input, {
+                    dateFormat: 'Y-m-d',
+                    allowInput: true,
+                });
+                input.setAttribute('data-flatpickr-initialized', 'true');
+            });
+
+            root.querySelectorAll('.js-profile-year-picker:not([data-flatpickr-initialized="true"])').forEach(function (input) {
+                window.flatpickr(input, {
+                    dateFormat: 'Y',
+                    allowInput: true,
+                    defaultDate: input.value || null,
+                });
+                input.setAttribute('data-flatpickr-initialized', 'true');
+            });
+        };
+
+        const setDeferredSectionsState = function (isReady, noticeText, isError) {
+            if (deferredSectionsReady instanceof HTMLInputElement) {
+                deferredSectionsReady.value = isReady ? '1' : '0';
+            }
+
+            if (applicantProfileSaveButton instanceof HTMLButtonElement) {
+                applicantProfileSaveButton.disabled = !isReady;
+            }
+
+            if (!deferredSectionsNotice) {
+                return;
+            }
+
+            deferredSectionsNotice.textContent = noticeText;
+            deferredSectionsNotice.classList.remove('text-slate-500', 'text-rose-600', 'text-emerald-700');
+            deferredSectionsNotice.classList.add(isError ? 'text-rose-600' : (isReady ? 'text-emerald-700' : 'text-slate-500'));
+        };
+
+        const loadDeferredSections = function () {
+            if (!deferredSectionsHost) {
+                setDeferredSectionsState(true, 'Deferred sections are ready.', false);
+                return;
+            }
+
+            const deferredUrl = deferredSectionsHost.getAttribute('data-deferred-sections-url');
+            if (!deferredUrl) {
+                setDeferredSectionsState(true, 'Deferred sections are ready.', false);
+                return;
+            }
+
+            setDeferredSectionsState(false, 'Loading education and work experience sections...', false);
+
+            fetch(deferredUrl, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('Failed to load deferred sections.');
+                    }
+                    return response.text();
+                })
+                .then(function (html) {
+                    deferredSectionsHost.innerHTML = html;
+                    if (typeof window.initializeApplicantProfileFlatpickr === 'function') {
+                        window.initializeApplicantProfileFlatpickr(deferredSectionsHost);
+                    }
+                    if (typeof window.initializeApplicantProfileDeferredSections === 'function') {
+                        window.initializeApplicantProfileDeferredSections(deferredSectionsHost);
+                    }
+                    setDeferredSectionsState(true, 'Education and work experience sections loaded.', false);
+                })
+                .catch(function () {
+                    deferredSectionsHost.innerHTML = '<section class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"><div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><span>Failed to load education and work experience sections.</span><button type="button" id="retryApplicantDeferredSections" class="inline-flex items-center justify-center rounded-md border border-rose-300 bg-white px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-100">Retry</button></div></section>';
+                    const retryButton = document.getElementById('retryApplicantDeferredSections');
+                    if (retryButton instanceof HTMLButtonElement) {
+                        retryButton.addEventListener('click', loadDeferredSections);
+                    }
+                    setDeferredSectionsState(false, 'Education and work experience failed to load. Retry first before saving.', true);
+                });
+        };
+
+        document.querySelectorAll('[data-password-toggle]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                const inputId = button.getAttribute('data-password-toggle');
+                if (!inputId) {
+                    return;
+                }
+
+                const input = document.getElementById(inputId);
+                if (!(input instanceof HTMLInputElement)) {
+                    return;
+                }
+
+                const icon = button.querySelector('.material-symbols-outlined');
+                const nextType = input.type === 'password' ? 'text' : 'password';
+                input.type = nextType;
+
+                if (icon) {
+                    icon.textContent = nextType === 'password' ? 'visibility' : 'visibility_off';
+                }
+            });
+        });
 
         const scorePassword = function (value) {
             let score = 0;
@@ -742,11 +1020,52 @@ ob_start();
                 const value = passwordInput.value || '';
                 const score = value.length === 0 ? 0 : scorePassword(value);
                 applyStrengthUi(score);
+                updatePasswordMatchUi();
             });
         }
 
+        const updatePasswordMatchUi = function () {
+            if (!(passwordInput instanceof HTMLInputElement) || !(confirmPasswordInput instanceof HTMLInputElement) || !passwordMatchIndicator) {
+                return;
+            }
+
+            const newPassword = passwordInput.value || '';
+            const confirmPassword = confirmPasswordInput.value || '';
+
+            passwordMatchIndicator.classList.remove('text-slate-500', 'text-emerald-700', 'text-rose-700');
+            confirmPasswordInput.classList.remove('border-emerald-400', 'border-rose-400');
+
+            if (newPassword === '' && confirmPassword === '') {
+                passwordMatchIndicator.textContent = 'Enter and confirm your new password.';
+                passwordMatchIndicator.classList.add('text-slate-500');
+                return;
+            }
+
+            if (confirmPassword === '') {
+                passwordMatchIndicator.textContent = 'Confirm your new password to check if it matches.';
+                passwordMatchIndicator.classList.add('text-slate-500');
+                return;
+            }
+
+            if (newPassword === confirmPassword) {
+                passwordMatchIndicator.textContent = 'Passwords match.';
+                passwordMatchIndicator.classList.add('text-emerald-700');
+                confirmPasswordInput.classList.add('border-emerald-400');
+                return;
+            }
+
+            passwordMatchIndicator.textContent = 'Passwords do not match.';
+            passwordMatchIndicator.classList.add('text-rose-700');
+            confirmPasswordInput.classList.add('border-rose-400');
+        };
+
+        if (confirmPasswordInput) {
+            confirmPasswordInput.addEventListener('input', updatePasswordMatchUi);
+            updatePasswordMatchUi();
+        }
+
         const passwordFlowDataNode = document.getElementById('applicantPasswordFlowData');
-        let passwordFlowData = { has_pending_code: false, state: '', message: '' };
+        let passwordFlowData = { has_pending_code: false, state: '', message: '', target_modal: '' };
         if (passwordFlowDataNode && passwordFlowDataNode.textContent) {
             try {
                 passwordFlowData = JSON.parse(passwordFlowDataNode.textContent);
@@ -760,17 +1079,30 @@ ob_start();
         const hasPendingCode = Boolean(passwordFlowData.has_pending_code);
         const responseState = String(passwordFlowData.state || '');
         const responseMessage = String(passwordFlowData.message || '');
+        const targetModal = String(passwordFlowData.target_modal || '');
         const lowerMessage = responseMessage.toLowerCase();
-        const shouldAutoOpenVerify = hasPendingCode && (
+        const shouldAutoOpenVerify = targetModal === 'verify' || (hasPendingCode && (
             (responseState === 'success' && lowerMessage.includes('verification code sent'))
             || responseState === 'error'
-        );
+        ));
+        const shouldAutoOpenRequest = targetModal === 'request';
+
+        if (shouldAutoOpenRequest && requestModal) {
+            requestModal.classList.remove('hidden');
+            requestModal.setAttribute('aria-hidden', 'false');
+        }
 
         if (shouldAutoOpenVerify && verifyModal) {
             requestModal?.classList.add('hidden');
             verifyModal.classList.remove('hidden');
             verifyModal.setAttribute('aria-hidden', 'false');
         }
+
+        if (typeof window.initializeApplicantProfileFlatpickr === 'function') {
+            window.initializeApplicantProfileFlatpickr(document);
+        }
+
+        loadDeferredSections();
     });
 </script>
 
@@ -778,9 +1110,7 @@ ob_start();
 <script>
     (function () {
         const spouseRows = document.getElementById('spouseRows');
-        const educationRows = document.getElementById('educationRows');
         const addSpouseRowBtn = document.getElementById('addSpouseRowBtn');
-        const addEducationRowBtn = document.getElementById('addEducationRowBtn');
 
         function refreshRemoveButtons(container, selector) {
             if (!container) {
@@ -789,7 +1119,14 @@ ob_start();
 
             const rows = Array.from(container.querySelectorAll(selector));
             rows.forEach(function (row, index) {
-                const removeBtn = row.querySelector(selector === '.spouse-row' ? '.spouse-remove' : '.education-remove');
+                let removeSelector = '.education-remove';
+                if (selector === '.spouse-row') {
+                    removeSelector = '.spouse-remove';
+                } else if (selector === '.work-row') {
+                    removeSelector = '.work-remove';
+                }
+
+                const removeBtn = row.querySelector(removeSelector);
                 if (!removeBtn) {
                     return;
                 }
@@ -836,41 +1173,153 @@ ob_start();
             refreshRemoveButtons(spouseRows, '.spouse-row');
         }
 
-        if (educationRows && addEducationRowBtn) {
-            addEducationRowBtn.addEventListener('click', function () {
-                const firstRow = educationRows.querySelector('.education-row');
-                if (!firstRow) {
+        window.initializeApplicantProfileDeferredSections = function (scope) {
+            const root = scope instanceof Element || scope instanceof Document ? scope : document;
+            const educationRows = root.querySelector('#educationRows');
+            const workExperienceRows = root.querySelector('#workExperienceRows');
+            const addEducationRowBtn = root.querySelector('#addEducationRowBtn');
+            const addWorkExperienceRowBtn = root.querySelector('#addWorkExperienceRowBtn');
+            const profileYearsExperiencePreview = root.querySelector('#profileYearsExperiencePreview');
+
+            const computeProfileExperienceYears = function () {
+                if (!workExperienceRows || !(profileYearsExperiencePreview instanceof HTMLInputElement)) {
                     return;
                 }
 
-                const clone = firstRow.cloneNode(true);
-                clone.querySelectorAll('input').forEach(function (input) {
-                    input.value = '';
+                const rows = workExperienceRows.querySelectorAll('.work-row');
+                const msPerDay = 24 * 60 * 60 * 1000;
+                let totalDays = 0;
+                const today = new Date();
+
+                rows.forEach(function (row) {
+                    const startInput = row.querySelector('.js-profile-work-start-date');
+                    const endInput = row.querySelector('.js-profile-work-end-date');
+
+                    if (!(startInput instanceof HTMLInputElement) || !startInput.value) {
+                        return;
+                    }
+
+                    const startDate = new Date(startInput.value + 'T00:00:00');
+                    const endDate = endInput instanceof HTMLInputElement && endInput.value
+                        ? new Date(endInput.value + 'T00:00:00')
+                        : today;
+
+                    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate < startDate) {
+                        return;
+                    }
+
+                    totalDays += Math.floor((endDate - startDate) / msPerDay) + 1;
                 });
-                clone.querySelectorAll('select').forEach(function (select) {
-                    select.selectedIndex = 0;
+
+                profileYearsExperiencePreview.value = (Math.round((totalDays / 365) * 100) / 100).toFixed(2);
+            };
+
+            if (educationRows && addEducationRowBtn && !addEducationRowBtn.dataset.bound) {
+                addEducationRowBtn.dataset.bound = 'true';
+                addEducationRowBtn.addEventListener('click', function () {
+                    const firstRow = educationRows.querySelector('.education-row');
+                    if (!firstRow) {
+                        return;
+                    }
+
+                    const clone = firstRow.cloneNode(true);
+                    clone.querySelectorAll('input').forEach(function (input) {
+                        input.value = '';
+                        input.removeAttribute('data-flatpickr-initialized');
+                    });
+                    clone.querySelectorAll('select').forEach(function (select) {
+                        select.selectedIndex = 0;
+                    });
+
+                    educationRows.appendChild(clone);
+                    refreshRemoveButtons(educationRows, '.education-row');
+                    if (typeof window.initializeApplicantProfileFlatpickr === 'function') {
+                        window.initializeApplicantProfileFlatpickr(clone);
+                    }
+                });
+            }
+
+            if (educationRows && !educationRows.dataset.bound) {
+                educationRows.dataset.bound = 'true';
+                educationRows.addEventListener('click', function (event) {
+                    const removeBtn = event.target.closest('.education-remove');
+                    if (!removeBtn) {
+                        return;
+                    }
+
+                    const rows = educationRows.querySelectorAll('.education-row');
+                    if (rows.length <= 1) {
+                        return;
+                    }
+
+                    removeBtn.closest('.education-row')?.remove();
+                    refreshRemoveButtons(educationRows, '.education-row');
+                });
+            }
+
+            if (educationRows) {
+                refreshRemoveButtons(educationRows, '.education-row');
+            }
+
+            if (workExperienceRows && addWorkExperienceRowBtn && !addWorkExperienceRowBtn.dataset.bound) {
+                addWorkExperienceRowBtn.dataset.bound = 'true';
+                addWorkExperienceRowBtn.addEventListener('click', function () {
+                    const firstRow = workExperienceRows.querySelector('.work-row');
+                    if (!firstRow) {
+                        return;
+                    }
+
+                    const clone = firstRow.cloneNode(true);
+                    clone.querySelectorAll('input').forEach(function (input) {
+                        input.value = '';
+                        input.removeAttribute('data-flatpickr-initialized');
+                    });
+                    clone.querySelectorAll('textarea').forEach(function (textarea) {
+                        textarea.value = '';
+                    });
+
+                    workExperienceRows.appendChild(clone);
+                    refreshRemoveButtons(workExperienceRows, '.work-row');
+                    if (typeof window.initializeApplicantProfileFlatpickr === 'function') {
+                        window.initializeApplicantProfileFlatpickr(clone);
+                    }
+                    computeProfileExperienceYears();
+                });
+            }
+
+            if (workExperienceRows && !workExperienceRows.dataset.bound) {
+                workExperienceRows.dataset.bound = 'true';
+                workExperienceRows.addEventListener('click', function (event) {
+                    const removeBtn = event.target.closest('.work-remove');
+                    if (!removeBtn) {
+                        return;
+                    }
+
+                    const rows = workExperienceRows.querySelectorAll('.work-row');
+                    if (rows.length <= 1) {
+                        return;
+                    }
+
+                    removeBtn.closest('.work-row')?.remove();
+                    refreshRemoveButtons(workExperienceRows, '.work-row');
+                    computeProfileExperienceYears();
                 });
 
-                educationRows.appendChild(clone);
-                refreshRemoveButtons(educationRows, '.education-row');
-            });
+                workExperienceRows.addEventListener('input', function (event) {
+                    if (event.target.closest('.work-row')) {
+                        computeProfileExperienceYears();
+                    }
+                });
+            }
 
-            educationRows.addEventListener('click', function (event) {
-                const removeBtn = event.target.closest('.education-remove');
-                if (!removeBtn) {
-                    return;
-                }
+            if (workExperienceRows) {
+                refreshRemoveButtons(workExperienceRows, '.work-row');
+                computeProfileExperienceYears();
+            }
+        };
 
-                const rows = educationRows.querySelectorAll('.education-row');
-                if (rows.length <= 1) {
-                    return;
-                }
-
-                removeBtn.closest('.education-row')?.remove();
-                refreshRemoveButtons(educationRows, '.education-row');
-            });
-
-            refreshRemoveButtons(educationRows, '.education-row');
+        if (typeof window.initializeApplicantProfileDeferredSections === 'function') {
+            window.initializeApplicantProfileDeferredSections(document);
         }
     })();
 </script>

@@ -16,6 +16,7 @@ $profileData = [
 
 $profileSpouses = [];
 $profileEducations = [];
+$profileWorkExperiences = [];
 $uploadedFiles = [];
 
 $passwordChangeStatus = [
@@ -153,7 +154,7 @@ $pendingPasswordChange = (array)($_SESSION['applicant_profile_password_change'] 
 $pendingExpiresAt = (int)($pendingPasswordChange['expires_at'] ?? 0);
 if ($pendingExpiresAt > time()) {
 	$passwordChangeStatus['is_pending'] = true;
-	$passwordChangeStatus['expires_at'] = date('M d, Y h:i A', $pendingExpiresAt);
+	$passwordChangeStatus['expires_at'] = formatUnixTimestampForPhilippines($pendingExpiresAt, 'M d, Y h:i A') . ' PST';
 	$passwordChangeStatus['email'] = (string)($pendingPasswordChange['email'] ?? '');
 }
 
@@ -174,17 +175,32 @@ if ($personId !== null && isValidUuid($personId)) {
 		$profileSpouses = (array)($spousesResponse['data'] ?? []);
 	}
 
-	$educationsResponse = apiRequest(
-		'GET',
-		$supabaseUrl
-		. '/rest/v1/person_educations?select=id,education_level,school_name,course_degree,period_from,period_to,highest_level_units,year_graduated,honors_received,sequence_no'
-		. '&person_id=eq.' . rawurlencode($personId)
-		. '&order=sequence_no.asc&limit=100',
-		$headers
-	);
+	if (($profileShouldLoadDeferredSections ?? true) === true) {
+		$educationsResponse = apiRequest(
+			'GET',
+			$supabaseUrl
+			. '/rest/v1/person_educations?select=id,education_level,school_name,course_degree,period_from,period_to,highest_level_units,year_graduated,honors_received,sequence_no'
+			. '&person_id=eq.' . rawurlencode($personId)
+			. '&order=sequence_no.asc&limit=100',
+			$headers
+		);
 
-	if (isSuccessful($educationsResponse)) {
-		$profileEducations = (array)($educationsResponse['data'] ?? []);
+		if (isSuccessful($educationsResponse)) {
+			$profileEducations = (array)($educationsResponse['data'] ?? []);
+		}
+
+		$workExperienceResponse = apiRequest(
+			'GET',
+			$supabaseUrl
+			. '/rest/v1/person_work_experiences?select=id,inclusive_date_from,inclusive_date_to,position_title,office_company,achievements,sequence_no'
+			. '&person_id=eq.' . rawurlencode($personId)
+			. '&order=sequence_no.asc&limit=100',
+			$headers
+		);
+
+		if (isSuccessful($workExperienceResponse)) {
+			$profileWorkExperiences = (array)($workExperienceResponse['data'] ?? []);
+		}
 	}
 }
 
@@ -238,6 +254,7 @@ if ($applicantProfileId !== null && isValidUuid($applicantProfileId)) {
 						'job_title' => (string)($meta['job_title'] ?? 'Untitled Position'),
 						'document_type' => (string)($documentRow['document_type'] ?? 'other'),
 						'file_url' => (string)($documentRow['file_url'] ?? ''),
+						'view_url' => 'applicant-document.php?document_id=' . rawurlencode((string)($documentRow['id'] ?? '')),
 						'file_name' => (string)($documentRow['file_name'] ?? 'document'),
 						'mime_type' => (string)($documentRow['mime_type'] ?? ''),
 						'file_size_bytes' => (int)($documentRow['file_size_bytes'] ?? 0),
@@ -304,7 +321,7 @@ if ($applicantProfileId !== null && isValidUuid($applicantProfileId)) {
 				'ip_address' => (string)($entry['ip_address'] ?? 'unknown'),
 				'user_agent' => $userAgent,
 				'device_label' => $deviceLabel,
-				'created_at' => $createdAt !== '' ? date('M d, Y h:i A', strtotime($createdAt)) : '-',
+				'created_at' => $createdAt !== '' ? formatDateTimeForPhilippines($createdAt, 'M d, Y h:i A') . ' PST' : '-',
 				'search_text' => strtolower(trim($eventLabel . ' ' . ((string)($entry['auth_provider'] ?? '')) . ' ' . ((string)($entry['ip_address'] ?? '')) . ' ' . $userAgent . ' ' . $deviceLabel)),
 			];
 		}

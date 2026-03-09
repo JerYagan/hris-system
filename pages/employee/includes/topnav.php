@@ -77,7 +77,13 @@
                   $itemLink = trim((string)($item['link_url'] ?? ''));
                   $itemCategory = trim((string)($item['category'] ?? 'general'));
                   $itemCreatedAtRaw = trim((string)($item['created_at'] ?? ''));
-                  $itemCreatedAtLabel = $itemCreatedAtRaw !== '' ? date('M d, Y h:i A', strtotime($itemCreatedAtRaw)) : '-';
+                  $itemCreatedAtLabel = '-';
+                  if ($itemCreatedAtRaw !== '') {
+                    $formattedCreatedAt = function_exists('formatDateTimeForPhilippines')
+                      ? formatDateTimeForPhilippines($itemCreatedAtRaw, 'M d, Y h:i A')
+                      : date('M d, Y h:i A', strtotime($itemCreatedAtRaw));
+                    $itemCreatedAtLabel = $formattedCreatedAt !== '-' ? ($formattedCreatedAt . ' PST') : '-';
+                  }
                   $itemIsRead = (bool)($item['is_read'] ?? false);
                   ?>
                   <button

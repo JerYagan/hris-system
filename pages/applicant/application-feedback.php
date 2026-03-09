@@ -83,7 +83,7 @@ ob_start();
         <p class="mt-2 font-semibold text-gray-800"><?= htmlspecialchars((string)($selectedApplication['job_title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
     </article>
     <article class="rounded-xl border bg-white p-5">
-        <p class="text-xs uppercase tracking-wide text-gray-500">Office</p>
+        <p class="text-xs uppercase tracking-wide text-gray-500">Division</p>
         <p class="mt-2 font-semibold text-gray-800"><?= htmlspecialchars((string)($selectedApplication['office_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
     </article>
     <article class="rounded-xl border bg-white p-5">
@@ -92,53 +92,23 @@ ob_start();
     </article>
     <article class="rounded-xl border bg-white p-5">
         <p class="text-xs uppercase tracking-wide text-gray-500">Decision</p>
-        <p class="mt-2 font-semibold text-gray-800 capitalize"><?= htmlspecialchars($applicationStatus, ENT_QUOTES, 'UTF-8') ?></p>
+        <p class="mt-2 font-semibold text-gray-800"><?= htmlspecialchars($applicationStatusLabel, ENT_QUOTES, 'UTF-8') ?></p>
     </article>
 </section>
 
-<?php if ($applicationStatus === 'accepted'): ?>
-    <section class="mb-8 rounded-xl border <?= htmlspecialchars($decisionPanelClass, ENT_QUOTES, 'UTF-8') ?>">
-        <div class="flex flex-col gap-3 p-4 sm:flex-row sm:gap-4 sm:p-6">
-            <span class="material-symbols-outlined text-3xl text-green-700"><?= htmlspecialchars($decisionIcon, ENT_QUOTES, 'UTF-8') ?></span>
-            <div>
-                <h2 class="text-xl font-semibold text-green-800"><?= htmlspecialchars($decisionTitle, ENT_QUOTES, 'UTF-8') ?></h2>
-                <p class="mt-1 text-sm text-green-700"><?= htmlspecialchars($decisionMessage, ENT_QUOTES, 'UTF-8') ?></p>
-            </div>
+<section class="mb-8 rounded-xl border <?= htmlspecialchars($decisionPanelClass, ENT_QUOTES, 'UTF-8') ?>">
+    <div class="flex flex-col gap-3 p-4 sm:flex-row sm:gap-4 sm:p-6">
+        <span class="material-symbols-outlined text-3xl text-slate-700"><?= htmlspecialchars($decisionIcon, ENT_QUOTES, 'UTF-8') ?></span>
+        <div>
+            <h2 class="text-xl font-semibold text-slate-800"><?= htmlspecialchars($decisionTitle, ENT_QUOTES, 'UTF-8') ?></h2>
+            <p class="mt-1 text-sm text-slate-700"><?= htmlspecialchars($decisionMessage, ENT_QUOTES, 'UTF-8') ?></p>
         </div>
+    </div>
 
-        <div class="space-y-2 px-4 pb-4 text-sm text-green-800 sm:px-6 sm:pb-6">
-            <p><?= htmlspecialchars($decisionBody, ENT_QUOTES, 'UTF-8') ?></p>
-        </div>
-    </section>
-<?php elseif ($applicationStatus === 'rejected'): ?>
-    <section class="mb-8 rounded-xl border <?= htmlspecialchars($decisionPanelClass, ENT_QUOTES, 'UTF-8') ?>">
-        <div class="flex flex-col gap-3 p-4 sm:flex-row sm:gap-4 sm:p-6">
-            <span class="material-symbols-outlined text-3xl text-red-700"><?= htmlspecialchars($decisionIcon, ENT_QUOTES, 'UTF-8') ?></span>
-            <div>
-                <h2 class="text-xl font-semibold text-red-800"><?= htmlspecialchars($decisionTitle, ENT_QUOTES, 'UTF-8') ?></h2>
-                <p class="mt-1 text-sm text-red-700"><?= htmlspecialchars($decisionMessage, ENT_QUOTES, 'UTF-8') ?></p>
-            </div>
-        </div>
-
-        <div class="space-y-2 px-4 pb-4 text-sm text-red-800 sm:px-6 sm:pb-6">
-            <p><?= htmlspecialchars($decisionBody, ENT_QUOTES, 'UTF-8') ?></p>
-        </div>
-    </section>
-<?php else: ?>
-    <section class="mb-8 rounded-xl border <?= htmlspecialchars($decisionPanelClass, ENT_QUOTES, 'UTF-8') ?>">
-        <div class="flex flex-col gap-3 p-4 sm:flex-row sm:gap-4 sm:p-6">
-            <span class="material-symbols-outlined text-3xl text-yellow-700"><?= htmlspecialchars($decisionIcon, ENT_QUOTES, 'UTF-8') ?></span>
-            <div>
-                <h2 class="text-xl font-semibold text-yellow-900"><?= htmlspecialchars($decisionTitle, ENT_QUOTES, 'UTF-8') ?></h2>
-                <p class="mt-1 text-sm text-yellow-800"><?= htmlspecialchars($decisionMessage, ENT_QUOTES, 'UTF-8') ?></p>
-            </div>
-        </div>
-
-        <div class="space-y-2 px-4 pb-4 text-sm text-yellow-900 sm:px-6 sm:pb-6">
-            <p><?= htmlspecialchars($decisionBody, ENT_QUOTES, 'UTF-8') ?></p>
-        </div>
-    </section>
-<?php endif; ?>
+    <div class="space-y-2 px-4 pb-4 text-sm text-slate-800 sm:px-6 sm:pb-6">
+        <p><?= htmlspecialchars($decisionBody, ENT_QUOTES, 'UTF-8') ?></p>
+    </div>
+</section>
 
 <section class="mb-8 rounded-xl border bg-white">
     <header class="flex items-center gap-2 border-b px-6 py-4">
@@ -149,7 +119,7 @@ ob_start();
     <div class="p-6 text-sm text-gray-700">
         <p><?= htmlspecialchars((string)$remarks, ENT_QUOTES, 'UTF-8') ?></p>
         <?php if ($feedbackRecord !== null && !empty($feedbackRecord['provided_at'])): ?>
-            <p class="mt-2 text-xs text-gray-500">Posted: <?= htmlspecialchars(date('M j, Y g:i A', strtotime((string)$feedbackRecord['provided_at'])), ENT_QUOTES, 'UTF-8') ?></p>
+            <p class="mt-2 text-xs text-gray-500">Posted: <?= htmlspecialchars(formatDateTimeForPhilippines((string)$feedbackRecord['provided_at'], 'M j, Y g:i A') . ' PST', ENT_QUOTES, 'UTF-8') ?></p>
         <?php endif; ?>
     </div>
 </section>

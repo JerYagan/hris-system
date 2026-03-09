@@ -55,7 +55,7 @@
                 <div><p class="text-slate-500">Personal Email</p><p class="font-medium text-slate-800"><?= htmlspecialchars((string)($profileSummary['personal_email'] !== '' ? $profileSummary['personal_email'] : 'Not set'), ENT_QUOTES, 'UTF-8') ?></p></div>
                 <div><p class="text-slate-500">Mobile Number</p><p class="font-medium text-slate-800"><?= htmlspecialchars((string)($profileSummary['mobile_no'] !== '' ? $profileSummary['mobile_no'] : 'Not set'), ENT_QUOTES, 'UTF-8') ?></p></div>
                 <div><p class="text-slate-500">Username</p><p class="font-medium text-slate-800"><?= htmlspecialchars((string)($profileSummary['username'] !== '' ? $profileSummary['username'] : 'Not set'), ENT_QUOTES, 'UTF-8') ?></p></div>
-                <div><p class="text-slate-500">Office Scope</p><p class="font-medium text-slate-800"><?= htmlspecialchars((string)$profileSummary['office_name'], ENT_QUOTES, 'UTF-8') ?></p></div>
+                <div><p class="text-slate-500">Division Scope</p><p class="font-medium text-slate-800"><?= htmlspecialchars((string)$profileSummary['office_name'], ENT_QUOTES, 'UTF-8') ?></p></div>
                 <div><p class="text-slate-500">Account Status</p><p class="font-medium"><span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)$profileSummary['account_status_class'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$profileSummary['account_status'], ENT_QUOTES, 'UTF-8') ?></span></p></div>
                 <div><p class="text-slate-500">Last Login</p><p class="font-medium text-slate-800"><?= htmlspecialchars((string)$profileSummary['last_login_at'], ENT_QUOTES, 'UTF-8') ?></p></div>
                 <div><p class="text-slate-500">Member Since</p><p class="font-medium text-slate-800"><?= htmlspecialchars((string)$profileSummary['member_since'], ENT_QUOTES, 'UTF-8') ?></p></div>
@@ -226,12 +226,22 @@
 
                 <div>
                     <label class="text-slate-600">Current Password</label>
-                    <input type="password" name="current_password" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                    <div class="relative mt-1">
+                        <input type="password" id="profileCurrentPasswordInput" name="current_password" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-12" required>
+                        <button type="button" data-password-toggle="profileCurrentPasswordInput" class="absolute inset-y-0 right-0 inline-flex items-center px-3 text-slate-500 hover:text-slate-700" aria-label="Show current password">
+                            <span class="material-symbols-outlined text-[18px]">visibility</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div>
                     <label class="text-slate-600">New Password</label>
-                    <input type="password" id="profileNewPasswordInput" name="new_password" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                    <div class="relative mt-1">
+                        <input type="password" id="profileNewPasswordInput" name="new_password" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-12" required>
+                        <button type="button" data-password-toggle="profileNewPasswordInput" class="absolute inset-y-0 right-0 inline-flex items-center px-3 text-slate-500 hover:text-slate-700" aria-label="Show new password">
+                            <span class="material-symbols-outlined text-[18px]">visibility</span>
+                        </button>
+                    </div>
                     <div class="mt-2">
                         <div class="h-2 w-full rounded-full bg-slate-200">
                             <div id="profilePasswordStrengthBar" class="h-2 w-0 rounded-full bg-slate-300 transition-all duration-150"></div>
@@ -243,11 +253,13 @@
 
                 <div>
                     <label class="text-slate-600">Confirm New Password</label>
-                    <input type="password" name="confirm_new_password" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
-                </div>
-
-                <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                    After sending the verification code, you will immediately proceed to the code verification modal.
+                    <div class="relative mt-1">
+                        <input type="password" id="profileConfirmPasswordInput" name="confirm_new_password" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-12" required>
+                        <button type="button" data-password-toggle="profileConfirmPasswordInput" class="absolute inset-y-0 right-0 inline-flex items-center px-3 text-slate-500 hover:text-slate-700" aria-label="Show confirm password">
+                            <span class="material-symbols-outlined text-[18px]">visibility</span>
+                        </button>
+                    </div>
+                    <p id="profilePasswordMatchIndicator" class="mt-2 text-xs text-slate-500">Enter and confirm your new password.</p>
                 </div>
 
                 <div class="flex justify-end gap-3 mt-2">
@@ -358,9 +370,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    const currentPasswordInput = document.getElementById('profileCurrentPasswordInput');
     const passwordInput = document.getElementById('profileNewPasswordInput');
+    const confirmPasswordInput = document.getElementById('profileConfirmPasswordInput');
     const strengthBar = document.getElementById('profilePasswordStrengthBar');
     const strengthText = document.getElementById('profilePasswordStrengthText');
+    const passwordMatchIndicator = document.getElementById('profilePasswordMatchIndicator');
 
     const scorePassword = (value) => {
         let score = 0;
@@ -398,8 +413,74 @@ document.addEventListener('DOMContentLoaded', () => {
             const value = passwordInput.value || '';
             const score = value.length === 0 ? 0 : scorePassword(value);
             applyStrengthUi(score);
+            updatePasswordMatchUi();
         });
     }
+
+    const updatePasswordMatchUi = () => {
+        if (!(passwordInput instanceof HTMLInputElement) || !(confirmPasswordInput instanceof HTMLInputElement) || !passwordMatchIndicator) {
+            return;
+        }
+
+        const newPassword = passwordInput.value || '';
+        const confirmPassword = confirmPasswordInput.value || '';
+
+        passwordMatchIndicator.classList.remove('text-slate-500', 'text-emerald-700', 'text-rose-700');
+        confirmPasswordInput.classList.remove('border-emerald-400', 'border-rose-400');
+
+        if (newPassword === '' && confirmPassword === '') {
+            passwordMatchIndicator.textContent = 'Enter and confirm your new password.';
+            passwordMatchIndicator.classList.add('text-slate-500');
+            return;
+        }
+
+        if (confirmPassword === '') {
+            passwordMatchIndicator.textContent = 'Confirm your new password to check if it matches.';
+            passwordMatchIndicator.classList.add('text-slate-500');
+            return;
+        }
+
+        if (newPassword === confirmPassword) {
+            passwordMatchIndicator.textContent = 'Passwords match.';
+            passwordMatchIndicator.classList.add('text-emerald-700');
+            confirmPasswordInput.classList.add('border-emerald-400');
+            return;
+        }
+
+        passwordMatchIndicator.textContent = 'Passwords do not match.';
+        passwordMatchIndicator.classList.add('text-rose-700');
+        confirmPasswordInput.classList.add('border-rose-400');
+    };
+
+    if (confirmPasswordInput instanceof HTMLInputElement) {
+        confirmPasswordInput.addEventListener('input', updatePasswordMatchUi);
+        updatePasswordMatchUi();
+    }
+
+    document.querySelectorAll('[data-password-toggle]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const inputId = button.getAttribute('data-password-toggle');
+            if (!inputId) {
+                return;
+            }
+
+            const input = document.getElementById(inputId);
+            if (!(input instanceof HTMLInputElement)) {
+                return;
+            }
+
+            const nextType = input.type === 'password' ? 'text' : 'password';
+            input.type = nextType;
+
+            const icon = button.querySelector('.material-symbols-outlined');
+            if (icon) {
+                icon.textContent = nextType === 'password' ? 'visibility' : 'visibility_off';
+            }
+
+            const label = nextType === 'password' ? 'Show' : 'Hide';
+            button.setAttribute('aria-label', `${label} ${input.name.replaceAll('_', ' ')}`);
+        });
+    });
 
     const requestModal = document.getElementById('profilePasswordRequestModal');
     const verifyModal = document.getElementById('profilePasswordVerifyModal');

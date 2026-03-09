@@ -54,3 +54,10 @@ if (!function_exists('userManagementAssignableRolePolicy')) {
         ];
     }
 }
+
+if (!function_exists('userManagementClearMetaCache')) {
+    function userManagementClearMetaCache(): void
+    {
+        unset($_SESSION['admin_user_management_meta_cache']);
+    }
+}

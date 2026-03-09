@@ -42,6 +42,29 @@
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-800">Employee ID Format</h2>
+        <p class="text-sm text-slate-500 mt-1">Set the prefix used when hired applicants are converted into employee records.</p>
+    </header>
+
+    <form method="post" action="settings.php" class="p-6 grid grid-cols-1 md:grid-cols-[minmax(0,22rem)_1fr] gap-4 text-sm">
+        <input type="hidden" name="form_action" value="save_employee_id_settings">
+        <div>
+            <label class="text-slate-600">Employee ID Prefix</label>
+            <input type="text" name="employee_id_prefix" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 uppercase" value="<?php echo cleanText(settingValue('employee_id_prefix')); ?>" placeholder="DA-EMP-" maxlength="20">
+            <p class="text-xs text-slate-500 mt-1">Example output: <?php echo cleanText(settingValue('employee_id_prefix') !== '' ? settingValue('employee_id_prefix') : 'DA-EMP-'); ?>0001</p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            <p class="font-medium text-slate-700">Behavior</p>
+            <p class="mt-1">When Admin adds a hired applicant as an employee, the system generates a unique employee ID using this prefix plus the next available 4-digit sequence.</p>
+        </div>
+        <div class="md:col-span-2 flex justify-end gap-3 mt-2">
+            <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Save Employee ID Settings</button>
+        </div>
+    </form>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">SMTP Email Configuration</h2>
         <p class="text-sm text-slate-500 mt-1">Configure SMTP credentials used by admin email functions and send a test email.</p>
     </header>

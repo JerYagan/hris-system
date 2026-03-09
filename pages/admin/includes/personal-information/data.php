@@ -20,7 +20,7 @@ $officesResponse = apiRequest(
 
 $positionsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/job_positions?select=id,position_title,is_active&order=position_title.asc&limit=500',
+    $supabaseUrl . '/rest/v1/job_positions?select=id,position_title,is_active&is_active=eq.true&order=position_title.asc&limit=500',
     $headers
 );
 

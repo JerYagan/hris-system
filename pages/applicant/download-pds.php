@@ -254,7 +254,7 @@ $html .= '</tbody></table></div>';
 
 $html .= '<div class="section"><div class="section-title">IV. Position Applied For</div>';
 $html .= '<table>';
-$html .= '<tr><td class="label">Position Title</td><td>' . pdsHtml($jobData['title'] ?? null) . '</td><td class="label">Office / Department</td><td>' . pdsHtml($jobData['office_name'] ?? null) . '</td></tr>';
+$html .= '<tr><td class="label">Position Title</td><td>' . pdsHtml($jobData['title'] ?? null) . '</td><td class="label">Division</td><td>' . pdsHtml($jobData['office_name'] ?? null) . '</td></tr>';
 $html .= '<tr><td class="label">Plantilla Item No.</td><td>' . pdsHtml($jobData['plantilla_item_no'] ?? null) . '</td><td class="label">Application Date</td><td>' . pdsHtml(date('F j, Y')) . '</td></tr>';
 $html .= '</table></div>';
 

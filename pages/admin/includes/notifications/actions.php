@@ -42,6 +42,19 @@ $respondNotificationAction = static function (bool $ok, string $message, array $
     redirectWithState($ok ? 'success' : 'error', $message);
 };
 
+$formatNotificationDateTime = static function (?string $dateTime): string {
+    $value = trim((string)$dateTime);
+    if ($value === '') {
+        return '-';
+    }
+
+    $formatted = function_exists('formatDateTimeForPhilippines')
+        ? formatDateTimeForPhilippines($value, 'M d, Y h:i A')
+        : date('M d, Y h:i A', strtotime($value));
+
+    return $formatted !== '-' ? ($formatted . ' PST') : '-';
+};
+
 $loadUnreadCount = static function () use ($supabaseUrl, $headers, $adminUserId): int {
     $response = apiRequest(
         'GET',
@@ -61,7 +74,7 @@ $loadUnreadCount = static function () use ($supabaseUrl, $headers, $adminUserId)
     return count((array)($response['data'] ?? []));
 };
 
-$loadTopnavItems = static function () use ($supabaseUrl, $headers, $adminUserId): array {
+$loadTopnavItems = static function () use ($supabaseUrl, $headers, $adminUserId, $formatNotificationDateTime): array {
     $response = apiRequest(
         'GET',
         $supabaseUrl . '/rest/v1/notifications?select=id,title,body,link_url,is_read,created_at,category&recipient_user_id=eq.' . rawurlencode($adminUserId) . '&is_read=eq.false&category=neq.announcement&order=created_at.desc&limit=5',
@@ -72,7 +85,7 @@ $loadTopnavItems = static function () use ($supabaseUrl, $headers, $adminUserId)
         return [];
     }
 
-    return array_map(static function (array $row): array {
+    return array_map(static function (array $row) use ($formatNotificationDateTime): array {
         $createdAt = trim((string)($row['created_at'] ?? ''));
         return [
             'id' => (string)($row['id'] ?? ''),
@@ -82,7 +95,7 @@ $loadTopnavItems = static function () use ($supabaseUrl, $headers, $adminUserId)
             'category' => (string)($row['category'] ?? 'general'),
             'is_read' => (bool)($row['is_read'] ?? false),
             'created_at' => $createdAt,
-            'created_at_label' => $createdAt !== '' ? date('M d, Y h:i A', strtotime($createdAt)) : '-',
+            'created_at_label' => $formatNotificationDateTime($createdAt),
         ];
     }, array_values((array)($response['data'] ?? [])));
 };
@@ -271,7 +284,10 @@ if ($action === 'send_test_notification_email') {
     }
 
     $subject = 'DA HRIS Notification Test';
-    $html = '<p>Hello,</p><p>This is a test notification email from DA HRIS admin notifications.</p><p>If you received this message, SMTP integration is working.</p>';
+    $html = '<p>Hello,</p>'
+        . '<p>This is a test notification email from DA HRIS Admin Notifications.</p>'
+        . '<p><strong>Sent:</strong> ' . htmlspecialchars(hrisEmailFormatPhilippinesDateTime(gmdate('c')), ENT_QUOTES, 'UTF-8') . '</p>'
+        . '<p>No action is required. This message only confirms that email notifications can be delivered successfully.</p>';
 
     $emailResponse = smtpSendTransactionalEmail(
         $smtpConfig,

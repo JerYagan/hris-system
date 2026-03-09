@@ -79,7 +79,7 @@ $fileTypeMeta = static function (string $extension): array {
 $document201Types = [
   'Violation',
   'Memorandum Receipt',
-  'GSIS instead SSS',
+  'GSIS',
   'Copy of SALN',
   'Service record',
   'COE',
@@ -92,6 +92,10 @@ $document201Types = [
   'Drug Test',
   'Others',
 ];
+$documentCategoryFilters = array_values(array_unique(array_merge(
+  $document201Types,
+  ['Resume/CV', 'Transcript of Records', 'Valid Government ID', 'Eligibility (CSC/PRC)', 'Application Letter']
+)));
 $document201Lookup = array_fill_keys(array_map('strtolower', $document201Types), true);
 $activeDocumentCount = 0;
 $archivedDocumentCount = 0;
@@ -134,19 +138,17 @@ foreach ($employeeDocuments as $documentCountRow) {
   </div>
 </section>
 
-<div class="bg-white rounded-xl shadow p-4 mb-6">
-  <div class="flex flex-wrap gap-2 items-center justify-between">
-    <div class="inline-flex rounded-lg border overflow-hidden" role="tablist" aria-label="Document View Tabs">
-      <button type="button" data-document-view-tab="active" class="px-3 py-1.5 text-xs bg-slate-700 text-white">Submitted/Approved/Rejected</button>
-      <button type="button" data-document-view-tab="archived" class="px-3 py-1.5 text-xs bg-white text-gray-700 border-l">Archived Documents</button>
-    </div>
+<div class="employee-doc-tabs mb-6">
+  <div class="employee-doc-tabs-row" role="tablist" aria-label="Document View Tabs">
+    <button type="button" data-document-view-tab="active" class="employee-doc-tab employee-doc-tab-active">Current Documents</button>
+    <button type="button" data-document-view-tab="archived" class="employee-doc-tab employee-doc-tab-muted">Archived Documents</button>
+  </div>
 
-    <div id="documentStatusTabs" class="inline-flex rounded-lg border overflow-hidden" role="tablist" aria-label="Document Status Tabs">
-      <button type="button" data-document-status-tab="all" class="px-3 py-1.5 text-xs bg-slate-700 text-white">All</button>
-      <button type="button" data-document-status-tab="submitted" class="px-3 py-1.5 text-xs bg-white text-gray-700 border-l">Submitted</button>
-      <button type="button" data-document-status-tab="approved" class="px-3 py-1.5 text-xs bg-white text-gray-700 border-l">Approved</button>
-      <button type="button" data-document-status-tab="rejected" class="px-3 py-1.5 text-xs bg-white text-gray-700 border-l">Rejected</button>
-    </div>
+  <div id="documentStatusTabs" class="employee-doc-status-row" role="tablist" aria-label="Document Status Tabs">
+    <button type="button" data-document-status-tab="all" class="employee-doc-status-pill employee-doc-status-pill-active">All</button>
+    <button type="button" data-document-status-tab="submitted" class="employee-doc-status-pill employee-doc-status-pill-muted">Submitted</button>
+    <button type="button" data-document-status-tab="approved" class="employee-doc-status-pill employee-doc-status-pill-muted">Approved</button>
+    <button type="button" data-document-status-tab="rejected" class="employee-doc-status-pill employee-doc-status-pill-muted">Rejected</button>
   </div>
 </div>
 
@@ -164,7 +166,7 @@ foreach ($employeeDocuments as $documentCountRow) {
         <label class="text-sm text-gray-700">Category</label>
         <select id="documentCategoryFilter" class="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm bg-white">
           <option value="">All Categories</option>
-          <?php foreach ($document201Types as $categoryName): ?>
+          <?php foreach ($documentCategoryFilters as $categoryName): ?>
             <option value="<?= $escape(strtolower($categoryName)) ?>"><?= $escape($categoryName) ?></option>
           <?php endforeach; ?>
         </select>
@@ -227,37 +229,40 @@ foreach ($employeeDocuments as $documentCountRow) {
               <td class="py-3 pr-2 align-top break-words"><?= $escape($formatDate($document['updated_at'] ?? '')) ?></td>
               <td class="py-3 pr-2 align-top"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium <?= $escape($statusClass) ?>"><?= $escape($statusLabel) ?></span></td>
               <td class="py-3 align-top text-right">
-                <div class="relative inline-block text-left" data-action-dropdown>
-                  <button type="button" data-action-trigger class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">
-                    <span class="material-icons text-sm">more_horiz</span>
-                    Actions
+                <div class="relative inline-flex text-left" data-action-dropdown data-admin-action-scope>
+                  <button type="button" data-action-trigger aria-haspopup="menu" aria-expanded="false" class="admin-action-button">
+                    <span class="admin-action-button-label">
+                      <span class="material-symbols-outlined">more_horiz</span>
+                      Actions
+                    </span>
+                    <span class="material-symbols-outlined admin-action-chevron">expand_more</span>
                   </button>
 
-                  <div data-action-menu class="hidden absolute right-0 mt-1 w-52 rounded-md border border-slate-200 bg-white shadow-lg z-30 py-1">
-                    <a href="view-document.php?document_id=<?= $escape($documentId) ?>" target="_blank" rel="noopener" data-action-item="view" class="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
-                      <span class="material-icons text-sm">open_in_new</span>
+                  <div data-action-menu role="menu" class="admin-action-menu hidden w-44">
+                    <a href="view-document.php?document_id=<?= $escape($documentId) ?>" target="_blank" rel="noopener" data-action-item="view" class="admin-action-item">
+                      <span class="material-symbols-outlined">open_in_new</span>
                       View
                     </a>
-                    <a href="download-document.php?document_id=<?= $escape($documentId) ?>" data-action-item="download" class="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
-                      <span class="material-icons text-sm">download</span>
+                    <a href="download-document.php?document_id=<?= $escape($documentId) ?>" data-action-item="download" class="admin-action-item">
+                      <span class="material-symbols-outlined">download</span>
                       Download
                     </a>
-                    <button type="button" data-action-item="details" class="w-full text-left flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
-                      <span class="material-icons text-sm">info</span>
+                    <button type="button" data-action-item="details" role="menuitem" class="admin-action-item">
+                      <span class="material-symbols-outlined">info</span>
                       View Details
                     </button>
                     <?php if (!$isArchived): ?>
-                      <button type="button" data-action-item="upload_version" class="w-full text-left flex items-center gap-2 px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50">
-                        <span class="material-icons text-sm">upload</span>
+                      <button type="button" data-action-item="upload_version" role="menuitem" class="admin-action-item">
+                        <span class="material-symbols-outlined">upload</span>
                         <?= $escape($isResubmittable ? 'Resubmit Document' : 'Upload New Version') ?>
                       </button>
-                      <button type="button" data-action-item="archive" class="w-full text-left flex items-center gap-2 px-3 py-2 text-sm text-red-700 hover:bg-red-50">
-                        <span class="material-icons text-sm">archive</span>
+                      <button type="button" data-action-item="archive" role="menuitem" class="admin-action-item admin-action-item-danger">
+                        <span class="material-symbols-outlined">inventory_2</span>
                         Archive
                       </button>
                     <?php else: ?>
-                      <button type="button" data-action-item="restore" class="w-full text-left flex items-center gap-2 px-3 py-2 text-sm text-indigo-700 hover:bg-indigo-50">
-                        <span class="material-icons text-sm">restore</span>
+                      <button type="button" data-action-item="restore" role="menuitem" class="admin-action-item">
+                        <span class="material-symbols-outlined">restore</span>
                         Restore
                       </button>
                     <?php endif; ?>
@@ -388,43 +393,69 @@ foreach ($employeeDocuments as $documentCountRow) {
   <?php endif; ?>
 </div>
 
-<div id="uploadModal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden" aria-hidden="true">
-  <div class="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
-    <div class="flex justify-between items-center mb-4">
-      <h2 class="text-lg font-semibold">Upload Document</h2>
+<div id="uploadModal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden px-4 py-6" aria-hidden="true">
+  <div class="bg-white rounded-2xl shadow-lg w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col">
+    <div class="px-6 py-5 border-b flex justify-between items-start gap-4">
+      <div>
+        <h2 class="text-lg font-semibold">Upload Document</h2>
+        <p class="text-sm text-gray-500 mt-1">Add a new 201 file, review the auto-generated title, and confirm before submitting.</p>
+      </div>
       <button type="button" data-close-upload class="text-gray-400 hover:text-gray-600"><span class="material-icons">close</span></button>
     </div>
 
-    <form method="post" action="document-management.php" enctype="multipart/form-data" class="space-y-4">
+    <form method="post" action="document-management.php" enctype="multipart/form-data" class="flex-1 min-h-0 flex flex-col" data-upload-form>
       <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken ?? '') ?>">
       <input type="hidden" name="action" value="upload_document">
 
-      <div>
-        <label class="text-sm font-medium">Document Title</label>
-        <input name="title" type="text" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm" required>
+      <div class="flex-1 min-h-0 overflow-y-auto px-6 py-5">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+          <div>
+            <label class="text-sm font-medium">Document Title</label>
+            <input id="uploadDocumentTitle" name="title" type="text" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm" required>
+            <p class="mt-1 text-xs text-gray-500">The title auto-fills from the selected filename, but you can edit it before uploading.</p>
+          </div>
+
+          <div>
+            <label class="text-sm font-medium">Category</label>
+            <select id="uploadDocumentCategory" name="category_id" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm" required>
+              <option value="">Select category</option>
+              <?php foreach ($documentCategories as $category): ?>
+                <option value="<?= $escape($category['id'] ?? '') ?>"><?= $escape($category['category_name'] ?? '') ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+
+          <div class="lg:col-span-2">
+            <label class="text-sm font-medium">Description</label>
+            <textarea name="description" rows="4" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm" placeholder="Optional"></textarea>
+          </div>
+
+          <div class="lg:col-span-2">
+            <label class="text-sm font-medium">Upload File (max 10 MB)</label>
+            <div id="uploadDocumentDropzone" class="employee-doc-upload-dropzone mt-2" tabindex="0" role="button" aria-label="Select a document to upload">
+              <input id="uploadDocumentFile" name="document_file" type="file" class="sr-only" required>
+              <div class="employee-doc-upload-dropzone-copy">
+                <span class="material-icons text-2xl text-daGreen">upload_file</span>
+                <div>
+                  <p class="font-semibold text-slate-800">Choose a file or drag it here</p>
+                  <p class="text-xs text-slate-500 mt-1">PDF, image, Word, Excel, PowerPoint, TXT, and CSV files are supported.</p>
+                </div>
+              </div>
+              <button type="button" class="employee-doc-upload-trigger">Browse Files</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="uploadDocumentPreview" class="employee-doc-upload-preview hidden mt-4" aria-live="polite">
+          <div>
+            <p id="uploadDocumentPreviewName" class="font-medium text-slate-800">No file selected</p>
+            <p id="uploadDocumentPreviewMeta" class="text-xs text-slate-500 mt-1">Select a file to preview it here before uploading.</p>
+          </div>
+          <button type="button" id="uploadDocumentClear" class="text-sm text-rose-600 hover:text-rose-700">Remove</button>
+        </div>
       </div>
 
-      <div>
-        <label class="text-sm font-medium">Category</label>
-        <select name="category_id" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm" required>
-          <option value="">Select category</option>
-          <?php foreach ($documentCategories as $category): ?>
-            <option value="<?= $escape($category['id'] ?? '') ?>"><?= $escape($category['category_name'] ?? '') ?></option>
-          <?php endforeach; ?>
-        </select>
-      </div>
-
-      <div>
-        <label class="text-sm font-medium">Description</label>
-        <textarea name="description" rows="3" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm" placeholder="Optional"></textarea>
-      </div>
-
-      <div>
-        <label class="text-sm font-medium">Upload File (max 10 MB)</label>
-        <input name="document_file" type="file" class="w-full mt-1 text-sm" required>
-      </div>
-
-      <div class="flex justify-end gap-3 pt-4">
+      <div class="px-6 py-4 border-t flex justify-end gap-3">
         <button type="button" data-close-upload class="px-4 py-2 text-sm rounded-lg border">Cancel</button>
         <button type="submit" class="px-4 py-2 text-sm rounded-lg bg-daGreen text-white">Upload</button>
       </div>

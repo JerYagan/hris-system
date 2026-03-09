@@ -47,18 +47,14 @@ $positionCriteriaJson = htmlspecialchars(json_encode($positionCriteriaOverrides,
 <?php endif; ?>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
-    <header class="px-6 py-4 border-b border-slate-200 flex items-start justify-between gap-3">
+    <header class="px-6 py-4 border-b border-slate-200">
         <div>
-            <h2 class="text-lg font-semibold text-slate-800">Generate System Recommendations</h2>
-            <p class="text-sm text-slate-500 mt-1">Produce recommendation output from the current rule set and applicant data.</p>
+            <h2 class="text-lg font-semibold text-slate-800">Recommendation Summary</h2>
+            <p class="text-sm text-slate-500 mt-1">Current recommendation output based on the approved rule set and applicant data.</p>
             <?php if ($lastRecommendationAt !== ''): ?>
                 <p class="text-xs text-slate-400 mt-1">Last generated: <?= htmlspecialchars($lastRecommendationAt, ENT_QUOTES, 'UTF-8') ?></p>
             <?php endif; ?>
         </div>
-        <form action="evaluation.php" method="POST">
-            <input type="hidden" name="form_action" value="generate_system_recommendations">
-            <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white text-sm hover:bg-slate-800">Generate Recommendations</button>
-        </form>
     </header>
 
     <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">

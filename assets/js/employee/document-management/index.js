@@ -1,4 +1,5 @@
 import { runPageStatePass } from '../../shared/ui/page-state.js';
+import { initFloatingActionMenus } from '../../shared/action-menu.js';
 
 const PER_PAGE = 10;
 
@@ -6,6 +7,23 @@ const toggleModal = (modal, open) => {
   if (!modal) return;
   modal.classList.toggle('hidden', !open);
   modal.setAttribute('aria-hidden', open ? 'false' : 'true');
+};
+
+const formatFileSize = (bytes) => {
+  const value = Number(bytes || 0);
+  if (!Number.isFinite(value) || value <= 0) {
+    return '0 B';
+  }
+
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const exponent = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
+  const sized = value / 1024 ** exponent;
+  return `${sized.toFixed(exponent === 0 ? 0 : 2)} ${units[exponent]}`;
+};
+
+const buildDocumentTitleFromFile = (fileName) => {
+  const raw = (fileName || '').replace(/\.[^/.]+$/, '');
+  return raw.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
 };
 
 const wireModal = ({ openSelector, closeSelector, modalId, onOpen }) => {
@@ -214,8 +232,8 @@ const wireFilters = () => {
         viewTabButtons,
         activeViewTab,
         'data-document-view-tab',
-        ['bg-slate-700', 'text-white'],
-        ['bg-white', 'text-gray-700']
+        ['employee-doc-tab-active'],
+        ['employee-doc-tab-muted']
       );
 
       render();
@@ -231,8 +249,8 @@ const wireFilters = () => {
         statusTabButtons,
         activeStatusTab,
         'data-document-status-tab',
-        ['bg-slate-700', 'text-white'],
-        ['bg-white', 'text-gray-700']
+        ['employee-doc-status-pill-active'],
+        ['employee-doc-status-pill-muted']
       );
 
       render();
@@ -251,16 +269,16 @@ const wireFilters = () => {
         viewTabButtons,
         activeViewTab,
         'data-document-view-tab',
-        ['bg-slate-700', 'text-white'],
-        ['bg-white', 'text-gray-700']
+        ['employee-doc-tab-active'],
+        ['employee-doc-tab-muted']
       );
 
       applyToggleButtonState(
         statusTabButtons,
         activeStatusTab,
         'data-document-status-tab',
-        ['bg-slate-700', 'text-white'],
-        ['bg-white', 'text-gray-700']
+        ['employee-doc-status-pill-active'],
+        ['employee-doc-status-pill-muted']
       );
 
       const statusTabsContainer = document.getElementById('documentStatusTabs');
@@ -291,6 +309,169 @@ const wireVersionModalData = () => {
       titleElement.textContent = `Target document: ${title}`;
     }
   };
+};
+
+const wireUploadModal = () => {
+  const form = document.querySelector('[data-upload-form]');
+  const titleInput = document.getElementById('uploadDocumentTitle');
+  const categorySelect = document.getElementById('uploadDocumentCategory');
+  const fileInput = document.getElementById('uploadDocumentFile');
+  const dropzone = document.getElementById('uploadDocumentDropzone');
+  const preview = document.getElementById('uploadDocumentPreview');
+  const previewName = document.getElementById('uploadDocumentPreviewName');
+  const previewMeta = document.getElementById('uploadDocumentPreviewMeta');
+  const clearButton = document.getElementById('uploadDocumentClear');
+
+  if (!form || !titleInput || !categorySelect || !fileInput || !dropzone) {
+    return;
+  }
+
+  const renderFilePreview = (file) => {
+    if (!preview || !previewName || !previewMeta) {
+      return;
+    }
+
+    if (!file) {
+      preview.classList.add('hidden');
+      previewName.textContent = 'No file selected';
+      previewMeta.textContent = 'Select a file to preview it here before uploading.';
+      return;
+    }
+
+    preview.classList.remove('hidden');
+    previewName.textContent = file.name;
+    previewMeta.textContent = `${file.type || 'Unknown type'} • ${formatFileSize(file.size)}`;
+  };
+
+  const updateTitleFromFile = (file) => {
+    if (!file) {
+      return;
+    }
+
+    const nextTitle = buildDocumentTitleFromFile(file.name);
+    const currentAutoTitle = titleInput.dataset.autoTitle || '';
+    const shouldAutofill = titleInput.value.trim() === '' || titleInput.dataset.manuallyEdited !== '1' || titleInput.value.trim() === currentAutoTitle;
+
+    if (shouldAutofill) {
+      titleInput.value = nextTitle;
+      titleInput.dataset.manuallyEdited = '0';
+    }
+
+    titleInput.dataset.autoTitle = nextTitle;
+  };
+
+  const setSelectedFile = (file) => {
+    if (!file) {
+      fileInput.value = '';
+      renderFilePreview(null);
+      return;
+    }
+
+    if (typeof window.DataTransfer === 'function') {
+      const transfer = new window.DataTransfer();
+      transfer.items.add(file);
+      fileInput.files = transfer.files;
+    }
+
+    updateTitleFromFile(file);
+    renderFilePreview(file);
+  };
+
+  titleInput.addEventListener('input', () => {
+    const currentAutoTitle = titleInput.dataset.autoTitle || '';
+    titleInput.dataset.manuallyEdited = titleInput.value.trim() !== '' && titleInput.value.trim() !== currentAutoTitle ? '1' : '0';
+  });
+
+  fileInput.addEventListener('change', () => {
+    const [file] = Array.from(fileInput.files || []);
+    updateTitleFromFile(file);
+    renderFilePreview(file);
+  });
+
+  dropzone.addEventListener('click', () => {
+    fileInput.click();
+  });
+
+  dropzone.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      fileInput.click();
+    }
+  });
+
+  ['dragenter', 'dragover'].forEach((eventName) => {
+    dropzone.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      dropzone.classList.add('is-dragover');
+    });
+  });
+
+  ['dragleave', 'dragend', 'drop'].forEach((eventName) => {
+    dropzone.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      dropzone.classList.remove('is-dragover');
+    });
+  });
+
+  dropzone.addEventListener('drop', (event) => {
+    const [file] = Array.from(event.dataTransfer?.files || []);
+    setSelectedFile(file);
+  });
+
+  clearButton?.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    titleInput.dataset.autoTitle = '';
+    fileInput.value = '';
+    renderFilePreview(null);
+  });
+
+  form.addEventListener('submit', (event) => {
+    if (form.dataset.confirmed === '1') {
+      form.dataset.confirmed = '0';
+      return;
+    }
+
+    event.preventDefault();
+    const [file] = Array.from(fileInput.files || []);
+    const title = titleInput.value.trim();
+    const categoryText = categorySelect.options[categorySelect.selectedIndex]?.text?.trim() || 'Unspecified category';
+
+    if (!file || !title || !categorySelect.value) {
+      form.requestSubmit();
+      return;
+    }
+
+    if (!window.Swal || typeof window.Swal.fire !== 'function') {
+      form.dataset.confirmed = '1';
+      form.requestSubmit();
+      return;
+    }
+
+    window.Swal.fire({
+      title: 'Confirm document upload?',
+      html: `
+        <div style="text-align:left">
+          <p><strong>Title:</strong> ${title}</p>
+          <p><strong>Category:</strong> ${categoryText}</p>
+          <p><strong>File:</strong> ${file.name}</p>
+          <p><strong>Size:</strong> ${formatFileSize(file.size)}</p>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, upload document',
+      cancelButtonText: 'Review first',
+      confirmButtonColor: '#166534',
+    }).then((result) => {
+      if (!result.isConfirmed) {
+        return;
+      }
+
+      form.dataset.confirmed = '1';
+      form.requestSubmit();
+    });
+  });
 };
 
 const wireArchiveRestoreActions = () => {
@@ -402,11 +583,13 @@ const wireActionDropdowns = () => {
     return;
   }
 
-  const closeAllMenus = () => {
-    document.querySelectorAll('[data-action-menu]').forEach((menu) => {
-      menu.classList.add('hidden');
-    });
-  };
+  initFloatingActionMenus({
+    scopeSelector: '[data-action-dropdown]',
+    toggleSelector: '[data-action-trigger]',
+    menuSelector: '[data-action-menu]',
+    itemSelector: '[data-action-item]',
+    initFlag: 'employeeDocumentActionMenusInitialized',
+  });
 
   const runAction = (row, action) => {
     const normalizedAction = (action || '').toLowerCase().trim();
@@ -445,23 +628,12 @@ const wireActionDropdowns = () => {
   };
 
   rows.forEach((row) => {
-    const trigger = row.querySelector('[data-action-trigger]');
     const menu = row.querySelector('[data-action-menu]');
     const items = Array.from(row.querySelectorAll('[data-action-item]'));
 
-    if (!trigger || !menu || !items.length) {
+    if (!menu || !items.length) {
       return;
     }
-
-    trigger.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const isHidden = menu.classList.contains('hidden');
-      closeAllMenus();
-      if (isHidden) {
-        menu.classList.remove('hidden');
-      }
-    });
 
     menu.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -472,20 +644,9 @@ const wireActionDropdowns = () => {
         event.preventDefault();
         event.stopPropagation();
         const action = item.getAttribute('data-action-item') || '';
-        closeAllMenus();
         runAction(row, action);
       });
     });
-  });
-
-  document.addEventListener('click', () => {
-    closeAllMenus();
-  });
-
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-      closeAllMenus();
-    }
   });
 };
 
@@ -507,6 +668,7 @@ const initEmployeeDocumentManagementPage = () => {
 
   wireDetailsModals();
   wireFilters();
+  wireUploadModal();
   wireArchiveRestoreActions();
   wireActionDropdowns();
 

@@ -540,6 +540,54 @@ const initRecruitmentDatePickers = async () => {
   });
 };
 
+const initRecruitmentDecisionConfirmations = () => {
+  const applicantDecisionForm = document.getElementById('applicantDecisionForm');
+  const decisionSelect = applicantDecisionForm?.querySelector('select[name="decision"]');
+  const basisSelect = applicantDecisionForm?.querySelector('select[name="basis"]');
+  const applicantNameLabel = document.getElementById('applicantProfileName');
+
+  const syncApplicantDecisionConfirmation = () => {
+    if (!(applicantDecisionForm instanceof HTMLFormElement)) {
+      return;
+    }
+
+    const applicantName = String(applicantNameLabel?.textContent || '').trim() || 'this applicant';
+    const decision = String(decisionSelect?.value || 'approve_for_next_stage').trim().toLowerCase();
+    const basis = String(basisSelect?.value || '').trim();
+
+    if (decision === 'disqualify_application') {
+      applicantDecisionForm.dataset.confirmTitle = 'Disqualify this application?';
+      applicantDecisionForm.dataset.confirmText = `${applicantName} will be marked as disqualified${basis !== '' ? ` based on ${basis}` : ''}.`;
+      applicantDecisionForm.dataset.confirmButtonText = 'Disqualify application';
+      applicantDecisionForm.dataset.confirmButtonColor = '#dc2626';
+      return;
+    }
+
+    if (decision === 'return_for_compliance') {
+      applicantDecisionForm.dataset.confirmTitle = 'Return application for compliance?';
+      applicantDecisionForm.dataset.confirmText = `${applicantName} will be returned for compliance follow-up${basis !== '' ? ` based on ${basis}` : ''}.`;
+      applicantDecisionForm.dataset.confirmButtonText = 'Return for compliance';
+      applicantDecisionForm.dataset.confirmButtonColor = '#0f172a';
+      return;
+    }
+
+    applicantDecisionForm.dataset.confirmTitle = 'Approve applicant for the next stage?';
+    applicantDecisionForm.dataset.confirmText = `${applicantName} will advance to the next approved recruitment stage${basis !== '' ? ` based on ${basis}` : ''}.`;
+    applicantDecisionForm.dataset.confirmButtonText = 'Approve for next stage';
+    applicantDecisionForm.dataset.confirmButtonColor = '#0f172a';
+  };
+
+  if (decisionSelect instanceof HTMLSelectElement) {
+    decisionSelect.addEventListener('change', syncApplicantDecisionConfirmation);
+  }
+
+  if (basisSelect instanceof HTMLSelectElement) {
+    basisSelect.addEventListener('change', syncApplicantDecisionConfirmation);
+  }
+
+  syncApplicantDecisionConfirmation();
+};
+
 export default function initAdminRecruitmentPage() {
   initAdminShellInteractions();
   initModalSystem();
@@ -549,5 +597,6 @@ export default function initAdminRecruitmentPage() {
   initCreatePositionModeAndCriteria();
   initEditPositionMode();
   initRecruitmentActions();
+  initRecruitmentDecisionConfirmations();
   initRecruitmentDatePickers().catch(console.error);
 }

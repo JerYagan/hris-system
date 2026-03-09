@@ -287,10 +287,10 @@ if ($action === 'request_password_change_code') {
 
     $safeEmail = htmlspecialchars($email, ENT_QUOTES, 'UTF-8');
     $safeCode = htmlspecialchars($verificationCode, ENT_QUOTES, 'UTF-8');
-    $safeExpiry = htmlspecialchars(date('M d, Y h:i A', $expiresAt), ENT_QUOTES, 'UTF-8');
+    $safeExpiry = htmlspecialchars(formatUnixTimestampForPhilippines($expiresAt, 'M d, Y h:i A') . ' PST', ENT_QUOTES, 'UTF-8');
     $emailBody = '<p>Your DA-ATI HRIS password change verification code is:</p>'
         . '<p style="font-size:24px;font-weight:700;letter-spacing:2px;">' . $safeCode . '</p>'
-        . '<p>This code expires on <strong>' . $safeExpiry . '</strong> (server time).</p>'
+        . '<p>This code expires on <strong>' . $safeExpiry . '</strong>.</p>'
         . '<p>If you did not request a password change for ' . $safeEmail . ', ignore this email and contact support.</p>';
 
     $mailResponse = smtpSendTransactionalEmail(

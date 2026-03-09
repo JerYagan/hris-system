@@ -1,3 +1,5 @@
+import { initFloatingActionMenus } from '../../shared/action-menu.js';
+
 (() => {
     const searchInput = document.getElementById('personalInfoRecordsSearchInput');
     const statusFilter = document.getElementById('personalInfoRecordsStatusFilter');
@@ -563,34 +565,12 @@
         });
     }
 
-    const closeAllActionMenus = () => {
-        document.querySelectorAll('[data-person-action-menu]').forEach((menu) => {
-            menu.classList.add('hidden');
-        });
-    };
-
-    document.querySelectorAll('[data-person-action-menu-toggle]').forEach((toggleButton) => {
-        toggleButton.addEventListener('click', (event) => {
-            event.stopPropagation();
-            const scope = toggleButton.closest('[data-person-action-scope]');
-            if (!scope) {
-                return;
-            }
-
-            const menu = scope.querySelector('[data-person-action-menu]');
-            if (!menu) {
-                return;
-            }
-
-            const wasHidden = menu.classList.contains('hidden');
-            closeAllActionMenus();
-            if (wasHidden) {
-                menu.classList.remove('hidden');
-            }
-        });
+    initFloatingActionMenus({
+        scopeSelector: '[data-person-action-scope]',
+        toggleSelector: '[data-person-action-menu-toggle]',
+        menuSelector: '[data-person-action-menu]',
+        initFlag: 'staffPersonalInfoActionMenusInitialized',
     });
-
-    document.addEventListener('click', () => closeAllActionMenus());
 
     document.querySelectorAll('[data-action-menu-item]').forEach((menuItem) => {
         menuItem.addEventListener('click', () => {
@@ -608,8 +588,6 @@
             if (trigger instanceof HTMLButtonElement) {
                 trigger.click();
             }
-
-            closeAllActionMenus();
         });
     });
 
@@ -1260,37 +1238,46 @@
     const byId = (id) => document.getElementById(id);
     const datalistOptions = (id) => extractDatalistValues(byId(id));
 
-    buildModernSearch(byId('profilePlaceOfBirth'), () => datalistOptions('profilePlaceOfBirthList'));
-    buildModernSearch(byId('profileCivilStatus'), () => datalistOptions('profileCivilStatusList'));
-    buildModernSearch(byId('profileBloodType'), () => datalistOptions('profileBloodTypeList'));
-    buildModernSearch(byId('profileResidentialBarangay'), () => datalistOptions('profileResidentialBarangayList'));
-    buildModernSearch(byId('profilePermanentBarangay'), () => datalistOptions('profilePermanentBarangayList'));
-    buildModernSearch(byId('profileResidentialCity'), () => datalistOptions('profileCityList'));
-    buildModernSearch(byId('profilePermanentCity'), () => datalistOptions('profileCityList'));
-    buildModernSearch(byId('profileResidentialProvince'), () => datalistOptions('profileProvinceList'));
-    buildModernSearch(byId('profilePermanentProvince'), () => datalistOptions('profileProvinceList'));
-    buildModernSearch(byId('profileResidentialZipCode'), () => allZipOptions);
-    buildModernSearch(byId('profilePermanentZipCode'), () => allZipOptions);
-
-    Object.entries(addressControls).forEach(([groupKey, controls]) => {
-        if (controls.city instanceof HTMLInputElement) {
-            controls.city.addEventListener('input', () => {
-                renderAddressGroup(groupKey);
-            });
-            controls.city.addEventListener('change', () => {
-                renderAddressGroup(groupKey);
-            });
+    let profileEnhancementsInitialized = false;
+    const initializeProfileEnhancements = () => {
+        if (profileEnhancementsInitialized) {
+            return;
         }
 
-        if (controls.barangay instanceof HTMLInputElement) {
-            controls.barangay.addEventListener('input', () => {
-                autofillZip(groupKey);
-            });
-            controls.barangay.addEventListener('change', () => {
-                autofillZip(groupKey);
-            });
-        }
-    });
+        profileEnhancementsInitialized = true;
+
+        buildModernSearch(byId('profilePlaceOfBirth'), () => datalistOptions('profilePlaceOfBirthList'));
+        buildModernSearch(byId('profileCivilStatus'), () => datalistOptions('profileCivilStatusList'));
+        buildModernSearch(byId('profileBloodType'), () => datalistOptions('profileBloodTypeList'));
+        buildModernSearch(byId('profileResidentialBarangay'), () => datalistOptions('profileResidentialBarangayList'));
+        buildModernSearch(byId('profilePermanentBarangay'), () => datalistOptions('profilePermanentBarangayList'));
+        buildModernSearch(byId('profileResidentialCity'), () => datalistOptions('profileCityList'));
+        buildModernSearch(byId('profilePermanentCity'), () => datalistOptions('profileCityList'));
+        buildModernSearch(byId('profileResidentialProvince'), () => datalistOptions('profileProvinceList'));
+        buildModernSearch(byId('profilePermanentProvince'), () => datalistOptions('profileProvinceList'));
+        buildModernSearch(byId('profileResidentialZipCode'), () => allZipOptions);
+        buildModernSearch(byId('profilePermanentZipCode'), () => allZipOptions);
+
+        Object.entries(addressControls).forEach(([groupKey, controls]) => {
+            if (controls.city instanceof HTMLInputElement) {
+                controls.city.addEventListener('input', () => {
+                    renderAddressGroup(groupKey);
+                });
+                controls.city.addEventListener('change', () => {
+                    renderAddressGroup(groupKey);
+                });
+            }
+
+            if (controls.barangay instanceof HTMLInputElement) {
+                controls.barangay.addEventListener('input', () => {
+                    autofillZip(groupKey);
+                });
+                controls.barangay.addEventListener('change', () => {
+                    autofillZip(groupKey);
+                });
+            }
+        });
+    };
 
     const hydrateAddressSelections = (groupKey, cityValue, barangayValue, zipValue) => {
         const controls = addressControls[groupKey];
@@ -1402,6 +1389,8 @@
             if (!profileModal) {
                 return;
             }
+
+            initializeProfileEnhancements();
 
             profileFields.personId.value = button.getAttribute('data-person-id') || '';
             profileFields.employmentId.value = button.getAttribute('data-employment-id') || '';
@@ -1725,8 +1714,6 @@
 
     ensureMinimumRows();
     resetProfileTabState();
-    renderAddressGroup('residential');
-    renderAddressGroup('permanent');
     updatePaginationUi();
     applyFilters();
 })();

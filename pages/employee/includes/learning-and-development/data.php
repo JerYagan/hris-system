@@ -72,7 +72,6 @@ $programsResponse = apiRequest(
     $supabaseUrl
     . '/rest/v1/training_programs?select=id,title,training_type,training_category,start_date,end_date,provider,venue,mode,status,schedule_time'
     . '&status=in.(planned,open,ongoing)'
-    . '&start_date=gte.' . rawurlencode($todayDate)
     . '&order=start_date.asc&limit=500',
     $headers
 );
@@ -84,7 +83,6 @@ if (!isSuccessful($programsResponse)) {
         $supabaseUrl
         . '/rest/v1/training_programs?select=id,title,start_date,end_date,provider,mode,status'
         . '&status=in.(planned,open,ongoing)'
-        . '&start_date=gte.' . rawurlencode($todayDate)
         . '&order=start_date.asc&limit=500',
         $headers
     );
@@ -127,6 +125,7 @@ if (!isSuccessful($programsResponse) && !isSuccessful($enrollmentsResponse)) {
 }
 
 $enrolledProgramIds = [];
+$enrollmentDetailsByProgramId = [];
 foreach ($enrollmentRows as $enrollmentRaw) {
     $enrollment = (array)$enrollmentRaw;
     $programId = cleanText($enrollment['program_id'] ?? null);
@@ -159,7 +158,18 @@ foreach ($enrollmentRows as $enrollmentRaw) {
         }
     }
 
+    if ($programId !== null) {
+        $enrollmentDetailsByProgramId[$programId] = [
+            'enrollment_status_raw' => $statusRaw,
+            'enrollment_status_label' => $enrollmentLabel,
+            'enrollment_status_class' => $enrollmentClass,
+            'attendance_label' => $attendanceLabel,
+            'attendance_class' => $attendanceClass,
+        ];
+    }
+
     $takenTrainingRows[] = [
+        'program_id' => $programId,
         'title' => $title,
         'training_type' => $trainingType,
         'training_category' => $trainingCategory,
@@ -216,6 +226,8 @@ foreach ($programRows as $programRaw) {
     $trainingType = (string)($program['training_type'] ?? '-');
     $trainingCategory = (string)($program['training_category'] ?? '-');
     $provider = (string)($program['provider'] ?? '-');
+    $venue = (string)($program['venue'] ?? '-');
+    $mode = (string)($program['mode'] ?? '-');
     $startDate = cleanText($program['start_date'] ?? null);
     $endDate = cleanText($program['end_date'] ?? null);
     $statusRaw = strtolower((string)($program['status'] ?? 'planned'));
@@ -231,11 +243,16 @@ foreach ($programRows as $programRaw) {
     }
 
     $isEnrolled = isset($enrolledProgramIds[$programId]);
-    if (!$isEnrolled) {
-        continue;
-    }
-
-    $learningSummary['available_count']++;
+    $enrollmentMeta = $enrollmentDetailsByProgramId[$programId] ?? null;
+    $enrollmentLabel = $isEnrolled
+        ? (string)($enrollmentMeta['enrollment_status_label'] ?? 'Enrolled')
+        : 'Not Yet Enrolled';
+    $enrollmentClass = $isEnrolled
+        ? (string)($enrollmentMeta['enrollment_status_class'] ?? 'bg-blue-100 text-blue-800')
+        : 'bg-slate-100 text-slate-700';
+    $attendanceLabel = $isEnrolled
+        ? (string)($enrollmentMeta['attendance_label'] ?? 'Pending')
+        : 'Pending';
 
     $availableTrainingRows[] = [
         'program_id' => $programId,
@@ -244,10 +261,20 @@ foreach ($programRows as $programRaw) {
         'training_category' => $trainingCategory,
         'date_label' => $formatDateLabel($startDate, $endDate),
         'provider' => $provider,
+        'venue' => $venue,
+        'mode' => $mode,
         'status_raw' => $statusRaw,
         'is_enrolled' => $isEnrolled,
-        'search_text' => strtolower(trim($title . ' ' . $trainingType . ' ' . $trainingCategory . ' ' . $provider . ' ' . $statusRaw)),
+        'enrollment_status_label' => $enrollmentLabel,
+        'enrollment_status_class' => $enrollmentClass,
+        'attendance_label' => $attendanceLabel,
+        'cta_message' => $isEnrolled
+            ? 'You are already enrolled in this training.'
+            : 'Enrollment is managed by Admin and HR staff.',
+        'search_text' => strtolower(trim($title . ' ' . $trainingType . ' ' . $trainingCategory . ' ' . $provider . ' ' . $venue . ' ' . $mode . ' ' . $statusRaw . ' ' . $enrollmentLabel)),
     ];
+
+    $learningSummary['available_count']++;
 }
 
 usort($takenTrainingRows, static function (array $left, array $right): int {

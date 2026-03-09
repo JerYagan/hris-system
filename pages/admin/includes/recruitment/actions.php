@@ -37,6 +37,23 @@ if (!function_exists('recruitmentReadSettingValue')) {
     }
 }
 
+if (!function_exists('recruitmentIsActiveOffice')) {
+    function recruitmentIsActiveOffice(string $supabaseUrl, array $headers, string $officeId): bool
+    {
+        if (!recruitmentIsValidUuid($officeId)) {
+            return false;
+        }
+
+        $response = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/offices?select=id&id=eq.' . rawurlencode($officeId) . '&is_active=eq.true&limit=1',
+            $headers
+        );
+
+        return isSuccessful($response) && !empty((array)($response['data'] ?? []));
+    }
+}
+
 if (!function_exists('recruitmentUpsertSettingValue')) {
     function recruitmentUpsertSettingValue(string $supabaseUrl, array $headers, string $key, mixed $value, string $adminUserId = ''): bool
     {
@@ -475,11 +492,15 @@ if ($action === 'create_job_posting') {
     $postingStatus = strtolower((string)(cleanText($_POST['posting_status'] ?? null) ?? 'draft'));
 
     if ($title === '' || $description === '' || $officeId === '' || $openDate === '' || $closeDate === '' || $plantillaItemNo === '') {
-        redirectWithState('error', 'Title, office, plantilla number, description, open date, and close date are required.');
+        redirectWithState('error', 'Title, division, plantilla number, description, open date, and close date are required.');
     }
 
     if (!recruitmentIsValidUuid($officeId)) {
-        redirectWithState('error', 'Selected office is invalid.');
+        redirectWithState('error', 'Selected division is invalid.');
+    }
+
+    if (!recruitmentIsActiveOffice($supabaseUrl, $headers, $officeId)) {
+        redirectWithState('error', 'Selected division is unavailable or no longer active.');
     }
 
     if (!in_array($employmentType, ['permanent', 'contractual'], true)) {
@@ -655,11 +676,15 @@ if ($action === 'edit_job_posting') {
     }
 
     if ($title === '' || $description === '' || $officeId === '' || $openDate === '' || $closeDate === '' || $plantillaItemNo === '') {
-        redirectWithState('error', 'Title, office, plantilla number, description, open date, and close date are required.');
+        redirectWithState('error', 'Title, division, plantilla number, description, open date, and close date are required.');
     }
 
     if (!recruitmentIsValidUuid($officeId)) {
-        redirectWithState('error', 'Selected office is invalid.');
+        redirectWithState('error', 'Selected division is invalid.');
+    }
+
+    if (!recruitmentIsActiveOffice($supabaseUrl, $headers, $officeId)) {
+        redirectWithState('error', 'Selected division is unavailable or no longer active.');
     }
 
     if (!in_array($employmentType, ['permanent', 'contractual'], true)) {

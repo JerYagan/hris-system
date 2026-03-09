@@ -1,6 +1,24 @@
 (function () {
   const PAGE_SIZE = 10;
 
+  const confirmAction = async ({ title, text, confirmButtonText = 'Confirm' }) => {
+    if (window.Swal && typeof window.Swal.fire === 'function') {
+      const result = await window.Swal.fire({
+        title,
+        text,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText,
+        cancelButtonText: 'Cancel',
+        reverseButtons: true,
+      });
+
+      return Boolean(result && result.isConfirmed);
+    }
+
+    return window.confirm(text);
+  };
+
   const debounce = (fn, wait = 250) => {
     let timer = null;
 
@@ -219,14 +237,20 @@
 
   const exportForm = document.getElementById('staffReportExportForm');
   const exportSubmit = document.getElementById('staffReportExportSubmit');
+  const exportReset = document.getElementById('staffReportExportReset');
 
-  exportForm?.addEventListener('submit', (event) => {
+  exportForm?.addEventListener('submit', async (event) => {
     const reportType = (exportForm.querySelector('[name="report_type"]')?.value || 'report').replace(/_/g, ' ');
     const fileFormat = (exportForm.querySelector('[name="file_format"]')?.value || '').toUpperCase();
 
-    const confirmed = window.confirm(`Generate ${reportType} export as ${fileFormat}?`);
+    event.preventDefault();
+
+    const confirmed = await confirmAction({
+      title: 'Generate report export?',
+      text: `Generate ${reportType} export as ${fileFormat}?`,
+      confirmButtonText: 'Generate',
+    });
     if (!confirmed) {
-      event.preventDefault();
       return;
     }
 
@@ -234,5 +258,24 @@
       exportSubmit.disabled = true;
       exportSubmit.textContent = 'Generating...';
     }
+
+    exportForm.submit();
+  });
+
+  exportReset?.addEventListener('click', async (event) => {
+    event.preventDefault();
+
+    const confirmed = await confirmAction({
+      title: 'Reset export filters?',
+      text: 'Clear the current export selections and restore the default report export options?',
+      confirmButtonText: 'Reset',
+    });
+
+    if (!confirmed || !exportForm) {
+      return;
+    }
+
+    exportForm.reset();
+    syncCoverageUi();
   });
 })();

@@ -123,16 +123,18 @@ $renderLeaveBalanceSection = static function () use (
         <tr class="border-b text-gray-500">
           <th class="text-left py-3">Leave Type</th>
           <th class="text-left py-3">Total Accumulated Points</th>
+          <th class="text-left py-3">Accumulated / Updated</th>
         </tr>
       </thead>
       <tbody>
         <?php if (empty($leaveBalanceRows)): ?>
-          <tr><td class="py-3 text-gray-500" colspan="2">No accumulated leave point records found yet.</td></tr>
+          <tr><td class="py-3 text-gray-500" colspan="3">No accumulated leave point records found yet.</td></tr>
         <?php else: ?>
           <?php foreach ($leaveBalanceRows as $balance): ?>
             <tr class="border-b">
               <td class="py-3"><?= $escape((string)($balance['leave_name'] ?? '-')) ?></td>
               <td class="py-3"><?= $escape(number_format((float)($balance['admin_posted_total'] ?? 0), 2)) ?></td>
+              <td class="py-3"><?= $escape($formatDateTime($balance['updated_at'] ?? null)) ?></td>
             </tr>
           <?php endforeach; ?>
         <?php endif; ?>
@@ -189,52 +191,6 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
     <div class="border rounded-lg p-3"><p class="text-gray-500">Present</p><p class="font-semibold text-lg"><?= $escape((string)($attendanceSummary['present_days'] ?? 0)) ?></p></div>
     <div class="border rounded-lg p-3"><p class="text-gray-500">Late</p><p class="font-semibold text-lg"><?= $escape((string)($attendanceSummary['late_days'] ?? 0)) ?></p></div>
     <div class="border rounded-lg p-3"><p class="text-gray-500">Leave</p><p class="font-semibold text-lg"><?= $escape((string)($attendanceSummary['leave_days'] ?? 0)) ?></p></div>
-  </div>
-</section>
-
-<section class="bg-white rounded-xl shadow p-6 mb-6">
-  <div class="flex items-center justify-between mb-4">
-    <h2 class="text-lg font-bold">Table <span class="text-daGreen">Search & Filters</span></h2>
-    <button type="button" id="moduleFilterReset" class="inline-flex items-center gap-2 border px-4 py-2 rounded-lg text-sm"><span class="material-symbols-outlined text-base">refresh</span>Reset Filters</button>
-  </div>
-  <div class="grid md:grid-cols-5 gap-3 text-sm">
-    <div class="md:col-span-2">
-      <label for="moduleSearchInput" class="text-gray-500">Search Records</label>
-      <input id="moduleSearchInput" type="search" class="w-full mt-1 border rounded-lg p-2" placeholder="Search date, reason, type, or status">
-    </div>
-    <div>
-      <label for="moduleTableFilter" class="text-gray-500">Table</label>
-      <select id="moduleTableFilter" class="w-full mt-1 border rounded-lg p-2">
-        <option value="all">All Tables</option>
-        <option value="attendance">Attendance Records</option>
-        <option value="leave">Leave/CTO Requests</option>
-        <option value="adjustment">Time Adjustment Requests</option>
-        <option value="ob">Official Business Requests</option>
-      </select>
-    </div>
-    <div>
-      <label for="moduleStatusFilter" class="text-gray-500">Status</label>
-      <select id="moduleStatusFilter" class="w-full mt-1 border rounded-lg p-2">
-        <option value="">All</option>
-        <option value="present">Present</option>
-        <option value="late">Late</option>
-        <option value="leave">Leave</option>
-        <option value="approved">Approved</option>
-        <option value="pending">Pending</option>
-        <option value="rejected">Rejected</option>
-        <option value="cancelled">Cancelled</option>
-      </select>
-    </div>
-    <div class="grid grid-cols-2 gap-2 md:col-span-5">
-      <div>
-        <label for="moduleDateFrom" class="text-gray-500">From Date</label>
-        <input id="moduleDateFrom" type="text" class="w-full mt-1 border rounded-lg p-2" placeholder="YYYY-MM-DD">
-      </div>
-      <div>
-        <label for="moduleDateTo" class="text-gray-500">To Date</label>
-        <input id="moduleDateTo" type="text" class="w-full mt-1 border rounded-lg p-2" placeholder="YYYY-MM-DD">
-      </div>
-    </div>
   </div>
 </section>
 
@@ -331,43 +287,6 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
 </section>
 
 <?php $renderLeaveBalanceSection(); ?>
-
-<section class="bg-white rounded-xl shadow p-6 mb-6">
-  <h2 class="text-lg font-bold mb-4">Leave <span class="text-daGreen">Status</span></h2>
-  <div class="overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="border-b text-gray-500">
-          <th class="text-left py-3">Type</th>
-          <th class="text-left py-3">From</th>
-          <th class="text-left py-3">To</th>
-          <th class="text-left py-3">Days</th>
-          <th class="text-left py-3">Deduction</th>
-          <th class="text-left py-3">Reason</th>
-          <th class="text-left py-3">Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php if (empty($leaveRequestRows)): ?>
-          <tr><td class="py-3 text-gray-500" colspan="7">No leave requests yet.</td></tr>
-        <?php else: ?>
-          <?php foreach ($leaveRequestRows as $request): ?>
-            <?php [$label, $pillClass] = $statusPill((string)($request['status'] ?? 'pending')); ?>
-            <tr class="border-b js-module-filter-row" data-source="leave" data-status="<?= $escape(strtolower((string)($request['status'] ?? 'pending'))) ?>" data-date="<?= $escape((string)($request['date_from'] ?? '')) ?>" data-search="<?= $escape(strtolower(trim(($request['leave_name'] ?? '') . ' ' . ($request['date_from'] ?? '') . ' ' . ($request['date_to'] ?? '') . ' ' . ($request['reason'] ?? '') . ' ' . ($request['status'] ?? '')))) ?>">
-              <td class="py-3"><?= $escape((string)($request['leave_name'] ?? 'Leave')) ?></td>
-              <td class="py-3"><?= $escape($formatDate($request['date_from'] ?? '')) ?></td>
-              <td class="py-3"><?= $escape($formatDate($request['date_to'] ?? '')) ?></td>
-              <td class="py-3"><?= $escape(number_format((float)($request['days_count'] ?? 0), 2)) ?></td>
-              <td class="py-3"><?= $escape(number_format((float)($request['days_count'] ?? 0), 2)) ?></td>
-              <td class="py-3"><?= $escape((string)($request['reason'] ?? '')) ?></td>
-              <td class="py-3"><span class="inline-flex items-center px-2 py-0.5 text-[11px] rounded-full font-medium <?= $escape($pillClass) ?>"><?= $escape($label) ?></span></td>
-            </tr>
-          <?php endforeach; ?>
-        <?php endif; ?>
-      </tbody>
-    </table>
-  </div>
-</section>
 
 <section class="bg-white rounded-xl shadow p-6 mb-6">
   <h2 class="text-lg font-bold mb-4">Time <span class="text-daGreen">Adjustment Requests</span></h2>

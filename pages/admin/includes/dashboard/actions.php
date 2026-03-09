@@ -89,64 +89,7 @@ if ($action === 'review_leave_request_dashboard') {
 }
 
 if ($action === 'save_dashboard_announcement') {
-    $title = cleanText($_POST['announcement_title'] ?? null) ?? '';
-    $body = cleanText($_POST['announcement_body'] ?? null) ?? '';
-    $announcementState = strtolower((string)(cleanText($_POST['announcement_state'] ?? null) ?? 'draft'));
-
-    if ($title === '' || $body === '') {
-        redirectWithState('error', 'Announcement title and body are required.');
-    }
-
-    if (!in_array($announcementState, ['draft', 'queued'], true)) {
-        $announcementState = 'draft';
-    }
-
-    $actionName = $announcementState === 'queued' ? 'queue_announcement' : 'save_announcement_draft';
-
-    $logResponse = apiRequest(
-        'POST',
-        $supabaseUrl . '/rest/v1/activity_logs',
-        array_merge($headers, ['Prefer: return=minimal']),
-        [[
-            'actor_user_id' => $adminUserId !== '' ? $adminUserId : null,
-            'module_name' => 'dashboard',
-            'entity_name' => 'announcements',
-            'entity_id' => null,
-            'action_name' => $actionName,
-            'old_data' => null,
-            'new_data' => [
-                'title' => $title,
-                'body' => $body,
-                'state' => $announcementState,
-            ],
-            'ip_address' => clientIp(),
-        ]]
-    );
-
-    if (!isSuccessful($logResponse)) {
-        redirectWithState('error', 'Failed to save announcement draft.');
-    }
-
-    if ($announcementState === 'queued') {
-        apiRequest(
-            'POST',
-            $supabaseUrl . '/rest/v1/notifications',
-            array_merge($headers, ['Prefer: return=minimal']),
-            [[
-                'recipient_user_id' => $adminUserId,
-                'category' => 'system',
-                'title' => 'Announcement queued',
-                'body' => '"' . $title . '" has been added to the publish queue.',
-                'link_url' => '/hris-system/pages/admin/dashboard.php',
-            ]]
-        );
-    }
-
-    $successMessage = $announcementState === 'queued'
-        ? 'Announcement queued for publishing.'
-        : 'Announcement draft saved successfully.';
-
-    redirectWithState('success', $successMessage);
+    redirectWithState('error', 'Dashboard quick drafts are no longer used. Manage announcement publishing in Create Announcement.', 'create-announcement.php');
 }
 
 if ($action === 'save_dashboard_chart_schedule') {

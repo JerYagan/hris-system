@@ -1,5 +1,4 @@
 import {
-  bindTableFilters,
   initAdminShellInteractions,
   initModalSystem,
   initStatusChangeConfirmations,
@@ -535,56 +534,160 @@ const initAdminPayslipBreakdownModal = () => {
   });
 };
 
-const initSalarySetupLogsPagination = () => {
-  const table = document.getElementById('payrollSetupLogsTable');
-  const pageSizeSelect = document.getElementById('payrollSetupLogsPageSize');
-  const prevButton = document.getElementById('payrollSetupLogsPrev');
-  const nextButton = document.getElementById('payrollSetupLogsNext');
-  const pageInfo = document.getElementById('payrollSetupLogsPageInfo');
-
-  if (!table || !pageSizeSelect || !prevButton || !nextButton || !pageInfo) {
+const initPaginatedFilterTable = ({
+  tableId,
+  rowSelector,
+  searchInputId,
+  searchAttr,
+  filterConfig = [],
+  pageInfoId,
+  pageLabelId,
+  prevButtonId,
+  nextButtonId,
+  pageSizeSelectId,
+  defaultPageSize = 10,
+  emptyMessage = 'No entries match your search/filter criteria.',
+}) => {
+  const table = document.getElementById(tableId);
+  if (!table) {
     return;
   }
 
-  const rows = Array.from(table.querySelectorAll('tbody tr')).filter((row) => row.querySelector('td'));
+  const tbody = table.querySelector('tbody');
+  const rows = Array.from(table.querySelectorAll(`tbody ${rowSelector}`));
+  const searchInput = searchInputId ? document.getElementById(searchInputId) : null;
+  const pageInfo = pageInfoId ? document.getElementById(pageInfoId) : null;
+  const pageLabel = pageLabelId ? document.getElementById(pageLabelId) : null;
+  const prevButton = prevButtonId ? document.getElementById(prevButtonId) : null;
+  const nextButton = nextButtonId ? document.getElementById(nextButtonId) : null;
+  const pageSizeSelect = pageSizeSelectId ? document.getElementById(pageSizeSelectId) : null;
+
+  if (!tbody || !pageInfo || !pageLabel || !prevButton || !nextButton) {
+    return;
+  }
+
   let currentPage = 1;
+  let initialized = false;
+  const columnCount = Array.from(table.querySelectorAll('thead th')).length || 1;
+  let emptyRow = tbody.querySelector('[data-payroll-filter-empty="true"]');
 
-  const render = () => {
-    const visibleRows = rows.filter((row) => row.style.display !== 'none');
-    const pageSize = Math.max(1, Number(pageSizeSelect.value) || 10);
-    const totalPages = Math.max(1, Math.ceil(visibleRows.length / pageSize));
-    currentPage = Math.min(Math.max(currentPage, 1), totalPages);
+  if (!emptyRow && rows.length > 0) {
+    emptyRow = document.createElement('tr');
+    emptyRow.dataset.payrollFilterEmpty = 'true';
+    emptyRow.className = 'hidden';
+    emptyRow.innerHTML = `<td class="px-4 py-3 text-slate-500" colspan="${columnCount}">${emptyMessage}</td>`;
+    tbody.appendChild(emptyRow);
+  }
 
-    visibleRows.forEach((row, index) => {
-      const inPage = index >= (currentPage - 1) * pageSize && index < currentPage * pageSize;
-      row.classList.toggle('hidden', !inPage);
-    });
-
-    pageInfo.textContent = `Showing page ${currentPage} of ${totalPages} (${visibleRows.length} total)`;
-    prevButton.disabled = currentPage <= 1;
-    nextButton.disabled = currentPage >= totalPages;
+  const getPageSize = () => {
+    const value = Number(pageSizeSelect?.value || defaultPageSize);
+    return Number.isFinite(value) && value > 0 ? value : defaultPageSize;
   };
 
-  pageSizeSelect.addEventListener('change', () => {
+  const render = () => {
+    const query = String(searchInput?.value || '').trim().toLowerCase();
+    const filteredRows = rows.filter((row) => {
+      const searchText = String(row.getAttribute(searchAttr) || '').toLowerCase();
+      const searchMatch = query === '' || searchText.includes(query);
+      if (!searchMatch) {
+        return false;
+      }
+
+      return filterConfig.every(({ elementId, rowAttr }) => {
+        const element = document.getElementById(elementId);
+        const selected = String(element?.value || '').trim().toLowerCase();
+        if (selected === '') {
+          return true;
+        }
+
+        const rowValue = String(row.getAttribute(rowAttr) || '').toLowerCase();
+        return rowValue === selected;
+      });
+    });
+
+    const totalRows = filteredRows.length;
+    const pageSize = getPageSize();
+    const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+    currentPage = Math.min(Math.max(currentPage, 1), totalPages);
+
+    const startIndex = totalRows === 0 ? 0 : (currentPage - 1) * pageSize;
+    const endIndex = totalRows === 0 ? 0 : Math.min(startIndex + pageSize, totalRows);
+    const visibleRows = new Set(filteredRows.slice(startIndex, endIndex));
+
+    rows.forEach((row) => {
+      row.classList.toggle('hidden', !visibleRows.has(row));
+    });
+
+    emptyRow.classList.toggle('hidden', totalRows !== 0);
+
+    pageInfo.textContent = totalRows === 0
+      ? 'Showing 0 to 0 of 0 entries'
+      : `Showing ${startIndex + 1} to ${endIndex} of ${totalRows} entries`;
+    pageLabel.textContent = `Page ${totalRows === 0 ? 1 : currentPage} of ${totalRows === 0 ? 1 : totalPages}`;
+    prevButton.disabled = totalRows === 0 || currentPage <= 1;
+    nextButton.disabled = totalRows === 0 || currentPage >= totalPages;
+  };
+
+  const resetToFirstPage = () => {
+    if (!initialized) {
+      return;
+    }
+
     currentPage = 1;
     render();
+  };
+
+  searchInput?.addEventListener('input', resetToFirstPage);
+  filterConfig.forEach(({ elementId }) => {
+    document.getElementById(elementId)?.addEventListener('change', resetToFirstPage);
   });
+  pageSizeSelect?.addEventListener('change', resetToFirstPage);
+
   prevButton.addEventListener('click', () => {
+    if (!initialized || currentPage <= 1) {
+      return;
+    }
+
     currentPage -= 1;
     render();
   });
+
   nextButton.addEventListener('click', () => {
+    if (!initialized) {
+      return;
+    }
+
     currentPage += 1;
     render();
   });
 
-  const observer = new MutationObserver(() => {
-    currentPage = 1;
-    render();
-  });
-  rows.forEach((row) => observer.observe(row, { attributes: true, attributeFilter: ['style'] }));
+  const initialize = () => {
+    if (initialized) {
+      return;
+    }
 
-  render();
+    initialized = true;
+    render();
+  };
+
+  if (typeof window.IntersectionObserver !== 'function') {
+    initialize();
+    return;
+  }
+
+  const scope = table.closest('section') || table.parentElement || table;
+  const observer = new window.IntersectionObserver((entries) => {
+    if (!entries.some((entry) => entry.isIntersecting)) {
+      return;
+    }
+
+    observer.disconnect();
+    initialize();
+  }, {
+    rootMargin: '240px 0px',
+  });
+
+  observer.observe(scope);
 };
 
 const initBulkSelectionGroup = ({ selectAllId, rowSelector, buttonId }) => {
@@ -682,36 +785,75 @@ const initPayrollDatePickers = async () => {
 };
 
 const initPayrollTables = () => {
-  bindTableFilters({
+  initPaginatedFilterTable({
     tableId: 'payrollEmployeePickerTable',
+    rowSelector: 'tr[data-payroll-employee-picker-search]',
     searchInputId: 'payrollEmployeePickerSearch',
-    searchDataAttr: 'data-payroll-employee-picker-search',
-    statusFilterId: 'payrollEmployeePickerStatusFilter',
-    statusDataAttr: 'data-payroll-employee-picker-status',
+    searchAttr: 'data-payroll-employee-picker-search',
+    filterConfig: [
+      { elementId: 'payrollEmployeePickerStatusFilter', rowAttr: 'data-payroll-employee-picker-status' },
+    ],
+    pageInfoId: 'payrollEmployeePickerPaginationInfo',
+    pageLabelId: 'payrollEmployeePickerPageLabel',
+    prevButtonId: 'payrollEmployeePickerPrev',
+    nextButtonId: 'payrollEmployeePickerNext',
   });
 
-  bindTableFilters({
+  initPaginatedFilterTable({
     tableId: 'payrollSetupLogsTable',
+    rowSelector: 'tr[data-payroll-setup-log-search]',
     searchInputId: 'payrollSetupLogsSearch',
-    searchDataAttr: 'data-payroll-setup-log-search',
-    statusFilterId: 'payrollSetupLogsStatusFilter',
-    statusDataAttr: 'data-payroll-setup-log-status',
+    searchAttr: 'data-payroll-setup-log-search',
+    filterConfig: [
+      { elementId: 'payrollSetupLogsStatusFilter', rowAttr: 'data-payroll-setup-log-status' },
+    ],
+    pageInfoId: 'payrollSetupLogsPageInfo',
+    pageLabelId: 'payrollSetupLogsPageLabel',
+    prevButtonId: 'payrollSetupLogsPrev',
+    nextButtonId: 'payrollSetupLogsNext',
+    pageSizeSelectId: 'payrollSetupLogsPageSize',
   });
 
-  bindTableFilters({
+  initPaginatedFilterTable({
+    tableId: 'payrollPeriodsTable',
+    rowSelector: 'tr[data-payroll-period-search]',
+    searchInputId: 'payrollPeriodsSearch',
+    searchAttr: 'data-payroll-period-search',
+    filterConfig: [
+      { elementId: 'payrollPeriodsStatusFilter', rowAttr: 'data-payroll-period-status' },
+    ],
+    pageInfoId: 'payrollPeriodsPageInfo',
+    pageLabelId: 'payrollPeriodsPageLabel',
+    prevButtonId: 'payrollPeriodsPrev',
+    nextButtonId: 'payrollPeriodsNext',
+  });
+
+  initPaginatedFilterTable({
     tableId: 'payrollBatchesTable',
+    rowSelector: 'tr[data-payroll-batch-search]',
     searchInputId: 'payrollBatchesSearch',
-    searchDataAttr: 'data-payroll-batch-search',
-    statusFilterId: 'payrollBatchesStatusFilter',
-    statusDataAttr: 'data-payroll-batch-status',
+    searchAttr: 'data-payroll-batch-search',
+    filterConfig: [
+      { elementId: 'payrollBatchesStatusFilter', rowAttr: 'data-payroll-batch-status' },
+    ],
+    pageInfoId: 'payrollBatchesPageInfo',
+    pageLabelId: 'payrollBatchesPageLabel',
+    prevButtonId: 'payrollBatchesPrev',
+    nextButtonId: 'payrollBatchesNext',
   });
 
-  bindTableFilters({
+  initPaginatedFilterTable({
     tableId: 'payrollPayslipsTable',
+    rowSelector: 'tr[data-payroll-payslip-search]',
     searchInputId: 'payrollPayslipsSearch',
-    searchDataAttr: 'data-payroll-payslip-search',
-    statusFilterId: 'payrollPayslipsStatusFilter',
-    statusDataAttr: 'data-payroll-payslip-status',
+    searchAttr: 'data-payroll-payslip-search',
+    filterConfig: [
+      { elementId: 'payrollPayslipsStatusFilter', rowAttr: 'data-payroll-payslip-status' },
+    ],
+    pageInfoId: 'payrollPayslipsPageInfo',
+    pageLabelId: 'payrollPayslipsPageLabel',
+    prevButtonId: 'payrollPayslipsPrev',
+    nextButtonId: 'payrollPayslipsNext',
   });
 };
 
@@ -721,7 +863,6 @@ export default function initAdminPayrollManagementPage() {
   initStatusChangeConfirmations();
   initPayrollTables();
   initPayrollSalarySetup();
-  initSalarySetupLogsPagination();
   initPayrollBulkSelections();
   initPayrollBatchReviewModal();
   initPayrollGenerationSummary();

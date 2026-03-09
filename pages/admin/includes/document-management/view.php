@@ -15,6 +15,7 @@ $accountTypePill = static function (string $accountType): array {
     $key = strtolower(trim($accountType));
     return match ($key) {
         'employee' => ['Employee', 'bg-emerald-100 text-emerald-700'],
+        'staff' => ['Staff', 'bg-sky-100 text-sky-700'],
         'applicant' => ['Applicant', 'bg-amber-100 text-amber-700'],
         default => ['Unknown', 'bg-slate-100 text-slate-700'],
     };
@@ -58,13 +59,15 @@ foreach ($documentOwnerOptions as $owner) {
     }
 
     $email = trim((string)($owner['user']['email'] ?? ''));
-    $photoUrl = trim((string)($owner['profile_photo_url'] ?? ''));
+    $photoUrl = trim((string)($owner['resolved_profile_photo_url'] ?? $owner['profile_photo_url'] ?? ''));
+    $roleKey = strtolower(trim((string)($owner['role_key'] ?? '')));
 
     $ownerSearchDataset[] = [
         'id' => $ownerId,
         'name' => $ownerName,
         'email' => $email,
         'photo_url' => $photoUrl,
+        'role_key' => $roleKey,
     ];
 }
 ?>
@@ -114,7 +117,7 @@ foreach ($documentOwnerOptions as $owner) {
                 <button type="button" data-modal-close="adminUploadDocumentModal" class="text-slate-500 hover:text-slate-700">✕</button>
             </div>
 
-            <form action="document-management.php" method="POST" enctype="multipart/form-data" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm overflow-y-auto" id="adminUploadDocumentForm">
+            <form action="document-management.php" method="POST" enctype="multipart/form-data" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm overflow-y-auto" id="adminUploadDocumentForm" data-confirm-title="Upload this document?" data-confirm-text="This will upload the selected file to local storage and save it to the document registry." data-confirm-button-text="Upload document">
                 <input type="hidden" name="form_action" value="upload_document_file">
                 <script type="application/json" id="uploadOwnerDataset"><?= json_encode($ownerSearchDataset, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 
@@ -125,7 +128,7 @@ foreach ($documentOwnerOptions as $owner) {
                         <input type="hidden" name="owner_person_id" id="uploadOwnerPersonId" value="" required>
                         <div id="uploadOwnerResults" class="hidden absolute z-30 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg max-h-72 overflow-y-auto"></div>
                     </div>
-                    <p class="text-xs text-slate-500 mt-1">Search by name or email. Results include profile photo, name, and email.</p>
+                    <p class="text-xs text-slate-500 mt-1">Search by name or email. Results include all employee and staff accounts with profile photo, name, and email.</p>
                 </div>
 
                 <div>

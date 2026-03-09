@@ -11,7 +11,9 @@ $statusFilter = strtolower((string)(cleanText($_GET['status'] ?? null) ?? 'all')
 $applications = [];
 $selectedApplication = null;
 $applicationTimeline = [];
+$applicationTimelinePreview = [];
 $selectedInterviewSchedules = [];
+$selectedInterviewSchedulesPreview = [];
 
 $applicationStats = [
 	'total' => 0,
@@ -131,7 +133,7 @@ foreach ($rawApplications as $row) {
 		'updated_at' => cleanText($row['updated_at'] ?? null),
 		'job_id' => (string)($row['job_posting_id'] ?? ''),
 		'job_title' => (string)($jobRow['title'] ?? 'Untitled Position'),
-		'office_name' => (string)($officeRow['office_name'] ?? 'Office not specified'),
+		'office_name' => (string)($officeRow['office_name'] ?? 'Division not specified'),
 		'close_date' => cleanText($jobRow['close_date'] ?? null),
 		'has_feedback' => isset($feedbackByApplication[$applicationId]),
 		'feedback_decision' => (string)($feedbackByApplication[$applicationId]['decision'] ?? ''),
@@ -159,7 +161,7 @@ if ($selectedApplication !== null) {
 		$supabaseUrl
 		. '/rest/v1/application_status_history?select=id,old_status,new_status,notes,created_at'
 		. '&application_id=eq.' . rawurlencode((string)$selectedApplication['id'])
-		. '&order=created_at.asc&limit=200',
+		. '&order=created_at.desc&limit=200',
 		$headers
 	);
 
@@ -182,6 +184,8 @@ if ($selectedApplication !== null) {
 			'created_at' => cleanText($selectedApplication['submitted_at'] ?? null),
 		];
 	}
+
+	$applicationTimelinePreview = array_slice($applicationTimeline, 0, 3);
 
 	$interviewResponse = apiRequest(
 		'GET',
@@ -222,7 +226,7 @@ if ($selectedApplication !== null) {
 				'id' => (string)($interviewRow['id'] ?? ''),
 				'stage' => ucfirst((string)($interviewRow['interview_stage'] ?? 'Interview')),
 				'scheduled_at' => $scheduledAt,
-				'scheduled_display' => $scheduledAt ? date('M j, Y g:i A', strtotime((string)$scheduledAt)) : '-',
+				'scheduled_display' => $scheduledAt ? formatDateTimeForPhilippines((string)$scheduledAt, 'M j, Y g:i A') . ' PST' : '-',
 				'interviewer' => (string)($interviewer['email'] ?? (string)($interviewRow['interviewer_user_id'] ?? '-')),
 				'location' => $modeLabel,
 				'status' => $statusLabel,
@@ -231,6 +235,8 @@ if ($selectedApplication !== null) {
 			];
 		}
 	}
+
+	$selectedInterviewSchedulesPreview = array_slice($selectedInterviewSchedules, 0, 3);
 }
 
 $statusMeta = [

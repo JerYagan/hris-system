@@ -137,7 +137,7 @@ if (!function_exists('staffPayrollGeneratePayslipDocument')) {
         $allowancesTotal = (float)($payload['allowances_total'] ?? 0);
         $earningsLines = is_array($payload['earnings_lines'] ?? null) ? (array)$payload['earnings_lines'] : [];
         $deductionLines = is_array($payload['deduction_lines'] ?? null) ? (array)$payload['deduction_lines'] : [];
-        $generatedAt = gmdate('Y-m-d H:i:s') . ' UTC';
+        $generatedAt = hrisEmailFormatPhilippinesDateTime(gmdate('c'));
 
         $exportsDir = $projectRoot . '/storage/payslips';
         staffPayrollEnsureDirectory($exportsDir);
@@ -270,13 +270,16 @@ if (!function_exists('staffSmtpSendEmailWithAttachment')) {
                 $mailer->SMTPAutoTLS = false;
             }
 
+            $renderedHtmlContent = hrisEmailDecorateHtml($subject, $htmlContent, $fromName);
+            $plainTextContent = hrisEmailBuildPlainText($renderedHtmlContent);
+
             $mailer->CharSet = 'UTF-8';
             $mailer->setFrom($fromEmail, $fromName !== '' ? $fromName : $fromEmail);
             $mailer->addAddress($toEmail, $toName !== '' ? $toName : $toEmail);
             $mailer->isHTML(true);
             $mailer->Subject = $subject;
-            $mailer->Body = $htmlContent;
-            $mailer->AltBody = trim(strip_tags(str_replace(['<br>', '<br/>', '<br />'], "\n", $htmlContent)));
+            $mailer->Body = $renderedHtmlContent;
+            $mailer->AltBody = $plainTextContent;
 
             $mailer->addAttachment($attachmentPath, $attachmentName !== '' ? $attachmentName : basename($attachmentPath));
 

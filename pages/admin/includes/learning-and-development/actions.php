@@ -234,8 +234,7 @@ if ($action === 'create_training') {
     $notificationsFailed = 0;
 
     if (!empty($participantIdsList)) {
-        $scheduleDateLabel = date('M d, Y', strtotime($scheduleDate));
-        $scheduleTimeLabel = date('h:i A', strtotime('1970-01-01 ' . $scheduleTime));
+        $scheduleLabel = hrisEmailFormatPhilippinesLocalDateTime($scheduleDate, $scheduleTime);
         $notificationRows = [];
 
         foreach ($participantIdsList as $participantId) {
@@ -253,7 +252,7 @@ if ($action === 'create_training') {
                 'recipient_user_id' => $recipientUserId,
                 'category' => 'learning_and_development',
                 'title' => 'New Training Schedule',
-                'body' => 'You are enrolled in ' . $trainingType . ' (' . $trainingCategory . '). Schedule: ' . $scheduleDateLabel . ' at ' . $scheduleTimeLabel . ' PST. Provider: ' . $provider . '. Venue: ' . $venue . '. Mode: ' . ucfirst($mode) . '.',
+                'body' => 'You are enrolled in ' . $trainingType . ' (' . $trainingCategory . '). Schedule: ' . $scheduleLabel . '. Provider: ' . $provider . '. Venue: ' . $venue . '. Mode: ' . ucfirst($mode) . '.',
                 'link_url' => '/hris-system/pages/employee/notifications.php',
             ];
         }
@@ -280,8 +279,7 @@ if ($action === 'create_training') {
 
     $emailReady = smtpConfigIsReady($smtpConfig, $mailFrom);
     if ($emailReady && !empty($participantIdsList)) {
-        $scheduleDateLabel = date('M d, Y', strtotime($scheduleDate));
-        $scheduleTimeLabel = date('h:i A', strtotime('1970-01-01 ' . $scheduleTime));
+        $scheduleLabel = hrisEmailFormatPhilippinesLocalDateTime($scheduleDate, $scheduleTime);
 
         foreach ($participantIdsList as $participantId) {
             $person = $peopleById[$participantId] ?? null;
@@ -309,7 +307,7 @@ if ($action === 'create_training') {
                 . '<p>You have been enrolled in a training session.</p>'
                 . '<p><strong>Type:</strong> ' . htmlspecialchars($trainingType, ENT_QUOTES, 'UTF-8') . '<br>'
                 . '<strong>Category:</strong> ' . htmlspecialchars($trainingCategory, ENT_QUOTES, 'UTF-8') . '<br>'
-                . '<strong>Schedule:</strong> ' . htmlspecialchars($scheduleDateLabel . ' ' . $scheduleTimeLabel, ENT_QUOTES, 'UTF-8') . '<br>'
+                . '<strong>Schedule:</strong> ' . htmlspecialchars($scheduleLabel, ENT_QUOTES, 'UTF-8') . '<br>'
                 . '<strong>Provider:</strong> ' . htmlspecialchars($provider, ENT_QUOTES, 'UTF-8') . '<br>'
                 . '<strong>Venue:</strong> ' . htmlspecialchars($venue, ENT_QUOTES, 'UTF-8') . '<br>'
                 . '<strong>Mode:</strong> ' . htmlspecialchars(ucfirst($mode), ENT_QUOTES, 'UTF-8') . '</p>'
@@ -361,8 +359,7 @@ if ($action === 'create_training') {
     }
 
     if (!empty($staffRecipientUserIds)) {
-        $scheduleDateLabel = date('M d, Y', strtotime($scheduleDate));
-        $scheduleTimeLabel = date('h:i A', strtotime('1970-01-01 ' . $scheduleTime));
+        $scheduleLabel = hrisEmailFormatPhilippinesLocalDateTime($scheduleDate, $scheduleTime);
         $advanceNotificationRows = [];
 
         foreach (array_values($staffRecipientUserIds) as $recipientUserId) {
@@ -370,7 +367,7 @@ if ($action === 'create_training') {
                 'recipient_user_id' => $recipientUserId,
                 'category' => 'learning_and_development',
                 'title' => 'New Training Schedule Created',
-                'body' => $title . ' scheduled on ' . $scheduleDateLabel . ' at ' . $scheduleTimeLabel . ' (' . ucfirst($mode) . ') by ' . $provider . '. Enrollment is managed by Admin; please monitor attendance updates in Staff L&D.',
+                'body' => $title . ' scheduled on ' . $scheduleLabel . ' (' . ucfirst($mode) . ') by ' . $provider . '. Enrollment is managed by Admin; please monitor attendance updates in Staff L&D.',
                 'link_url' => '/hris-system/pages/staff/learning-development.php',
             ];
         }

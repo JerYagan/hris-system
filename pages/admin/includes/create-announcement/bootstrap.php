@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../lib/admin-backend.php';
+require_once __DIR__ . '/../lib/announcements.php';
 require_once __DIR__ . '/../notifications/email.php';
 
 if (!function_exists('resolveSmtpMailConfig')) {

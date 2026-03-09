@@ -16,6 +16,176 @@
     const topnav = document.getElementById('topnav');
     const categoryToggles = document.querySelectorAll('[data-cat-toggle]');
 
+    const formatPhilippinesDateTime = (value, options = {}) => {
+      const date = value instanceof Date ? value : new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return '-';
+      }
+
+      return new Intl.DateTimeFormat('en-PH', {
+        timeZone: 'Asia/Manila',
+        ...options
+      }).format(date);
+    };
+
+    let fallbackDialogElements = null;
+
+    const getFallbackDialogElements = () => {
+      if (fallbackDialogElements) {
+        return fallbackDialogElements;
+      }
+
+      const container = document.createElement('div');
+      container.className = 'fixed inset-0 z-[120] hidden items-center justify-center bg-slate-950/55 px-4';
+      container.setAttribute('data-admin-fallback-dialog', 'true');
+      container.innerHTML = `
+        <div class="w-full max-w-md rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200">
+          <div class="border-b border-slate-200 px-6 py-4">
+            <h3 class="text-lg font-semibold text-slate-900" data-dialog-title></h3>
+          </div>
+          <div class="px-6 py-4">
+            <p class="text-sm leading-6 text-slate-600" data-dialog-text></p>
+          </div>
+          <div class="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4">
+            <button type="button" class="hidden rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50" data-dialog-cancel>Cancel</button>
+            <button type="button" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90" data-dialog-confirm>Confirm</button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(container);
+      fallbackDialogElements = {
+        container,
+        title: container.querySelector('[data-dialog-title]'),
+        text: container.querySelector('[data-dialog-text]'),
+        cancel: container.querySelector('[data-dialog-cancel]'),
+        confirm: container.querySelector('[data-dialog-confirm]')
+      };
+
+      return fallbackDialogElements;
+    };
+
+    const showFallbackDialog = (config = {}) => new Promise((resolve) => {
+      const dialog = getFallbackDialogElements();
+      const title = config.title || 'Proceed with this action?';
+      const text = config.text || '';
+      const confirmLabel = config.confirmButtonText || 'Confirm';
+      const cancelLabel = config.cancelButtonText || 'Cancel';
+      const tone = (config.intent || 'default').trim().toLowerCase();
+      const showCancelButton = config.showCancelButton !== false;
+
+      dialog.title.textContent = title;
+      dialog.text.textContent = text;
+      dialog.text.classList.toggle('hidden', !text);
+      dialog.confirm.textContent = confirmLabel;
+      dialog.cancel.textContent = cancelLabel;
+      dialog.cancel.classList.toggle('hidden', !showCancelButton);
+
+      dialog.confirm.className = 'rounded-lg px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90';
+      if (tone === 'danger') {
+        dialog.confirm.classList.add('bg-rose-700');
+      } else if (tone === 'success') {
+        dialog.confirm.classList.add('bg-emerald-600');
+      } else if (tone === 'warning') {
+        dialog.confirm.classList.add('bg-amber-600');
+      } else {
+        dialog.confirm.classList.add('bg-slate-900');
+      }
+
+      dialog.container.classList.remove('hidden');
+      dialog.container.classList.add('flex');
+      document.body.classList.add('overflow-hidden');
+
+      let settled = false;
+
+      const cleanup = (confirmed) => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        dialog.container.classList.add('hidden');
+        dialog.container.classList.remove('flex');
+        document.body.classList.remove('overflow-hidden');
+        dialog.confirm.removeEventListener('click', handleConfirm);
+        dialog.cancel.removeEventListener('click', handleCancel);
+        dialog.container.removeEventListener('click', handleBackdropClick);
+        document.removeEventListener('keydown', handleKeydown);
+        resolve(confirmed);
+      };
+
+      const handleConfirm = () => cleanup(true);
+      const handleCancel = () => cleanup(false);
+      const handleBackdropClick = (event) => {
+        if (event.target === dialog.container && showCancelButton) {
+          cleanup(false);
+        }
+      };
+      const handleKeydown = (event) => {
+        if (event.key === 'Escape' && showCancelButton) {
+          cleanup(false);
+        }
+      };
+
+      dialog.confirm.addEventListener('click', handleConfirm);
+      dialog.cancel.addEventListener('click', handleCancel);
+      dialog.container.addEventListener('click', handleBackdropClick);
+      document.addEventListener('keydown', handleKeydown);
+      window.setTimeout(() => dialog.confirm.focus(), 0);
+    });
+
+    const showAdminAlertDialog = (config = {}) => {
+      if (window.Swal && typeof window.Swal.fire === 'function') {
+        return window.Swal.fire({
+          icon: config.icon || 'info',
+          title: config.title || 'Notice',
+          text: config.text || '',
+          confirmButtonText: config.confirmButtonText || 'OK',
+          confirmButtonColor: config.confirmButtonColor || '#0f172a'
+        });
+      }
+
+      return showFallbackDialog({
+        title: config.title || 'Notice',
+        text: config.text || '',
+        confirmButtonText: config.confirmButtonText || 'OK',
+        showCancelButton: false,
+        intent: config.intent || 'default'
+      });
+    };
+
+    const showAdminConfirmDialog = (config, onConfirm) => {
+      if (window.Swal && typeof window.Swal.fire === 'function') {
+        window.Swal.fire({
+          icon: config.icon || 'warning',
+          title: config.title || 'Proceed with this action?',
+          text: config.text || 'This action will update record status.',
+          showCancelButton: true,
+          confirmButtonText: config.confirmButtonText || 'Confirm',
+          cancelButtonText: config.cancelButtonText || 'Cancel',
+          confirmButtonColor: config.confirmButtonColor || '#0f172a'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            onConfirm();
+          }
+        });
+        return;
+      }
+
+      showFallbackDialog({
+        title: config.title,
+        text: config.text,
+        confirmButtonText: config.confirmButtonText,
+        cancelButtonText: config.cancelButtonText,
+        showCancelButton: true,
+        intent: config.intent || 'default'
+      }).then((confirmed) => {
+        if (confirmed) {
+          onConfirm();
+        }
+      });
+    };
+
     let isOpen = false;
     const closeProfileMenu = () => {
       if (profileMenu && !profileMenu.classList.contains('hidden')) {
@@ -383,6 +553,8 @@
         }
 
         if (table.id === 'adminApplicantsTable') {
+          dataTableOptions.pageLength = 10;
+          dataTableOptions.lengthMenu = [10, 25, 50, 100];
           dataTableOptions.order = [[2, 'desc']];
           dataTableOptions.columnDefs = [
             { targets: [5], orderable: false, searchable: false }
@@ -1408,6 +1580,11 @@
     const adminApplicantsTable = document.getElementById('adminApplicantsTable');
     const adminApplicantsSearch = document.getElementById('adminApplicantsSearch');
     const adminApplicantsStatus = document.getElementById('adminApplicantsStatusFilter');
+    const adminApplicantsFilterEmpty = document.getElementById('adminApplicantsFilterEmpty');
+    const adminApplicantsPrevPage = document.getElementById('adminApplicantsPrevPage');
+    const adminApplicantsNextPage = document.getElementById('adminApplicantsNextPage');
+    const adminApplicantsPageLabel = document.getElementById('adminApplicantsPageLabel');
+    const adminApplicantsPaginationInfo = document.getElementById('adminApplicantsPaginationInfo');
     const adminRecommendationTable = document.getElementById('adminRecommendationTable');
     const adminRecommendationSearch = document.getElementById('adminRecommendationSearch');
     const adminRecommendationAlignmentFilter = document.getElementById('adminRecommendationAlignmentFilter');
@@ -1732,25 +1909,78 @@
       adminApplicantsTable
       && adminApplicantsSearch
       && adminApplicantsStatus
+      && adminApplicantsPrevPage
+      && adminApplicantsNextPage
+      && adminApplicantsPageLabel
+      && adminApplicantsPaginationInfo
       && adminApplicantsTable.dataset.datatableInitialized !== 'true'
     ) {
+      const pageSize = 10;
       const adminApplicantRows = Array.from(adminApplicantsTable.querySelectorAll('tbody tr')).filter((row) => !row.querySelector('td[colspan]'));
+      let adminApplicantsCurrentPage = 1;
 
       const applyPlainApplicantsFilter = () => {
         const searchText = (adminApplicantsSearch.value || '').trim().toLowerCase();
         const selectedStatus = (adminApplicantsStatus.value || '').trim().toLowerCase();
 
-        adminApplicantRows.forEach((row) => {
+        const filteredRows = adminApplicantRows.filter((row) => {
           const rowSearch = (row.getAttribute('data-applicants-search') || '').toLowerCase();
           const rowStatus = (row.getAttribute('data-applicants-status') || '').toLowerCase();
           const matchesSearch = !searchText || rowSearch.includes(searchText);
           const matchesStatus = !selectedStatus || rowStatus === selectedStatus;
-          row.classList.toggle('hidden', !(matchesSearch && matchesStatus));
+          return matchesSearch && matchesStatus;
         });
+
+        const totalRows = filteredRows.length;
+        const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+        if (adminApplicantsCurrentPage > totalPages) {
+          adminApplicantsCurrentPage = totalPages;
+        }
+        if (adminApplicantsCurrentPage < 1) {
+          adminApplicantsCurrentPage = 1;
+        }
+
+        const startIndex = totalRows === 0 ? 0 : (adminApplicantsCurrentPage - 1) * pageSize;
+        const endIndex = totalRows === 0 ? 0 : Math.min(startIndex + pageSize, totalRows);
+        const visibleRows = new Set(filteredRows.slice(startIndex, endIndex));
+
+        adminApplicantRows.forEach((row) => {
+          row.classList.toggle('hidden', !visibleRows.has(row));
+        });
+
+        if (adminApplicantsFilterEmpty) {
+          adminApplicantsFilterEmpty.classList.toggle('hidden', totalRows !== 0);
+        }
+
+        adminApplicantsPaginationInfo.textContent = totalRows === 0
+          ? 'Showing 0 to 0 of 0 entries'
+          : `Showing ${startIndex + 1} to ${endIndex} of ${totalRows} entries`;
+        adminApplicantsPageLabel.textContent = `Page ${totalRows === 0 ? 1 : adminApplicantsCurrentPage} of ${totalRows === 0 ? 1 : totalPages}`;
+        adminApplicantsPrevPage.disabled = totalRows === 0 || adminApplicantsCurrentPage <= 1;
+        adminApplicantsNextPage.disabled = totalRows === 0 || adminApplicantsCurrentPage >= totalPages;
       };
 
-      adminApplicantsSearch.addEventListener('input', applyPlainApplicantsFilter);
-      adminApplicantsStatus.addEventListener('change', applyPlainApplicantsFilter);
+      adminApplicantsSearch.addEventListener('input', () => {
+        adminApplicantsCurrentPage = 1;
+        applyPlainApplicantsFilter();
+      });
+      adminApplicantsStatus.addEventListener('change', () => {
+        adminApplicantsCurrentPage = 1;
+        applyPlainApplicantsFilter();
+      });
+      adminApplicantsPrevPage.addEventListener('click', () => {
+        if (adminApplicantsCurrentPage > 1) {
+          adminApplicantsCurrentPage -= 1;
+          applyPlainApplicantsFilter();
+        }
+      });
+      adminApplicantsNextPage.addEventListener('click', () => {
+        adminApplicantsCurrentPage += 1;
+        applyPlainApplicantsFilter();
+      });
+
+      applyPlainApplicantsFilter();
+      adminApplicantsTable.dataset.datatableInitialized = 'true';
     }
 
     if (
@@ -2197,7 +2427,7 @@
           </head>
           <body>
             <h1>${title}</h1>
-            <div class="meta">Generated on ${new Date().toLocaleString()}</div>
+            <div class="meta">Generated on ${formatPhilippinesDateTime(new Date(), { month: 'short', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} PST</div>
             <table>
               <thead><tr>${headerHtml}</tr></thead>
               <tbody>${bodyHtml}</tbody>
@@ -2643,26 +2873,15 @@
 
           const submitBulkDelete = () => payrollBulkDeleteSetupForm.submit();
 
-          if (typeof window.Swal !== 'undefined') {
-            window.Swal.fire({
-              icon: 'warning',
-              title: 'Delete selected salary setups?',
-              text: `This will delete ${selectedCount} selected setup${selectedCount === 1 ? '' : 's'} and recalculate compensation timelines.`,
-              showCancelButton: true,
-              confirmButtonText: 'Delete selected',
-              cancelButtonText: 'Cancel',
-              confirmButtonColor: '#be123c'
-            }).then((result) => {
-              if (result.isConfirmed) {
-                submitBulkDelete();
-              }
-            });
-            return;
-          }
-
-          if (window.confirm(`Delete ${selectedCount} selected salary setup${selectedCount === 1 ? '' : 's'}?`)) {
-            submitBulkDelete();
-          }
+          showAdminConfirmDialog({
+            icon: 'warning',
+            title: 'Delete selected salary setups?',
+            text: `This will delete ${selectedCount} selected setup${selectedCount === 1 ? '' : 's'} and recalculate compensation timelines.`,
+            confirmButtonText: 'Delete selected',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#be123c',
+            intent: 'danger'
+          }, submitBulkDelete);
         });
       }
 
@@ -3024,6 +3243,9 @@
 
     const scheduleApplicationId = document.getElementById('scheduleApplicationId');
     const scheduleApplicantName = document.getElementById('scheduleApplicantName');
+    const scheduleInterviewForm = document.getElementById('scheduleInterviewForm');
+    const scheduleInterviewDate = document.getElementById('scheduleInterviewDate');
+    const scheduleInterviewTime = document.getElementById('scheduleInterviewTime');
     const statusApplicationId = document.getElementById('statusApplicationId');
     const statusApplicantName = document.getElementById('statusApplicantName');
     const statusCurrentStatus = document.getElementById('statusCurrentStatus');
@@ -3427,23 +3649,20 @@
             .replace(/'/g, '&#39;');
 
           if (docs.length === 0) {
-            applicantDocumentsBody.innerHTML = '<tr><td class="px-3 py-3 text-slate-500" colspan="5">No submitted documents found.</td></tr>';
+            applicantDocumentsBody.innerHTML = '<tr><td class="px-3 py-3 text-slate-500" colspan="3">No submitted documents found.</td></tr>';
           } else {
             applicantDocumentsBody.innerHTML = docs.slice(0, 20).map((doc) => {
-              const label = escapeValue(doc && doc.type ? String(doc.type).replace(/_/g, ' ') : 'Document');
               const fileName = escapeValue(doc && doc.name ? String(doc.name) : '-');
               const uploadedLabel = escapeValue(doc && doc.uploaded_label ? String(doc.uploaded_label) : '-');
-              const statusLabel = escapeValue(doc && doc.status_label ? String(doc.status_label) : 'Pending');
-              const statusClass = (doc && doc.status_class ? String(doc.status_class) : 'bg-amber-100 text-amber-800').trim();
               const fileUrl = (doc && doc.url ? String(doc.url) : '').trim();
               const downloadUrl = (doc && doc.download_url ? String(doc.download_url) : fileUrl).trim();
               if (fileUrl !== '') {
                 const downloadButton = downloadUrl !== ''
                   ? `<a href="${escapeValue(downloadUrl)}" download class="px-2 py-1 text-xs rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">Download</a>`
                   : '';
-                return `<tr><td class="px-3 py-2 text-slate-700">${label}</td><td class="px-3 py-2 text-slate-700">${fileName}</td><td class="px-3 py-2 text-slate-700">${uploadedLabel}</td><td class="px-3 py-2"><span class="inline-flex px-2 py-1 text-xs rounded-full ${statusClass}">${statusLabel}</span></td><td class="px-3 py-2"><div class="inline-flex items-center gap-1"><a href="${escapeValue(fileUrl)}" target="_blank" rel="noopener noreferrer" class="px-2 py-1 text-xs rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">View</a>${downloadButton}</div></td></tr>`;
+                return `<tr><td class="px-3 py-2 text-slate-700">${fileName}</td><td class="px-3 py-2 text-slate-700">${uploadedLabel}</td><td class="px-3 py-2"><div class="inline-flex items-center gap-1"><a href="${escapeValue(fileUrl)}" target="_blank" rel="noopener noreferrer" class="px-2 py-1 text-xs rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">View</a>${downloadButton}</div></td></tr>`;
               }
-              return `<tr><td class="px-3 py-2 text-slate-700">${label}</td><td class="px-3 py-2 text-slate-700">${fileName}</td><td class="px-3 py-2 text-slate-700">${uploadedLabel}</td><td class="px-3 py-2"><span class="inline-flex px-2 py-1 text-xs rounded-full ${statusClass}">${statusLabel}</span></td><td class="px-3 py-2"><span class="text-xs text-slate-500">File unavailable</span></td></tr>`;
+              return `<tr><td class="px-3 py-2 text-slate-700">${fileName}</td><td class="px-3 py-2 text-slate-700">${uploadedLabel}</td><td class="px-3 py-2"><span class="text-xs text-slate-500">File unavailable</span></td></tr>`;
             }).join('');
           }
         }
@@ -3781,6 +4000,71 @@
         openModal('scheduleInterviewModal');
       });
     });
+
+    if (scheduleInterviewTime && window.flatpickr) {
+      window.flatpickr(scheduleInterviewTime, {
+        enableTime: true,
+        noCalendar: true,
+        dateFormat: 'H:i',
+        altInput: true,
+        altFormat: 'h:i K',
+        time_24hr: false,
+        minuteIncrement: 5,
+        allowInput: false
+      });
+    }
+
+    if (scheduleInterviewForm) {
+      scheduleInterviewForm.addEventListener('submit', (event) => {
+        if (scheduleInterviewForm.dataset.confirmedSubmit === 'true') {
+          scheduleInterviewForm.dataset.confirmedSubmit = 'false';
+          return;
+        }
+
+        if (!scheduleInterviewForm.reportValidity()) {
+          return;
+        }
+
+        event.preventDefault();
+
+        const applicantName = (scheduleApplicantName?.value || 'this applicant').trim() || 'this applicant';
+        const interviewDate = (scheduleInterviewDate?.value || '').trim();
+        const interviewTimeLabel = (scheduleInterviewTime?._flatpickr?.altInput?.value || scheduleInterviewTime?.value || '').trim();
+        const summaryParts = [];
+
+        if (interviewDate) {
+          summaryParts.push(interviewDate);
+        }
+        if (interviewTimeLabel) {
+          summaryParts.push(interviewTimeLabel);
+        }
+
+        if (window.Swal) {
+          window.Swal.fire({
+            icon: 'question',
+            title: 'Save interview schedule?',
+            text: summaryParts.length > 0
+              ? `Schedule ${applicantName} on ${summaryParts.join(' at ')}?`
+              : `Schedule ${applicantName} now?`,
+            showCancelButton: true,
+            confirmButtonText: 'Save Schedule',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#0f172a'
+          }).then((result) => {
+            if (!result.isConfirmed) {
+              return;
+            }
+
+            scheduleInterviewForm.dataset.confirmedSubmit = 'true';
+            scheduleInterviewForm.requestSubmit();
+          });
+          return;
+        }
+
+        scheduleInterviewForm.dataset.confirmedSubmit = 'true';
+        scheduleInterviewForm.requestSubmit();
+      });
+    }
 
     document.querySelectorAll('[data-track-status-update]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -4247,16 +4531,12 @@
         const selectedPeriodLabel = selectedOption ? (selectedOption.text || '').trim() : '';
 
         if (!selectedPeriodId) {
-          if (typeof window.Swal !== 'undefined') {
-            window.Swal.fire({
-              icon: 'warning',
-              title: 'Payroll period required',
-              text: 'Please select a payroll period before reviewing summary.',
-              confirmButtonColor: '#0f172a'
-            });
-          } else {
-            window.alert('Please select a payroll period before reviewing summary.');
-          }
+          showAdminAlertDialog({
+            icon: 'warning',
+            title: 'Payroll period required',
+            text: 'Please select a payroll period before reviewing summary.',
+            confirmButtonColor: '#0f172a'
+          });
           generatePayrollPeriod.focus();
           return;
         }
@@ -5313,26 +5593,15 @@
           personalInfoEligibilityDeleteForm.requestSubmit();
         };
 
-        if (window.Swal) {
-          Swal.fire({
-            icon: 'warning',
-            title: 'Delete eligibility record?',
-            text: 'This action cannot be undone.',
-            showCancelButton: true,
-            confirmButtonText: 'Delete',
-            cancelButtonText: 'Cancel',
-            confirmButtonColor: '#be123c'
-          }).then((result) => {
-            if (result.isConfirmed) {
-              submitDelete();
-            }
-          });
-          return;
-        }
-
-        if (window.confirm('Delete this eligibility record?')) {
-          submitDelete();
-        }
+        showAdminConfirmDialog({
+          icon: 'warning',
+          title: 'Delete eligibility record?',
+          text: 'This action cannot be undone.',
+          confirmButtonText: 'Delete',
+          cancelButtonText: 'Cancel',
+          confirmButtonColor: '#be123c',
+          intent: 'danger'
+        }, submitDelete);
       });
 
       personalInfoEligibilityResetButton?.addEventListener('click', () => {
@@ -5525,26 +5794,15 @@
           personalInfoWorkExperienceDeleteForm.requestSubmit();
         };
 
-        if (window.Swal) {
-          Swal.fire({
-            icon: 'warning',
-            title: 'Delete work experience record?',
-            text: 'This action cannot be undone.',
-            showCancelButton: true,
-            confirmButtonText: 'Delete',
-            cancelButtonText: 'Cancel',
-            confirmButtonColor: '#be123c'
-          }).then((result) => {
-            if (result.isConfirmed) {
-              submitDelete();
-            }
-          });
-          return;
-        }
-
-        if (window.confirm('Delete this work experience record?')) {
-          submitDelete();
-        }
+        showAdminConfirmDialog({
+          icon: 'warning',
+          title: 'Delete work experience record?',
+          text: 'This action cannot be undone.',
+          confirmButtonText: 'Delete',
+          cancelButtonText: 'Cancel',
+          confirmButtonColor: '#be123c',
+          intent: 'danger'
+        }, submitDelete);
       });
 
       personalInfoWorkExperienceResetButton?.addEventListener('click', () => {
@@ -5623,26 +5881,15 @@
           personalInfoArchiveForm.requestSubmit();
         };
 
-        if (window.Swal) {
-          Swal.fire({
-            icon: 'warning',
-            title: 'Archive employee profile?',
-            text: `${employeeName} will be marked as archived and removed from active employment records.`,
-            showCancelButton: true,
-            confirmButtonText: 'Yes, archive',
-            cancelButtonText: 'Cancel',
-            confirmButtonColor: '#be123c'
-          }).then((result) => {
-            if (result.isConfirmed) {
-              submitArchive();
-            }
-          });
-          return;
-        }
-
-        if (window.confirm(`Archive ${employeeName}?`)) {
-          submitArchive();
-        }
+        showAdminConfirmDialog({
+          icon: 'warning',
+          title: 'Archive employee profile?',
+          text: `${employeeName} will be marked as archived and removed from active employment records.`,
+          confirmButtonText: 'Yes, archive',
+          cancelButtonText: 'Cancel',
+          confirmButtonColor: '#be123c',
+          intent: 'danger'
+        }, submitArchive);
       });
     });
 
@@ -5723,28 +5970,17 @@
         personalInfoMergeForm.requestSubmit();
       };
 
-      if (window.Swal) {
-        Swal.fire({
-          icon: 'warning',
-          title: mode === 'merge' ? 'Merge duplicate profile?' : 'Archive duplicate profile?',
-          text: mode === 'merge'
-            ? `${sourceName} will be merged and archived as duplicate.`
-            : `${sourceName} will be archived as duplicate without merge.`,
-          showCancelButton: true,
-          confirmButtonColor: '#b45309',
-          confirmButtonText: mode === 'merge' ? 'Yes, merge' : 'Yes, archive duplicate',
-          cancelButtonText: 'Cancel'
-        }).then((result) => {
-          if (result.isConfirmed) {
-            submitResolution();
-          }
-        });
-        return;
-      }
-
-      if (window.confirm(mode === 'merge' ? `Merge duplicate profile for ${sourceName}?` : `Archive duplicate profile for ${sourceName}?`)) {
-        submitResolution();
-      }
+      showAdminConfirmDialog({
+        icon: 'warning',
+        title: mode === 'merge' ? 'Merge duplicate profile?' : 'Archive duplicate profile?',
+        text: mode === 'merge'
+          ? `${sourceName} will be merged and archived as duplicate.`
+          : `${sourceName} will be archived as duplicate without merge.`,
+        confirmButtonColor: '#b45309',
+        confirmButtonText: mode === 'merge' ? 'Yes, merge' : 'Yes, archive duplicate',
+        cancelButtonText: 'Cancel',
+        intent: 'warning'
+      }, submitResolution);
     });
 
     const escapeReviewHtml = (value) => String(value || '')
@@ -5883,28 +6119,17 @@
         recommendationReviewForm.submit();
       };
 
-      if (window.Swal) {
-        Swal.fire({
-          icon: 'warning',
-          title: decisionValue === 'reject' ? 'Reject recommendation?' : 'Approve recommendation?',
-          text: decisionValue === 'reject'
-            ? 'The submitted recommendation will be rejected.'
-            : 'The submitted recommendation will be approved and applied to the employee record.',
-          showCancelButton: true,
-          confirmButtonText: decisionValue === 'reject' ? 'Yes, reject' : 'Yes, approve',
-          cancelButtonText: 'Cancel',
-          confirmButtonColor: decisionValue === 'reject' ? '#be123c' : '#0f766e'
-        }).then((result) => {
-          if (result.isConfirmed) {
-            submitDecision();
-          }
-        });
-        return;
-      }
-
-      if (window.confirm(decisionValue === 'reject' ? 'Reject this recommendation?' : 'Approve this recommendation?')) {
-        submitDecision();
-      }
+      showAdminConfirmDialog({
+        icon: 'warning',
+        title: decisionValue === 'reject' ? 'Reject recommendation?' : 'Approve recommendation?',
+        text: decisionValue === 'reject'
+          ? 'The submitted recommendation will be rejected.'
+          : 'The submitted recommendation will be approved and applied to the employee record.',
+        confirmButtonText: decisionValue === 'reject' ? 'Yes, reject' : 'Yes, approve',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: decisionValue === 'reject' ? '#be123c' : '#0f766e',
+        intent: decisionValue === 'reject' ? 'danger' : 'success'
+      }, submitDecision);
     });
 
     if (payrollEmployeeSearch && payrollEmployeeOptions && payrollSelectedPersonId) {
@@ -6076,24 +6301,15 @@
 
         const submitDelete = () => form.submit();
 
-        if (typeof window.Swal !== 'undefined') {
-          window.Swal.fire({
-            icon: 'warning',
-            title: 'Delete salary setup?',
-            text: 'This removes the selected setup and recalculates the compensation timeline.',
-            showCancelButton: true,
-            confirmButtonText: 'Delete',
-            cancelButtonText: 'Cancel',
-            confirmButtonColor: '#be123c'
-          }).then((result) => {
-            if (result.isConfirmed) submitDelete();
-          });
-          return;
-        }
-
-        if (window.confirm('Delete selected salary setup?')) {
-          submitDelete();
-        }
+        showAdminConfirmDialog({
+          icon: 'warning',
+          title: 'Delete salary setup?',
+          text: 'This removes the selected setup and recalculates the compensation timeline.',
+          confirmButtonText: 'Delete',
+          cancelButtonText: 'Cancel',
+          confirmButtonColor: '#be123c',
+          intent: 'danger'
+        }, submitDelete);
       });
     });
 
@@ -6105,24 +6321,15 @@
 
         const submitDelete = () => form.submit();
 
-        if (typeof window.Swal !== 'undefined') {
-          window.Swal.fire({
-            icon: 'warning',
-            title: 'Delete payroll batch?',
-            text: 'This will remove the payroll run and all generated payroll items under it.',
-            showCancelButton: true,
-            confirmButtonText: 'Delete batch',
-            cancelButtonText: 'Cancel',
-            confirmButtonColor: '#be123c'
-          }).then((result) => {
-            if (result.isConfirmed) submitDelete();
-          });
-          return;
-        }
-
-        if (window.confirm('Delete selected payroll batch?')) {
-          submitDelete();
-        }
+        showAdminConfirmDialog({
+          icon: 'warning',
+          title: 'Delete payroll batch?',
+          text: 'This will remove the payroll run and all generated payroll items under it.',
+          confirmButtonText: 'Delete batch',
+          cancelButtonText: 'Cancel',
+          confirmButtonColor: '#be123c',
+          intent: 'danger'
+        }, submitDelete);
       });
     });
 
@@ -6134,24 +6341,15 @@
 
         const submitDelete = () => form.submit();
 
-        if (typeof window.Swal !== 'undefined') {
-          window.Swal.fire({
-            icon: 'warning',
-            title: 'Delete payroll period?',
-            text: 'This removes the selected period if no payroll batches exist for it.',
-            showCancelButton: true,
-            confirmButtonText: 'Delete period',
-            cancelButtonText: 'Cancel',
-            confirmButtonColor: '#be123c'
-          }).then((result) => {
-            if (result.isConfirmed) submitDelete();
-          });
-          return;
-        }
-
-        if (window.confirm('Delete selected payroll period?')) {
-          submitDelete();
-        }
+        showAdminConfirmDialog({
+          icon: 'warning',
+          title: 'Delete payroll period?',
+          text: 'This removes the selected period if no payroll batches exist for it.',
+          confirmButtonText: 'Delete period',
+          cancelButtonText: 'Cancel',
+          confirmButtonColor: '#be123c',
+          intent: 'danger'
+        }, submitDelete);
       });
     });
 
@@ -6339,30 +6537,6 @@
       const statusActionPattern = /(approve|reject|archive|restore|review|status|hire|forward|lock|release|decision)/i;
       const adminForms = document.querySelectorAll('main form');
 
-      const showConfirmDialog = (config, onConfirm) => {
-        if (window.Swal) {
-          window.Swal.fire({
-            icon: 'warning',
-            title: config.title || 'Proceed with this action?',
-            text: config.text || 'This action will update record status.',
-            showCancelButton: true,
-            confirmButtonText: config.confirmButtonText || 'Confirm',
-            cancelButtonText: 'Cancel',
-            confirmButtonColor: config.confirmButtonColor || '#0f172a'
-          }).then((result) => {
-            if (result.isConfirmed) {
-              onConfirm();
-            }
-          });
-          return;
-        }
-
-        const accepted = window.confirm(config.text || config.title || 'Proceed with this action?');
-        if (accepted) {
-          onConfirm();
-        }
-      };
-
       adminForms.forEach((form) => {
         if (form.dataset.statusConfirmBound === 'true') return;
 
@@ -6375,20 +6549,30 @@
           const actionName = (actionInput?.value || '').trim();
           const mappedConfig = statusActionConfig[actionName];
           const looksLikeStatusAction = statusActionPattern.test(actionName);
+          const customTitle = (form.dataset.confirmTitle || '').trim();
+          const customText = (form.dataset.confirmText || '').trim();
+          const customConfirmButtonText = (form.dataset.confirmButtonText || '').trim();
+          const hasCustomConfirm = customTitle !== '' || customText !== '' || customConfirmButtonText !== '';
 
-          if (!mappedConfig && !looksLikeStatusAction) {
+          if (!mappedConfig && !looksLikeStatusAction && !hasCustomConfirm) {
             return;
           }
 
           event.preventDefault();
 
-          const config = mappedConfig || {
+          const config = hasCustomConfirm
+            ? {
+                title: customTitle || mappedConfig?.title || 'Confirm this action?',
+                text: customText || mappedConfig?.text || 'This action will update system records.',
+                confirmButtonText: customConfirmButtonText || mappedConfig?.confirmButtonText || 'Confirm'
+              }
+            : mappedConfig || {
             title: 'Confirm status update?',
             text: 'This action will update status and may affect module workflows.',
             confirmButtonText: 'Confirm update'
           };
 
-          showConfirmDialog(config, () => {
+          showAdminConfirmDialog(config, () => {
             form.dataset.confirmedSubmit = 'true';
             form.submit();
           });

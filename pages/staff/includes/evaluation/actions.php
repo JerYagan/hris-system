@@ -234,7 +234,7 @@ if ($action === 'submit_applicant_final_evaluation') {
 
     $jobOfficeId = cleanText($applicationRow['job']['office_id'] ?? null) ?? '';
     if (!$isAdminScope && isValidUuid($resolvedStaffOfficeId) && isValidUuid($jobOfficeId) && strcasecmp($resolvedStaffOfficeId, $jobOfficeId) !== 0) {
-        redirectWithState('error', 'Applicant is outside your office scope.');
+        redirectWithState('error', 'Applicant is outside your division scope.');
     }
 
     $oldStatus = strtolower((string)(cleanText($applicationRow['application_status'] ?? null) ?? 'submitted'));
@@ -416,7 +416,7 @@ if ($action === 'review_performance_evaluation') {
     $employeeUserId = cleanText($evaluationRow['employee']['user_id'] ?? null) ?? '';
 
     if (!$isPersonInScope($employeePersonId)) {
-        redirectWithState('error', 'Performance evaluation is outside your office scope.');
+        redirectWithState('error', 'Performance evaluation is outside your division scope.');
     }
 
     $oldStatus = strtolower((string)(cleanText($evaluationRow['status'] ?? null) ?? 'draft'));

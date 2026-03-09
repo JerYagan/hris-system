@@ -255,10 +255,10 @@ if ($action === 'request_password_change_code') {
 
     $safeEmail = htmlspecialchars($email, ENT_QUOTES, 'UTF-8');
     $safeCode = htmlspecialchars($verificationCode, ENT_QUOTES, 'UTF-8');
-    $safeExpiry = htmlspecialchars(date('M d, Y h:i A', $expiresAt), ENT_QUOTES, 'UTF-8');
+    $safeExpiry = htmlspecialchars(formatUnixTimestampForPhilippines($expiresAt, 'M d, Y h:i A') . ' PST', ENT_QUOTES, 'UTF-8');
     $emailBody = '<p>Your DA-ATI HRIS password change verification code is:</p>'
         . '<p style="font-size:24px;font-weight:700;letter-spacing:2px;">' . $safeCode . '</p>'
-        . '<p>This code expires on <strong>' . $safeExpiry . '</strong> (server time).</p>'
+        . '<p>This code expires on <strong>' . $safeExpiry . '</strong>.</p>'
         . '<p>If you did not request a password change for ' . $safeEmail . ', ignore this email and contact support.</p>';
 
     $mailResponse = smtpSendTransactionalEmail(
@@ -276,7 +276,7 @@ if ($action === 'request_password_change_code') {
         redirectWithState('error', 'Unable to send verification code email. Please try again.', 'profile.php');
     }
 
-    redirectWithState('success', 'Verification code sent to your email. Enter the code to complete password change.', 'profile.php');
+    redirectWithState('success', 'Verification code sent to your email. Enter the code to complete password change.', 'profile.php?password_modal=verify');
 }
 
 if ($action === 'cancel_password_change_code') {
@@ -289,17 +289,17 @@ if ($action === 'confirm_password_change_code') {
     $pending = (array)($_SESSION['applicant_profile_password_change'] ?? []);
 
     if ($enteredCode === '' || !preg_match('/^[0-9]{6}$/', $enteredCode)) {
-        redirectWithState('error', 'Enter a valid 6-digit verification code.', 'profile.php');
+        redirectWithState('error', 'Enter a valid 6-digit verification code.', 'profile.php?password_modal=verify');
     }
 
     if (empty($pending)) {
-        redirectWithState('error', 'No pending password change request. Request a new verification code.', 'profile.php');
+        redirectWithState('error', 'No pending password change request. Request a new verification code.', 'profile.php?password_modal=request');
     }
 
     $expiresAt = (int)($pending['expires_at'] ?? 0);
     if ($expiresAt <= time()) {
         unset($_SESSION['applicant_profile_password_change']);
-        redirectWithState('error', 'Verification code expired. Request a new code.', 'profile.php');
+        redirectWithState('error', 'Verification code expired. Request a new code.', 'profile.php?password_modal=request');
     }
 
     $attempts = (int)($pending['attempts'] ?? 0);
@@ -308,18 +308,18 @@ if ($action === 'confirm_password_change_code') {
         $attempts++;
         if ($attempts >= 5) {
             unset($_SESSION['applicant_profile_password_change']);
-            redirectWithState('error', 'Too many invalid verification attempts. Request a new code.', 'profile.php');
+            redirectWithState('error', 'Too many invalid verification attempts. Request a new code.', 'profile.php?password_modal=request');
         }
 
         $pending['attempts'] = $attempts;
         $_SESSION['applicant_profile_password_change'] = $pending;
-        redirectWithState('error', 'Invalid verification code.', 'profile.php');
+        redirectWithState('error', 'Invalid verification code.', 'profile.php?password_modal=verify');
     }
 
     $newPassword = (string)($pending['new_password'] ?? '');
     if ($newPassword === '') {
         unset($_SESSION['applicant_profile_password_change']);
-        redirectWithState('error', 'Pending password payload is invalid. Request a new code.', 'profile.php');
+        redirectWithState('error', 'Pending password payload is invalid. Request a new code.', 'profile.php?password_modal=request');
     }
 
     $resetResponse = apiRequest(
@@ -501,11 +501,17 @@ if ($action === 'replace_uploaded_file') {
     redirectWithState('success', 'Uploaded file has been replaced successfully.', 'profile.php');
 }
 
+if (($action === 'update_profile') && (string)($_POST['deferred_sections_ready'] ?? '0') !== '1') {
+    redirectWithState('error', 'Please wait for the education and work experience sections to finish loading before saving.', 'profile.php?edit=true');
+}
+
 $fullName = cleanText($_POST['full_name'] ?? null);
 $email = cleanText($_POST['email'] ?? null);
 $mobileNo = cleanText($_POST['mobile_no'] ?? null);
 $currentAddress = cleanText($_POST['current_address'] ?? null);
 $trainingHoursRaw = cleanText($_POST['training_hours_completed'] ?? null);
+
+$normalizedEmail = strtolower(trim((string)$email));
 
 $trainingHoursCompleted = 0.0;
 if ($trainingHoursRaw !== null && $trainingHoursRaw !== '') {
@@ -520,7 +526,7 @@ if ($fullName === null) {
     redirectWithState('error', 'Full name is required.', 'profile.php?edit=true');
 }
 
-if ($email === null || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+if ($email === null || !filter_var($normalizedEmail, FILTER_VALIDATE_EMAIL)) {
     redirectWithState('error', 'Please provide a valid email address.', 'profile.php?edit=true');
 }
 
@@ -540,6 +546,56 @@ if ($surname === '') {
     $surname = $firstName;
 }
 
+$existingAccountResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/user_accounts?select=id,email&id=eq.' . rawurlencode($applicantUserId) . '&limit=1',
+    $headers
+);
+
+if (!isSuccessful($existingAccountResponse) || empty((array)($existingAccountResponse['data'] ?? []))) {
+    redirectWithState('error', 'Unable to load your account details before saving the profile.', 'profile.php?edit=true');
+}
+
+$existingAccountRow = (array)($existingAccountResponse['data'][0] ?? []);
+$existingAccountEmail = strtolower(trim((string)($existingAccountRow['email'] ?? '')));
+$emailChanged = $existingAccountEmail !== '' && $existingAccountEmail !== $normalizedEmail;
+
+if ($emailChanged) {
+    $authEmailUpdateResponse = apiRequest(
+        'PUT',
+        $supabaseUrl . '/auth/v1/admin/users/' . rawurlencode($applicantUserId),
+        $headers,
+        [
+            'email' => $normalizedEmail,
+            'email_confirm' => true,
+        ]
+    );
+
+    if (!isSuccessful($authEmailUpdateResponse)) {
+        $authError = strtolower((string)($authEmailUpdateResponse['raw'] ?? ''));
+        if (str_contains($authError, 'already') || str_contains($authError, 'exists') || str_contains($authError, 'duplicate')) {
+            redirectWithState('error', 'That email address is already in use by another account.', 'profile.php?edit=true');
+        }
+
+        redirectWithState('error', 'Failed to update your account email. Profile changes were not saved.', 'profile.php?edit=true');
+    }
+}
+
+$userAccountUpsertResponse = apiRequest(
+    'POST',
+    $supabaseUrl . '/rest/v1/user_accounts?on_conflict=id',
+    array_merge($headers, ['Prefer: resolution=merge-duplicates,return=minimal']),
+    [[
+        'id' => $applicantUserId,
+        'email' => $normalizedEmail,
+        'updated_at' => gmdate('c'),
+    ]]
+);
+
+if (!isSuccessful($userAccountUpsertResponse)) {
+    redirectWithState('error', 'Failed to keep your account email in sync. Please try again.', 'profile.php?edit=true');
+}
+
 $peopleUpsertResponse = apiRequest(
     'POST',
     $supabaseUrl . '/rest/v1/people?on_conflict=user_id',
@@ -549,7 +605,7 @@ $peopleUpsertResponse = apiRequest(
         'first_name' => $firstName,
         'surname' => $surname,
         'mobile_no' => $mobileNo,
-        'personal_email' => strtolower($email),
+        'personal_email' => $normalizedEmail,
     ]]
 );
 
@@ -564,7 +620,7 @@ $applicantProfileUpsertResponse = apiRequest(
     [[
         'user_id' => $applicantUserId,
         'full_name' => $fullName,
-        'email' => strtolower($email),
+        'email' => $normalizedEmail,
         'mobile_no' => $mobileNo,
         'current_address' => $currentAddress,
         'training_hours_completed' => $trainingHoursCompleted,
@@ -734,7 +790,84 @@ if (isValidUuid($personId)) {
             redirectWithState('error', 'Failed to save education background entries.', 'profile.php?edit=true');
         }
     }
+
+    $existingWorkDelete = apiRequest(
+        'DELETE',
+        $supabaseUrl . '/rest/v1/person_work_experiences?person_id=eq.' . rawurlencode($personId),
+        $headers
+    );
+
+    if (!isSuccessful($existingWorkDelete)) {
+        redirectWithState('error', 'Failed to refresh work experience records.', 'profile.php?edit=true');
+    }
+
+    $workPositionEntries = (array)($_POST['work_position_title_entry'] ?? []);
+    $workCompanyEntries = (array)($_POST['work_company_name_entry'] ?? []);
+    $workStartEntries = (array)($_POST['work_start_date_entry'] ?? []);
+    $workEndEntries = (array)($_POST['work_end_date_entry'] ?? []);
+    $workResponsibilityEntries = (array)($_POST['work_responsibilities_entry'] ?? []);
+
+    $workRows = [];
+    $workCount = max(
+        count($workPositionEntries),
+        count($workCompanyEntries),
+        count($workStartEntries),
+        count($workEndEntries),
+        count($workResponsibilityEntries)
+    );
+
+    for ($index = 0; $index < $workCount; $index++) {
+        $positionTitle = cleanText($workPositionEntries[$index] ?? null);
+        $companyName = cleanText($workCompanyEntries[$index] ?? null);
+        $startDate = cleanText($workStartEntries[$index] ?? null);
+        $endDate = cleanText($workEndEntries[$index] ?? null);
+        $responsibilities = cleanText($workResponsibilityEntries[$index] ?? null);
+
+        if ($positionTitle === null && $companyName === null && $startDate === null && $responsibilities === null) {
+            continue;
+        }
+
+        if ($startDate === null || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate)) {
+            redirectWithState('error', 'Each work experience entry requires a valid start date.', 'profile.php?edit=true');
+        }
+
+        if ($endDate !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $endDate)) {
+            redirectWithState('error', 'Work experience end date must be a valid date.', 'profile.php?edit=true');
+        }
+
+        if ($endDate !== null && $endDate < $startDate) {
+            redirectWithState('error', 'Work experience end date cannot be earlier than start date.', 'profile.php?edit=true');
+        }
+
+        $workRows[] = [
+            'person_id' => $personId,
+            'inclusive_date_from' => $startDate,
+            'inclusive_date_to' => $endDate,
+            'position_title' => $positionTitle,
+            'office_company' => $companyName,
+            'achievements' => $responsibilities,
+            'sequence_no' => count($workRows) + 1,
+        ];
+    }
+
+    if (!empty($workRows)) {
+        $workInsertResponse = apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/person_work_experiences',
+            array_merge($headers, ['Prefer: return=minimal']),
+            $workRows
+        );
+
+        if (!isSuccessful($workInsertResponse)) {
+            redirectWithState('error', 'Failed to save work experience entries.', 'profile.php?edit=true');
+        }
+    }
 }
+
+$_SESSION['user']['email'] = $normalizedEmail;
+$_SESSION['user']['name'] = $fullName;
+
+unset($_SESSION['applicant_topnav_cache']);
 
 $ipAddress = cleanText($_SERVER['REMOTE_ADDR'] ?? null);
 
@@ -751,11 +884,12 @@ apiRequest(
         'old_data' => null,
         'new_data' => [
             'full_name' => $fullName,
-            'email' => strtolower($email),
+            'email' => $normalizedEmail,
             'mobile_no' => $mobileNo,
             'current_address' => $currentAddress,
             'spouse_entries' => count((array)($_POST['spouse_first_name'] ?? [])),
             'education_entries' => count((array)($_POST['education_level'] ?? [])),
+            'work_entries' => count((array)($_POST['work_position_title_entry'] ?? [])),
         ],
         'ip_address' => $ipAddress,
     ]]

@@ -135,14 +135,14 @@ if ($action === 'schedule_interview') {
         if (smtpConfigIsReady($smtpConfig, $mailFrom)) {
             $stageLabel = ucfirst($interviewStage);
             $modeLabel = ucfirst($interviewMode);
-            $scheduleLabel = date('M d, Y h:i A', strtotime($scheduledAt));
+            $scheduleLabel = hrisEmailFormatPhilippinesDateTime($scheduledAt);
             $subject = 'Interview Scheduled - ' . $stageLabel . ' Stage';
             $htmlContent = '<p>Hello ' . htmlspecialchars($applicantName !== '' ? $applicantName : 'Applicant', ENT_QUOTES, 'UTF-8') . ',</p>'
                 . '<p>Your interview has been scheduled.</p>'
                 . '<p><strong>Stage:</strong> ' . htmlspecialchars($stageLabel, ENT_QUOTES, 'UTF-8') . '<br>'
                 . '<strong>Mode:</strong> ' . htmlspecialchars($modeLabel, ENT_QUOTES, 'UTF-8') . '<br>'
                 . '<strong>Schedule:</strong> ' . htmlspecialchars($scheduleLabel, ENT_QUOTES, 'UTF-8') . '</p>'
-                . '<p>Please check your applicant portal for additional instructions.</p>';
+                . '<p>Please check your applicant portal for additional instructions and confirm that you can attend on time.</p>';
 
             $emailResponse = smtpSendTransactionalEmail(
                 $smtpConfig,

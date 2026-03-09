@@ -22,6 +22,19 @@ $respondNotificationAction = static function (bool $ok, string $message, array $
     redirectWithState($ok ? 'success' : 'error', $message, 'notifications.php');
 };
 
+$formatNotificationDateTime = static function (?string $dateTime): string {
+    $value = trim((string)$dateTime);
+    if ($value === '') {
+        return '-';
+    }
+
+    $formatted = function_exists('formatDateTimeForPhilippines')
+        ? formatDateTimeForPhilippines($value, 'M d, Y h:i A')
+        : date('M d, Y h:i A', strtotime($value));
+
+    return $formatted !== '-' ? ($formatted . ' PST') : '-';
+};
+
 $loadUnreadCount = static function () use ($supabaseUrl, $headers, $employeeUserId, $employeeNotificationSince): int {
     $response = apiRequest(
         'GET',
@@ -42,7 +55,7 @@ $loadUnreadCount = static function () use ($supabaseUrl, $headers, $employeeUser
     return count((array)($response['data'] ?? []));
 };
 
-$loadTopnavItems = static function () use ($supabaseUrl, $headers, $employeeUserId, $employeeNotificationSince): array {
+$loadTopnavItems = static function () use ($supabaseUrl, $headers, $employeeUserId, $employeeNotificationSince, $formatNotificationDateTime): array {
     $response = apiRequest(
         'GET',
         $supabaseUrl
@@ -58,7 +71,7 @@ $loadTopnavItems = static function () use ($supabaseUrl, $headers, $employeeUser
         return [];
     }
 
-    return array_map(static function (array $row): array {
+    return array_map(static function (array $row) use ($formatNotificationDateTime): array {
         $createdAt = trim((string)($row['created_at'] ?? ''));
         return [
             'id' => (string)($row['id'] ?? ''),
@@ -68,7 +81,7 @@ $loadTopnavItems = static function () use ($supabaseUrl, $headers, $employeeUser
             'category' => (string)($row['category'] ?? 'general'),
             'is_read' => (bool)($row['is_read'] ?? false),
             'created_at' => $createdAt,
-            'created_at_label' => $createdAt !== '' ? date('M d, Y h:i A', strtotime($createdAt)) : '-',
+            'created_at_label' => $formatNotificationDateTime($createdAt),
         ];
     }, array_values((array)($response['data'] ?? [])));
 };

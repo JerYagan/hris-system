@@ -59,7 +59,7 @@
                 Assign Role
             </button>
         </header>
-        <p class="px-4 pt-3 text-xs text-slate-500">Assignable roles are policy-scoped (Admin, Staff, Employee, Applicant) to keep support-ticket routing and role access aligned. Active admin-role users are capped at 2.</p>
+        <p class="px-4 pt-3 text-xs text-slate-500">Assignable roles are policy-scoped (Admin, Staff, Employee, Applicant) to keep support-ticket routing and role access aligned. Active admin-role users are capped at <?= htmlspecialchars((string)$activeAdminLimit, ENT_QUOTES, 'UTF-8') ?>.</p>
         <div class="max-h-72 overflow-auto">
             <table class="w-full text-sm">
                 <thead class="bg-slate-50 text-slate-600 sticky top-0">
@@ -164,7 +164,7 @@
                             <td class="px-4 py-3 text-slate-700"><?= htmlspecialchars($candidateHiredAt, ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3 text-slate-700"><?= htmlspecialchars($candidateRef, ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3">
-                                <form action="user-management.php" method="POST" class="inline">
+                                <form action="user-management.php" method="POST" class="inline" data-confirm-title="Create employee account?" data-confirm-text="This will create the employee account, assign onboarding access, and send the generated credentials." data-confirm-button-text="Create account">
                                     <input type="hidden" name="form_action" value="onboard_new_hire">
                                     <input type="hidden" name="application_id" value="<?= htmlspecialchars($candidateApplicationId, ENT_QUOTES, 'UTF-8') ?>">
                                     <input type="hidden" name="email" value="<?= htmlspecialchars($candidateEmail, ENT_QUOTES, 'UTF-8') ?>">
@@ -259,7 +259,9 @@
                             $displayName = (string)($user['email'] ?? 'Unknown User');
                         }
                         [$statusLabel, $statusClass] = toStatusPill((string)($user['account_status'] ?? 'pending'));
-                        $mobileNo = trim((string)($user['mobile_no'] ?? '-'));
+                        $personMobileNo = trim((string)($user['people']['mobile_no'] ?? ''));
+                        $accountMobileNo = trim((string)($user['mobile_no'] ?? ''));
+                        $mobileNo = $personMobileNo !== '' ? $personMobileNo : $accountMobileNo;
                         if ($mobileNo === '') {
                             $mobileNo = '-';
                         }
@@ -321,7 +323,7 @@
                 <h3 class="text-lg font-semibold text-slate-800">Add / Archive User Account</h3>
                 <button type="button" data-modal-close="accountModal" class="text-slate-500 hover:text-slate-700">✕</button>
             </div>
-            <form id="accountForm" action="user-management.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <form id="accountForm" action="user-management.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm" data-confirm-title="Create this user account?" data-confirm-text="This will create the user account and apply the selected onboarding details." data-confirm-button-text="Create account">
                 <input type="hidden" name="form_action" value="account">
                 <div>
                     <label class="text-slate-600">Full Name</label>
@@ -341,7 +343,7 @@
                 <div>
                     <label class="text-slate-600">Division</label>
                     <select name="office_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
-                        <option value="">Select office</option>
+                        <option value="">Select division</option>
                         <?php foreach ($offices as $office): ?>
                             <option value="<?= htmlspecialchars((string)($office['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                                 <?= htmlspecialchars((string)($office['office_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
@@ -370,7 +372,7 @@
                 <h3 class="text-lg font-semibold text-slate-800">Add Position</h3>
                 <button type="button" data-modal-close="positionModal" class="text-slate-500 hover:text-slate-700">✕</button>
             </div>
-            <form action="user-management.php" method="POST" class="p-6 grid grid-cols-1 gap-4 text-sm">
+            <form action="user-management.php" method="POST" class="p-6 grid grid-cols-1 gap-4 text-sm" data-confirm-title="Add this position?" data-confirm-text="This will save the new position and make it available for assignment." data-confirm-button-text="Save position">
                 <input type="hidden" name="form_action" value="add_position">
                 <div>
                     <label class="text-slate-600">Position Code</label>
@@ -413,10 +415,10 @@
                 <h3 class="text-lg font-semibold text-slate-800">Add Division</h3>
                 <button type="button" data-modal-close="departmentModal" class="text-slate-500 hover:text-slate-700">✕</button>
             </div>
-            <form action="user-management.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <form action="user-management.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm" data-confirm-title="Add this division?" data-confirm-text="This will save the division and make it available in user assignment flows." data-confirm-button-text="Save division">
                 <input type="hidden" name="form_action" value="add_department">
                 <div class="md:col-span-2">
-                    <p class="text-xs text-slate-500">Office type is fixed to <strong>Division</strong> for central-office-only deployment.</p>
+                    <p class="text-xs text-slate-500">Division records are sourced directly from the offices directory so every configured office remains available in assignment flows.</p>
                 </div>
                 <div class="md:col-span-2">
                     <label class="text-slate-600">Division Name</label>
@@ -443,7 +445,7 @@
                 <h3 class="text-lg font-semibold text-slate-800">Assign Role</h3>
                 <button type="button" data-modal-close="roleModal" class="text-slate-500 hover:text-slate-700">✕</button>
             </div>
-            <form id="roleForm" action="user-management.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+            <form id="roleForm" action="user-management.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm" data-confirm-title="Assign this role?" data-confirm-text="This will update the selected user's role assignment and effectivity details." data-confirm-button-text="Assign role">
                 <input type="hidden" name="form_action" value="role">
                 <div>
                     <label class="text-slate-600">User</label>
@@ -466,7 +468,7 @@
                 </div>
                 <div>
                     <label class="text-slate-600">Role</label>
-                    <select id="roleSelect" name="role_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" data-active-admin-count="<?= htmlspecialchars((string)$activeAdminCount, ENT_QUOTES, 'UTF-8') ?>" required>
+                    <select id="roleSelect" name="role_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" data-active-admin-count="<?= htmlspecialchars((string)$activeAdminCount, ENT_QUOTES, 'UTF-8') ?>" data-active-admin-max="<?= htmlspecialchars((string)$activeAdminLimit, ENT_QUOTES, 'UTF-8') ?>" required>
                         <option value="">Select role</option>
                         <?php foreach ($roles as $role): ?>
                             <option value="<?= htmlspecialchars((string)($role['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-role-key="<?= htmlspecialchars(strtolower((string)($role['role_key'] ?? '')), ENT_QUOTES, 'UTF-8') ?>">
@@ -474,7 +476,7 @@
                             </option>
                         <?php endforeach; ?>
                     </select>
-                    <p id="roleAdminGuardHint" class="mt-1 text-xs text-slate-500">Assigning Admin is allowed only while there are fewer than 2 active admin-role users.</p>
+                    <p id="roleAdminGuardHint" class="mt-1 text-xs text-slate-500">Assigning Admin is allowed only while there are fewer than <?= htmlspecialchars((string)$activeAdminLimit, ENT_QUOTES, 'UTF-8') ?> active admin-role users.</p>
                 </div>
                 <div>
                     <label class="text-slate-600">Division</label>
@@ -506,7 +508,7 @@
                 <h3 class="text-lg font-semibold text-slate-800">Manage Login Credentials</h3>
                 <button type="button" data-modal-close="credentialModal" class="text-slate-500 hover:text-slate-700">✕</button>
             </div>
-            <form id="credentialForm" action="user-management.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <form id="credentialForm" action="user-management.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm" data-confirm-title="Reset this user's password?" data-confirm-text="This will issue a temporary password and notify the user with change-password instructions." data-confirm-button-text="Reset password">
                 <input type="hidden" name="form_action" value="credential">
                 <div>
                     <label class="text-slate-600">User</label>

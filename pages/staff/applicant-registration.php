@@ -71,7 +71,7 @@ ob_start();
             <tbody class="divide-y">
                 <?php if (empty($registrationRows)): ?>
                     <tr>
-                        <td class="px-4 py-3 text-gray-500" colspan="6">No registration records found in your office scope.</td>
+                        <td class="px-4 py-3 text-gray-500" colspan="6">No registration records found in your division scope.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($registrationRows as $row): ?>

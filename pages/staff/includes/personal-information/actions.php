@@ -899,7 +899,7 @@ if ($action === 'assign_department_position') {
     $recommendationNotes = trim((string)(cleanText($_POST['recommendation_notes'] ?? null) ?? ''));
 
     if (!isValidUuid($officeId) || !isValidUuid($positionId)) {
-        redirectWithState('error', 'Select a valid department and position.');
+        redirectWithState('error', 'Select a valid division and position.');
     }
 
     if ($recommendationNotes === '') {
@@ -979,7 +979,7 @@ if ($action === 'assign_department_position') {
                 'recipient_user_id' => (string)$adminUserId,
                 'category' => 'employee_profile',
                 'title' => 'Division/Position Recommendation',
-                'body' => 'Recommendation for ' . $employeeName . ': set division to ' . ($recommendedOfficeName !== '' ? $recommendedOfficeName : 'selected office') . ' and position to ' . ($recommendedPositionTitle !== '' ? $recommendedPositionTitle : 'selected position') . '. Notes: ' . $recommendationNotes,
+                'body' => 'Recommendation for ' . $employeeName . ': set division to ' . ($recommendedOfficeName !== '' ? $recommendedOfficeName : 'selected division') . ' and position to ' . ($recommendedPositionTitle !== '' ? $recommendedPositionTitle : 'selected position') . '. Notes: ' . $recommendationNotes,
                 'link_url' => '/hris-system/pages/admin/personal-information.php',
             ]]
         );

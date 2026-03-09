@@ -1002,3 +1002,24 @@ Fatal error: Uncaught Error: Call to undefined function isValidUuid() in D:\xamp
 - Description, posting date and closing date 
 3. Accountant I
 - Description, posting date and closing date 
+
+
+## System Revisions:
+
+### Applicant
+- [ ] Ensure that all Divisions across all modules actually reflects the divisions (offices in the schema) in the database, don't base the list on the office_type column, but instead make sure that the list of divisions is based on the actual offices in the database with all the office_type. But also keep the name "Division" instead of "Office" or "Department" across all modules for consistency and to align with the client's preferred terminology. This will help ensure that the system accurately reflects the organizational structure of the client while also maintaining a consistent user experience across all modules when referring to divisions (offices) in the system.
+
+### Admin
+- [ ] User Management: It doesn't display the Job Positions
+- [ ] Ensure that all Divisions across all modules actually reflects the divisions (offices in the schema) in the database, don't base the list on the office_type column, but instead make sure that the list of divisions is based on the actual offices in the database with all the office_type. But also keep the name "Division" instead of "Office" or "Department" across all modules for consistency and to align with the client's preferred terminology. This will help ensure that the system accurately reflects the organizational structure of the client while also maintaining a consistent user experience across all modules when referring to divisions (offices) in the system.
+- [ ] User Management: mobile number column doesn't show anything even if the user has a mobile number.
+ 
+### Staff
+- [ ] Recruitment: Change all the office label to Division
+- [ ] Ensure that all Divisions across all modules actually reflects the divisions (offices in the schema) in the database, don't base the list on the office_type column, but instead make sure that the list of divisions is based on the actual offices in the database with all the office_type. But also keep the name "Division" instead of "Office" or "Department" across all modules for consistency and to align with the client's preferred terminology. This will help ensure that the system accurately reflects the organizational structure of the client while also maintaining a consistent user experience across all modules when referring to divisions (offices) in the system.
+
+### Employee
+- [ ] Ensure that all Divisions across all modules actually reflects the divisions (offices in the schema) in the database, don't base the list on the office_type column, but instead make sure that the list of divisions is based on the actual offices in the database with all the office_type. But also keep the name "Division" instead of "Office" or "Department" across all modules for consistency and to align with the client's preferred terminology. This will help ensure that the system accurately reflects the organizational structure of the client while also maintaining a consistent user experience across all modules when referring to divisions (offices) in the system.
+
+### Across all users
+- [ ] Some modules still doesn't use PST such as notifications. Verify if there are still modules that are using the default JS date handling and make sure to change it to use PST for consistency across the system and to ensure that all date and time information is displayed in the correct timezone for users in the Philippines. This will help prevent confusion and ensure that users can accurately interpret date and time information throughout the system, regardless of their location or timezone settings on their devices. Make sure to also test the implementation of PST across all modules to ensure that it is working correctly and that there are no issues with date and time handling in any part of the system.

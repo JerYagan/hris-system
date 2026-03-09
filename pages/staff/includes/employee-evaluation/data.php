@@ -50,7 +50,7 @@ foreach ((array)($employeesResponse['data'] ?? []) as $employee) {
         $name = 'Unknown Employee';
     }
 
-    $officeName = cleanText($employee['office']['office_name'] ?? null) ?? 'Unassigned Office';
+    $officeName = cleanText($employee['office']['office_name'] ?? null) ?? 'Unassigned Division';
 
     $employeeOptions[] = [
         'person_id' => $personId,

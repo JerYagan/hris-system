@@ -2,7 +2,7 @@
 
 $programsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/training_programs?select=id,program_code,title,training_type,training_category,provider,venue,schedule_time,start_date,end_date,mode,status,updated_at&order=start_date.desc&limit=500',
+    $supabaseUrl . '/rest/v1/training_programs?select=id,program_code,title,training_type,training_category,provider,venue,schedule_time,start_date,end_date,mode,status,updated_at&order=start_date.desc&limit=250',
     $headers
 );
 
@@ -10,7 +10,7 @@ $trainingSchemaHasExtendedFields = true;
 if (!isSuccessful($programsResponse)) {
     $programsFallbackResponse = apiRequest(
         'GET',
-        $supabaseUrl . '/rest/v1/training_programs?select=id,program_code,title,provider,start_date,end_date,mode,status,updated_at&order=start_date.desc&limit=500',
+        $supabaseUrl . '/rest/v1/training_programs?select=id,program_code,title,provider,start_date,end_date,mode,status,updated_at&order=start_date.desc&limit=250',
         $headers
     );
 
@@ -22,7 +22,7 @@ if (!isSuccessful($programsResponse)) {
 
 $enrollmentsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/training_enrollments?select=id,program_id,person_id,enrollment_status,score,created_at,updated_at,person:people(first_name,surname),program:training_programs(title,start_date,end_date,provider,mode,status)&order=updated_at.desc&limit=1500',
+    $supabaseUrl . '/rest/v1/training_enrollments?select=id,program_id,person_id,enrollment_status,score,created_at,updated_at,person:people(first_name,surname),program:training_programs(title,start_date,end_date,provider,mode,status)&order=updated_at.desc&limit=1000',
     $headers
 );
 
@@ -34,21 +34,21 @@ $officesResponse = apiRequest(
 
 $employmentResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/employment_records?select=person_id,office_id,is_current,employment_status,person:people(user_id,first_name,middle_name,surname)&is_current=eq.true&employment_status=eq.active&limit=5000',
+    $supabaseUrl . '/rest/v1/employment_records?select=person_id,office_id,is_current,employment_status,person:people(user_id,first_name,middle_name,surname)&is_current=eq.true&employment_status=eq.active&limit=2500',
     $headers
 );
 
 if (!isSuccessful($employmentResponse) || empty((array)($employmentResponse['data'] ?? []))) {
     $employmentResponse = apiRequest(
         'GET',
-        $supabaseUrl . '/rest/v1/employment_records?select=person_id,office_id,is_current,employment_status,person:people(user_id,first_name,middle_name,surname)&limit=5000',
+        $supabaseUrl . '/rest/v1/employment_records?select=person_id,office_id,is_current,employment_status,person:people(user_id,first_name,middle_name,surname)&limit=2500',
         $headers
     );
 }
 
 $peopleResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/people?select=id,user_id,first_name,middle_name,surname&limit=5000',
+    $supabaseUrl . '/rest/v1/people?select=id,user_id,first_name,middle_name,surname&limit=2500',
     $headers
 );
 
@@ -60,7 +60,7 @@ $roleAssignmentsResponse = apiRequest(
 
 $historyResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/activity_logs?select=id,action_name,entity_name,entity_id,new_data,old_data,created_at,actor:user_accounts(email)&module_name=eq.learning_and_development&order=created_at.desc&limit=500',
+    $supabaseUrl . '/rest/v1/activity_logs?select=id,action_name,entity_name,entity_id,new_data,old_data,created_at,actor:user_accounts(email)&module_name=eq.learning_and_development&order=created_at.desc&limit=300',
     $headers
 );
 
@@ -243,7 +243,7 @@ foreach ($offices as $office) {
         continue;
     }
 
-    $officeNameById[$officeId] = cleanText($office['office_name'] ?? null) ?? 'Unassigned Office';
+    $officeNameById[$officeId] = cleanText($office['office_name'] ?? null) ?? 'Unassigned Division';
 }
 
 $roleKeysByUserId = [];
@@ -317,7 +317,7 @@ foreach ($employmentRows as $employmentRow) {
     }
 
     $officeId = cleanText($employmentRow['office_id'] ?? null) ?? '';
-    $department = $officeNameById[$officeId] ?? 'Unassigned Office';
+    $department = $officeNameById[$officeId] ?? 'Unassigned Division';
     $isCurrent = filter_var($employmentRow['is_current'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
     if (isset($employeeByPersonId[$personId])) {
@@ -359,7 +359,7 @@ if (empty($employeeByPersonId)) {
         $employeeByPersonId[$personId] = [
             'person_id' => $personId,
             'name' => $employeeName,
-            'department' => 'Unassigned Office',
+            'department' => 'Unassigned Division',
             'is_current' => true,
         ];
     }

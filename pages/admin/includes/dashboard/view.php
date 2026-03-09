@@ -79,6 +79,49 @@
     </form>
 </section>
 
+<section class="bg-white border border-slate-200 rounded-2xl p-6 mb-6">
+    <div class="flex items-start justify-between gap-4 mb-4">
+        <div>
+            <h2 class="font-semibold text-slate-800">Announcement Broadcasts</h2>
+            <p class="text-sm text-slate-500 mt-1">Dashboard figures mirror published announcement activity from Create Announcement.</p>
+        </div>
+        <a href="create-announcement.php" class="text-sm text-emerald-700 hover:underline">Open module</a>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        <article class="rounded-xl border border-slate-200 p-4 bg-slate-50">
+            <p class="text-xs uppercase tracking-wide text-slate-600">Published Broadcasts</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$dashboardSummary['published_announcements'] ?></p>
+            <p class="text-xs text-slate-500 mt-1">Recent publish actions recorded</p>
+        </article>
+        <article class="rounded-xl border border-slate-200 p-4 bg-emerald-50">
+            <p class="text-xs uppercase tracking-wide text-emerald-700">In-App Delivered</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$dashboardSummary['announcement_in_app_delivered'] ?></p>
+            <p class="text-xs text-slate-500 mt-1">Notification rows inserted from published broadcasts</p>
+        </article>
+        <article class="rounded-xl border border-slate-200 p-4 bg-blue-50">
+            <p class="text-xs uppercase tracking-wide text-blue-700">Email Delivered</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$dashboardSummary['announcement_email_delivered'] ?></p>
+            <p class="text-xs text-slate-500 mt-1">SMTP sends reported as successful</p>
+        </article>
+    </div>
+
+    <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <p class="text-xs uppercase tracking-wide text-slate-500">Latest Published Announcement</p>
+                <h3 class="text-lg font-semibold text-slate-800 mt-1"><?= htmlspecialchars((string)$dashboardSummary['latest_announcement_title'], ENT_QUOTES, 'UTF-8') ?></h3>
+                <p class="text-xs text-slate-500 mt-1"><?= htmlspecialchars((string)$dashboardSummary['latest_announcement_timestamp'], ENT_QUOTES, 'UTF-8') ?></p>
+            </div>
+            <span class="inline-flex items-center rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700"><?= htmlspecialchars((string)$dashboardSummary['latest_announcement_channel'], ENT_QUOTES, 'UTF-8') ?></span>
+        </div>
+        <p class="mt-3 text-sm leading-6 text-slate-700"><?= htmlspecialchars((string)($dashboardSummary['latest_announcement_body'] !== '' ? $dashboardSummary['latest_announcement_body'] : 'Open Create Announcement to publish and populate this summary.'), ENT_QUOTES, 'UTF-8') ?></p>
+        <p class="mt-3 text-xs text-slate-500">Targets reached in the latest publish: <?= (int)$dashboardSummary['latest_announcement_targets'] ?></p>
+    </div>
+
+    <p class="mt-4 text-xs text-slate-500">Drafting, publishing, delivery counts, and latest-broadcast summaries now come from the same published announcement activity source.</p>
+</section>
+
 <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
     <div class="bg-white border border-slate-200 rounded-2xl p-6">
         <div class="flex items-center justify-between mb-4">

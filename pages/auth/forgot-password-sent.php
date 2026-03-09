@@ -78,7 +78,7 @@ if ($userId !== '' && filter_var($accountEmail, FILTER_VALIDATE_EMAIL)) {
 
   $safeEmail = htmlspecialchars($accountEmail, ENT_QUOTES, 'UTF-8');
   $safeCode = htmlspecialchars($verificationCode, ENT_QUOTES, 'UTF-8');
-  $safeExpiry = htmlspecialchars(date('M d, Y h:i A', $expiresAt), ENT_QUOTES, 'UTF-8');
+  $safeExpiry = htmlspecialchars(hrisEmailFormatPhilippinesTimestamp($expiresAt), ENT_QUOTES, 'UTF-8');
 
   $mailResponse = smtpSendTransactionalEmail(
     $smtpConfig,
@@ -87,10 +87,12 @@ if ($userId !== '' && filter_var($accountEmail, FILTER_VALIDATE_EMAIL)) {
     $accountEmail,
     $accountEmail,
     'DA-ATI HRIS Password Reset Verification Code',
-    '<p>Your DA-ATI HRIS password reset verification code is:</p>'
-      . '<p style="font-size:24px;font-weight:700;letter-spacing:2px;">' . $safeCode . '</p>'
-      . '<p>This code expires on <strong>' . $safeExpiry . '</strong> (server time).</p>'
-      . '<p>If you did not request a password reset for ' . $safeEmail . ', you may ignore this email.</p>'
+    '<p>Hello,</p>'
+      . '<p>We received a request to reset the password for your DA-ATI HRIS account.</p>'
+      . '<p><strong>Verification Code</strong><br>'
+      . '<span style="display:inline-block;margin-top:8px;font-size:24px;font-weight:700;letter-spacing:2px;">' . $safeCode . '</span></p>'
+      . '<p>Enter this code on the password reset page within 10 minutes. The code expires on <strong>' . $safeExpiry . '</strong>.</p>'
+      . '<p>If you did not request a password reset for ' . $safeEmail . ', you may ignore this email. No changes will be made unless the code is entered.</p>'
   );
 
   if (!isSuccessful($mailResponse)) {

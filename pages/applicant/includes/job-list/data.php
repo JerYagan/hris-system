@@ -19,7 +19,6 @@ $filters = [
 	'employment_type' => cleanText($_GET['employment_type'] ?? null) ?? '',
 ];
 
-$offset = ($page - 1) * $pageSize;
 $dataLoadError = null;
 
 $openPositionsTotal = 0;
@@ -33,6 +32,11 @@ $officeOptions = [];
 $employmentTypeOptions = [];
 $jobs = [];
 $applicantProfileId = '';
+
+$jobListCacheTtl = 300;
+$jobListFilterCacheKey = 'applicant_job_list_filter_metadata_v3';
+$jobListProfileCacheKey = 'applicant_job_list_profile_' . $applicantUserId;
+$nowTimestamp = time();
 
 if ($applicantUserId === '') {
 	$dataLoadError = 'Applicant session is missing. Please login again.';
@@ -48,50 +52,126 @@ if ($filters['office'] !== '' && !isValidUuid($filters['office'])) {
 	$filters['office'] = '';
 }
 
-$officesResponse = apiRequest(
-	'GET',
-	$supabaseUrl . '/rest/v1/offices?select=id,office_name&is_active=eq.true&order=office_name.asc&limit=200',
-	$headers
-);
-
-if (isSuccessful($officesResponse)) {
-	$officeOptions = (array)($officesResponse['data'] ?? []);
+$sessionAvailable = session_status() === PHP_SESSION_ACTIVE;
+$cachedFilterMetadata = $sessionAvailable ? ($_SESSION[$jobListFilterCacheKey] ?? null) : null;
+if (
+	is_array($cachedFilterMetadata)
+	&& (int)($cachedFilterMetadata['expires_at'] ?? 0) > $nowTimestamp
+	&& isset($cachedFilterMetadata['office_options'], $cachedFilterMetadata['employment_type_options'])
+) {
+	$officeOptions = is_array($cachedFilterMetadata['office_options']) ? $cachedFilterMetadata['office_options'] : [];
+	$employmentTypeOptions = is_array($cachedFilterMetadata['employment_type_options']) ? $cachedFilterMetadata['employment_type_options'] : [];
 } else {
-	$dataLoadError = 'Failed to load office filters.';
-}
+	$officesResponse = apiRequest(
+		'GET',
+		$supabaseUrl . '/rest/v1/offices?select=id,office_name,office_type&is_active=eq.true&order=office_name.asc&limit=500',
+		$headers
+	);
 
-$employmentTypesResponse = apiRequest(
-	'GET',
-	$supabaseUrl . '/rest/v1/job_positions?select=employment_classification&is_active=eq.true&limit=300',
-	$headers
-);
+	if (isSuccessful($officesResponse)) {
+		$officeOptionsById = [];
+		foreach ((array)($officesResponse['data'] ?? []) as $officeRow) {
+			$officeId = cleanText($officeRow['id'] ?? null);
+			$officeName = cleanText($officeRow['office_name'] ?? null);
 
-if (isSuccessful($employmentTypesResponse)) {
-	$types = [];
-	foreach ((array)($employmentTypesResponse['data'] ?? []) as $row) {
-		$classification = cleanText($row['employment_classification'] ?? null);
-		if ($classification !== null) {
-			$types[$classification] = true;
+			if ($officeId === null || $officeName === null) {
+				continue;
+			}
+
+			$officeOptionsById[$officeId] = [
+				'id' => $officeId,
+				'office_name' => $officeName,
+			];
 		}
+
+		$officeOptions = array_values($officeOptionsById);
+		usort(
+			$officeOptions,
+			static fn (array $left, array $right): int => strnatcasecmp(
+				(string)($left['office_name'] ?? ''),
+				(string)($right['office_name'] ?? '')
+			)
+		);
+	} else {
+		$dataLoadError = 'Failed to load division filters.';
 	}
 
-	$employmentTypeOptions = array_keys($types);
-	sort($employmentTypeOptions);
-} else {
-	$dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Failed to load employment type filters.');
+	$employmentTypesResponse = apiRequest(
+		'GET',
+		$supabaseUrl . '/rest/v1/job_positions?select=employment_classification&is_active=eq.true&limit=300',
+		$headers
+	);
+
+	if (isSuccessful($employmentTypesResponse)) {
+		$types = [];
+		foreach ((array)($employmentTypesResponse['data'] ?? []) as $row) {
+			$classification = cleanText($row['employment_classification'] ?? null);
+			if ($classification !== null) {
+				$types[$classification] = true;
+			}
+		}
+
+		$employmentTypeOptions = array_keys($types);
+		natcasesort($employmentTypeOptions);
+		$employmentTypeOptions = array_values($employmentTypeOptions);
+	} else {
+		$dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Failed to load employment type filters.');
+	}
+
+	if ($sessionAvailable && !empty($officeOptions) && !empty($employmentTypeOptions)) {
+		$_SESSION[$jobListFilterCacheKey] = [
+			'expires_at' => $nowTimestamp + $jobListCacheTtl,
+			'office_options' => $officeOptions,
+			'employment_type_options' => $employmentTypeOptions,
+		];
+	}
 }
 
-$applicantProfileResponse = apiRequest(
-	'GET',
-	$supabaseUrl . '/rest/v1/applicant_profiles?select=id&user_id=eq.' . rawurlencode($applicantUserId) . '&limit=1',
-	$headers
-);
-
-if (isSuccessful($applicantProfileResponse)) {
-	$applicantProfileId = (string)(($applicantProfileResponse['data'][0]['id'] ?? ''));
+$cachedApplicantProfile = $sessionAvailable ? ($_SESSION[$jobListProfileCacheKey] ?? null) : null;
+if (
+	is_array($cachedApplicantProfile)
+	&& (int)($cachedApplicantProfile['expires_at'] ?? 0) > $nowTimestamp
+	&& is_string($cachedApplicantProfile['id'] ?? null)
+) {
+	$applicantProfileId = (string)$cachedApplicantProfile['id'];
 } else {
-	$dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Failed to resolve applicant profile context.');
+	$applicantProfileResponse = apiRequest(
+		'GET',
+		$supabaseUrl . '/rest/v1/applicant_profiles?select=id&user_id=eq.' . rawurlencode($applicantUserId) . '&limit=1',
+		$headers
+	);
+
+	if (isSuccessful($applicantProfileResponse)) {
+		$applicantProfileId = (string)(($applicantProfileResponse['data'][0]['id'] ?? ''));
+		if ($sessionAvailable && $applicantProfileId !== '') {
+			$_SESSION[$jobListProfileCacheKey] = [
+				'expires_at' => $nowTimestamp + $jobListCacheTtl,
+				'id' => $applicantProfileId,
+			];
+		}
+	} else {
+		$dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Failed to resolve applicant profile context.');
+	}
 }
+
+$fetchExactCount = static function (string $url) use ($headers): ?int {
+	$response = apiRequest(
+		'GET',
+		$url,
+		array_merge($headers, ['Prefer: count=exact'])
+	);
+
+	if (!isSuccessful($response)) {
+		return null;
+	}
+
+	$exactCount = getSupabaseExactCount($response);
+	if ($exactCount !== null) {
+		return $exactCount;
+	}
+
+	return count((array)($response['data'] ?? []));
+};
 
 $postingFilters = [
 	'posting_status=eq.published',
@@ -144,12 +224,43 @@ if ($filters['employment_type'] !== '') {
 	}
 }
 
+$countQueryBase = $supabaseUrl . '/rest/v1/job_postings?select=id';
+if (!empty($postingFilters)) {
+	$countQueryBase .= '&' . implode('&', $postingFilters);
+}
+
+$jobsTotalCount = $fetchExactCount($countQueryBase . '&limit=1');
+if ($jobsTotalCount !== null) {
+	$jobsTotal = $jobsTotalCount;
+	$openPositionsTotal = $jobsTotalCount;
+} else {
+	$dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Failed to load job totals.');
+}
+
+$closingSoonFilters = $postingFilters;
+$closingSoonFilters[] = 'close_date=lte.' . $weekAhead;
+$closingSoonQueryBase = $supabaseUrl . '/rest/v1/job_postings?select=id';
+if (!empty($closingSoonFilters)) {
+	$closingSoonQueryBase .= '&' . implode('&', $closingSoonFilters);
+}
+
+$closingSoonCount = $fetchExactCount($closingSoonQueryBase . '&limit=1');
+if ($closingSoonCount !== null) {
+	$closingThisWeekTotal = $closingSoonCount;
+}
+
+$totalPages = max(1, (int)ceil(($jobsTotal > 0 ? $jobsTotal : 1) / $pageSize));
+if ($page > $totalPages) {
+	$page = $totalPages;
+}
+
+$offset = ($page - 1) * $pageSize;
+
 $jobSelect = 'id,title,description,qualifications,responsibilities,open_date,close_date,posting_status,plantilla_item_no,csc_reference_url,office:offices(id,office_name),position:job_positions(id,position_title,employment_classification,salary_grade)';
 $baseJobsUrl = $supabaseUrl . '/rest/v1/job_postings?select=' . rawurlencode($jobSelect);
 if (!empty($postingFilters)) {
 	$baseJobsUrl .= '&' . implode('&', $postingFilters);
 }
-
 
 $jobsResponse = apiRequest(
 	'GET',
@@ -175,32 +286,6 @@ if (!isSuccessful($jobsResponse)) {
 	$dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Failed to load job postings.');
 } else {
 	$jobs = (array)($jobsResponse['data'] ?? []);
-}
-
-$countResponse = apiRequest(
-	'GET',
-	$supabaseUrl . '/rest/v1/job_postings?select=id&' . implode('&', $postingFilters) . '&limit=5000',
-	$headers
-);
-
-if (isSuccessful($countResponse)) {
-	$jobsTotal = count((array)($countResponse['data'] ?? []));
-	$openPositionsTotal = $jobsTotal;
-} else {
-	$jobsTotal = count($jobs);
-	$openPositionsTotal = $jobsTotal;
-}
-
-$closingSoonFilters = $postingFilters;
-$closingSoonFilters[] = 'close_date=lte.' . $weekAhead;
-$closingSoonResponse = apiRequest(
-	'GET',
-	$supabaseUrl . '/rest/v1/job_postings?select=id&' . implode('&', $closingSoonFilters) . '&limit=5000',
-	$headers
-);
-
-if (isSuccessful($closingSoonResponse)) {
-	$closingThisWeekTotal = count((array)($closingSoonResponse['data'] ?? []));
 }
 
 $appliedPostingMap = [];
@@ -252,7 +337,7 @@ foreach ($jobs as $jobRow) {
 	$normalizedJobs[] = [
 		'id' => $jobId,
 		'title' => (string)($jobRow['title'] ?? 'Untitled Position'),
-		'office_name' => (string)($office['office_name'] ?? 'Office not specified'),
+		'office_name' => (string)($office['office_name'] ?? 'Division not specified'),
 		'position_title' => (string)($position['position_title'] ?? ''),
 		'employment_type' => $employmentType,
 		'plantilla_item_no' => cleanText($jobRow['plantilla_item_no'] ?? null) ?? '-',
@@ -270,11 +355,6 @@ foreach ($jobs as $jobRow) {
 }
 
 $jobs = $normalizedJobs;
-
-$totalPages = max(1, (int)ceil(($jobsTotal > 0 ? $jobsTotal : 1) / $pageSize));
-if ($page > $totalPages) {
-	$page = $totalPages;
-}
 
 $hasPrevPage = $page > 1;
 $hasNextPage = ($page * $pageSize) < $jobsTotal;

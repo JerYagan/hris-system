@@ -1,77 +1,105 @@
 <?php
 
+if (!function_exists('reportAnalyticsAppendPagination')) {
+    function reportAnalyticsAppendPagination(string $url, int $limit, int $offset): string
+    {
+        $separator = str_contains($url, '?') ? '&' : '?';
+        return $url . $separator . 'limit=' . max(1, $limit) . '&offset=' . max(0, $offset);
+    }
+}
+
+if (!function_exists('reportAnalyticsFetchAll')) {
+    function reportAnalyticsFetchAll(string $url, array $headers, int $batchSize = 1000, int $maxPages = 100): array
+    {
+        $rows = [];
+        $offset = 0;
+        $lastResponse = ['status' => 500, 'data' => [], 'raw' => ''];
+
+        for ($page = 0; $page < $maxPages; $page++) {
+            $lastResponse = apiRequest('GET', reportAnalyticsAppendPagination($url, $batchSize, $offset), $headers);
+            if (!isSuccessful($lastResponse)) {
+                return $lastResponse;
+            }
+
+            $batch = is_array($lastResponse['data'] ?? null)
+                ? array_values((array)$lastResponse['data'])
+                : [];
+
+            $rows = array_merge($rows, $batch);
+            if (count($batch) < $batchSize) {
+                break;
+            }
+
+            $offset += $batchSize;
+        }
+
+        $lastResponse['data'] = $rows;
+        return $lastResponse;
+    }
+}
+
 $reportAnalyticsTurnoverStartDate = date('Y-m-d', strtotime('-365 days'));
+$reportAnalyticsRollingWindowStartDate = date('Y-m-d', strtotime('-60 days'));
 $reportAnalyticsEmploymentHistoryFilter = rawurlencode('(is_current.eq.true,hire_date.gte.' . $reportAnalyticsTurnoverStartDate . ',separation_date.gte.' . $reportAnalyticsTurnoverStartDate . ')');
+$reportAnalyticsActivityWindowStart = rawurlencode(gmdate('Y-m-d\TH:i:s\Z', strtotime('-30 days')));
 
-$employmentResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/employment_records?select=id,person_id,office_id,employment_status,hire_date,is_current&is_current=eq.true&limit=2000',
+$employmentResponse = reportAnalyticsFetchAll(
+    $supabaseUrl . '/rest/v1/employment_records?select=id,person_id,office_id,employment_status,hire_date,is_current&is_current=eq.true',
     $headers
 );
 
-$peopleResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/people?select=id,first_name,surname,middle_name,sex_at_birth,date_of_birth&limit=5000',
+$peopleResponse = reportAnalyticsFetchAll(
+    $supabaseUrl . '/rest/v1/people?select=id,first_name,surname,middle_name,sex_at_birth,date_of_birth',
     $headers
 );
 
-$employmentAllResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/employment_records?select=id,person_id,office_id,hire_date,separation_date,is_current&or=' . $reportAnalyticsEmploymentHistoryFilter . '&limit=10000',
+$employmentAllResponse = reportAnalyticsFetchAll(
+    $supabaseUrl . '/rest/v1/employment_records?select=id,person_id,office_id,hire_date,separation_date,is_current&or=' . $reportAnalyticsEmploymentHistoryFilter,
     $headers
 );
 
-$officesResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/offices?select=id,office_name&is_active=eq.true&limit=500',
+$officesResponse = reportAnalyticsFetchAll(
+    $supabaseUrl . '/rest/v1/offices?select=id,office_name',
     $headers
 );
 
-$attendanceResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/attendance_logs?select=attendance_date,attendance_status&limit=3000',
+$attendanceResponse = reportAnalyticsFetchAll(
+    $supabaseUrl . '/rest/v1/attendance_logs?select=attendance_date,attendance_status&attendance_date=gte.' . rawurlencode($reportAnalyticsRollingWindowStartDate),
     $headers
 );
 
-$payrollResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/payroll_items?select=gross_pay,net_pay,created_at,payroll_run:payroll_runs(payroll_period:payroll_periods(period_end))&limit=5000',
+$payrollResponse = reportAnalyticsFetchAll(
+    $supabaseUrl . '/rest/v1/payroll_items?select=gross_pay,net_pay,created_at,payroll_run:payroll_runs(payroll_period:payroll_periods(period_end))&created_at=gte.' . rawurlencode($reportAnalyticsRollingWindowStartDate . 'T00:00:00Z'),
     $headers
 );
 
-$documentsResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/documents?select=document_status&limit=5000',
+$documentsResponse = reportAnalyticsFetchAll(
+    $supabaseUrl . '/rest/v1/documents?select=document_status',
     $headers
 );
 
-$performanceResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/performance_evaluations?select=status&limit=5000',
+$performanceResponse = reportAnalyticsFetchAll(
+    $supabaseUrl . '/rest/v1/performance_evaluations?select=status',
     $headers
 );
 
-$applicationsResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/applications?select=application_status&limit=5000',
+$applicationsResponse = reportAnalyticsFetchAll(
+    $supabaseUrl . '/rest/v1/applications?select=application_status',
     $headers
 );
 
-$auditLogsResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/activity_logs?select=id,actor_user_id,module_name,action_name,created_at,actor:user_accounts(email)&order=created_at.desc&limit=2000',
+$auditLogsResponse = reportAnalyticsFetchAll(
+    $supabaseUrl . '/rest/v1/activity_logs?select=id,actor_user_id,module_name,action_name,created_at,actor:user_accounts(email)&created_at=gte.' . $reportAnalyticsActivityWindowStart . '&order=created_at.desc',
     $headers
 );
 
-$trainingEnrollmentsResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/training_enrollments?select=person_id,enrollment_status&limit=5000',
+$trainingEnrollmentsResponse = reportAnalyticsFetchAll(
+    $supabaseUrl . '/rest/v1/training_enrollments?select=person_id,enrollment_status',
     $headers
 );
 
-$roleAssignmentsResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/user_role_assignments?select=user_id,is_primary,role:roles(role_key)&expires_at=is.null&limit=5000',
+$roleAssignmentsResponse = reportAnalyticsFetchAll(
+    $supabaseUrl . '/rest/v1/user_role_assignments?select=user_id,is_primary,role:roles(role_key)&expires_at=is.null',
     $headers
 );
 
@@ -117,7 +145,7 @@ if (!isSuccessful($employmentAllResponse)) {
     $dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Employment history query failed (HTTP ' . (int)($employmentAllResponse['status'] ?? 0) . ').');
 }
 if (!isSuccessful($officesResponse)) {
-    $dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Office query failed (HTTP ' . (int)($officesResponse['status'] ?? 0) . ').');
+    $dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Division query failed (HTTP ' . (int)($officesResponse['status'] ?? 0) . ').');
 }
 if (!isSuccessful($attendanceResponse)) {
     $dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Attendance query failed (HTTP ' . (int)($attendanceResponse['status'] ?? 0) . ').');
@@ -167,7 +195,7 @@ foreach ($offices as $office) {
     if ($officeId === '') {
         continue;
     }
-    $officeNameById[$officeId] = (string)($office['office_name'] ?? 'Unassigned Office');
+    $officeNameById[$officeId] = (string)($office['office_name'] ?? 'Unassigned Division');
 }
 
 $personNameById = [];
@@ -220,7 +248,7 @@ if (!empty($departmentCounts)) {
     arsort($departmentCounts);
     $topOfficeId = (string)array_key_first($departmentCounts);
     $topDepartmentCount = (int)($departmentCounts[$topOfficeId] ?? 0);
-    $topDepartmentName = (string)($officeNameById[$topOfficeId] ?? 'Unassigned Office');
+    $topDepartmentName = (string)($officeNameById[$topOfficeId] ?? 'Unassigned Division');
     $topDepartmentLabel = $topDepartmentName . ' - ' . $topDepartmentCount . ' Employee' . ($topDepartmentCount === 1 ? '' : 's');
 }
 
@@ -567,14 +595,14 @@ foreach ($uniqueEmploymentRecords as $record) {
         continue;
     }
 
-    $personDepartmentById[$personId] = (string)($officeNameById[$officeId] ?? 'Unassigned Office');
+    $personDepartmentById[$personId] = (string)($officeNameById[$officeId] ?? 'Unassigned Division');
 }
 
 $demographicsByDivision = [];
 foreach ($uniqueEmploymentRecords as $record) {
     $personId = (string)($record['person_id'] ?? '');
     $officeId = (string)($record['office_id'] ?? '');
-    $divisionName = (string)($officeNameById[$officeId] ?? 'Unassigned Office');
+    $divisionName = (string)($officeNameById[$officeId] ?? 'Unassigned Division');
 
     if (!isset($demographicsByDivision[$divisionName])) {
         $demographicsByDivision[$divisionName] = [
@@ -634,7 +662,7 @@ usort($demographicsByDivisionRows, static function (array $left, array $right): 
 $turnoverTrainingByDivision = [];
 foreach ($employmentAllRecords as $employmentRow) {
     $officeId = (string)($employmentRow['office_id'] ?? '');
-    $divisionName = (string)($officeNameById[$officeId] ?? 'Unassigned Office');
+    $divisionName = (string)($officeNameById[$officeId] ?? 'Unassigned Division');
     if (!isset($turnoverTrainingByDivision[$divisionName])) {
         $turnoverTrainingByDivision[$divisionName] = [
             'division' => $divisionName,
@@ -665,7 +693,7 @@ foreach ($employmentAllRecords as $employmentRow) {
 
 foreach ($trainingEnrollments as $enrollmentRow) {
     $personId = (string)($enrollmentRow['employee_person_id'] ?? $enrollmentRow['person_id'] ?? $enrollmentRow['participant_person_id'] ?? '');
-    $divisionName = (string)($personDepartmentById[$personId] ?? 'Unassigned Office');
+    $divisionName = (string)($personDepartmentById[$personId] ?? 'Unassigned Division');
     if (!isset($turnoverTrainingByDivision[$divisionName])) {
         $turnoverTrainingByDivision[$divisionName] = [
             'division' => $divisionName,
@@ -700,7 +728,7 @@ foreach ($turnoverTrainingByDivision as $divisionRow) {
         : 0.0;
 
     $turnoverTrainingRows[] = [
-        'division' => (string)($divisionRow['division'] ?? 'Unassigned Office'),
+        'division' => (string)($divisionRow['division'] ?? 'Unassigned Division'),
         'headcount' => (int)($divisionRow['headcount'] ?? 0),
         'hires_365' => (int)($divisionRow['hires_365'] ?? 0),
         'separations_365' => $separations,
@@ -790,7 +818,7 @@ foreach ($uniqueEmploymentRecords as $record) {
     $hireDateLabel = $hireDateRaw !== '' ? date('M d, Y', strtotime($hireDateRaw)) : '-';
 
     $employeeName = (string)($personNameById[$personId] ?? 'Employee #' . ($personId !== '' ? substr($personId, 0, 8) : 'N/A'));
-    $departmentName = (string)($officeNameById[$officeId] ?? 'Unassigned Office');
+    $departmentName = (string)($officeNameById[$officeId] ?? 'Unassigned Division');
 
     $employeeRows[] = [
         'person_id' => $personId,
@@ -814,3 +842,60 @@ sort($employeeStatusFilters);
 
 $employeeDepartmentFilters = array_keys($employeeDepartmentFilters);
 sort($employeeDepartmentFilters);
+
+$divisionHeadcountChartRows = [];
+foreach ($departmentCounts as $officeId => $count) {
+    $divisionHeadcountChartRows[] = [
+        'label' => (string)($officeNameById[(string)$officeId] ?? 'Unassigned Division'),
+        'value' => (int)$count,
+    ];
+}
+$divisionHeadcountChartRows = array_slice($divisionHeadcountChartRows, 0, 8);
+
+$demographicsChartRows = $demographicsByDivisionRows;
+usort($demographicsChartRows, static function (array $left, array $right): int {
+    return (int)$right['total'] <=> (int)$left['total'];
+});
+$demographicsChartRows = array_slice($demographicsChartRows, 0, 8);
+
+$turnoverTrainingChartRows = $turnoverTrainingRows;
+usort($turnoverTrainingChartRows, static function (array $left, array $right): int {
+    return (int)$right['headcount'] <=> (int)$left['headcount'];
+});
+$turnoverTrainingChartRows = array_slice($turnoverTrainingChartRows, 0, 8);
+
+$activityChartRows = array_slice($activityBreakdownRows, 0, 8);
+
+$reportAnalyticsChartPayload = [
+    'employeeStatus' => [
+        'labels' => ['Active', 'On Leave', 'Inactive'],
+        'values' => [(int)$activeCount, (int)$onLeaveCount, (int)$inactiveCount],
+    ],
+    'divisionHeadcount' => [
+        'labels' => array_map(static fn (array $row): string => (string)$row['label'], $divisionHeadcountChartRows),
+        'values' => array_map(static fn (array $row): int => (int)$row['value'], $divisionHeadcountChartRows),
+    ],
+    'demographicsByDivision' => [
+        'labels' => array_map(static fn (array $row): string => (string)$row['division'], $demographicsChartRows),
+        'male' => array_map(static fn (array $row): int => (int)$row['male'], $demographicsChartRows),
+        'female' => array_map(static fn (array $row): int => (int)$row['female'], $demographicsChartRows),
+        'unspecified' => array_map(static fn (array $row): int => (int)$row['unspecified'], $demographicsChartRows),
+    ],
+    'turnoverTraining' => [
+        'labels' => array_map(static fn (array $row): string => (string)$row['division'], $turnoverTrainingChartRows),
+        'hires' => array_map(static fn (array $row): int => (int)$row['hires_365'], $turnoverTrainingChartRows),
+        'separations' => array_map(static fn (array $row): int => (int)$row['separations_365'], $turnoverTrainingChartRows),
+        'turnoverRate' => array_map(static fn (array $row): float => (float)$row['turnover_rate'], $turnoverTrainingChartRows),
+        'trainingCompletionRate' => array_map(static fn (array $row): float => (float)$row['training_completion_rate'], $turnoverTrainingChartRows),
+    ],
+    'activityByModule' => [
+        'labels' => array_map(static fn (array $row): string => (string)$row['module_name'], $activityChartRows),
+        'admin' => array_map(static fn (array $row): int => (int)$row['admin'], $activityChartRows),
+        'staff' => array_map(static fn (array $row): int => (int)$row['staff'], $activityChartRows),
+    ],
+];
+
+$reportAnalyticsChartPayloadJson = json_encode(
+    $reportAnalyticsChartPayload,
+    JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+);

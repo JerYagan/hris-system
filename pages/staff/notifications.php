@@ -39,6 +39,19 @@ $categoryIcon = static function (string $value): string {
 
     return 'notifications';
 };
+
+$formatNotificationDateTime = static function (?string $dateTime): string {
+    $value = trim((string)$dateTime);
+    if ($value === '') {
+        return '-';
+    }
+
+    $formatted = function_exists('formatDateTimeForPhilippines')
+        ? formatDateTimeForPhilippines($value, 'M d, Y h:i A')
+        : date('M d, Y h:i A', strtotime($value));
+
+    return $formatted !== '-' ? ($formatted . ' PST') : '-';
+};
 ?>
 
 <?php if ($state && $message): ?>
@@ -130,7 +143,7 @@ $categoryIcon = static function (string $value): string {
                     $linkUrl = cleanText($notification['link_url'] ?? null);
                     $isRead = (bool)($notification['is_read'] ?? false);
                     $createdAt = (string)($notification['created_at'] ?? '');
-                    $createdLabel = $createdAt !== '' ? formatDateTimeForPhilippines($createdAt, 'M d, Y h:i A') : '-';
+                    $createdLabel = $formatNotificationDateTime($createdAt);
                     [$statusLabel, $statusClass] = $statusPill($isRead);
                     $searchText = strtolower(trim($title . ' ' . $body . ' ' . $category . ' ' . $statusLabel));
                     $categoryLabel = ucfirst(str_replace('_', ' ', strtolower($category)));

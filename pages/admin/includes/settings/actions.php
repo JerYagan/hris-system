@@ -61,6 +61,11 @@ $actionConfig = [
         'event' => 'Updated backup settings',
         'message' => 'Backup settings saved successfully.',
     ],
+    'save_employee_id_settings' => [
+        'keys' => ['employee_id_prefix'],
+        'event' => 'Updated employee ID settings',
+        'message' => 'Employee ID settings saved successfully.',
+    ],
     'save_security_settings' => [
         'keys' => ['password_min_length', 'login_lockout_threshold', 'session_timeout_minutes', 'two_factor_mode'],
         'event' => 'Updated security settings',
@@ -119,7 +124,10 @@ if (!isset($actionConfig[$action])) {
         }
 
         $subject = 'DA HRIS SMTP Test';
-        $html = '<p>Hello,</p><p>This is an SMTP test email from DA HRIS Settings.</p><p>If you received this, SMTP configuration is working.</p>';
+        $html = '<p>Hello,</p>'
+            . '<p>This is a test email sent from DA HRIS Settings to confirm that SMTP delivery is working correctly.</p>'
+            . '<p><strong>Sent:</strong> ' . htmlspecialchars(hrisEmailFormatPhilippinesDateTime(gmdate('c')), ENT_QUOTES, 'UTF-8') . '</p>'
+            . '<p>No action is required. You may safely ignore this message after confirming delivery.</p>';
 
         $emailResponse = smtpSendTransactionalEmail(
             $smtpConfig,

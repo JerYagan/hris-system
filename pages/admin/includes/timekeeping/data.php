@@ -35,20 +35,31 @@ $appendError = static function (?string $currentError, string $label, array $res
     return $currentError ? ($currentError . ' ' . $message) : $message;
 };
 
+$timekeepingQueryLimits = [
+    'attendance_today' => 500,
+    'attendance_history' => 300,
+    'requests' => 250,
+    'holidays' => 200,
+    'recommendations' => 250,
+    'role_assignments' => 5000,
+    'employees' => 2500,
+    'leave_types' => 200,
+];
+
 $attendanceTodayResponse = apiRequest(
     'GET',
     $supabaseUrl
     . '/rest/v1/attendance_logs?select=id,attendance_date,time_in,time_out,hours_worked,late_minutes,attendance_status,person:people(first_name,surname)'
     . '&attendance_date=eq.' . rawurlencode($todayDate)
-    . '&order=attendance_date.desc,time_in.asc&limit=5000',
+    . '&order=attendance_date.desc,time_in.asc&limit=' . (int)$timekeepingQueryLimits['attendance_today'],
     $headers
 );
 
 $attendanceHistoryResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/attendance_logs?select=id,attendance_date,time_in,time_out,hours_worked,late_minutes,attendance_status,person_id,person:people(first_name,surname)'
-    . '&order=attendance_date.desc,created_at.desc&limit=5000',
+    . '/rest/v1/attendance_logs?select=id,attendance_date,time_in,attendance_status,person:people(first_name,surname)'
+    . '&order=attendance_date.desc,created_at.desc&limit=' . (int)$timekeepingQueryLimits['attendance_history'],
     $headers
 );
 
@@ -56,7 +67,7 @@ $adjustmentsResponse = apiRequest(
     'GET',
     $supabaseUrl
     . '/rest/v1/time_adjustment_requests?select=id,status,reason,reviewed_at,requested_time_in,requested_time_out,created_at,attendance_log_id,person:people(first_name,surname,user_id),attendance:attendance_logs(attendance_date,time_in,time_out)'
-    . '&order=created_at.desc&limit=500',
+    . '&order=created_at.desc&limit=' . (int)$timekeepingQueryLimits['requests'],
     $headers
 );
 
@@ -64,7 +75,7 @@ $leaveRequestsResponse = apiRequest(
     'GET',
     $supabaseUrl
     . '/rest/v1/leave_requests?select=id,date_from,date_to,days_count,status,reason,review_notes,reviewed_at,created_at,person:people(first_name,surname,user_id),leave_type:leave_types(leave_name)'
-    . '&order=created_at.desc&limit=500',
+    . '&order=created_at.desc&limit=' . (int)$timekeepingQueryLimits['requests'],
     $headers
 );
 
@@ -72,7 +83,7 @@ $ctoRequestsResponse = apiRequest(
     'GET',
     $supabaseUrl
     . '/rest/v1/overtime_requests?select=id,overtime_date,start_time,end_time,hours_requested,reason,status,created_at,person:people(first_name,surname,user_id)'
-    . '&order=created_at.desc&limit=500',
+    . '&order=created_at.desc&limit=' . (int)$timekeepingQueryLimits['requests'],
     $headers
 );
 
@@ -80,7 +91,7 @@ $holidaysResponse = apiRequest(
     'GET',
     $supabaseUrl
     . '/rest/v1/holidays?select=id,holiday_date,holiday_name,holiday_type,office_id,created_at'
-    . '&order=holiday_date.desc&limit=500',
+    . '&order=holiday_date.desc&limit=' . (int)$timekeepingQueryLimits['holidays'],
     $headers
 );
 
@@ -98,7 +109,7 @@ $staffRecommendationsResponse = apiRequest(
     . '/rest/v1/activity_logs?select=id,actor_user_id,action_name,entity_name,entity_id,new_data,created_at,actor:user_accounts(email)'
     . '&module_name=eq.timekeeping'
     . '&action_name=in.(recommend_leave_request,recommend_overtime_request,recommend_ob_request,recommend_time_adjustment)'
-    . '&order=created_at.desc&limit=300',
+    . '&order=created_at.desc&limit=' . (int)$timekeepingQueryLimits['recommendations'],
     $headers
 );
 
@@ -108,7 +119,7 @@ $employeeRoleAssignmentsResponse = apiRequest(
     . '/rest/v1/user_role_assignments?select=user_id,role:roles!inner(role_key)'
     . '&role.role_key=eq.employee'
     . '&expires_at=is.null'
-    . '&limit=10000',
+    . '&limit=' . (int)$timekeepingQueryLimits['role_assignments'],
     $headers
 );
 
@@ -117,7 +128,7 @@ $employeeOptionsResponse = apiRequest(
     $supabaseUrl
     . '/rest/v1/people?select=id,first_name,surname,user_id,agency_employee_no'
     . '&user_id=not.is.null'
-    . '&order=surname.asc,first_name.asc&limit=5000',
+    . '&order=surname.asc,first_name.asc&limit=' . (int)$timekeepingQueryLimits['employees'],
     $headers
 );
 
@@ -126,7 +137,7 @@ $leaveTypeOptionsResponse = apiRequest(
     $supabaseUrl
     . '/rest/v1/leave_types?select=id,leave_name,leave_code,is_active'
     . '&is_active=eq.true'
-    . '&order=leave_name.asc&limit=200',
+    . '&order=leave_name.asc&limit=' . (int)$timekeepingQueryLimits['leave_types'],
     $headers
 );
 
@@ -144,7 +155,6 @@ $dataLoadError = $appendError($dataLoadError, 'Employees', $employeeOptionsRespo
 $dataLoadError = $appendError($dataLoadError, 'Leave types', $leaveTypeOptionsResponse);
 
 $attendanceLogs = [];
-$attendanceHistoryRows = [];
 $adjustmentRequests = isSuccessful($adjustmentsResponse) ? (array)$adjustmentsResponse['data'] : [];
 $leaveRequests = isSuccessful($leaveRequestsResponse) ? (array)$leaveRequestsResponse['data'] : [];
 $ctoRequests = [];
@@ -274,15 +284,6 @@ if (isSuccessful($attendanceHistoryResponse)) {
         if ($isLateByPolicy((string)($attendanceRow['time_in'] ?? '')) && in_array($rawStatus, ['present', 'late'], true)) {
             $displayStatus = 'late';
         }
-
-        $attendanceHistoryRows[] = [
-            'id' => (string)($attendanceRow['id'] ?? ''),
-            'employee_name' => $employeeName,
-            'attendance_date' => (string)($attendanceRow['attendance_date'] ?? ''),
-            'time_in' => (string)($attendanceRow['time_in'] ?? ''),
-            'time_out' => (string)($attendanceRow['time_out'] ?? ''),
-            'display_status' => $displayStatus,
-        ];
 
         $historyEntries[] = [
             'sort_ts' => strtotime((string)($attendanceRow['attendance_date'] ?? '') . ' 00:00:00') ?: 0,

@@ -109,15 +109,42 @@
     return url.toString();
   };
 
-  const normalizeNotification = (item) => ({
-    id: String(item?.id || ''),
-    title: String(item?.title || 'Notification'),
-    body: String(item?.body || 'No details available.'),
-    link_url: String(item?.link_url || ''),
-    category: String(item?.category || 'general'),
-    created_at_label: String(item?.created_at_label || item?.created_at || '-'),
-    is_read: Boolean(item?.is_read),
-  });
+  const formatPhilippinesTimestamp = (value) => {
+    const raw = String(value ?? '').trim();
+    if (raw === '') {
+      return '-';
+    }
+
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) {
+      return raw;
+    }
+
+    return `${new Intl.DateTimeFormat('en-PH', {
+      timeZone: 'Asia/Manila',
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    }).format(date)} PST`;
+  };
+
+  const normalizeNotification = (item) => {
+    const createdAtRaw = String(item?.created_at || '').trim();
+    const createdAtLabel = String(item?.created_at_label || '').trim();
+
+    return {
+      id: String(item?.id || ''),
+      title: String(item?.title || 'Notification'),
+      body: String(item?.body || 'No details available.'),
+      link_url: String(item?.link_url || ''),
+      category: String(item?.category || 'general'),
+      created_at_label: createdAtRaw !== '' ? formatPhilippinesTimestamp(createdAtRaw) : (createdAtLabel || '-'),
+      is_read: Boolean(item?.is_read),
+    };
+  };
 
   const renderItems = (root, items) => {
     const itemsContainer = root.querySelector('[data-topnav-items]');

@@ -7,6 +7,15 @@ $filterStatus = in_array($filterStatusRaw, ['active', 'inactive'], true) ? $filt
 
 $dataLoadError = null;
 
+$staffPersonalInformationLimits = [
+    'employment_records' => 1500,
+    'recommendations' => 100,
+    'actors' => 300,
+    'related_person_records' => 3000,
+    'offices' => 250,
+    'job_positions' => 250,
+];
+
 $appendDataError = static function (string $label, array $response) use (&$dataLoadError): void {
     if (isSuccessful($response)) {
         return;
@@ -26,7 +35,7 @@ $employmentResponse = apiRequest(
     $supabaseUrl
     . '/rest/v1/employment_records?select=id,person_id,office_id,position_id,employment_status,is_current,hire_date,separation_reason,updated_at,person:people!employment_records_person_id_fkey(id,user_id,first_name,middle_name,surname,name_extension,date_of_birth,place_of_birth,sex_at_birth,civil_status,height_m,weight_kg,blood_type,citizenship,dual_citizenship,dual_citizenship_country,telephone_no,mobile_no,personal_email,agency_employee_no),office:offices(office_name),position:job_positions(position_title)'
     . '&is_current=eq.true'
-    . '&order=updated_at.desc&limit=3000',
+    . '&order=updated_at.desc&limit=' . $staffPersonalInformationLimits['employment_records'],
     $headers
 );
 $appendDataError('Employment records', $employmentResponse);
@@ -70,7 +79,7 @@ if ($personIdFilter !== '') {
             $id = cleanText($row['id'] ?? null);
             return isValidUuid((string)$id) ? (string)$id : null;
         }, $employmentRows)))) . ')))'
-        . '&order=created_at.desc&limit=120',
+        . '&order=created_at.desc&limit=' . $staffPersonalInformationLimits['recommendations'],
         $headers
     );
     $appendDataError('Profile recommendations', $recommendationsResponse);
@@ -91,7 +100,7 @@ if ($personIdFilter !== '') {
             'GET',
             $supabaseUrl
             . '/rest/v1/user_accounts?select=id,email'
-            . '&id=in.(' . $actorFilter . ')&limit=500',
+            . '&id=in.(' . $actorFilter . ')&limit=' . $staffPersonalInformationLimits['actors'],
             $headers
         );
         $appendDataError('Recommendation actors', $actorResponse);
@@ -312,7 +321,7 @@ if ($personIdFilter !== '') {
         $supabaseUrl
         . '/rest/v1/person_addresses?select=id,person_id,address_type,house_no,street,subdivision,barangay,city_municipality,province,zip_code,is_primary'
         . '&person_id=in.(' . $personIdFilter . ')'
-        . '&address_type=in.(residential,permanent)&limit=6000',
+        . '&address_type=in.(residential,permanent)&limit=' . $staffPersonalInformationLimits['related_person_records'],
         $headers
     );
     $appendDataError('Person addresses', $addressesResponse);
@@ -323,7 +332,7 @@ if ($personIdFilter !== '') {
         $supabaseUrl
         . '/rest/v1/person_government_ids?select=id,person_id,id_type,id_value_encrypted'
         . '&person_id=in.(' . $personIdFilter . ')'
-        . '&id_type=in.(umid,pagibig,philhealth,psn,tin)&limit=6000',
+        . '&id_type=in.(umid,pagibig,philhealth,psn,tin)&limit=' . $staffPersonalInformationLimits['related_person_records'],
         $headers
     );
     $appendDataError('Government IDs', $governmentIdsResponse);
@@ -334,7 +343,7 @@ if ($personIdFilter !== '') {
         $supabaseUrl
         . '/rest/v1/person_family_spouses?select=id,person_id,surname,first_name,middle_name,extension_name,occupation,employer_business_name,business_address,telephone_no,sequence_no'
         . '&person_id=in.(' . $personIdFilter . ')'
-        . '&order=sequence_no.asc&limit=6000',
+        . '&order=sequence_no.asc&limit=' . $staffPersonalInformationLimits['related_person_records'],
         $headers
     );
     $appendDataError('Spouse data', $spouseResponse);
@@ -345,7 +354,7 @@ if ($personIdFilter !== '') {
         $supabaseUrl
         . '/rest/v1/person_parents?select=id,person_id,parent_type,surname,first_name,middle_name,extension_name'
         . '&person_id=in.(' . $personIdFilter . ')'
-        . '&parent_type=in.(father,mother)&limit=6000',
+        . '&parent_type=in.(father,mother)&limit=' . $staffPersonalInformationLimits['related_person_records'],
         $headers
     );
     $appendDataError('Parent data', $parentsResponse);
@@ -356,7 +365,7 @@ if ($personIdFilter !== '') {
         $supabaseUrl
         . '/rest/v1/person_family_children?select=id,person_id,full_name,birth_date,sequence_no'
         . '&person_id=in.(' . $personIdFilter . ')'
-        . '&order=sequence_no.asc&limit=12000',
+        . '&order=sequence_no.asc&limit=' . $staffPersonalInformationLimits['related_person_records'],
         $headers
     );
     $appendDataError('Children data', $childrenResponse);
@@ -367,7 +376,7 @@ if ($personIdFilter !== '') {
         $supabaseUrl
         . '/rest/v1/person_educational_backgrounds?select=id,person_id,education_level,school_name,degree_course,attendance_from_year,attendance_to_year,highest_level_units_earned,year_graduated,scholarship_honors_received,sequence_no'
         . '&person_id=in.(' . $personIdFilter . ')'
-        . '&order=sequence_no.asc&limit=12000',
+        . '&order=sequence_no.asc&limit=' . $staffPersonalInformationLimits['related_person_records'],
         $headers
     );
     $appendDataError('Educational backgrounds', $educationResponse);
@@ -376,7 +385,7 @@ if ($personIdFilter !== '') {
 
 $officesResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/offices?select=id,office_name,is_active&order=office_name.asc&limit=500',
+    $supabaseUrl . '/rest/v1/offices?select=id,office_name,is_active&order=office_name.asc&limit=' . $staffPersonalInformationLimits['offices'],
     $headers
 );
 $appendDataError('Offices', $officesResponse);
@@ -384,7 +393,7 @@ $officeRows = isSuccessful($officesResponse) ? (array)($officesResponse['data'] 
 
 $positionsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/job_positions?select=id,position_title,is_active&order=position_title.asc&limit=500',
+    $supabaseUrl . '/rest/v1/job_positions?select=id,position_title,is_active&is_active=eq.true&order=position_title.asc&limit=' . $staffPersonalInformationLimits['job_positions'],
     $headers
 );
 $appendDataError('Job positions', $positionsResponse);
@@ -813,9 +822,9 @@ foreach ($employmentRows as $employment) {
         $fullName = 'Unknown Employee';
     }
 
-    $officeName = cleanText($employment['office']['office_name'] ?? null) ?? 'Unassigned Department';
+    $officeName = cleanText($employment['office']['office_name'] ?? null) ?? 'Unassigned Division';
     $positionName = cleanText($employment['position']['position_title'] ?? null) ?? 'Unassigned Position';
-    if ($officeName !== 'Unassigned Department') {
+    if ($officeName !== 'Unassigned Division') {
         $departmentFilters[$officeName] = true;
     }
 
@@ -828,7 +837,7 @@ foreach ($employmentRows as $employment) {
         $inactiveEmployees++;
     }
 
-    if ($officeName !== 'Unassigned Department' && $positionName !== 'Unassigned Position') {
+    if ($officeName !== 'Unassigned Division' && $positionName !== 'Unassigned Position') {
         $completeRecords++;
     }
 

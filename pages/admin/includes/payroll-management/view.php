@@ -68,12 +68,9 @@ $setupStatusPill = static function (string $status): array {
     <header class="px-6 py-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
             <h2 class="text-lg font-semibold text-slate-800">Payroll Management</h2>
-            <p class="text-sm text-slate-500 mt-1">Use quick actions for payroll generation, salary adjustment review, and payslip release workflows.</p>
+            <p class="text-sm text-slate-500 mt-1">Use quick actions for salary adjustment review and payslip release workflows.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <button type="button" data-modal-open="generatePayrollBatchModal" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm">
-                <span class="material-symbols-outlined text-[15px]">calculate</span>Generate Payroll Batch
-            </button>
             <button type="button" data-modal-open="reviewSalaryAdjustmentsModal" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm">
                 <span class="material-symbols-outlined text-[15px]">rule_settings</span>Review Salary Adjustments
             </button>
@@ -82,35 +79,6 @@ $setupStatusPill = static function (string $status): array {
             </button>
         </div>
     </header>
-</section>
-
-<section class="bg-white border border-slate-200 rounded-2xl mb-6">
-    <header class="px-6 py-4 border-b border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800">Payroll Batch Approval Flow</h2>
-                        <td class="px-4 py-3 text-slate-500" colspan="9">No payroll batches found.</td>
-    </header>
-    <div class="p-6 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
-        <article class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <p class="text-xs uppercase text-slate-500">Step 1</p>
-            <p class="font-semibold text-slate-800 mt-1">Staff prepares payroll batch</p>
-            <p class="text-slate-600 mt-1">Staff computes payroll for the selected cutoff and verifies employee totals.</p>
-        </article>
-        <article class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <p class="text-xs uppercase text-slate-500">Step 2</p>
-            <p class="font-semibold text-slate-800 mt-1">Staff submits recommendation</p>
-            <p class="text-slate-600 mt-1">Staff submits the batch to Admin with recommendation and supporting notes.</p>
-        </article>
-        <article class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <p class="text-xs uppercase text-slate-500">Step 3</p>
-            <p class="font-semibold text-slate-800 mt-1">Admin reviews submitted batch</p>
-            <p class="text-slate-600 mt-1">Admin checks cutoff details, totals, and staff recommendation before deciding.</p>
-        </article>
-        <article class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <p class="text-xs uppercase text-slate-500">Step 4</p>
-            <p class="font-semibold text-slate-800 mt-1">Admin final decision</p>
-            <p class="text-slate-600 mt-1">Admin approves or rejects the batch; decision is logged and reflected back to staff history.</p>
-        </article>
-    </div>
 </section>
 
 <div id="payrollSalarySetupModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
@@ -291,6 +259,14 @@ $setupStatusPill = static function (string $status): array {
             </tbody>
         </table>
     </div>
+    <div class="px-6 pb-4 flex items-center justify-between gap-3 text-sm">
+        <p id="payrollEmployeePickerPaginationInfo" class="text-slate-500">Showing 0 to 0 of 0 entries</p>
+        <div class="flex items-center gap-2">
+            <button id="payrollEmployeePickerPrev" type="button" class="px-3 py-1.5 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Previous</button>
+            <span id="payrollEmployeePickerPageLabel" class="text-slate-500 min-w-[88px] text-center">Page 1 of 1</span>
+            <button id="payrollEmployeePickerNext" type="button" class="px-3 py-1.5 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Next</button>
+        </div>
+    </div>
 </section>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
@@ -314,11 +290,9 @@ $setupStatusPill = static function (string $status): array {
             </select>
         </div>
         <div class="w-full md:w-44">
-            <label class="text-sm text-slate-600">Entries</label>
+            <label class="text-sm text-slate-600">Entries per page</label>
             <select id="payrollSetupLogsPageSize" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
                 <option value="10" selected>10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
             </select>
         </div>
     </div>
@@ -389,9 +363,10 @@ $setupStatusPill = static function (string $status): array {
         </table>
         <?php if (!empty($salarySetupLogRows)): ?>
             <div class="mt-4 flex items-center justify-between gap-3 text-sm">
-                <p id="payrollSetupLogsPageInfo" class="text-slate-500">Showing 0 of 0</p>
+                <p id="payrollSetupLogsPageInfo" class="text-slate-500">Showing 0 to 0 of 0 entries</p>
                 <div class="flex items-center gap-2">
                     <button id="payrollSetupLogsPrev" type="button" class="px-3 py-1.5 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Previous</button>
+                    <span id="payrollSetupLogsPageLabel" class="text-slate-500 min-w-[88px] text-center">Page 1 of 1</span>
                     <button id="payrollSetupLogsNext" type="button" class="px-3 py-1.5 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Next</button>
                 </div>
             </div>
@@ -426,6 +401,23 @@ $setupStatusPill = static function (string $status): array {
         </article>
     </div>
 
+    <div class="px-6 pb-3 flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
+        <div class="w-full md:w-1/2">
+            <label class="text-sm text-slate-600">Search Estimate History</label>
+            <input id="payrollPeriodsSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search by period code, range, or status">
+        </div>
+        <div class="w-full md:w-56">
+            <label class="text-sm text-slate-600">Status Filter</label>
+            <select id="payrollPeriodsStatusFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
+                <option value="">All Status</option>
+                <option value="Open">Open</option>
+                <option value="Processing">Processing</option>
+                <option value="Posted">Posted</option>
+                <option value="Closed">Closed</option>
+            </select>
+        </div>
+    </div>
+
     <?php if (!empty($payrollEstimateHistoryRows)): ?>
         <form id="payrollBulkDeletePeriodsForm" action="payroll-management.php" method="POST" class="px-6 pb-2 flex justify-end">
             <input type="hidden" name="form_action" value="delete_payroll_period_bulk">
@@ -436,7 +428,7 @@ $setupStatusPill = static function (string $status): array {
     <?php endif; ?>
 
     <div id="payrollEstimateHistory" class="px-6 pb-6 overflow-x-auto">
-        <table class="w-full text-sm">
+        <table id="payrollPeriodsTable" class="w-full text-sm">
             <thead class="bg-slate-50 text-slate-600">
                 <tr>
                     <th class="text-left px-4 py-3 w-12">
@@ -459,15 +451,17 @@ $setupStatusPill = static function (string $status): array {
                     <?php foreach ($payrollEstimateHistoryRows as $history): ?>
                         <?php
                         $historyPeriodId = (string)($history['period_id'] ?? '');
+                        $periodStatus = ucfirst((string)($history['status'] ?? 'open'));
+                        $periodSearch = strtolower(trim((string)($history['period_code'] ?? '') . ' ' . (string)($history['period_label'] ?? '') . ' ' . $periodStatus));
                         ?>
-                        <tr>
+                        <tr data-payroll-period-search="<?= htmlspecialchars($periodSearch, ENT_QUOTES, 'UTF-8') ?>" data-payroll-period-status="<?= htmlspecialchars($periodStatus, ENT_QUOTES, 'UTF-8') ?>">
                             <td class="px-4 py-3">
                                 <?php if ($historyPeriodId !== ''): ?>
                                     <input type="checkbox" name="period_ids[]" value="<?= htmlspecialchars($historyPeriodId, ENT_QUOTES, 'UTF-8') ?>" form="payrollBulkDeletePeriodsForm" data-payroll-period-select class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500">
                                 <?php endif; ?>
                             </td>
                             <td class="px-4 py-3 text-slate-700"><?= htmlspecialchars((string)$history['period_code'] . ' • ' . (string)$history['period_label'], ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars(ucfirst((string)$history['status']), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars($periodStatus, ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)$history['employee_count'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3 text-slate-700"><?= htmlspecialchars($currency((float)$history['estimated_gross']), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3 text-slate-800 font-medium"><?= htmlspecialchars($currency((float)$history['estimated_net']), ENT_QUOTES, 'UTF-8') ?></td>
@@ -489,6 +483,14 @@ $setupStatusPill = static function (string $status): array {
                 <?php endif; ?>
             </tbody>
         </table>
+    </div>
+    <div class="px-6 pb-4 flex items-center justify-between gap-3 text-sm">
+        <p id="payrollPeriodsPageInfo" class="text-slate-500">Showing 0 to 0 of 0 entries</p>
+        <div class="flex items-center gap-2">
+            <button id="payrollPeriodsPrev" type="button" class="px-3 py-1.5 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Previous</button>
+            <span id="payrollPeriodsPageLabel" class="text-slate-500 min-w-[88px] text-center">Page 1 of 1</span>
+            <button id="payrollPeriodsNext" type="button" class="px-3 py-1.5 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Next</button>
+        </div>
     </div>
 </section>
 
@@ -678,6 +680,14 @@ $setupStatusPill = static function (string $status): array {
             </tbody>
         </table>
     </div>
+    <div class="px-6 pb-4 flex items-center justify-between gap-3 text-sm">
+        <p id="payrollBatchesPageInfo" class="text-slate-500">Showing 0 to 0 of 0 entries</p>
+        <div class="flex items-center gap-2">
+            <button id="payrollBatchesPrev" type="button" class="px-3 py-1.5 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Previous</button>
+            <span id="payrollBatchesPageLabel" class="text-slate-500 min-w-[88px] text-center">Page 1 of 1</span>
+            <button id="payrollBatchesNext" type="button" class="px-3 py-1.5 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Next</button>
+        </div>
+    </div>
 </section>
 
 <script id="payrollBatchBreakdownByRunData" type="application/json"><?= json_encode($batchBreakdownByRun, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>
@@ -842,6 +852,14 @@ $setupStatusPill = static function (string $status): array {
                 <?php endif; ?>
             </tbody>
         </table>
+    </div>
+    <div class="px-6 pb-4 flex items-center justify-between gap-3 text-sm">
+        <p id="payrollPayslipsPageInfo" class="text-slate-500">Showing 0 to 0 of 0 entries</p>
+        <div class="flex items-center gap-2">
+            <button id="payrollPayslipsPrev" type="button" class="px-3 py-1.5 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Previous</button>
+            <span id="payrollPayslipsPageLabel" class="text-slate-500 min-w-[88px] text-center">Page 1 of 1</span>
+            <button id="payrollPayslipsNext" type="button" class="px-3 py-1.5 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Next</button>
+        </div>
     </div>
 </section>
 

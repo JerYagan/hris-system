@@ -77,6 +77,339 @@ if (!function_exists('staffApplicantTrackingBuildUtcTimestamp')) {
     }
 }
 
+if (!function_exists('staffApplicantTrackingLoadEmployeeIdPrefix')) {
+    function staffApplicantTrackingLoadEmployeeIdPrefix(string $supabaseUrl, array $headers): string
+    {
+        $defaultPrefix = 'DA-EMP-';
+        $response = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/system_settings?select=setting_value&setting_key=eq.' . rawurlencode('employee_id_prefix') . '&limit=1',
+            $headers
+        );
+
+        $storedValue = '';
+        if (isSuccessful($response) && !empty((array)($response['data'] ?? []))) {
+            $raw = $response['data'][0]['setting_value'] ?? null;
+            $value = is_array($raw) && array_key_exists('value', $raw) ? $raw['value'] : $raw;
+            if (is_scalar($value)) {
+                $storedValue = trim((string)$value);
+            }
+        }
+
+        $prefix = strtoupper((string)preg_replace('/[^A-Z0-9-]+/i', '-', $storedValue));
+        $prefix = preg_replace('/-+/', '-', $prefix ?? '') ?: '';
+        $prefix = trim($prefix);
+        if ($prefix === '') {
+            $prefix = $defaultPrefix;
+        }
+        if (!str_ends_with($prefix, '-')) {
+            $prefix .= '-';
+        }
+
+        return $prefix;
+    }
+}
+
+if (!function_exists('staffApplicantTrackingGenerateEmployeeId')) {
+    function staffApplicantTrackingGenerateEmployeeId(string $supabaseUrl, array $headers): string
+    {
+        $prefix = staffApplicantTrackingLoadEmployeeIdPrefix($supabaseUrl, $headers);
+        $response = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/people?select=agency_employee_no&agency_employee_no=ilike.' . rawurlencode($prefix . '%') . '&limit=5000',
+            $headers
+        );
+
+        $maxSequence = 0;
+        $usedCodes = [];
+        if (isSuccessful($response)) {
+            foreach ((array)($response['data'] ?? []) as $row) {
+                $code = trim((string)($row['agency_employee_no'] ?? ''));
+                if ($code === '' || stripos($code, $prefix) !== 0) {
+                    continue;
+                }
+
+                $usedCodes[strtolower($code)] = true;
+                $suffix = substr($code, strlen($prefix));
+                if ($suffix !== '' && ctype_digit($suffix)) {
+                    $maxSequence = max($maxSequence, (int)$suffix);
+                }
+            }
+        }
+
+        $sequence = max(1, $maxSequence + 1);
+        for ($attempt = 0; $attempt < 10000; $attempt++, $sequence++) {
+            $candidate = $prefix . str_pad((string)$sequence, 4, '0', STR_PAD_LEFT);
+            if (!isset($usedCodes[strtolower($candidate)])) {
+                return $candidate;
+            }
+        }
+
+        return $prefix . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
+    }
+}
+
+if (!function_exists('syncApplicantDocumentsToEmployeeRecords')) {
+    function syncApplicantDocumentsToEmployeeRecords(string $supabaseUrl, array $headers, string $personId, string $applicantProfileId, ?string $actorUserId = null): array
+    {
+        if (!isValidUuid($personId) || !isValidUuid($applicantProfileId)) {
+            return ['transferred' => 0, 'skipped' => 0, 'error' => 'Applicant profile or employee person record is invalid.'];
+        }
+
+        $extractStorageReference = static function (string $rawUrl): ?array {
+            $normalized = trim(str_replace('\\', '/', $rawUrl));
+            if ($normalized === '') {
+                return null;
+            }
+
+            if (str_starts_with($normalized, 'document/')) {
+                return ['bucket' => 'local_documents', 'path' => preg_replace('#^document/#i', '', $normalized) ?: ''];
+            }
+
+            if (str_starts_with($normalized, 'storage/document/')) {
+                return ['bucket' => 'local_documents', 'path' => preg_replace('#^storage/document/#i', '', $normalized) ?: ''];
+            }
+
+            $path = $normalized;
+            if (preg_match('#^https?://#i', $normalized) === 1) {
+                $parsedPath = parse_url($normalized, PHP_URL_PATH);
+                $path = is_string($parsedPath) ? $parsedPath : '';
+            }
+
+            $path = ltrim((string)$path, '/');
+            if (!str_starts_with($path, 'storage/v1/object/')) {
+                return null;
+            }
+
+            $tail = substr($path, strlen('storage/v1/object/'));
+            $tail = ltrim((string)$tail, '/');
+            if (str_starts_with($tail, 'public/')) {
+                $tail = substr($tail, strlen('public/'));
+            }
+
+            $parts = explode('/', (string)$tail, 2);
+            $bucket = trim((string)($parts[0] ?? ''));
+            $objectPath = trim((string)($parts[1] ?? ''));
+            if ($bucket === '' || $objectPath === '') {
+                return null;
+            }
+
+            return ['bucket' => $bucket, 'path' => $objectPath];
+        };
+
+        $resolveCategoryLabel = static function (string $documentType, string $fileName): string {
+            $type = strtolower(trim($documentType));
+            $name = strtolower(trim($fileName));
+
+            if ($type === 'pds' || str_contains($name, 'pds') || str_contains($name, 'personal data sheet')) {
+                return 'PDS';
+            }
+            if ($type === 'resume' || str_contains($name, 'resume') || preg_match('/(^|[^a-z])cv([^a-z]|$)/', $name) === 1) {
+                return 'Resume/CV';
+            }
+            if ($type === 'transcript' || str_contains($name, 'transcript') || preg_match('/(^|[^a-z])tor([^a-z]|$)/', $name) === 1 || str_contains($name, 'diploma')) {
+                return 'Transcript of Records';
+            }
+            if ($type === 'id' || str_contains($name, 'government id') || str_contains($name, 'valid id') || str_contains($name, 'passport') || str_contains($name, 'license')) {
+                return 'Valid Government ID';
+            }
+            if (str_contains($name, 'application letter') || str_contains($name, 'cover letter')) {
+                return 'Application Letter';
+            }
+            if ($type === 'certificate' && (str_contains($name, 'csc') || str_contains($name, 'prc') || str_contains($name, 'eligibility') || str_contains($name, 'board'))) {
+                return 'Eligibility (CSC/PRC)';
+            }
+
+            return 'Others';
+        };
+
+        $categoryAliases = [
+            'pds' => 'PDS',
+            'personal data sheet' => 'PDS',
+            'resume/cv' => 'Resume/CV',
+            'resume' => 'Resume/CV',
+            'updated resume/cv' => 'Resume/CV',
+            'curriculum vitae' => 'Resume/CV',
+            'transcript of records' => 'Transcript of Records',
+            'transcript / diploma' => 'Transcript of Records',
+            'valid government id' => 'Valid Government ID',
+            'government id' => 'Valid Government ID',
+            'eligibility (csc/prc)' => 'Eligibility (CSC/PRC)',
+            'csc/prc eligibility' => 'Eligibility (CSC/PRC)',
+            'eligibility' => 'Eligibility (CSC/PRC)',
+            'application letter' => 'Application Letter',
+            'cover letter' => 'Application Letter',
+            'others' => 'Others',
+            'other' => 'Others',
+        ];
+        $requiredLabels = ['PDS', 'Resume/CV', 'Transcript of Records', 'Valid Government ID', 'Eligibility (CSC/PRC)', 'Application Letter', 'Others'];
+
+        $categoryResponse = apiRequest('GET', $supabaseUrl . '/rest/v1/document_categories?select=id,category_name&limit=1000', $headers);
+        if (!isSuccessful($categoryResponse)) {
+            return ['transferred' => 0, 'skipped' => 0, 'error' => 'Unable to load document categories for document transfer.'];
+        }
+
+        $categoryIdByLabel = [];
+        foreach ((array)($categoryResponse['data'] ?? []) as $categoryRow) {
+            $categoryId = trim((string)($categoryRow['id'] ?? ''));
+            $categoryName = strtolower(trim((string)($categoryRow['category_name'] ?? '')));
+            $mappedLabel = $categoryAliases[$categoryName] ?? null;
+            if ($categoryId === '' || $mappedLabel === null || isset($categoryIdByLabel[$mappedLabel])) {
+                continue;
+            }
+            $categoryIdByLabel[$mappedLabel] = $categoryId;
+        }
+
+        foreach ($requiredLabels as $label) {
+            if (isset($categoryIdByLabel[$label])) {
+                continue;
+            }
+
+            $categoryKey = 'employee_201_' . trim((string)preg_replace('/[^a-z0-9]+/i', '_', $label), '_');
+            $insertCategoryResponse = apiRequest(
+                'POST',
+                $supabaseUrl . '/rest/v1/document_categories',
+                array_merge($headers, ['Prefer: return=representation']),
+                [[
+                    'category_key' => strtolower($categoryKey),
+                    'category_name' => $label,
+                    'requires_approval' => true,
+                ]]
+            );
+
+            if (isSuccessful($insertCategoryResponse)) {
+                $categoryId = trim((string)($insertCategoryResponse['data'][0]['id'] ?? ''));
+                if ($categoryId !== '') {
+                    $categoryIdByLabel[$label] = $categoryId;
+                }
+            }
+        }
+
+        $existingDocumentsResponse = apiRequest('GET', $supabaseUrl . '/rest/v1/documents?select=id,storage_bucket,storage_path&owner_person_id=eq.' . rawurlencode($personId) . '&limit=4000', $headers);
+        $existingDocumentKeys = [];
+        if (isSuccessful($existingDocumentsResponse)) {
+            foreach ((array)($existingDocumentsResponse['data'] ?? []) as $existingDocument) {
+                $bucket = strtolower(trim((string)($existingDocument['storage_bucket'] ?? '')));
+                $path = trim((string)($existingDocument['storage_path'] ?? ''));
+                if ($bucket === '' || $path === '') {
+                    continue;
+                }
+                $existingDocumentKeys[$bucket . '|' . $path] = true;
+            }
+        }
+
+        $applicationsResponse = apiRequest('GET', $supabaseUrl . '/rest/v1/applications?select=id&applicant_profile_id=eq.' . rawurlencode($applicantProfileId) . '&limit=500', $headers);
+        if (!isSuccessful($applicationsResponse)) {
+            return ['transferred' => 0, 'skipped' => 0, 'error' => 'Unable to load applicant applications for document transfer.'];
+        }
+
+        $applicationIds = [];
+        foreach ((array)($applicationsResponse['data'] ?? []) as $applicationRow) {
+            $applicationId = trim((string)($applicationRow['id'] ?? ''));
+            if (isValidUuid($applicationId)) {
+                $applicationIds[] = $applicationId;
+            }
+        }
+
+        if (empty($applicationIds)) {
+            return ['transferred' => 0, 'skipped' => 0, 'error' => null];
+        }
+
+        $documentsResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/application_documents?select=id,application_id,document_type,file_url,file_name,mime_type,file_size_bytes,uploaded_at'
+                . '&application_id=in.(' . implode(',', array_map('rawurlencode', $applicationIds)) . ')'
+                . '&order=uploaded_at.asc&limit=2000',
+            $headers
+        );
+        if (!isSuccessful($documentsResponse)) {
+            return ['transferred' => 0, 'skipped' => 0, 'error' => 'Unable to load applicant document records for transfer.'];
+        }
+
+        $transferred = 0;
+        $skipped = 0;
+        foreach ((array)($documentsResponse['data'] ?? []) as $documentRow) {
+            $fileUrl = trim((string)($documentRow['file_url'] ?? ''));
+            $fileName = trim((string)($documentRow['file_name'] ?? ''));
+            $documentType = trim((string)($documentRow['document_type'] ?? 'other'));
+            $storageReference = $extractStorageReference($fileUrl);
+
+            if ($storageReference === null) {
+                $skipped++;
+                continue;
+            }
+
+            $bucket = strtolower(trim((string)($storageReference['bucket'] ?? '')));
+            $path = trim((string)($storageReference['path'] ?? ''));
+            $dedupeKey = $bucket . '|' . $path;
+            if ($bucket === '' || $path === '' || isset($existingDocumentKeys[$dedupeKey])) {
+                $skipped++;
+                continue;
+            }
+
+            $categoryLabel = $resolveCategoryLabel($documentType, $fileName);
+            $categoryId = (string)($categoryIdByLabel[$categoryLabel] ?? ($categoryIdByLabel['Others'] ?? ''));
+            if (!isValidUuid($categoryId)) {
+                $skipped++;
+                continue;
+            }
+
+            $uploadedAt = trim((string)($documentRow['uploaded_at'] ?? ''));
+            $documentInsertResponse = apiRequest(
+                'POST',
+                $supabaseUrl . '/rest/v1/documents',
+                array_merge($headers, ['Prefer: return=representation']),
+                [[
+                    'owner_person_id' => $personId,
+                    'category_id' => $categoryId,
+                    'title' => $fileName !== '' ? $fileName : $categoryLabel,
+                    'description' => 'Transferred from applicant submission history.',
+                    'storage_bucket' => $bucket,
+                    'storage_path' => $path,
+                    'current_version_no' => 1,
+                    'document_status' => 'submitted',
+                    'uploaded_by' => isValidUuid((string)$actorUserId) ? $actorUserId : null,
+                    'created_at' => $uploadedAt !== '' ? $uploadedAt : gmdate('c'),
+                    'updated_at' => $uploadedAt !== '' ? $uploadedAt : gmdate('c'),
+                ]]
+            );
+
+            if (!isSuccessful($documentInsertResponse)) {
+                $skipped++;
+                continue;
+            }
+
+            $documentId = trim((string)($documentInsertResponse['data'][0]['id'] ?? ''));
+            if (!isValidUuid($documentId)) {
+                $skipped++;
+                continue;
+            }
+
+            apiRequest(
+                'POST',
+                $supabaseUrl . '/rest/v1/document_versions',
+                array_merge($headers, ['Prefer: return=minimal']),
+                [[
+                    'document_id' => $documentId,
+                    'version_no' => 1,
+                    'file_name' => $fileName !== '' ? $fileName : basename($path),
+                    'mime_type' => trim((string)($documentRow['mime_type'] ?? '')) ?: null,
+                    'size_bytes' => isset($documentRow['file_size_bytes']) ? (int)$documentRow['file_size_bytes'] : null,
+                    'checksum_sha256' => null,
+                    'storage_path' => $path,
+                    'uploaded_by' => isValidUuid((string)$actorUserId) ? $actorUserId : null,
+                    'uploaded_at' => $uploadedAt !== '' ? $uploadedAt : gmdate('c'),
+                ]]
+            );
+
+            $existingDocumentKeys[$dedupeKey] = true;
+            $transferred++;
+        }
+
+        return ['transferred' => $transferred, 'skipped' => $skipped, 'error' => null];
+    }
+}
+
 if (!function_exists('staffApplicantTrackingFormatManilaDateTime')) {
     function staffApplicantTrackingFormatManilaDateTime(string $utcIso): string
     {
@@ -373,6 +706,14 @@ if ($action === 'update_status' || $action === 'update_application_status') {
         ]]
     );
 
+    $documentTransfer = syncApplicantDocumentsToEmployeeRecords(
+        $supabaseUrl,
+        $headers,
+        $personId,
+        (string)($applicationRow['applicant']['id'] ?? ''),
+        (string)$staffUserId
+    );
+
     staffApplicantTrackingNotify(
         $headers,
         $supabaseUrl,
@@ -496,7 +837,7 @@ if ($action === 'add_hired_applicant_as_employee') {
     $personResponse = apiRequest(
         'GET',
         $supabaseUrl
-        . '/rest/v1/people?select=id,user_id,surname,first_name'
+        . '/rest/v1/people?select=id,user_id,surname,first_name,agency_employee_no'
         . '&user_id=eq.' . rawurlencode($applicantUserId)
         . '&limit=1',
         $headers
@@ -504,12 +845,15 @@ if ($action === 'add_hired_applicant_as_employee') {
     $personRow = isSuccessful($personResponse) ? ($personResponse['data'][0] ?? null) : null;
 
     $personId = '';
+    $employeeId = '';
     if (is_array($personRow)) {
         $personId = cleanText($personRow['id'] ?? null) ?? '';
+        $employeeId = cleanText($personRow['agency_employee_no'] ?? null) ?? '';
     }
 
     if (!isValidUuid($personId)) {
         $nameParts = staffApplicantTrackingSplitName($fullName);
+        $employeeId = staffApplicantTrackingGenerateEmployeeId($supabaseUrl, $headers);
         $insertPeopleResponse = apiRequest(
             'POST',
             $supabaseUrl . '/rest/v1/people',
@@ -518,6 +862,7 @@ if ($action === 'add_hired_applicant_as_employee') {
                 'user_id' => $applicantUserId,
                 'surname' => (string)($nameParts['surname'] ?? 'User'),
                 'first_name' => (string)($nameParts['first_name'] ?? 'Applicant'),
+                'agency_employee_no' => $employeeId,
                 'personal_email' => $email,
             ]]
         );
@@ -544,6 +889,19 @@ if ($action === 'add_hired_applicant_as_employee') {
 
     if (is_array($existingEmployment)) {
         redirectWithState('success', 'Applicant is already registered as an active employee.');
+    }
+
+    if ($employeeId === '') {
+        $employeeId = staffApplicantTrackingGenerateEmployeeId($supabaseUrl, $headers);
+        apiRequest(
+            'PATCH',
+            $supabaseUrl . '/rest/v1/people?id=eq.' . rawurlencode($personId),
+            array_merge($headers, ['Prefer: return=minimal']),
+            [
+                'agency_employee_no' => $employeeId,
+                'updated_at' => gmdate('c'),
+            ]
+        );
     }
 
     $insertEmploymentResponse = apiRequest(
@@ -607,7 +965,7 @@ if ($action === 'add_hired_applicant_as_employee') {
         $supabaseUrl,
         $applicantUserId,
         'Employment Profile Created',
-        'You have been added as an employee from your hired application for ' . $postingTitle . '.',
+        'You have been added as an employee from your hired application for ' . $postingTitle . '. Employee ID: ' . $employeeId . '.',
         '/hris-system/pages/employee/dashboard.php'
     );
 
@@ -636,14 +994,22 @@ if ($action === 'add_hired_applicant_as_employee') {
             'new_data' => [
                 'application_id' => $applicationId,
                 'person_id' => $personId,
+                'employee_id' => $employeeId,
                 'office_id' => $officeId,
                 'position_id' => $positionId,
+                'transferred_applicant_documents' => (int)($documentTransfer['transferred'] ?? 0),
+                'skipped_applicant_documents' => (int)($documentTransfer['skipped'] ?? 0),
             ],
             'ip_address' => clientIp(),
         ]]
     );
 
-    redirectWithState('success', 'Hired applicant has been added as employee successfully.');
+    $successMessage = 'Hired applicant has been added as employee successfully. Employee ID: ' . $employeeId . '. Applicant documents transferred: ' . (int)($documentTransfer['transferred'] ?? 0) . '.';
+    if (!empty($documentTransfer['error'])) {
+        $successMessage .= ' Document transfer warning: ' . trim((string)$documentTransfer['error']) . '.';
+    }
+
+    redirectWithState('success', $successMessage);
 }
 
 redirectWithState('error', 'Unknown applicant tracking action.');

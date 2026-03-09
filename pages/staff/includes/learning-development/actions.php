@@ -268,10 +268,10 @@ if ($formAction === 'update_training_attendance') {
         );
 
         if (!isSuccessful($employmentScopeResponse) || empty((array)($employmentScopeResponse['data'] ?? []))) {
-            redirectWithState('error', 'Training record is outside your office scope.', 'learning-development.php');
+            redirectWithState('error', 'Training record is outside your division scope.', 'learning-development.php');
         }
     } elseif (!$isAdminScope) {
-        redirectWithState('error', 'Training record is outside your office scope.', 'learning-development.php');
+        redirectWithState('error', 'Training record is outside your division scope.', 'learning-development.php');
     }
 
     $oldStatusDb = strtolower((string)(cleanText($enrollment['enrollment_status'] ?? null) ?? 'enrolled'));
@@ -392,10 +392,10 @@ if ($formAction === 'review_learning_enrollment') {
         );
 
         if (!isSuccessful($employmentScopeResponse) || empty((array)($employmentScopeResponse['data'] ?? []))) {
-            redirectWithState('error', 'Enrollment is outside your office scope.', 'learning-development.php');
+            redirectWithState('error', 'Enrollment is outside your division scope.', 'learning-development.php');
         }
     } elseif (!$isAdminScope) {
-        redirectWithState('error', 'Enrollment is outside your office scope.', 'learning-development.php');
+        redirectWithState('error', 'Enrollment is outside your division scope.', 'learning-development.php');
     }
 
     $oldStatusDb = strtolower((string)(cleanText($enrollment['enrollment_status'] ?? null) ?? 'enrolled'));

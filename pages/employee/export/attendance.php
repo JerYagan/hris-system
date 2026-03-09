@@ -123,8 +123,10 @@ $html = '<!doctype html>
 	<style>
 		body{font-family:DejaVu Sans, Arial, sans-serif;color:#0f172a;font-size:12px;margin:24px;}
 		h1{font-size:20px;margin:0 0 8px;}
-		.meta{margin-bottom:18px;line-height:1.6;}
-		.meta strong{display:inline-block;min-width:110px;}
+		.meta{width:auto;border-collapse:collapse;margin:0 0 18px;}
+		.meta td{border:none;padding:2px 0;vertical-align:top;line-height:1.5;}
+		.meta-label{width:126px;font-weight:700;padding-right:10px;white-space:nowrap;}
+		.meta-value{padding-left:0;}
 		table{width:100%;border-collapse:collapse;margin-top:12px;}
 		th,td{border:1px solid #cbd5e1;padding:8px 10px;text-align:left;vertical-align:top;}
 		th{background:#e2e8f0;font-weight:700;}
@@ -137,12 +139,24 @@ $html = '<!doctype html>
 </head>
 <body>
 	<h1>Attendance Record Export</h1>
-	<div class="meta">
-		<div><strong>Employee Name:</strong> ' . $escape($employeeName) . '</div>
-		<div><strong>Employee ID:</strong> ' . $escape($employeeCode) . '</div>
-		<div><strong>Date Range:</strong> ' . $escape($formatDate($from)) . ' to ' . $escape($formatDate($to)) . '</div>
-		<div><strong>Generated On:</strong> ' . $escape(date('M j, Y g:i A')) . ' PST</div>
-	</div>
+	<table class="meta">
+		<tr>
+			<td class="meta-label">Employee Name:</td>
+			<td class="meta-value">' . $escape($employeeName) . '</td>
+		</tr>
+		<tr>
+			<td class="meta-label">Employee ID:</td>
+			<td class="meta-value">' . $escape($employeeCode) . '</td>
+		</tr>
+		<tr>
+			<td class="meta-label">Date Range:</td>
+			<td class="meta-value">' . $escape($formatDate($from)) . ' to ' . $escape($formatDate($to)) . '</td>
+		</tr>
+		<tr>
+			<td class="meta-label">Generated On:</td>
+			<td class="meta-value">' . $escape(date('M j, Y g:i A')) . ' PST</td>
+		</tr>
+	</table>
 
 	<table>
 		<thead>

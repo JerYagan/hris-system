@@ -3,6 +3,18 @@ const closeTopnavNotifications = () => {
   document.dispatchEvent(new CustomEvent("hris:close-topnav-notifications", { detail: { source: "shell" } }));
 };
 
+const formatPhilippinesDateTime = (value, options = {}) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat("en-PH", {
+    timeZone: "Asia/Manila",
+    ...options,
+  }).format(date);
+};
+
 const profileMenu = document.getElementById("profileMenu");
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -327,13 +339,13 @@ function updateClock() {
   const el = document.getElementById("currentTime");
   if (!el) return;
 
-  const now = new Date();
-  el.textContent = now.toLocaleString("en-PH", {
+  const currentLabel = formatPhilippinesDateTime(new Date(), {
     weekday: "short",
     hour: "2-digit",
     minute: "2-digit",
     hour12: true
   });
+  el.textContent = currentLabel === "-" ? "-" : `${currentLabel} PST`;
 }
 
 setInterval(updateClock, 1000);

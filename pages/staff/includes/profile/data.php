@@ -101,7 +101,7 @@ $passwordChangeStatus = [
 $pendingExpiresAt = (int)($passwordChangePending['expires_at'] ?? 0);
 if ($pendingExpiresAt > time()) {
     $passwordChangeStatus['is_pending'] = true;
-    $passwordChangeStatus['expires_at'] = date('M d, Y h:i A', $pendingExpiresAt);
+    $passwordChangeStatus['expires_at'] = formatUnixTimestampForPhilippines($pendingExpiresAt, 'M d, Y h:i A') . ' PST';
     $passwordChangeStatus['email'] = (string)($passwordChangePending['email'] ?? '');
 }
 

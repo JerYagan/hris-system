@@ -129,7 +129,8 @@ if (is_array($ruleCriteriaMapRaw)) {
 }
 
 $applicationEndpoint = $supabaseUrl
-    . '/rest/v1/applications?select=id,application_ref_no,application_status,submitted_at,job_posting_id,job:job_postings(id,title,office_id),applicant:applicant_profiles(full_name,email,user_id,resume_url,portfolio_url)'
+    . '/rest/v1/applications?select=id,application_ref_no,application_status,submitted_at,job_posting_id,job:job_postings(id,title,office_id,position:job_positions(position_title)),applicant:applicant_profiles(full_name,email,user_id,resume_url,portfolio_url)'
+    . '&application_status=not.eq.hired'
     . '&order=submitted_at.desc&limit=2000';
 
 if (!$isAdminScope && isValidUuid((string)$staffOfficeId)) {
@@ -328,8 +329,16 @@ foreach ($applicationRows as $applicationRow) {
         continue;
     }
 
+    $statusRaw = strtolower((string)(cleanText($applicationRow['application_status'] ?? null) ?? 'submitted'));
+    if ($statusRaw === 'hired') {
+        continue;
+    }
+
     $job = is_array($applicationRow['job'] ?? null) ? (array)$applicationRow['job'] : [];
-    $positionTitle = cleanText($job['title'] ?? null) ?? 'Unassigned Position';
+    $jobPosition = is_array($job['position'] ?? null) ? (array)$job['position'] : [];
+    $positionTitle = cleanText($jobPosition['position_title'] ?? null)
+        ?? cleanText($job['title'] ?? null)
+        ?? 'Unassigned Position';
     $positionKey = staffApplicantEvaluationNormalizePositionKey($positionTitle);
 
     $criteria = staffApplicantEvaluationResolveCriteria($supabaseUrl, $headers, $positionTitle);
@@ -364,7 +373,6 @@ foreach ($applicationRows as $applicationRow) {
 
     $applicantName = cleanText($applicant['full_name'] ?? null) ?? 'Unknown Applicant';
     $applicantEmail = cleanText($applicant['email'] ?? null) ?? '-';
-    $statusRaw = strtolower((string)(cleanText($applicationRow['application_status'] ?? null) ?? 'submitted'));
     $statusLabel = ucwords(str_replace('_', ' ', $statusRaw));
 
     $latestInterview = (array)($latestInterviewByApplicationId[$applicationId] ?? []);

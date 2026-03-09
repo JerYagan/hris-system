@@ -104,7 +104,7 @@ if (!function_exists('staffReportScopedEmploymentContext')) {
                 continue;
             }
 
-            $officeNameById[$officeId] = cleanText($office['office_name'] ?? null) ?? 'Unassigned Office';
+            $officeNameById[$officeId] = cleanText($office['office_name'] ?? null) ?? 'Unassigned Division';
         }
 
         $scopedPersonIds = [];
@@ -117,7 +117,7 @@ if (!function_exists('staffReportScopedEmploymentContext')) {
 
             $officeId = cleanText($employment['office_id'] ?? null) ?? '';
             $scopedPersonIds[$personId] = true;
-            $personDepartmentById[$personId] = (string)($officeNameById[$officeId] ?? 'Unassigned Office');
+            $personDepartmentById[$personId] = (string)($officeNameById[$officeId] ?? 'Unassigned Division');
         }
 
         return [
@@ -655,7 +655,7 @@ if (!function_exists('staffReportWritePdf')) {
         $html = '<h2 style="font-family: Arial, sans-serif; margin-bottom: 8px;">' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</h2>';
         $html .= '<p style="font-family: Arial, sans-serif; font-size: 11px; color: #334155; margin: 0 0 10px 0;">'
             . 'Coverage: ' . htmlspecialchars($coverage, ENT_QUOTES, 'UTF-8')
-            . ' | Department: ' . htmlspecialchars($department, ENT_QUOTES, 'UTF-8')
+            . ' | Division: ' . htmlspecialchars($department, ENT_QUOTES, 'UTF-8')
             . ' | Date Range: ' . htmlspecialchars($startDate, ENT_QUOTES, 'UTF-8') . ' to ' . htmlspecialchars($endDate, ENT_QUOTES, 'UTF-8')
             . ' | Rows: ' . $rowCount
             . '</p>';

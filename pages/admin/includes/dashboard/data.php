@@ -129,11 +129,7 @@ $documentsPendingResponse = apiRequest(
     $headers
 );
 
-$announcementLogsResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/activity_logs?select=id,action_name,new_data,created_at,module_name,entity_name&module_name=eq.dashboard&entity_name=eq.announcements&action_name=in.(save_announcement_draft,queue_announcement)&order=created_at.desc&limit=200',
-    $headers
-);
+$announcementLogsResponse = fetchPublishedAnnouncementLogs($supabaseUrl, $headers, 100);
 
 $attendanceRows = isSuccessful($attendanceResponse) ? (array)($attendanceResponse['data'] ?? []) : [];
 $attendanceWeekRows = isSuccessful($attendanceWeekResponse) ? (array)($attendanceWeekResponse['data'] ?? []) : [];
@@ -144,7 +140,8 @@ $employmentRows = isSuccessful($employmentResponse) ? (array)($employmentRespons
 $applicationRows = isSuccessful($applicationsResponse) ? (array)($applicationsResponse['data'] ?? []) : [];
 $pendingTimeAdjustmentRows = isSuccessful($timeAdjustmentsResponse) ? (array)($timeAdjustmentsResponse['data'] ?? []) : [];
 $pendingDocumentRows = isSuccessful($documentsPendingResponse) ? (array)($documentsPendingResponse['data'] ?? []) : [];
-$announcementRows = isSuccessful($announcementLogsResponse) ? (array)($announcementLogsResponse['data'] ?? []) : [];
+$announcementLogRows = isSuccessful($announcementLogsResponse) ? (array)($announcementLogsResponse['data'] ?? []) : [];
+$announcementMetrics = buildPublishedAnnouncementMetrics($announcementLogRows);
 
 $dataLoadError = null;
 $responses = [
@@ -157,7 +154,7 @@ $responses = [
     ['label' => 'Applications', 'response' => $applicationsResponse],
     ['label' => 'Time adjustments', 'response' => $timeAdjustmentsResponse],
     ['label' => 'Pending documents', 'response' => $documentsPendingResponse],
-    ['label' => 'Announcement logs', 'response' => $announcementLogsResponse],
+    ['label' => 'Published announcements', 'response' => $announcementLogsResponse],
 ];
 
 foreach ($responses as $entry) {
@@ -315,9 +312,9 @@ $vacantPositions = max($approvedPositions - $filledPositions, 0);
 $departmentCounts = [];
 foreach ($employmentRows as $entry) {
     $office = (array)($entry['office'] ?? []);
-    $officeName = trim((string)($office['office_name'] ?? 'Unassigned Office'));
+    $officeName = trim((string)($office['office_name'] ?? 'Unassigned Division'));
     if ($officeName === '') {
-        $officeName = 'Unassigned Office';
+        $officeName = 'Unassigned Division';
     }
 
     $departmentCounts[$officeName] = (int)($departmentCounts[$officeName] ?? 0) + 1;
@@ -371,45 +368,11 @@ foreach ($applicationRows as $entry) {
     }
 }
 
-$draftAnnouncementCount = 0;
-$queuedAnnouncementCount = 0;
-$latestAnnouncementTitle = 'No saved drafts yet';
-$latestAnnouncementTimestamp = 'Save a draft to populate this section.';
-$announcementDraftBody = '';
-
-foreach ($announcementRows as $index => $entry) {
-    $actionName = (string)($entry['action_name'] ?? '');
-    if ($actionName === 'save_announcement_draft') {
-        $draftAnnouncementCount++;
-    }
-    if ($actionName === 'queue_announcement') {
-        $queuedAnnouncementCount++;
-    }
-
-    if ($index !== 0) {
-        continue;
-    }
-
-    $newData = $entry['new_data'] ?? [];
-    if (!is_array($newData)) {
-        $newData = [];
-    }
-
-    $latestAnnouncementTitle = (string)($newData['title'] ?? $latestAnnouncementTitle);
-    $announcementDraftBody = (string)($newData['body'] ?? '');
-
-    $createdAtRaw = (string)($entry['created_at'] ?? '');
-    if ($createdAtRaw !== '') {
-        $latestAnnouncementTimestamp = 'Saved ' . date('M d, Y h:i A', strtotime($createdAtRaw));
-    }
-}
-
 $dashboardSummary = [
     'attendance_alerts' => $attendanceAlerts,
     'pending_time_adjustments' => count($pendingTimeAdjustmentRows),
     'pending_leave_requests' => count($pendingLeaveRows),
     'pending_recruitment_decisions' => $pendingRecruitmentDecisionCount,
-    'draft_announcements' => $draftAnnouncementCount,
     'pending_documents' => count($pendingDocumentRows),
     'unread_notifications' => $unreadNotifications,
     'high_priority_notifications' => $highPriorityNotifications,
@@ -418,10 +381,14 @@ $dashboardSummary = [
     'absence_rate_week' => $absenceRateWeek,
     'present_today' => $presentToday,
     'absent_today' => $absentToday,
-    'latest_announcement_title' => $latestAnnouncementTitle,
-    'latest_announcement_timestamp' => $latestAnnouncementTimestamp,
-    'latest_announcement_body' => $announcementDraftBody,
-    'queued_announcements' => $queuedAnnouncementCount,
+    'published_announcements' => (int)($announcementMetrics['total_published'] ?? 0),
+    'announcement_in_app_delivered' => (int)($announcementMetrics['total_in_app_sent'] ?? 0),
+    'announcement_email_delivered' => (int)($announcementMetrics['total_email_sent'] ?? 0),
+    'latest_announcement_title' => (string)($announcementMetrics['latest_title'] ?? 'No published announcements yet'),
+    'latest_announcement_timestamp' => (string)($announcementMetrics['latest_timestamp'] ?? 'Use Create Announcement to publish the first broadcast.'),
+    'latest_announcement_body' => (string)($announcementMetrics['latest_body'] ?? ''),
+    'latest_announcement_targets' => (int)($announcementMetrics['latest_targeted_users'] ?? 0),
+    'latest_announcement_channel' => (string)($announcementMetrics['latest_channel'] ?? 'Not yet published'),
     'approved_positions' => $approvedPositions,
     'filled_positions' => $filledPositions,
     'vacant_positions' => $vacantPositions,

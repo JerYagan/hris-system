@@ -32,7 +32,7 @@ ob_start();
 
 <div class="mb-6">
     <h1 class="text-2xl font-bold text-gray-800">Learning and Development</h1>
-    <p class="text-sm text-gray-500">Manage reports, employee training records, schedules, and attendance with office-scoped controls.</p>
+    <p class="text-sm text-gray-500">Manage reports, employee training records, schedules, and attendance with division-scoped controls.</p>
 </div>
 
 <?php if ($state && $message): ?>
@@ -50,7 +50,7 @@ ob_start();
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Reports and Analytics</h2>
-        <p class="text-sm text-slate-500 mt-1">Training effectiveness indicators and completion metrics for your office scope.</p>
+        <p class="text-sm text-slate-500 mt-1">Training effectiveness indicators and completion metrics for your division scope.</p>
     </header>
     <div class="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 text-sm">
         <article class="rounded-xl border border-slate-200 p-4 bg-slate-50">
@@ -72,7 +72,7 @@ ob_start();
     <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
         <div>
             <h2 class="text-lg font-semibold text-slate-800">Training Schedule</h2>
-            <p class="text-sm text-slate-500 mt-1">View admin-created training schedules and manage attendance updates within office scope.</p>
+            <p class="text-sm text-slate-500 mt-1">View admin-created training schedules and manage attendance updates within division scope.</p>
         </div>
     </header>
 
@@ -97,8 +97,6 @@ ob_start();
             <thead class="bg-slate-50 text-slate-600">
                 <tr>
                     <th class="text-left px-4 py-3">Title</th>
-                    <th class="text-left px-4 py-3">Type</th>
-                    <th class="text-left px-4 py-3">Category</th>
                     <th class="text-left px-4 py-3">Schedule</th>
                     <th class="text-left px-4 py-3">Provider</th>
                     <th class="text-left px-4 py-3">Location</th>
@@ -111,7 +109,7 @@ ob_start();
             <tbody class="divide-y divide-slate-100">
                 <?php if (empty($courseRows)): ?>
                     <tr>
-                        <td class="px-4 py-3 text-slate-500" colspan="10">No training schedule records found.</td>
+                        <td class="px-4 py-3 text-slate-500" colspan="8">No training schedule records found.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($courseRows as $courseRow): ?>
@@ -134,8 +132,6 @@ ob_start();
                             <td class="px-4 py-3">
                                 <p class="font-medium text-slate-800"><?= htmlspecialchars((string)$courseRow['title'], ENT_QUOTES, 'UTF-8') ?></p>
                             </td>
-                            <td class="px-4 py-3\"><?= htmlspecialchars((string)$courseRow['training_type'], ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3\"><?= htmlspecialchars((string)$courseRow['category'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3\"><?= htmlspecialchars((string)$courseRow['schedule'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3\"><?= htmlspecialchars((string)$courseRow['provider'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3\"><?= htmlspecialchars((string)$courseRow['location'], ENT_QUOTES, 'UTF-8') ?></td>
@@ -159,7 +155,7 @@ ob_start();
                     <?php endforeach; ?>
                 <?php endif; ?>
                 <tr id="staffLearningCourseFilterEmpty" class="hidden">
-                    <td class="px-4 py-3 text-slate-500" colspan="10">No courses match your search/filter criteria.</td>
+                    <td class="px-4 py-3 text-slate-500" colspan="8">No courses match your search/filter criteria.</td>
                 </tr>
             </tbody>
         </table>
@@ -285,8 +281,6 @@ ob_start();
                     <p><span class="text-slate-500">Training:</span> <span id="staffLearningCourseViewTitle" class="font-medium text-slate-800"></span></p>
                     <p><span class="text-slate-500">Status:</span> <span id="staffLearningCourseViewStatus" class="font-medium text-slate-800"></span></p>
                     <p><span class="text-slate-500">Provider:</span> <span id="staffLearningCourseViewProvider" class="font-medium text-slate-800"></span></p>
-                    <p><span class="text-slate-500">Type:</span> <span id="staffLearningCourseViewType" class="font-medium text-slate-800"></span></p>
-                    <p><span class="text-slate-500">Category:</span> <span id="staffLearningCourseViewCategory" class="font-medium text-slate-800"></span></p>
                     <p><span class="text-slate-500">Mode:</span> <span id="staffLearningCourseViewMode" class="font-medium text-slate-800"></span></p>
                     <p class="md:col-span-2"><span class="text-slate-500">Schedule:</span> <span id="staffLearningCourseViewSchedule" class="font-medium text-slate-800"></span></p>
                     <p class="md:col-span-2"><span class="text-slate-500">Venue:</span> <span id="staffLearningCourseViewVenue" class="font-medium text-slate-800"></span></p>
@@ -299,7 +293,7 @@ ob_start();
                             <thead class="bg-slate-50 text-slate-600">
                                 <tr>
                                     <th class="text-left px-4 py-2">Employee</th>
-                                    <th class="text-left px-4 py-2">Department</th>
+                                    <th class="text-left px-4 py-2">Division</th>
                                     <th class="text-left px-4 py-2">Status</th>
                                 </tr>
                             </thead>

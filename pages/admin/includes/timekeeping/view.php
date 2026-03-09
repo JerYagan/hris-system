@@ -91,101 +91,143 @@ $formatTime = static function (?string $raw): string {
 </section>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
-    <header class="px-6 py-4 border-b border-slate-200 flex items-start justify-between gap-3">
-        <div>
-            <h2 class="text-lg font-semibold text-slate-800">Log Leave from Leave Card</h2>
-            <p class="text-sm text-slate-500 mt-1">Leave processing is handled outside the system. Use this form to encode approved leave-card entries so employee leave history and balances stay accurate.</p>
-        </div>
-        <a href="/hris-system/assets/Leave_Card_Template.xlsx" download class="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 whitespace-nowrap">
-            <span class="material-symbols-outlined text-[16px]">download</span>Download Template
-        </a>
-    </header>
-    <form id="leaveCardLogForm" action="timekeeping.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-        <input type="hidden" name="form_action" value="log_leave_from_card">
-        <input type="hidden" name="person_id" id="leaveLogPersonId" value="" required>
-        <div class="md:col-span-2">
-            <label class="text-slate-600">Employee (Search by ID or Name)</label>
-            <div class="relative mt-1">
-                <input id="leaveLogEmployeeSearch" type="text" class="w-full border border-slate-300 rounded-md px-3 py-2" placeholder="Type employee ID or name" autocomplete="off" required>
-                <div id="leaveLogEmployeeResults" class="hidden absolute z-20 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg max-h-56 overflow-y-auto">
-                    <?php foreach ($employeeOptions as $employeeOption): ?>
-                        <?php
-                        $employeeName = (string)($employeeOption['name'] ?? $employeeOption['label'] ?? 'Unknown Employee');
-                        $employeeCode = trim((string)($employeeOption['employee_code'] ?? ''));
-                        $optionLabel = (string)($employeeOption['label'] ?? $employeeName);
-                        $searchText = strtolower(trim($optionLabel . ' ' . $employeeName . ' ' . $employeeCode));
-                        ?>
-                        <button
-                            type="button"
-                            class="w-full text-left px-3 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-b-0"
-                            data-employee-option
-                            data-person-id="<?= htmlspecialchars((string)($employeeOption['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                            data-label="<?= htmlspecialchars($optionLabel, ENT_QUOTES, 'UTF-8') ?>"
-                            data-search="<?= htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8') ?>"
-                        >
-                            <span class="block text-slate-800"><?= htmlspecialchars($optionLabel, ENT_QUOTES, 'UTF-8') ?></span>
-                        </button>
-                    <?php endforeach; ?>
-                </div>
+    <header class="px-6 py-4 border-b border-slate-200">
+        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+                <h2 class="text-lg font-semibold text-slate-800">Timekeeping Quick Actions</h2>
+                <p class="text-sm text-slate-500 mt-1">Launch the most important admin timekeeping tools from dedicated modal workspaces at the top of the page.</p>
             </div>
-            <p class="text-[11px] text-slate-500 mt-1" id="leaveLogEmployeeHint">Select an employee from the custom search results.</p>
         </div>
+    </header>
+    <div class="p-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <button type="button" data-quick-modal-open="attendanceHelperModal" class="group rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">Manual Support Tool</span>
+                    <h3 class="mt-3 text-base font-semibold text-slate-800">Employee Attendance Helper</h3>
+                    <p class="mt-2 text-sm text-slate-500">Open a focused modal to encode missed or delayed time-in and time-out entries.</p>
+                </div>
+                <span class="material-symbols-outlined text-amber-500">fact_check</span>
+            </div>
+            <span class="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-amber-800">Open helper <span class="material-symbols-outlined text-[16px]">arrow_forward</span></span>
+        </button>
+        <button type="button" data-quick-modal-open="leaveCardLogModal" class="group rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">Quick Encode</span>
+                    <h3 class="mt-3 text-base font-semibold text-slate-800">Log Leave from Leave Card</h3>
+                    <p class="mt-2 text-sm text-slate-500">Launch the leave-card encoder without scrolling through the rest of the page.</p>
+                </div>
+                <span class="material-symbols-outlined text-emerald-500">event_note</span>
+            </div>
+            <span class="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-emerald-800">Open logger <span class="material-symbols-outlined text-[16px]">arrow_forward</span></span>
+        </button>
+        <button type="button" data-quick-modal-open="holidayConfigModal" class="group rounded-2xl border border-sky-200 bg-gradient-to-br from-sky-50 to-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <span class="inline-flex items-center rounded-full bg-sky-100 px-2.5 py-1 text-xs font-medium text-sky-800">Policy Setup</span>
+                    <h3 class="mt-3 text-base font-semibold text-slate-800">Holiday/Suspension Configuration</h3>
+                    <p class="mt-2 text-sm text-slate-500">Manage holiday dates and payroll handling rules in a dedicated configuration modal.</p>
+                </div>
+                <span class="material-symbols-outlined text-sky-500">calendar_month</span>
+            </div>
+            <span class="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-sky-800">Open configuration <span class="material-symbols-outlined text-[16px]">arrow_forward</span></span>
+        </button>
+    </div>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
         <div>
-            <label class="text-slate-600">Leave Type</label>
-            <select id="leaveLogLeaveType" name="leave_type_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
-                <option value="">Select leave type</option>
-                <?php foreach ($leaveTypeOptions as $leaveTypeOption): ?>
-                    <option value="<?= htmlspecialchars((string)($leaveTypeOption['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-leave-code="<?= htmlspecialchars((string)($leaveTypeOption['leave_code'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-leave-name="<?= htmlspecialchars((string)($leaveTypeOption['leave_name'] ?? 'Leave'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($leaveTypeOption['leave_name'] ?? 'Leave'), ENT_QUOTES, 'UTF-8') ?></option>
-                <?php endforeach; ?>
+            <h2 class="text-lg font-semibold text-slate-800">Attendance Records</h2>
+            <p class="text-sm text-slate-500 mt-1">Current day attendance only.</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="timekeeping.php?export=attendance_today_csv" class="px-3 py-2 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Download CSV</a>
+            <button type="button" id="attendancePrintButton" class="px-3 py-2 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Print</button>
+        </div>
+    </header>
+    <div class="px-6 pt-4 flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
+        <div class="w-full md:w-1/2">
+            <label class="text-sm text-slate-600">Search Attendance</label>
+            <input id="attendanceTableSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search by employee, date, or time">
+        </div>
+        <div class="w-full md:w-56">
+            <label class="text-sm text-slate-600">Status Filter</label>
+            <select id="attendanceTableStatusFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
+                <option value="">All Statuses</option>
+                <option value="Present">Present</option>
+                <option value="Late">Late</option>
+                <option value="Absent">Absent</option>
             </select>
         </div>
-        <div>
-            <label class="text-slate-600">Date From</label>
-            <input id="leaveLogDateFrom" type="date" name="date_from" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+    </div>
+    <div class="p-6 overflow-x-auto">
+        <table id="attendanceSnapshotTable" class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600">
+                <tr>
+                    <th class="text-left px-4 py-3">Employee</th>
+                    <th class="text-left px-4 py-3">Date</th>
+                    <th class="text-left px-4 py-3">Time In</th>
+                    <th class="text-left px-4 py-3">Time Out</th>
+                    <th class="text-left px-4 py-3">Status</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                <?php if (empty($attendanceLogs)): ?>
+                    <tr><td class="px-4 py-3 text-slate-500" colspan="5">No attendance logs found for today.</td></tr>
+                <?php else: ?>
+                    <?php foreach ($attendanceLogs as $log): ?>
+                        <?php
+                        [$statusLabel, $statusClass] = $attendancePill((string)($log['display_status'] ?? 'present'));
+                        $attendanceSearch = strtolower(trim((string)($log['employee_name'] ?? '') . ' ' . $formatDate((string)($log['attendance_date'] ?? '')) . ' ' . $formatTime((string)($log['time_in'] ?? '')) . ' ' . $formatTime((string)($log['time_out'] ?? '')) . ' ' . $statusLabel));
+                        ?>
+                        <tr data-page-row data-table-search="<?= htmlspecialchars($attendanceSearch, ENT_QUOTES, 'UTF-8') ?>" data-table-filter="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>">
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($log['employee_name'] ?? 'Unknown Employee'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars($formatDate((string)($log['attendance_date'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars($formatTime((string)($log['time_in'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars($formatTime((string)($log['time_out'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><span class="inline-flex px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+    <div class="px-6 pb-4 flex items-center justify-between gap-3">
+        <p id="attendancePaginationInfo" class="text-xs text-slate-500">Showing 0 to 0 of 0 entries</p>
+        <div class="flex items-center gap-2">
+            <button type="button" id="attendancePrevPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Previous</button>
+            <span id="attendancePageLabel" class="text-xs text-slate-500 min-w-[88px] text-center">Page 1 of 1</span>
+            <button type="button" id="attendanceNextPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Next</button>
         </div>
-        <div>
-            <label class="text-slate-600">Date To</label>
-            <input id="leaveLogDateTo" type="date" name="date_to" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
-        </div>
-        <div>
-            <label class="text-slate-600">Leave Days</label>
-            <input id="leaveLogDays" type="number" name="days_count" min="1" step="1" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" placeholder="Auto-computed" readonly required>
-            <p class="text-[11px] text-slate-500 mt-1">Auto-computed from Date From and Date To (inclusive).</p>
-        </div>
-        <div>
-            <label class="text-slate-600">SL Points</label>
-            <input id="leaveLogSlPoints" name="sl_points" type="number" min="0" step="0.01" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="0.00" value="0.00">
-            <p class="text-[11px] text-slate-500 mt-1">Editable accumulated Sick Leave points to add for this employee.</p>
-        </div>
-        <div>
-            <label class="text-slate-600">VL Points</label>
-            <input id="leaveLogVlPoints" name="vl_points" type="number" min="0" step="0.01" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="0.00" value="0.00">
-            <p class="text-[11px] text-slate-500 mt-1">Editable accumulated Vacation Leave points to add for this employee.</p>
-        </div>
-        <div>
-            <label class="text-slate-600">CTO Points</label>
-            <input id="leaveLogCtoPoints" name="cto_points" type="number" min="0" step="0.01" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="0.00" value="0.00">
-            <p class="text-[11px] text-slate-500 mt-1">Editable accumulated CTO or other leave points to add for this employee.</p>
-        </div>
-        <div class="md:col-span-3">
-            <label class="text-slate-600">Reference / Notes</label>
-            <textarea name="reference" rows="2" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Leave card control number or remarks (optional)"></textarea>
-        </div>
-        <div class="md:col-span-3 flex justify-end">
-            <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-md bg-daGreen text-white hover:opacity-90">
-                <span class="material-symbols-outlined text-[16px]">save</span>Log Leave Entry
-            </button>
-        </div>
-    </form>
+    </div>
 </section>
+
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Staff Recommendations Queue</h2>
         <p class="text-sm text-slate-500 mt-1">Review staff-submitted recommendations with approval controls and audit log context.</p>
     </header>
+    <div class="px-6 pt-4 flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
+        <div class="w-full md:w-1/2">
+            <label class="text-sm text-slate-600">Search Recommendations</label>
+            <input id="staffRecommendationsSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search by staff, employee, type, or status">
+        </div>
+        <div class="w-full md:w-56">
+            <label class="text-sm text-slate-600">Type Filter</label>
+            <select id="staffRecommendationsTypeFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
+                <option value="">All Types</option>
+                <option value="Leave">Leave</option>
+                <option value="Time Adjustment">Time Adjustment</option>
+                <option value="CTO">CTO</option>
+                <option value="Official Business">Official Business</option>
+            </select>
+        </div>
+    </div>
     <div class="p-6 overflow-x-auto">
-        <table class="w-full text-sm">
+        <table id="staffRecommendationsTable" class="w-full text-sm">
             <thead class="bg-slate-50 text-slate-600">
                 <tr>
                     <th class="text-left px-4 py-3">Submitted At</th>
@@ -194,13 +236,12 @@ $formatTime = static function (?string $raw): string {
                     <th class="text-left px-4 py-3">Employee</th>
                     <th class="text-left px-4 py-3">Recommended</th>
                     <th class="text-left px-4 py-3">Current</th>
-                    <th class="text-left px-4 py-3">Audit Notes</th>
                     <th class="text-left px-4 py-3">Action</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
                 <?php if (empty($staffRecommendationRows)): ?>
-                    <tr><td class="px-4 py-3 text-slate-500" colspan="8">No staff recommendations found.</td></tr>
+                    <tr><td class="px-4 py-3 text-slate-500" colspan="7">No staff recommendations found.</td></tr>
                 <?php else: ?>
                     <?php foreach ($staffRecommendationRows as $row): ?>
                         <?php
@@ -208,18 +249,21 @@ $formatTime = static function (?string $raw): string {
                         [$currentLabel, $currentClass] = $attendancePill((string)($row['current_status'] ?? 'pending'));
                         $actionType = (string)($row['action_type'] ?? '');
                         $isFinal = (bool)($row['is_final'] ?? false);
+                        $requestTypeLabel = (string)($row['request_type'] ?? '-');
+                        if ($actionType === 'ob') {
+                            $requestTypeLabel = 'Official Business';
+                        } elseif ($actionType === 'adjustment') {
+                            $requestTypeLabel = 'Time Adjustment';
+                        }
+                        $recommendationSearch = strtolower(trim($formatDate((string)($row['submitted_at'] ?? ''), 'M d, Y h:i A') . ' ' . (string)($row['staff_actor'] ?? '') . ' ' . $requestTypeLabel . ' ' . (string)($row['employee_name'] ?? '') . ' ' . $recommendedLabel . ' ' . $currentLabel));
                         ?>
-                        <tr>
+                        <tr data-page-row data-table-search="<?= htmlspecialchars($recommendationSearch, ENT_QUOTES, 'UTF-8') ?>" data-table-filter="<?= htmlspecialchars($requestTypeLabel, ENT_QUOTES, 'UTF-8') ?>">
                             <td class="px-4 py-3"><?= htmlspecialchars($formatDate((string)($row['submitted_at'] ?? ''), 'M d, Y h:i A'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['staff_actor'] ?? 'Staff User'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['request_type'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars($requestTypeLabel, ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['employee_name'] ?? 'Unknown Employee'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><span class="inline-flex px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($recommendedClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($recommendedLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td class="px-4 py-3"><span class="inline-flex px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($currentClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($currentLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
-                            <td class="px-4 py-3">
-                                <p class="text-slate-700"><?= htmlspecialchars((string)($row['notes'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                                <p class="text-[11px] text-slate-500 mt-1">Log: <?= htmlspecialchars((string)($row['log_id'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                            </td>
                             <td class="px-4 py-3">
                                 <?php if ($actionType === 'leave'): ?>
                                     <button type="button" data-leave-review data-leave-request-id="<?= htmlspecialchars((string)($row['entity_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars((string)($row['employee_name'] ?? 'Unknown Employee'), ENT_QUOTES, 'UTF-8') ?>" data-current-status="<?= htmlspecialchars((string)($row['current_status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?>" data-date-range="<?= htmlspecialchars((string)($row['date_range'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-leave-type="<?= htmlspecialchars((string)($row['leave_type'] ?? 'Unassigned'), ENT_QUOTES, 'UTF-8') ?>" data-leave-reason="<?= htmlspecialchars((string)($row['reason'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50" <?= $isFinal ? 'disabled' : '' ?>><span class="material-symbols-outlined text-[15px]">approval</span><?= $isFinal ? 'Finalized' : 'Approve/Reject' ?></button>
@@ -239,47 +283,13 @@ $formatTime = static function (?string $raw): string {
             </tbody>
         </table>
     </div>
-</section>
-
-<section class="bg-white border border-slate-200 rounded-2xl mb-6">
-    <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-        <div>
-            <h2 class="text-lg font-semibold text-slate-800">Attendance Records</h2>
-            <p class="text-sm text-slate-500 mt-1">Current day attendance only.</p>
+    <div class="px-6 pb-4 flex items-center justify-between gap-3">
+        <p id="staffRecommendationsPaginationInfo" class="text-xs text-slate-500">Showing 0 to 0 of 0 entries</p>
+        <div class="flex items-center gap-2">
+            <button type="button" id="staffRecommendationsPrevPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Previous</button>
+            <span id="staffRecommendationsPageLabel" class="text-xs text-slate-500 min-w-[88px] text-center">Page 1 of 1</span>
+            <button type="button" id="staffRecommendationsNextPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Next</button>
         </div>
-        <div class="flex gap-2">
-            <a href="timekeeping.php?export=attendance_today_csv" class="px-3 py-2 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Download CSV</a>
-            <button type="button" id="attendancePrintButton" class="px-3 py-2 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Print</button>
-        </div>
-    </header>
-    <div class="p-6 overflow-x-auto">
-        <table id="attendanceSnapshotTable" class="w-full text-sm">
-            <thead class="bg-slate-50 text-slate-600">
-                <tr>
-                    <th class="text-left px-4 py-3">Employee</th>
-                    <th class="text-left px-4 py-3">Date</th>
-                    <th class="text-left px-4 py-3">Time In</th>
-                    <th class="text-left px-4 py-3">Time Out</th>
-                    <th class="text-left px-4 py-3">Status</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-                <?php if (empty($attendanceLogs)): ?>
-                    <tr><td class="px-4 py-3 text-slate-500" colspan="5">No attendance logs found for today.</td></tr>
-                <?php else: ?>
-                    <?php foreach ($attendanceLogs as $log): ?>
-                        <?php [$statusLabel, $statusClass] = $attendancePill((string)($log['display_status'] ?? 'present')); ?>
-                        <tr>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($log['employee_name'] ?? 'Unknown Employee'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars($formatDate((string)($log['attendance_date'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars($formatTime((string)($log['time_in'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars($formatTime((string)($log['time_out'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><span class="inline-flex px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
     </div>
 </section>
 
@@ -288,6 +298,22 @@ $formatTime = static function (?string $raw): string {
         <h2 class="text-lg font-semibold text-slate-800">Time Adjustment Requests</h2>
         <p class="text-sm text-slate-500 mt-1">Final admin decisions with lock after approved/rejected.</p>
     </header>
+    <div class="px-6 pt-4 flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
+        <div class="w-full md:w-1/2">
+            <label class="text-sm text-slate-600">Search Requests</label>
+            <input id="timeAdjustmentsSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search by employee, date, reason, or status">
+        </div>
+        <div class="w-full md:w-56">
+            <label class="text-sm text-slate-600">Status Filter</label>
+            <select id="timeAdjustmentsStatusFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
+                <option value="">All Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
+                <option value="Needs Revision">Needs Revision</option>
+            </select>
+        </div>
+    </div>
     <div class="p-6 overflow-x-auto">
         <table id="timeAdjustmentsTable" class="w-full text-sm">
             <thead class="bg-slate-50 text-slate-600">
@@ -314,8 +340,9 @@ $formatTime = static function (?string $raw): string {
                             $employeeName = 'Unknown Employee';
                         }
                         $requestedWindow = $formatTime((string)($request['requested_time_in'] ?? '')) . ' - ' . $formatTime((string)($request['requested_time_out'] ?? ''));
+                        $adjustmentSearch = strtolower(trim($employeeName . ' ' . $formatDate((string)($request['attendance']['attendance_date'] ?? '')) . ' ' . $requestedWindow . ' ' . (string)($request['reason'] ?? '') . ' ' . $statusLabel));
                         ?>
-                        <tr>
+                        <tr data-page-row data-table-search="<?= htmlspecialchars($adjustmentSearch, ENT_QUOTES, 'UTF-8') ?>" data-table-filter="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>">
                             <td class="px-4 py-3"><?= htmlspecialchars($employeeName, ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($formatDate((string)($request['attendance']['attendance_date'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($requestedWindow, ENT_QUOTES, 'UTF-8') ?></td>
@@ -332,6 +359,14 @@ $formatTime = static function (?string $raw): string {
             </tbody>
         </table>
     </div>
+    <div class="px-6 pb-4 flex items-center justify-between gap-3">
+        <p id="timeAdjustmentsPaginationInfo" class="text-xs text-slate-500">Showing 0 to 0 of 0 entries</p>
+        <div class="flex items-center gap-2">
+            <button type="button" id="timeAdjustmentsPrevPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Previous</button>
+            <span id="timeAdjustmentsPageLabel" class="text-xs text-slate-500 min-w-[88px] text-center">Page 1 of 1</span>
+            <button type="button" id="timeAdjustmentsNextPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Next</button>
+        </div>
+    </div>
 </section>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
@@ -339,6 +374,22 @@ $formatTime = static function (?string $raw): string {
         <h2 class="text-lg font-semibold text-slate-800">Leave/CTO Requests</h2>
         <p class="text-sm text-slate-500 mt-1">Unified admin queue for leave-style approvals, including CTO requests.</p>
     </header>
+    <div class="px-6 pt-4 flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
+        <div class="w-full md:w-1/2">
+            <label class="text-sm text-slate-600">Search Requests</label>
+            <input id="leaveCtoSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search by employee, type, range, reason, or status">
+        </div>
+        <div class="w-full md:w-56">
+            <label class="text-sm text-slate-600">Status Filter</label>
+            <select id="leaveCtoStatusFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
+                <option value="">All Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
+                <option value="Cancelled">Cancelled</option>
+            </select>
+        </div>
+    </div>
     <div class="p-6 overflow-x-auto">
         <table id="leaveCtoRequestsTable" class="w-full text-sm">
             <thead class="bg-slate-50 text-slate-600">
@@ -376,8 +427,9 @@ $formatTime = static function (?string $raw): string {
                                 . htmlspecialchars(number_format((float)($entry['hours_requested'] ?? 0), 2), ENT_QUOTES, 'UTF-8')
                                 . 'h';
                         }
+                        $leaveCtoSearch = strtolower(trim($employeeName . ' ' . $requestTypeLabel . ' ' . $leaveType . ' ' . $dateLabel . ' ' . strip_tags($windowLabel) . ' ' . (string)($entry['reason'] ?? '') . ' ' . $statusLabel));
                         ?>
-                        <tr>
+                        <tr data-page-row data-table-search="<?= htmlspecialchars($leaveCtoSearch, ENT_QUOTES, 'UTF-8') ?>" data-table-filter="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>">
                             <td class="px-4 py-3"><?= htmlspecialchars($employeeName, ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($requestTypeLabel, ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($leaveType, ENT_QUOTES, 'UTF-8') ?></td>
@@ -402,6 +454,14 @@ $formatTime = static function (?string $raw): string {
             </tbody>
         </table>
     </div>
+    <div class="px-6 pb-4 flex items-center justify-between gap-3">
+        <p id="leaveCtoPaginationInfo" class="text-xs text-slate-500">Showing 0 to 0 of 0 entries</p>
+        <div class="flex items-center gap-2">
+            <button type="button" id="leaveCtoPrevPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Previous</button>
+            <span id="leaveCtoPageLabel" class="text-xs text-slate-500 min-w-[88px] text-center">Page 1 of 1</span>
+            <button type="button" id="leaveCtoNextPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Next</button>
+        </div>
+    </div>
 </section>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
@@ -409,6 +469,22 @@ $formatTime = static function (?string $raw): string {
         <h2 class="text-lg font-semibold text-slate-800">Official Business Requests</h2>
         <p class="text-sm text-slate-500 mt-1">Pending and finalized OB approvals.</p>
     </header>
+    <div class="px-6 pt-4 flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
+        <div class="w-full md:w-1/2">
+            <label class="text-sm text-slate-600">Search OB Requests</label>
+            <input id="obRequestsSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search by employee, date, reason, or status">
+        </div>
+        <div class="w-full md:w-56">
+            <label class="text-sm text-slate-600">Status Filter</label>
+            <select id="obRequestsStatusFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
+                <option value="">All Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
+                <option value="Cancelled">Cancelled</option>
+            </select>
+        </div>
+    </div>
     <div class="p-6 overflow-x-auto">
         <table id="obRequestsTable" class="w-full text-sm">
             <thead class="bg-slate-50 text-slate-600">
@@ -431,8 +507,9 @@ $formatTime = static function (?string $raw): string {
                         $locked = in_array($statusRaw, ['approved', 'rejected', 'cancelled'], true);
                         [$statusLabel, $statusClass] = $attendancePill($statusRaw);
                         $window = $formatTime((string)($ob['start_time'] ?? '')) . ' - ' . $formatTime((string)($ob['end_time'] ?? ''));
+                        $obSearch = strtolower(trim((string)($ob['employee_name'] ?? '') . ' ' . $formatDate((string)($ob['overtime_date'] ?? '')) . ' ' . $window . ' ' . (string)($ob['reason'] ?? '') . ' ' . $statusLabel));
                         ?>
-                        <tr>
+                        <tr data-page-row data-table-search="<?= htmlspecialchars($obSearch, ENT_QUOTES, 'UTF-8') ?>" data-table-filter="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>">
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($ob['employee_name'] ?? 'Unknown Employee'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($formatDate((string)($ob['overtime_date'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($window, ENT_QUOTES, 'UTF-8') ?></td>
@@ -449,13 +526,38 @@ $formatTime = static function (?string $raw): string {
             </tbody>
         </table>
     </div>
+    <div class="px-6 pb-4 flex items-center justify-between gap-3">
+        <p id="obRequestsPaginationInfo" class="text-xs text-slate-500">Showing 0 to 0 of 0 entries</p>
+        <div class="flex items-center gap-2">
+            <button type="button" id="obRequestsPrevPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Previous</button>
+            <span id="obRequestsPageLabel" class="text-xs text-slate-500 min-w-[88px] text-center">Page 1 of 1</span>
+            <button type="button" id="obRequestsNextPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Next</button>
+        </div>
+    </div>
 </section>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Employee Timekeeping History</h2>
-        <p class="text-sm text-slate-500 mt-1">Complete cross-request history for review context.</p>
+        <p class="text-sm text-slate-500 mt-1">Recent cross-request history for review context.</p>
     </header>
+    <div class="px-6 pt-4 flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
+        <div class="w-full md:w-1/2">
+            <label class="text-sm text-slate-600">Search History</label>
+            <input id="timekeepingHistorySearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search by employee, type, summary, or status">
+        </div>
+        <div class="w-full md:w-56">
+            <label class="text-sm text-slate-600">Type Filter</label>
+            <select id="timekeepingHistoryTypeFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
+                <option value="">All Types</option>
+                <option value="Attendance">Attendance</option>
+                <option value="Leave">Leave</option>
+                <option value="CTO">CTO</option>
+                <option value="Official Business">Official Business</option>
+                <option value="Time Adjustment">Time Adjustment</option>
+            </select>
+        </div>
+    </div>
     <div class="p-6 overflow-x-auto">
         <table id="timekeepingHistoryTable" class="w-full text-sm">
             <thead class="bg-slate-50 text-slate-600">
@@ -472,8 +574,12 @@ $formatTime = static function (?string $raw): string {
                     <tr><td class="px-4 py-3 text-slate-500" colspan="5">No timekeeping history records found.</td></tr>
                 <?php else: ?>
                     <?php foreach ($historyEntries as $entry): ?>
-                        <?php [$statusLabel, $statusClass] = $attendancePill((string)($entry['status'] ?? 'pending')); ?>
-                        <tr>
+                        <?php
+                        [$statusLabel, $statusClass] = $attendancePill((string)($entry['status'] ?? 'pending'));
+                        $historyType = (string)($entry['entry_type'] ?? '-');
+                        $historySearch = strtolower(trim((string)($entry['employee_name'] ?? '') . ' ' . $historyType . ' ' . $formatDate((string)($entry['entry_date'] ?? '')) . ' ' . (string)($entry['summary'] ?? '') . ' ' . $statusLabel));
+                        ?>
+                        <tr data-page-row data-table-search="<?= htmlspecialchars($historySearch, ENT_QUOTES, 'UTF-8') ?>" data-table-filter="<?= htmlspecialchars($historyType, ENT_QUOTES, 'UTF-8') ?>">
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($entry['employee_name'] ?? 'Unknown Employee'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($entry['entry_type'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($formatDate((string)($entry['entry_date'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
@@ -485,73 +591,288 @@ $formatTime = static function (?string $raw): string {
             </tbody>
         </table>
     </div>
-</section>
-
-<section class="bg-white border border-slate-200 rounded-2xl mb-6">
-    <header class="px-6 py-4 border-b border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800">Holiday/Suspension Configuration</h2>
-        <p class="text-sm text-slate-500 mt-1">Configure holidays and payroll paid-handling behavior.</p>
-    </header>
-    <form action="timekeeping.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-        <input type="hidden" name="form_action" value="save_holiday_config">
-        <div>
-            <label class="text-slate-600">Holiday Date</label>
-            <input type="date" name="holiday_date" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+    <div class="px-6 pb-4 flex items-center justify-between gap-3">
+        <p id="timekeepingHistoryPaginationInfo" class="text-xs text-slate-500">Showing 0 to 0 of 0 entries</p>
+        <div class="flex items-center gap-2">
+            <button type="button" id="timekeepingHistoryPrevPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Previous</button>
+            <span id="timekeepingHistoryPageLabel" class="text-xs text-slate-500 min-w-[88px] text-center">Page 1 of 1</span>
+            <button type="button" id="timekeepingHistoryNextPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Next</button>
         </div>
-        <div>
-            <label class="text-slate-600">Holiday Name</label>
-            <input type="text" name="holiday_name" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="e.g. National Heroes Day">
-        </div>
-        <div>
-            <label class="text-slate-600">Holiday Type</label>
-            <select name="holiday_type" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
-                <option value="regular">Regular</option>
-                <option value="special">Special</option>
-                <option value="local">Local</option>
-            </select>
-        </div>
-        <div>
-            <label class="text-slate-600">Payroll Paid Handling</label>
-            <select name="paid_handling" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
-                <option value="policy_based" <?= (($holidayPayrollPolicy['paid_handling'] ?? 'policy_based') === 'policy_based') ? 'selected' : '' ?>>Policy-based</option>
-                <option value="always_paid" <?= (($holidayPayrollPolicy['paid_handling'] ?? '') === 'always_paid') ? 'selected' : '' ?>>Always Paid</option>
-                <option value="always_unpaid" <?= (($holidayPayrollPolicy['paid_handling'] ?? '') === 'always_unpaid') ? 'selected' : '' ?>>Always Unpaid</option>
-            </select>
-        </div>
-        <label class="inline-flex items-center gap-2"><input type="checkbox" name="apply_to_regular" <?= !empty($holidayPayrollPolicy['apply_to_regular']) ? 'checked' : '' ?>> <span>Apply paid rules to Regular holidays</span></label>
-        <label class="inline-flex items-center gap-2"><input type="checkbox" name="apply_to_special" <?= !empty($holidayPayrollPolicy['apply_to_special']) ? 'checked' : '' ?>> <span>Apply paid rules to Special holidays</span></label>
-        <label class="inline-flex items-center gap-2"><input type="checkbox" name="apply_to_local" <?= !empty($holidayPayrollPolicy['apply_to_local']) ? 'checked' : '' ?>> <span>Apply paid rules to Local holidays</span></label>
-        <label class="inline-flex items-center gap-2"><input type="checkbox" name="include_suspension" <?= !empty($holidayPayrollPolicy['include_suspension']) ? 'checked' : '' ?>> <span>Include suspension days in paid handling policy</span></label>
-        <div class="md:col-span-2 flex justify-end">
-            <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Save Holiday/Payroll Settings</button>
-        </div>
-    </form>
-
-    <div class="px-6 pb-6 overflow-x-auto">
-        <table id="holidayConfigTable" class="w-full text-sm">
-            <thead class="bg-slate-50 text-slate-600">
-                <tr>
-                    <th class="text-left px-4 py-3">Date</th>
-                    <th class="text-left px-4 py-3">Holiday</th>
-                    <th class="text-left px-4 py-3">Type</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-                <?php if (empty($holidayRows)): ?>
-                    <tr><td class="px-4 py-3 text-slate-500" colspan="3">No holiday configuration records yet.</td></tr>
-                <?php else: ?>
-                    <?php foreach ($holidayRows as $holiday): ?>
-                        <tr>
-                            <td class="px-4 py-3"><?= htmlspecialchars($formatDate((string)($holiday['holiday_date'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($holiday['holiday_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars(ucfirst((string)($holiday['holiday_type'] ?? '-')), ENT_QUOTES, 'UTF-8') ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
     </div>
 </section>
+
+<div id="attendanceHelperModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-slate-900/60" data-modal-close="attendanceHelperModal"></div>
+    <div class="relative min-h-full flex items-center justify-center p-4">
+        <div class="w-full max-w-5xl bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
+                <div>
+                    <h3 class="text-lg font-semibold text-slate-800">Employee Attendance Helper</h3>
+                    <p class="text-sm text-slate-500 mt-1">Fallback encoder for missed or delayed attendance entries.</p>
+                </div>
+                <button type="button" data-modal-close="attendanceHelperModal" class="text-slate-500 hover:text-slate-700">✕</button>
+            </div>
+            <form id="attendanceHelperForm" action="timekeeping.php" method="POST" class="p-6 grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
+                <input type="hidden" name="form_action" value="log_employee_attendance">
+                <input type="hidden" name="attendance_person_id" id="attendanceHelperPersonId" value="" required>
+                <div class="md:col-span-2">
+                    <label class="text-slate-600">Employee (Search by ID or Name)</label>
+                    <div class="relative mt-1">
+                        <input id="attendanceHelperEmployeeSearch" type="text" class="w-full border border-slate-300 rounded-md px-3 py-2" placeholder="Type employee ID or name" autocomplete="off" required>
+                        <div id="attendanceHelperEmployeeResults" class="hidden absolute z-20 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg max-h-56 overflow-y-auto">
+                            <?php foreach ($employeeOptions as $employeeOption): ?>
+                                <?php
+                                $employeeName = (string)($employeeOption['name'] ?? $employeeOption['label'] ?? 'Unknown Employee');
+                                $employeeCode = trim((string)($employeeOption['employee_code'] ?? ''));
+                                $optionLabel = (string)($employeeOption['label'] ?? $employeeName);
+                                $searchText = strtolower(trim($optionLabel . ' ' . $employeeName . ' ' . $employeeCode));
+                                ?>
+                                <button
+                                    type="button"
+                                    class="w-full text-left px-3 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-b-0"
+                                    data-attendance-employee-option
+                                    data-person-id="<?= htmlspecialchars((string)($employeeOption['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                    data-label="<?= htmlspecialchars($optionLabel, ENT_QUOTES, 'UTF-8') ?>"
+                                    data-search="<?= htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8') ?>"
+                                >
+                                    <span class="block text-slate-800"><?= htmlspecialchars($optionLabel, ENT_QUOTES, 'UTF-8') ?></span>
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-slate-500 mt-1" id="attendanceHelperEmployeeHint">Select an employee from the custom search results.</p>
+                </div>
+                <div>
+                    <label class="text-slate-600">Entry Type</label>
+                    <select id="attendanceHelperEntryType" name="attendance_entry_type" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                        <option value="time_in">Time In</option>
+                        <option value="time_out">Time Out</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-slate-600">Attendance Date</label>
+                    <input id="attendanceHelperDate" type="date" name="attendance_date" value="<?= htmlspecialchars($todayDate, ENT_QUOTES, 'UTF-8') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                </div>
+                <div>
+                    <label class="text-slate-600">Attendance Time</label>
+                    <input id="attendanceHelperTime" type="time" name="attendance_time" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                </div>
+                <div class="md:col-span-3">
+                    <label class="text-slate-600">Reference / Notes</label>
+                    <textarea name="attendance_reference" rows="2" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Reason for manual logging or related note (optional)"></textarea>
+                </div>
+                <div class="md:col-span-4 flex justify-end gap-3">
+                    <button type="button" data-modal-close="attendanceHelperModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button>
+                    <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-md bg-daGreen text-white hover:opacity-90">
+                        <span class="material-symbols-outlined text-[16px]">fact_check</span>Log Attendance Entry
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="leaveCardLogModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-slate-900/60" data-modal-close="leaveCardLogModal"></div>
+    <div class="relative min-h-full flex items-center justify-center p-4">
+        <div class="w-full max-w-6xl bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
+                <div>
+                    <h3 class="text-lg font-semibold text-slate-800">Log Leave from Leave Card</h3>
+                    <p class="text-sm text-slate-500 mt-1">Encode approved leave-card entries without leaving the top workflow.</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <a href="/hris-system/assets/Leave_Card_Template.xlsx" download class="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 whitespace-nowrap">
+                        <span class="material-symbols-outlined text-[16px]">download</span>Download Template
+                    </a>
+                    <button type="button" data-modal-close="leaveCardLogModal" class="text-slate-500 hover:text-slate-700">✕</button>
+                </div>
+            </div>
+            <form id="leaveCardLogForm" action="timekeeping.php" method="POST" class="p-6 grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
+                <input type="hidden" name="form_action" value="log_leave_from_card">
+                <input type="hidden" name="person_id" id="leaveLogPersonId" value="" required>
+                <div class="md:col-span-2">
+                    <label class="text-slate-600">Employee (Search by ID or Name)</label>
+                    <div class="relative mt-1">
+                        <input id="leaveLogEmployeeSearch" type="text" class="w-full border border-slate-300 rounded-md px-3 py-2" placeholder="Type employee ID or name" autocomplete="off" required>
+                        <div id="leaveLogEmployeeResults" class="hidden absolute z-20 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg max-h-56 overflow-y-auto">
+                            <?php foreach ($employeeOptions as $employeeOption): ?>
+                                <?php
+                                $employeeName = (string)($employeeOption['name'] ?? $employeeOption['label'] ?? 'Unknown Employee');
+                                $employeeCode = trim((string)($employeeOption['employee_code'] ?? ''));
+                                $optionLabel = (string)($employeeOption['label'] ?? $employeeName);
+                                $searchText = strtolower(trim($optionLabel . ' ' . $employeeName . ' ' . $employeeCode));
+                                ?>
+                                <button
+                                    type="button"
+                                    class="w-full text-left px-3 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-b-0"
+                                    data-employee-option
+                                    data-person-id="<?= htmlspecialchars((string)($employeeOption['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                    data-label="<?= htmlspecialchars($optionLabel, ENT_QUOTES, 'UTF-8') ?>"
+                                    data-search="<?= htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8') ?>"
+                                >
+                                    <span class="block text-slate-800"><?= htmlspecialchars($optionLabel, ENT_QUOTES, 'UTF-8') ?></span>
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-slate-500 mt-1" id="leaveLogEmployeeHint">Select an employee from the custom search results.</p>
+                </div>
+                <div>
+                    <label class="text-slate-600">Leave Type</label>
+                    <select id="leaveLogLeaveType" name="leave_type_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                        <option value="">Select leave type</option>
+                        <?php foreach ($leaveTypeOptions as $leaveTypeOption): ?>
+                            <option value="<?= htmlspecialchars((string)($leaveTypeOption['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-leave-code="<?= htmlspecialchars((string)($leaveTypeOption['leave_code'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-leave-name="<?= htmlspecialchars((string)($leaveTypeOption['leave_name'] ?? 'Leave'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($leaveTypeOption['leave_name'] ?? 'Leave'), ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-slate-600">Date From</label>
+                    <input id="leaveLogDateFrom" type="date" name="date_from" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                </div>
+                <div>
+                    <label class="text-slate-600">Date To</label>
+                    <input id="leaveLogDateTo" type="date" name="date_to" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                </div>
+                <div>
+                    <label class="text-slate-600">Leave Days</label>
+                    <input id="leaveLogDays" type="number" name="days_count" min="1" step="1" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" placeholder="Auto-computed" readonly required>
+                    <p class="text-[11px] text-slate-500 mt-1">Auto-computed from Date From and Date To (inclusive).</p>
+                </div>
+                <div>
+                    <label class="text-slate-600">SL Points</label>
+                    <input id="leaveLogSlPoints" name="sl_points" type="number" min="0" step="0.01" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="0.00" value="0.00">
+                    <p class="text-[11px] text-slate-500 mt-1">Editable accumulated Sick Leave points to add for this employee.</p>
+                </div>
+                <div>
+                    <label class="text-slate-600">VL Points</label>
+                    <input id="leaveLogVlPoints" name="vl_points" type="number" min="0" step="0.01" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="0.00" value="0.00">
+                    <p class="text-[11px] text-slate-500 mt-1">Editable accumulated Vacation Leave points to add for this employee.</p>
+                </div>
+                <div>
+                    <label class="text-slate-600">CTO Points</label>
+                    <input id="leaveLogCtoPoints" name="cto_points" type="number" min="0" step="0.01" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="0.00" value="0.00">
+                    <p class="text-[11px] text-slate-500 mt-1">Editable accumulated CTO or other leave points to add for this employee.</p>
+                </div>
+                <div class="md:col-span-3">
+                    <label class="text-slate-600">Reference / Notes</label>
+                    <textarea name="reference" rows="2" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Leave card control number or remarks (optional)"></textarea>
+                </div>
+                <div class="md:col-span-3 flex justify-end gap-3">
+                    <button type="button" data-modal-close="leaveCardLogModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button>
+                    <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-md bg-daGreen text-white hover:opacity-90">
+                        <span class="material-symbols-outlined text-[16px]">save</span>Log Leave Entry
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="holidayConfigModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-slate-900/60" data-modal-close="holidayConfigModal"></div>
+    <div class="relative min-h-full flex items-center justify-center p-4">
+        <div class="w-full max-w-6xl bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
+                <div>
+                    <h3 class="text-lg font-semibold text-slate-800">Holiday/Suspension Configuration</h3>
+                    <p class="text-sm text-slate-500 mt-1">Configure holiday dates and payroll paid-handling rules from a dedicated modal.</p>
+                </div>
+                <button type="button" data-modal-close="holidayConfigModal" class="text-slate-500 hover:text-slate-700">✕</button>
+            </div>
+            <form action="timekeeping.php" method="POST" class="p-6 grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
+                <input type="hidden" name="form_action" value="save_holiday_config">
+                <div>
+                    <label class="text-slate-600">Holiday Date</label>
+                    <input type="date" name="holiday_date" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                </div>
+                <div>
+                    <label class="text-slate-600">Holiday Name</label>
+                    <input type="text" name="holiday_name" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="e.g. National Heroes Day">
+                </div>
+                <div>
+                    <label class="text-slate-600">Holiday Type</label>
+                    <select name="holiday_type" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                        <option value="regular">Regular</option>
+                        <option value="special">Special</option>
+                        <option value="local">Local</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-slate-600">Payroll Paid Handling</label>
+                    <select name="paid_handling" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                        <option value="policy_based" <?= (($holidayPayrollPolicy['paid_handling'] ?? 'policy_based') === 'policy_based') ? 'selected' : '' ?>>Policy-based</option>
+                        <option value="always_paid" <?= (($holidayPayrollPolicy['paid_handling'] ?? '') === 'always_paid') ? 'selected' : '' ?>>Always Paid</option>
+                        <option value="always_unpaid" <?= (($holidayPayrollPolicy['paid_handling'] ?? '') === 'always_unpaid') ? 'selected' : '' ?>>Always Unpaid</option>
+                    </select>
+                </div>
+                <label class="inline-flex items-center gap-2"><input type="checkbox" name="apply_to_regular" <?= !empty($holidayPayrollPolicy['apply_to_regular']) ? 'checked' : '' ?>> <span>Apply paid rules to Regular holidays</span></label>
+                <label class="inline-flex items-center gap-2"><input type="checkbox" name="apply_to_special" <?= !empty($holidayPayrollPolicy['apply_to_special']) ? 'checked' : '' ?>> <span>Apply paid rules to Special holidays</span></label>
+                <label class="inline-flex items-center gap-2"><input type="checkbox" name="apply_to_local" <?= !empty($holidayPayrollPolicy['apply_to_local']) ? 'checked' : '' ?>> <span>Apply paid rules to Local holidays</span></label>
+                <label class="inline-flex items-center gap-2"><input type="checkbox" name="include_suspension" <?= !empty($holidayPayrollPolicy['include_suspension']) ? 'checked' : '' ?>> <span>Include suspension days in paid handling policy</span></label>
+                <div class="md:col-span-2 flex justify-end gap-3">
+                    <button type="button" data-modal-close="holidayConfigModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button>
+                    <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Save Holiday/Payroll Settings</button>
+                </div>
+            </form>
+
+            <div class="border-t border-slate-200 px-6 pt-4">
+                <div class="pb-4 flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
+                    <div class="w-full md:w-1/2">
+                        <label class="text-sm text-slate-600">Search Holidays</label>
+                        <input id="holidayConfigSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search by date, holiday name, or type">
+                    </div>
+                    <div class="w-full md:w-56">
+                        <label class="text-sm text-slate-600">Type Filter</label>
+                        <select id="holidayConfigTypeFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm">
+                            <option value="">All Types</option>
+                            <option value="Regular">Regular</option>
+                            <option value="Special">Special</option>
+                            <option value="Local">Local</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 pb-4 overflow-x-auto">
+                <table id="holidayConfigTable" class="w-full text-sm">
+                    <thead class="bg-slate-50 text-slate-600">
+                        <tr>
+                            <th class="text-left px-4 py-3">Date</th>
+                            <th class="text-left px-4 py-3">Holiday</th>
+                            <th class="text-left px-4 py-3">Type</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <?php if (empty($holidayRows)): ?>
+                            <tr><td class="px-4 py-3 text-slate-500" colspan="3">No holiday configuration records yet.</td></tr>
+                        <?php else: ?>
+                            <?php foreach ($holidayRows as $holiday): ?>
+                                <?php
+                                $holidayTypeLabel = ucfirst((string)($holiday['holiday_type'] ?? '-'));
+                                $holidaySearch = strtolower(trim($formatDate((string)($holiday['holiday_date'] ?? '')) . ' ' . (string)($holiday['holiday_name'] ?? '') . ' ' . $holidayTypeLabel));
+                                ?>
+                                <tr data-page-row data-table-search="<?= htmlspecialchars($holidaySearch, ENT_QUOTES, 'UTF-8') ?>" data-table-filter="<?= htmlspecialchars($holidayTypeLabel, ENT_QUOTES, 'UTF-8') ?>">
+                                    <td class="px-4 py-3"><?= htmlspecialchars($formatDate((string)($holiday['holiday_date'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td class="px-4 py-3"><?= htmlspecialchars((string)($holiday['holiday_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td class="px-4 py-3"><?= htmlspecialchars($holidayTypeLabel, ENT_QUOTES, 'UTF-8') ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+            <div class="px-6 pb-4 flex items-center justify-between gap-3">
+                <p id="holidayConfigPaginationInfo" class="text-xs text-slate-500">Showing 0 to 0 of 0 entries</p>
+                <div class="flex items-center gap-2">
+                    <button type="button" id="holidayConfigPrevPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Previous</button>
+                    <span id="holidayConfigPageLabel" class="text-xs text-slate-500 min-w-[88px] text-center">Page 1 of 1</span>
+                    <button type="button" id="holidayConfigNextPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Next</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div id="reviewAdjustmentModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-slate-900/60" data-modal-close="reviewAdjustmentModal"></div>
@@ -645,6 +966,8 @@ $formatTime = static function (?string $raw): string {
 
 <script>
 (function () {
+    const pageSize = 10;
+
     const setValue = (id, value) => {
         const el = document.getElementById(id);
         if (el) {
@@ -660,7 +983,336 @@ $formatTime = static function (?string $raw): string {
         document.body.classList.add('overflow-hidden');
     };
 
+    const closeModal = (id) => {
+        const modal = document.getElementById(id);
+        if (!modal) return;
+        modal.classList.add('hidden');
+        modal.setAttribute('aria-hidden', 'true');
+
+        const hasVisibleModal = Array.from(document.querySelectorAll('[data-modal]')).some((candidate) => !candidate.classList.contains('hidden'));
+        if (!hasVisibleModal) {
+            document.body.classList.remove('overflow-hidden');
+        }
+    };
+
+    const initializeFilterablePaginatedTable = ({
+        tableId,
+        infoId,
+        pageLabelId,
+        prevId,
+        nextId,
+        searchInputId,
+        filterId,
+        emptyMessage,
+    }) => {
+        const table = document.getElementById(tableId);
+        const info = document.getElementById(infoId);
+        const pageLabel = document.getElementById(pageLabelId);
+        const prevButton = document.getElementById(prevId);
+        const nextButton = document.getElementById(nextId);
+        const searchInput = searchInputId ? document.getElementById(searchInputId) : null;
+        const filterInput = filterId ? document.getElementById(filterId) : null;
+        const tbody = table ? table.querySelector('tbody') : null;
+        const rows = table ? Array.from(table.querySelectorAll('tbody tr[data-page-row]')) : [];
+        let currentPage = 1;
+        let initialized = false;
+
+        if (!table || !tbody) {
+            return;
+        }
+
+        let emptyRow = tbody.querySelector('[data-filter-empty-row="true"]');
+        if (!emptyRow && rows.length > 0) {
+            const columnCount = Array.from(table.querySelectorAll('thead th')).length || 1;
+            emptyRow = document.createElement('tr');
+            emptyRow.dataset.filterEmptyRow = 'true';
+            emptyRow.className = 'hidden';
+            emptyRow.innerHTML = `<td class="px-4 py-3 text-slate-500" colspan="${columnCount}">${emptyMessage}</td>`;
+            tbody.appendChild(emptyRow);
+        }
+
+        const updateControls = () => {
+            const query = (searchInput?.value || '').trim().toLowerCase();
+            const selectedFilter = (filterInput?.value || '').trim().toLowerCase();
+            const filteredRows = rows.filter((row) => {
+                const rowSearch = (row.getAttribute('data-table-search') || '').toLowerCase();
+                const rowFilter = (row.getAttribute('data-table-filter') || '').toLowerCase();
+                const searchMatch = query === '' || rowSearch.includes(query);
+                const filterMatch = selectedFilter === '' || rowFilter === selectedFilter;
+                return searchMatch && filterMatch;
+            });
+
+            const totalRows = filteredRows.length;
+            const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+            if (currentPage > totalPages) {
+                currentPage = totalPages;
+            }
+
+            const startIndex = totalRows === 0 ? 0 : (currentPage - 1) * pageSize;
+            const endIndex = totalRows === 0 ? 0 : Math.min(startIndex + pageSize, totalRows);
+            const visibleRows = new Set(filteredRows.slice(startIndex, endIndex));
+
+            rows.forEach((row) => {
+                row.classList.toggle('hidden', !visibleRows.has(row));
+            });
+
+            emptyRow?.classList.toggle('hidden', totalRows !== 0);
+
+            if (info) {
+                info.textContent = totalRows === 0
+                    ? 'Showing 0 to 0 of 0 entries'
+                    : `Showing ${startIndex + 1} to ${endIndex} of ${totalRows} entries`;
+            }
+
+            if (pageLabel) {
+                pageLabel.textContent = `Page ${currentPage} of ${totalPages}`;
+            }
+
+            const syncButtonState = (button, disabled) => {
+                if (!button) return;
+                button.disabled = disabled;
+                button.classList.toggle('opacity-60', disabled);
+                button.classList.toggle('cursor-not-allowed', disabled);
+            };
+
+            syncButtonState(prevButton, currentPage <= 1 || totalRows === 0);
+            syncButtonState(nextButton, currentPage >= totalPages || totalRows === 0);
+        };
+
+        const resetToFirstPage = () => {
+            if (!initialized) {
+                return;
+            }
+
+            currentPage = 1;
+            updateControls();
+        };
+
+        searchInput?.addEventListener('input', resetToFirstPage);
+        filterInput?.addEventListener('change', resetToFirstPage);
+
+        prevButton?.addEventListener('click', () => {
+            if (!initialized) {
+                return;
+            }
+
+            if (currentPage <= 1) {
+                return;
+            }
+            currentPage -= 1;
+            updateControls();
+        });
+
+        nextButton?.addEventListener('click', () => {
+            if (!initialized) {
+                return;
+            }
+
+            const query = (searchInput?.value || '').trim().toLowerCase();
+            const selectedFilter = (filterInput?.value || '').trim().toLowerCase();
+            const filteredCount = rows.filter((row) => {
+                const rowSearch = (row.getAttribute('data-table-search') || '').toLowerCase();
+                const rowFilter = (row.getAttribute('data-table-filter') || '').toLowerCase();
+                const searchMatch = query === '' || rowSearch.includes(query);
+                const filterMatch = selectedFilter === '' || rowFilter === selectedFilter;
+                return searchMatch && filterMatch;
+            }).length;
+            const totalPages = Math.max(1, Math.ceil(filteredCount / pageSize));
+            if (currentPage >= totalPages) {
+                return;
+            }
+            currentPage += 1;
+            updateControls();
+        });
+
+        const initialize = () => {
+            if (initialized) {
+                return;
+            }
+
+            initialized = true;
+            updateControls();
+        };
+
+        if (typeof window.IntersectionObserver !== 'function') {
+            initialize();
+            return;
+        }
+
+        const scope = table.closest('section') || table.closest('[data-modal]') || table.parentElement || table;
+        const observer = new window.IntersectionObserver((entries) => {
+            if (!entries.some((entry) => entry.isIntersecting)) {
+                return;
+            }
+
+            observer.disconnect();
+            initialize();
+        }, {
+            rootMargin: '240px 0px',
+        });
+
+        observer.observe(scope);
+    };
+
+    const bindEmployeePicker = ({
+        searchInputId,
+        resultsId,
+        hiddenInputId,
+        hintId,
+        optionSelector,
+    }) => {
+        const searchInput = document.getElementById(searchInputId);
+        const results = document.getElementById(resultsId);
+        const hiddenInput = document.getElementById(hiddenInputId);
+        const hint = document.getElementById(hintId);
+        const optionButtons = Array.from(document.querySelectorAll(optionSelector));
+
+        const showResults = () => {
+            results?.classList.remove('hidden');
+        };
+
+        const hideResults = () => {
+            results?.classList.add('hidden');
+        };
+
+        const filterResults = () => {
+            if (!searchInput || !results) return;
+            const query = (searchInput.value || '').trim().toLowerCase();
+            let visibleCount = 0;
+
+            optionButtons.forEach((button) => {
+                const haystack = (button.getAttribute('data-search') || '').toLowerCase();
+                const visible = query === '' || haystack.includes(query);
+                button.classList.toggle('hidden', !visible);
+                if (visible) {
+                    visibleCount += 1;
+                }
+            });
+
+            showResults();
+            if (hint) {
+                hint.textContent = visibleCount > 0
+                    ? 'Select an employee from the custom search results.'
+                    : 'No employee matched your search.';
+            }
+        };
+
+        const selectEmployee = (button) => {
+            if (!button || !searchInput || !hiddenInput) return;
+            const personId = button.getAttribute('data-person-id') || '';
+            const label = button.getAttribute('data-label') || '';
+            hiddenInput.value = personId;
+            searchInput.value = label;
+            searchInput.setCustomValidity('');
+            if (hint) {
+                hint.textContent = 'Selected: ' + label;
+            }
+            hideResults();
+        };
+
+        searchInput?.addEventListener('focus', filterResults);
+        searchInput?.addEventListener('input', () => {
+            if (hiddenInput) {
+                hiddenInput.value = '';
+            }
+            filterResults();
+        });
+
+        optionButtons.forEach((button) => {
+            button.addEventListener('click', () => selectEmployee(button));
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!results || !searchInput) return;
+            const target = event.target;
+            if (!(target instanceof Node)) return;
+            const clickedInside = results.contains(target) || searchInput.contains(target);
+            if (!clickedInside) {
+                hideResults();
+            }
+        });
+
+        return {
+            searchInput,
+            hiddenInput,
+            showResults,
+        };
+    };
+
     document.getElementById('attendancePrintButton')?.addEventListener('click', () => window.print());
+
+    [
+        {
+            tableId: 'attendanceSnapshotTable',
+            infoId: 'attendancePaginationInfo',
+            pageLabelId: 'attendancePageLabel',
+            prevId: 'attendancePrevPage',
+            nextId: 'attendanceNextPage',
+            searchInputId: 'attendanceTableSearch',
+            filterId: 'attendanceTableStatusFilter',
+            emptyMessage: 'No attendance records match your search/filter criteria.',
+        },
+        {
+            tableId: 'staffRecommendationsTable',
+            infoId: 'staffRecommendationsPaginationInfo',
+            pageLabelId: 'staffRecommendationsPageLabel',
+            prevId: 'staffRecommendationsPrevPage',
+            nextId: 'staffRecommendationsNextPage',
+            searchInputId: 'staffRecommendationsSearch',
+            filterId: 'staffRecommendationsTypeFilter',
+            emptyMessage: 'No staff recommendations match your search/filter criteria.',
+        },
+        {
+            tableId: 'timeAdjustmentsTable',
+            infoId: 'timeAdjustmentsPaginationInfo',
+            pageLabelId: 'timeAdjustmentsPageLabel',
+            prevId: 'timeAdjustmentsPrevPage',
+            nextId: 'timeAdjustmentsNextPage',
+            searchInputId: 'timeAdjustmentsSearch',
+            filterId: 'timeAdjustmentsStatusFilter',
+            emptyMessage: 'No time adjustment requests match your search/filter criteria.',
+        },
+        {
+            tableId: 'leaveCtoRequestsTable',
+            infoId: 'leaveCtoPaginationInfo',
+            pageLabelId: 'leaveCtoPageLabel',
+            prevId: 'leaveCtoPrevPage',
+            nextId: 'leaveCtoNextPage',
+            searchInputId: 'leaveCtoSearch',
+            filterId: 'leaveCtoStatusFilter',
+            emptyMessage: 'No leave or CTO requests match your search/filter criteria.',
+        },
+        {
+            tableId: 'obRequestsTable',
+            infoId: 'obRequestsPaginationInfo',
+            pageLabelId: 'obRequestsPageLabel',
+            prevId: 'obRequestsPrevPage',
+            nextId: 'obRequestsNextPage',
+            searchInputId: 'obRequestsSearch',
+            filterId: 'obRequestsStatusFilter',
+            emptyMessage: 'No official business requests match your search/filter criteria.',
+        },
+        {
+            tableId: 'timekeepingHistoryTable',
+            infoId: 'timekeepingHistoryPaginationInfo',
+            pageLabelId: 'timekeepingHistoryPageLabel',
+            prevId: 'timekeepingHistoryPrevPage',
+            nextId: 'timekeepingHistoryNextPage',
+            searchInputId: 'timekeepingHistorySearch',
+            filterId: 'timekeepingHistoryTypeFilter',
+            emptyMessage: 'No timekeeping history entries match your search/filter criteria.',
+        },
+        {
+            tableId: 'holidayConfigTable',
+            infoId: 'holidayConfigPaginationInfo',
+            pageLabelId: 'holidayConfigPageLabel',
+            prevId: 'holidayConfigPrevPage',
+            nextId: 'holidayConfigNextPage',
+            searchInputId: 'holidayConfigSearch',
+            filterId: 'holidayConfigTypeFilter',
+            emptyMessage: 'No holiday configuration entries match your search/filter criteria.',
+        },
+    ].forEach(initializeFilterablePaginatedTable);
 
     document.querySelectorAll('[data-adjust-review]').forEach((button) => {
         button.addEventListener('click', () => {
@@ -708,12 +1360,34 @@ $formatTime = static function (?string $raw): string {
         });
     });
 
+    document.querySelectorAll('[data-quick-modal-open]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const modalId = button.getAttribute('data-quick-modal-open') || '';
+            if (modalId) {
+                openModal(modalId);
+            }
+        });
+    });
+
+    document.querySelectorAll('[data-modal-close]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const modalId = button.getAttribute('data-modal-close') || '';
+            if (modalId) {
+                closeModal(modalId);
+            }
+        });
+    });
+
     const leaveLogForm = document.getElementById('leaveCardLogForm');
-    const employeeSearchInput = document.getElementById('leaveLogEmployeeSearch');
-    const employeeResults = document.getElementById('leaveLogEmployeeResults');
-    const employeeHiddenInput = document.getElementById('leaveLogPersonId');
-    const employeeHint = document.getElementById('leaveLogEmployeeHint');
-    const employeeOptionButtons = Array.from(document.querySelectorAll('[data-employee-option]'));
+    const leaveEmployeePicker = bindEmployeePicker({
+        searchInputId: 'leaveLogEmployeeSearch',
+        resultsId: 'leaveLogEmployeeResults',
+        hiddenInputId: 'leaveLogPersonId',
+        hintId: 'leaveLogEmployeeHint',
+        optionSelector: '[data-employee-option]',
+    });
+    const employeeSearchInput = leaveEmployeePicker.searchInput;
+    const employeeHiddenInput = leaveEmployeePicker.hiddenInput;
     const leaveTypeSelect = document.getElementById('leaveLogLeaveType');
     const leaveDateFrom = document.getElementById('leaveLogDateFrom');
     const leaveDateTo = document.getElementById('leaveLogDateTo');
@@ -722,75 +1396,19 @@ $formatTime = static function (?string $raw): string {
     const leaveLogVlPoints = document.getElementById('leaveLogVlPoints');
     const leaveLogCtoPoints = document.getElementById('leaveLogCtoPoints');
 
-    const showEmployeeResults = () => {
-        if (employeeResults) {
-            employeeResults.classList.remove('hidden');
-        }
-    };
-
-    const hideEmployeeResults = () => {
-        if (employeeResults) {
-            employeeResults.classList.add('hidden');
-        }
-    };
-
-    const filterEmployeeResults = () => {
-        if (!employeeSearchInput || !employeeResults) return;
-        const query = (employeeSearchInput.value || '').trim().toLowerCase();
-        let visibleCount = 0;
-
-        employeeOptionButtons.forEach((button) => {
-            const haystack = (button.getAttribute('data-search') || '').toLowerCase();
-            const visible = query === '' || haystack.includes(query);
-            button.classList.toggle('hidden', !visible);
-            if (visible) visibleCount += 1;
-        });
-
-        showEmployeeResults();
-        if (employeeHint) {
-            employeeHint.textContent = visibleCount > 0
-                ? 'Select an employee from the custom search results.'
-                : 'No employee matched your search.';
-        }
-    };
-
-    const selectEmployee = (button) => {
-        if (!button || !employeeSearchInput || !employeeHiddenInput) return;
-        const personId = button.getAttribute('data-person-id') || '';
-        const label = button.getAttribute('data-label') || '';
-        employeeHiddenInput.value = personId;
-        employeeSearchInput.value = label;
-        employeeSearchInput.setCustomValidity('');
-        if (employeeHint) {
-            employeeHint.textContent = 'Selected: ' + label;
-        }
-        hideEmployeeResults();
-    };
-
-    if (employeeSearchInput && employeeHiddenInput) {
-        employeeSearchInput.addEventListener('focus', () => {
-            filterEmployeeResults();
-        });
-
-        employeeSearchInput.addEventListener('input', () => {
-            employeeHiddenInput.value = '';
-            filterEmployeeResults();
-        });
-    }
-
-    employeeOptionButtons.forEach((button) => {
-        button.addEventListener('click', () => selectEmployee(button));
+    const attendanceHelperForm = document.getElementById('attendanceHelperForm');
+    const attendanceEmployeePicker = bindEmployeePicker({
+        searchInputId: 'attendanceHelperEmployeeSearch',
+        resultsId: 'attendanceHelperEmployeeResults',
+        hiddenInputId: 'attendanceHelperPersonId',
+        hintId: 'attendanceHelperEmployeeHint',
+        optionSelector: '[data-attendance-employee-option]',
     });
-
-    document.addEventListener('click', (event) => {
-        if (!employeeResults || !employeeSearchInput) return;
-        const target = event.target;
-        if (!(target instanceof Node)) return;
-        const clickedInside = employeeResults.contains(target) || employeeSearchInput.contains(target);
-        if (!clickedInside) {
-            hideEmployeeResults();
-        }
-    });
+    const attendanceHelperSearchInput = attendanceEmployeePicker.searchInput;
+    const attendanceHelperHiddenInput = attendanceEmployeePicker.hiddenInput;
+    const attendanceHelperEntryType = document.getElementById('attendanceHelperEntryType');
+    const attendanceHelperDate = document.getElementById('attendanceHelperDate');
+    const attendanceHelperTime = document.getElementById('attendanceHelperTime');
 
     const computeLeaveDays = () => {
         if (!leaveDateFrom || !leaveDateTo || !leaveDays) return;
@@ -896,13 +1514,32 @@ $formatTime = static function (?string $raw): string {
         };
     };
 
+    const showTimekeepingConfirmDialog = ({ title, html, text, confirmButtonText }) => {
+        if (!(window.Swal && typeof window.Swal.fire === 'function')) {
+            return Promise.resolve(false);
+        }
+
+        return window.Swal.fire({
+            icon: 'question',
+            title: title || 'Confirm action?',
+            html,
+            text,
+            showCancelButton: true,
+            confirmButtonText: confirmButtonText || 'Confirm',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#16a34a',
+            cancelButtonColor: '#64748b',
+            focusCancel: true,
+        }).then((result) => Boolean(result.isConfirmed));
+    };
+
     leaveLogForm?.addEventListener('submit', (event) => {
         if (!employeeHiddenInput || !employeeSearchInput) return;
         if (!employeeHiddenInput.value) {
             event.preventDefault();
             employeeSearchInput.setCustomValidity('Please select an employee from the search results.');
             employeeSearchInput.reportValidity();
-            showEmployeeResults();
+            leaveEmployeePicker.showResults();
             return;
         }
         employeeSearchInput.setCustomValidity('');
@@ -962,29 +1599,60 @@ $formatTime = static function (?string $raw): string {
             leaveLogForm.requestSubmit();
         };
 
-        if (window.Swal && typeof window.Swal.fire === 'function') {
-            window.Swal.fire({
-                icon: 'question',
-                title: 'Log leave entry?',
-                html: `You are about to log <strong>${String(totalDays.toFixed(2))}</strong> day(s) of <strong>${leaveTypeLabel}</strong> for <strong>${selectedEmployeeLabel}</strong>.<br><br>${pointSummary}`,
-                showCancelButton: true,
-                confirmButtonText: 'Yes, log leave',
-                cancelButtonText: 'Cancel',
-                confirmButtonColor: '#16a34a',
-                cancelButtonColor: '#64748b',
-                focusCancel: true,
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    submitForm();
-                }
-            });
+        showTimekeepingConfirmDialog({
+            title: 'Log leave entry?',
+            html: `You are about to log <strong>${String(totalDays.toFixed(2))}</strong> day(s) of <strong>${leaveTypeLabel}</strong> for <strong>${selectedEmployeeLabel}</strong>.<br><br>${pointSummary}`,
+            confirmButtonText: 'Yes, log leave'
+        }).then((confirmed) => {
+            if (confirmed) {
+                submitForm();
+            }
+        });
+    });
+
+    attendanceHelperForm?.addEventListener('submit', (event) => {
+        if (!attendanceHelperHiddenInput || !attendanceHelperSearchInput) {
             return;
         }
 
-        const confirmed = window.confirm('Log this leave entry now?');
-        if (confirmed) {
-            submitForm();
+        if (!attendanceHelperHiddenInput.value) {
+            event.preventDefault();
+            attendanceHelperSearchInput.setCustomValidity('Please select an employee from the search results.');
+            attendanceHelperSearchInput.reportValidity();
+            attendanceEmployeePicker.showResults();
+            return;
         }
+
+        attendanceHelperSearchInput.setCustomValidity('');
+
+        if (attendanceHelperForm.dataset.confirmed === 'true') {
+            attendanceHelperForm.dataset.confirmed = 'false';
+            return;
+        }
+
+        event.preventDefault();
+
+        const employeeLabel = (attendanceHelperSearchInput.value || 'Selected employee').trim();
+        const entryTypeLabel = attendanceHelperEntryType instanceof HTMLSelectElement
+            ? (attendanceHelperEntryType.options[attendanceHelperEntryType.selectedIndex]?.textContent || 'Attendance Entry')
+            : 'Attendance Entry';
+        const attendanceDateLabel = attendanceHelperDate instanceof HTMLInputElement ? attendanceHelperDate.value : '';
+        const attendanceTimeLabel = attendanceHelperTime instanceof HTMLInputElement ? attendanceHelperTime.value : '';
+
+        const submitForm = () => {
+            attendanceHelperForm.dataset.confirmed = 'true';
+            attendanceHelperForm.requestSubmit();
+        };
+
+        showTimekeepingConfirmDialog({
+            title: 'Log attendance entry?',
+            html: `You are about to log <strong>${entryTypeLabel}</strong> for <strong>${employeeLabel}</strong> on <strong>${attendanceDateLabel}</strong> at <strong>${attendanceTimeLabel}</strong>.`,
+            confirmButtonText: 'Yes, log attendance'
+        }).then((confirmed) => {
+            if (confirmed) {
+                submitForm();
+            }
+        });
     });
 
     resetLeavePointFields();

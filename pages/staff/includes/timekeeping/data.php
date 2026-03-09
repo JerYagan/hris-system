@@ -58,7 +58,7 @@ foreach ($employmentScopeRows as $scopeRow) {
 
     $scopedPersonMap[$personId] = [
         'employee_name' => $employeeName,
-        'office_name' => cleanText($scopeRow['office']['office_name'] ?? null) ?? 'Unassigned Office',
+        'office_name' => cleanText($scopeRow['office']['office_name'] ?? null) ?? 'Unassigned Division',
         'position_title' => cleanText($scopeRow['position']['position_title'] ?? null) ?? 'Unassigned Position',
         'user_id' => $userId,
     ];

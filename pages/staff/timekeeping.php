@@ -65,7 +65,7 @@ ob_start();
             <input id="rfidEmployeeName" type="text" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Juan Dela Cruz" required>
         </div>
         <div>
-            <label for="rfidDepartment" class="text-gray-600">Department</label>
+            <label for="rfidDepartment" class="text-gray-600">Division</label>
             <input id="rfidDepartment" type="text" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="HR Division" required>
         </div>
         <div>
@@ -144,7 +144,7 @@ ob_start();
             <thead class="bg-gray-50 text-gray-600">
                 <tr>
                     <th class="text-left px-4 py-3">Employee</th>
-                    <th class="text-left px-4 py-3">Office</th>
+                    <th class="text-left px-4 py-3">Division</th>
                     <th class="text-left px-4 py-3">Date</th>
                     <th class="text-left px-4 py-3">Time In</th>
                     <th class="text-left px-4 py-3">Time Out</th>
@@ -189,7 +189,7 @@ ob_start();
     <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-3 gap-3">
         <div class="md:col-span-2">
             <label for="leaveSearchInput" class="text-sm text-gray-600">Search Requests</label>
-            <input id="leaveSearchInput" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search by employee, office, leave type, reason, or date">
+            <input id="leaveSearchInput" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search by employee, division, leave type, reason, or date">
         </div>
         <div>
             <label for="leaveStatusFilter" class="text-sm text-gray-600">All Statuses</label>
@@ -261,7 +261,7 @@ ob_start();
     <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-3 gap-3">
         <div class="md:col-span-2">
             <label for="obSearchInput" class="text-sm text-gray-600">Search Requests</label>
-            <input id="obSearchInput" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search by employee, office, reason, or date">
+            <input id="obSearchInput" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search by employee, division, reason, or date">
         </div>
         <div>
             <label for="obStatusFilter" class="text-sm text-gray-600">All Statuses</label>
@@ -346,7 +346,7 @@ ob_start();
     <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-3 gap-3">
         <div class="md:col-span-2">
             <label for="adjustmentSearchInput" class="text-sm text-gray-600">Search Requests</label>
-            <input id="adjustmentSearchInput" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search by employee, office, reason, or date">
+            <input id="adjustmentSearchInput" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search by employee, division, reason, or date">
         </div>
         <div>
             <label for="adjustmentStatusFilter" class="text-sm text-gray-600">All Statuses</label>

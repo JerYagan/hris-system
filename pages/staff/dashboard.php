@@ -6,6 +6,8 @@ require_once __DIR__ . '/includes/dashboard/data.php';
 $pageTitle = 'Staff Dashboard | DA HRIS';
 $activePage = 'dashboard.php';
 $breadcrumbs = ['Dashboard'];
+$pageScripts = $pageScripts ?? [];
+$pageScripts[] = '/hris-system/assets/js/staff/dashboard/index.js';
 
 $state = cleanText($_GET['state'] ?? null);
 $message = cleanText($_GET['message'] ?? null);
@@ -136,13 +138,28 @@ ob_start();
 
 <section class="bg-white border rounded-xl p-6">
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div>
+        <div id="staffDashboardNotificationsCard" class="min-w-0">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="font-semibold text-gray-800">Notifications</h2>
                 <a href="notifications.php" class="text-sm text-green-700 hover:underline">View all</a>
             </div>
 
-            <ul class="space-y-4 text-sm">
+            <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_10rem]">
+                <div>
+                    <label for="staffDashboardNotificationsSearch" class="text-xs font-medium uppercase tracking-wide text-slate-500">Search Notifications</label>
+                    <input id="staffDashboardNotificationsSearch" type="search" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Search by title, message, or category">
+                </div>
+                <div>
+                    <label for="staffDashboardNotificationsStatusFilter" class="text-xs font-medium uppercase tracking-wide text-slate-500">Status</label>
+                    <select id="staffDashboardNotificationsStatusFilter" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+                        <option value="">All Status</option>
+                        <option value="New">New</option>
+                        <option value="Read">Read</option>
+                    </select>
+                </div>
+            </div>
+
+            <ul class="space-y-4 text-sm" id="staffDashboardNotificationsList">
                 <?php if (empty($dashboardRoleNotifications)): ?>
                     <li class="border-l-4 border-slate-300 pl-4">
                         <p class="font-medium text-gray-800">No notifications</p>
@@ -150,7 +167,12 @@ ob_start();
                     </li>
                 <?php else: ?>
                     <?php foreach ($dashboardRoleNotifications as $item): ?>
-                        <li class="border-l-4 border-blue-500 pl-4">
+                        <li
+                            class="border-l-4 border-blue-500 pl-4"
+                            data-dashboard-notification-row
+                            data-dashboard-search="<?= htmlspecialchars(strtolower(trim((string)($item['title'] ?? '') . ' ' . (string)($item['body'] ?? '') . ' ' . (string)($item['category'] ?? '') . ' ' . (string)($item['meta'] ?? ''))), ENT_QUOTES, 'UTF-8') ?>"
+                            data-dashboard-status="<?= htmlspecialchars((string)($item['status_label'] ?? 'New'), ENT_QUOTES, 'UTF-8') ?>"
+                        >
                             <div class="flex items-start justify-between gap-3">
                                 <div>
                                     <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($item['title'] ?? 'Notification'), ENT_QUOTES, 'UTF-8') ?></p>
@@ -167,17 +189,46 @@ ob_start();
                             </div>
                         </li>
                     <?php endforeach; ?>
+                    <li id="staffDashboardNotificationsEmpty" class="hidden border-l-4 border-slate-300 pl-4">
+                        <p class="font-medium text-gray-800">No matching notifications</p>
+                        <p class="text-xs text-gray-500">Try a different search term or status filter.</p>
+                    </li>
                 <?php endif; ?>
             </ul>
+
+            <?php if (!empty($dashboardRoleNotifications)): ?>
+                <div class="mt-4 flex items-center justify-between gap-3">
+                    <p id="staffDashboardNotificationsInfo" class="text-xs text-slate-500">Page 1 of 1</p>
+                    <div class="flex items-center gap-2">
+                        <button type="button" id="staffDashboardNotificationsPrev" class="rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Previous</button>
+                        <button type="button" id="staffDashboardNotificationsNext" class="rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Next</button>
+                    </div>
+                </div>
+            <?php endif; ?>
         </div>
 
-        <div>
+        <div id="staffDashboardAnnouncementsCard" class="min-w-0">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="font-semibold text-gray-800">Announcements</h2>
                 <a href="notifications.php" class="text-sm text-green-700 hover:underline">View all</a>
             </div>
 
-            <ul class="space-y-4 text-sm">
+            <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_10rem]">
+                <div>
+                    <label for="staffDashboardAnnouncementsSearch" class="text-xs font-medium uppercase tracking-wide text-slate-500">Search Announcements</label>
+                    <input id="staffDashboardAnnouncementsSearch" type="search" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Search by title or date">
+                </div>
+                <div>
+                    <label for="staffDashboardAnnouncementsStatusFilter" class="text-xs font-medium uppercase tracking-wide text-slate-500">Status</label>
+                    <select id="staffDashboardAnnouncementsStatusFilter" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+                        <option value="">All Status</option>
+                        <option value="New">New</option>
+                        <option value="Read">Read</option>
+                    </select>
+                </div>
+            </div>
+
+            <ul class="space-y-4 text-sm" id="staffDashboardAnnouncementsList">
                 <?php if (empty($dashboardAnnouncements)): ?>
                     <li class="border-l-4 border-slate-300 pl-4">
                         <p class="font-medium text-gray-800">No announcements available</p>
@@ -185,7 +236,12 @@ ob_start();
                     </li>
                 <?php else: ?>
                     <?php foreach ($dashboardAnnouncements as $item): ?>
-                        <li class="border-l-4 border-green-500 pl-4">
+                        <li
+                            class="border-l-4 border-green-500 pl-4"
+                            data-dashboard-announcement-row
+                            data-dashboard-search="<?= htmlspecialchars(strtolower(trim((string)($item['title'] ?? '') . ' ' . (string)($item['meta'] ?? ''))), ENT_QUOTES, 'UTF-8') ?>"
+                            data-dashboard-status="<?= htmlspecialchars((string)($item['status_label'] ?? 'New'), ENT_QUOTES, 'UTF-8') ?>"
+                        >
                             <div class="flex items-start justify-between gap-3">
                                 <div>
                                     <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($item['title'] ?? 'Announcement'), ENT_QUOTES, 'UTF-8') ?></p>
@@ -197,8 +253,22 @@ ob_start();
                             </div>
                         </li>
                     <?php endforeach; ?>
+                    <li id="staffDashboardAnnouncementsEmpty" class="hidden border-l-4 border-slate-300 pl-4">
+                        <p class="font-medium text-gray-800">No matching announcements</p>
+                        <p class="text-xs text-gray-500">Try a different search term or status filter.</p>
+                    </li>
                 <?php endif; ?>
             </ul>
+
+            <?php if (!empty($dashboardAnnouncements)): ?>
+                <div class="mt-4 flex items-center justify-between gap-3">
+                    <p id="staffDashboardAnnouncementsInfo" class="text-xs text-slate-500">Page 1 of 1</p>
+                    <div class="flex items-center gap-2">
+                        <button type="button" id="staffDashboardAnnouncementsPrev" class="rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Previous</button>
+                        <button type="button" id="staffDashboardAnnouncementsNext" class="rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Next</button>
+                    </div>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 </section>

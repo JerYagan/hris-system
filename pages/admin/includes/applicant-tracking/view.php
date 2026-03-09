@@ -258,7 +258,6 @@ $buildPaginationHref = static function (string $target, int $page) use ($progres
                     <th class="text-left px-4 py-3">Submitted</th>
                     <th class="text-left px-4 py-3">Latest Interview</th>
                     <th class="text-left px-4 py-3">Interview &amp; Feedback</th>
-                    <th class="text-left px-4 py-3">Status</th>
                     <th class="text-left px-4 py-3">Current Stage</th>
                     <th class="text-left px-4 py-3">Actions</th>
                 </tr>
@@ -266,7 +265,7 @@ $buildPaginationHref = static function (string $target, int $page) use ($progres
             <tbody class="divide-y divide-slate-100">
                 <?php if (empty($queuePageRows)): ?>
                     <tr>
-                        <td class="px-4 py-3 text-slate-500" colspan="9">No screening queue records found.</td>
+                        <td class="px-4 py-3 text-slate-500" colspan="8">No screening queue records found.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($queuePageRows as $row): ?>
@@ -288,7 +287,6 @@ $buildPaginationHref = static function (string $target, int $page) use ($progres
                                     <?php endif; ?>
                                 </div>
                             </td>
-                            <td class="px-4 py-3 text-slate-700"><?= htmlspecialchars((string)$row['status_label'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3">
                                 <div class="flex flex-wrap gap-2">
                                     <?php if (!empty($row['already_employee'])): ?>
@@ -432,11 +430,11 @@ $buildPaginationHref = static function (string $target, int $page) use ($progres
                 </div>
                 <div>
                     <label class="text-slate-600">Interview Date</label>
-                    <input type="date" name="interview_date" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                    <input id="scheduleInterviewDate" type="date" name="interview_date" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
                 </div>
                 <div>
                     <label class="text-slate-600">Interview Time</label>
-                    <input type="time" name="interview_time" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                    <input id="scheduleInterviewTime" type="text" name="interview_time" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Select interview time" autocomplete="off" required>
                 </div>
                 <div class="md:col-span-2">
                     <label class="text-slate-600">Scheduling Notes</label>

@@ -43,6 +43,16 @@ foreach ($feedbackRows as $feedback) {
     ];
 }
 
+$hasSavedApplicantDecision = static function (?array $feedback): bool {
+    if (!is_array($feedback)) {
+        return false;
+    }
+
+    return trim((string)($feedback['decision'] ?? '')) !== ''
+        || trim((string)($feedback['feedback_text'] ?? '')) !== ''
+        || trim((string)($feedback['provided_at'] ?? '')) !== '';
+};
+
 $basisMap = [];
 foreach ($statusHistoryRows as $historyRow) {
     $applicationId = (string)($historyRow['application_id'] ?? '');
@@ -261,18 +271,19 @@ if (!function_exists('recommendationFromStatus')) {
 
 foreach ($applications as $application) {
     $statusValue = strtolower((string)($application['application_status'] ?? 'submitted'));
+    $applicationId = (string)($application['id'] ?? '');
+    $feedback = $feedbackMap[$applicationId] ?? null;
+    $hasReviewDecision = $hasSavedApplicantDecision($feedback);
 
     if ($statusValue === 'hired') {
         $hiredCount++;
     }
 
-    if (in_array($statusValue, ['submitted', 'screening', 'interview', 'shortlisted', 'offer'], true)) {
+    if (in_array($statusValue, ['submitted', 'screening', 'interview', 'shortlisted', 'offer'], true) && !$hasReviewDecision) {
         $pendingDecisionCount++;
     }
 
-    $applicationId = (string)($application['id'] ?? '');
     $fullName = (string)($application['applicant']['full_name'] ?? 'Unknown Applicant');
-    $feedback = $feedbackMap[$applicationId] ?? null;
 
     $feedbackText = (string)($feedback['feedback_text'] ?? '');
     $structuredInputs = $extractStructuredInputs($feedbackText);

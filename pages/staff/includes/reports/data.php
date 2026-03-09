@@ -29,7 +29,7 @@ $employmentRecords = isSuccessful($employmentResponse) ? (array)($employmentResp
 
 $officesResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/offices?select=id,office_name&is_active=eq.true&limit=1000',
+    $supabaseUrl . '/rest/v1/offices?select=id,office_name&limit=1000',
     $headers
 );
 $appendReportDataError('Offices', $officesResponse);
@@ -58,8 +58,14 @@ foreach ($offices as $office) {
         continue;
     }
 
-    $officeNameById[$officeId] = cleanText($office['office_name'] ?? null) ?? 'Unassigned Office';
+    $officeNameById[$officeId] = cleanText($office['office_name'] ?? null) ?? 'Unassigned Division';
 }
+
+$divisionFilterOptions = array_values(array_unique(array_filter(
+    array_values($officeNameById),
+    static fn (mixed $officeName): bool => trim((string)$officeName) !== ''
+)));
+sort($divisionFilterOptions);
 
 $currentEmploymentByPerson = [];
 foreach ($employmentRecords as $record) {
@@ -169,7 +175,7 @@ foreach ($uniqueEmploymentRecords as $record) {
     }
 
     $officeId = cleanText($record['office_id'] ?? null) ?? '';
-    $departmentName = $officeNameById[$officeId] ?? 'Unassigned Office';
+    $departmentName = $officeNameById[$officeId] ?? 'Unassigned Division';
     $personDepartmentById[$personId] = $departmentName;
 
     $statusRaw = strtolower((string)(cleanText($record['employment_status'] ?? null) ?? 'inactive'));
@@ -216,12 +222,12 @@ sort($employeeStatusFilters);
 $employeeDepartmentFilters = array_keys($employeeDepartmentFilters);
 sort($employeeDepartmentFilters);
 
-$topDepartmentLabel = 'No department data available.';
+$topDepartmentLabel = 'No division data available.';
 if (!empty($departmentCounts)) {
     arsort($departmentCounts);
     $topOfficeId = (string)array_key_first($departmentCounts);
     $topDepartmentCount = (int)($departmentCounts[$topOfficeId] ?? 0);
-    $topDepartmentName = (string)($officeNameById[$topOfficeId] ?? 'Unassigned Office');
+    $topDepartmentName = (string)($officeNameById[$topOfficeId] ?? 'Unassigned Division');
     $topDepartmentLabel = $topDepartmentName . ' - ' . $topDepartmentCount . ' Employee' . ($topDepartmentCount === 1 ? '' : 's');
 }
 
@@ -412,7 +418,7 @@ foreach ($attendanceLogs as $row) {
         $employeeName = 'Unknown Employee';
     }
 
-    $departmentName = (string)($personDepartmentById[$personId] ?? 'Unassigned Office');
+    $departmentName = (string)($personDepartmentById[$personId] ?? 'Unassigned Division');
     $statusRaw = cleanText($row['attendance_status'] ?? null) ?? '';
     $statusLabel = $formatStatusLabel($statusRaw);
     $dateRaw = cleanText($row['attendance_date'] ?? null) ?? '';
@@ -481,7 +487,7 @@ foreach ($payrollItems as $item) {
         : $periodCode;
 
     $runOfficeId = cleanText($run['office_id'] ?? null) ?? '';
-    $departmentName = (string)($personDepartmentById[$personId] ?? ($officeNameById[$runOfficeId] ?? 'Unassigned Office'));
+    $departmentName = (string)($personDepartmentById[$personId] ?? ($officeNameById[$runOfficeId] ?? 'Unassigned Division'));
 
     $grossPay = (float)($item['gross_pay'] ?? 0);
     $netPay = (float)($item['net_pay'] ?? 0);
@@ -517,7 +523,7 @@ foreach ($applicationRows as $item) {
     $job = is_array($item['job'] ?? null) ? (array)$item['job'] : [];
     $applicant = is_array($item['applicant'] ?? null) ? (array)$item['applicant'] : [];
     $jobOfficeId = cleanText($job['office_id'] ?? null) ?? '';
-    $departmentName = (string)($officeNameById[$jobOfficeId] ?? 'Unassigned Office');
+    $departmentName = (string)($officeNameById[$jobOfficeId] ?? 'Unassigned Division');
 
     $statusRaw = cleanText($item['application_status'] ?? null) ?? '';
     $statusLabel = $formatStatusLabel($statusRaw);
@@ -593,6 +599,6 @@ sort($recruitmentDepartmentFilters);
 $recruitmentPositionFilters = array_values(array_keys($recruitmentPositionFilters));
 sort($recruitmentPositionFilters);
 
-$departmentsForFilter = array_values($employeeDepartmentFilters);
+$departmentsForFilter = $divisionFilterOptions;
 
 $dataLoadError = $reportDataLoadError;

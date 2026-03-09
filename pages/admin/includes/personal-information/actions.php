@@ -43,7 +43,7 @@ if ($action === 'create_staff_account' || $action === 'create_user_account') {
     }
 
     if (!isValidUuid($officeId)) {
-        redirectWithState('error', 'Select a valid office for this account.');
+        redirectWithState('error', 'Select a valid division for this account.');
     }
 
     $personResponse = apiRequest(
@@ -75,7 +75,7 @@ if ($action === 'create_staff_account' || $action === 'create_user_account') {
     $employmentRow = (array)$employmentResponse['data'][0];
     $employmentOfficeId = cleanText($employmentRow['office_id'] ?? null);
     if ($employmentOfficeId !== null && isValidUuid($employmentOfficeId) && strcasecmp($employmentOfficeId, $officeId) !== 0) {
-        redirectWithState('error', 'Selected office must match the employee\'s current employment office.');
+        redirectWithState('error', 'Selected division must match the employee\'s current employment division.');
     }
 
     $existingAccountResponse = apiRequest(

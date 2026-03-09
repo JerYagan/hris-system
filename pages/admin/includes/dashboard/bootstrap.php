@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../lib/admin-backend.php';
+require_once __DIR__ . '/../lib/announcements.php';
 
 $backend = adminBackendContext();
 $supabaseUrl = (string)($backend['supabase_url'] ?? '');

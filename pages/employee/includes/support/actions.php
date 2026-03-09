@@ -41,7 +41,6 @@ $toNullable = static function (mixed $value, int $maxLength = 255): ?string {
 $inquiryCategory = strtolower((string)($toNullable($_POST['inquiry_category'] ?? null, 40) ?? ''));
 $subject = $toNullable($_POST['subject'] ?? null, 150);
 $messageBody = $toNullable($_POST['message'] ?? null, 3000);
-$requestType = strtolower((string)($toNullable($_POST['request_type'] ?? null, 60) ?? 'other_profile_change'));
 
 $allowedCategories = [
     'profile_change',
@@ -53,10 +52,9 @@ $allowedCategories = [
     'timekeeping_attendance',
     'other',
 ];
-$allowedRequestTypes = ['name_change', 'marital_status_change', 'civil_status_update', 'contact_update', 'other_profile_change'];
 
-if (!in_array($inquiryCategory, $allowedCategories, true) || $subject === null || $messageBody === null || !in_array($requestType, $allowedRequestTypes, true)) {
-    redirectWithState('error', 'Support request requires valid category, request type, subject, and message.', 'support.php');
+if (!in_array($inquiryCategory, $allowedCategories, true) || $subject === null || $messageBody === null) {
+    redirectWithState('error', 'Support request requires a valid category, subject, and message.', 'support.php');
 }
 
 $attachmentFile = $_FILES['support_attachment'] ?? null;
@@ -130,7 +128,6 @@ $logResponse = apiRequest(
             'requester_user_id' => $employeeUserId,
             'requester_role' => 'employee',
             'category' => $inquiryCategory,
-            'request_type' => $requestType,
             'subject' => $subject,
             'message' => $messageBody,
             'status' => 'submitted',

@@ -56,7 +56,7 @@ ob_start();
     <a href="support.php?tab=contact" class="rounded-xl border bg-white p-6 transition hover:border-green-600">
         <span class="material-symbols-outlined mb-2 text-green-700">mail</span>
         <h2 class="font-medium text-gray-800">Contact HR</h2>
-        <p class="mt-1 text-sm text-gray-500">Send a message directly to the HR department.</p>
+        <p class="mt-1 text-sm text-gray-500">Send a message directly to the HR team.</p>
     </a>
 
     <a href="support.php?tab=faq" class="rounded-xl border bg-white p-6 transition hover:border-green-600">
@@ -75,7 +75,7 @@ ob_start();
 <?php elseif ($tab === 'contact'): ?>
 <section class="rounded-xl border bg-white">
     <header class="border-b px-6 py-4">
-        <h2 class="text-lg font-semibold text-gray-800">Contact HR Department</h2>
+        <h2 class="text-lg font-semibold text-gray-800">Contact HR</h2>
     </header>
 
     <form action="support.php?tab=contact" method="POST" enctype="multipart/form-data" id="applicantSupportForm">
@@ -254,7 +254,7 @@ ob_start();
             submit applications, track application status, and receive feedback.
         </p>
         <p>
-            If you encounter technical issues, please contact the HR department
+            If you encounter technical issues, please contact the HR team
             using the Contact HR option.
         </p>
     </div>

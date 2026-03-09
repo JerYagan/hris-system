@@ -31,6 +31,13 @@ if (!function_exists('userManagementAdminRoleId')) {
     }
 }
 
+if (!function_exists('userManagementMaxActiveAdmins')) {
+    function userManagementMaxActiveAdmins(): int
+    {
+        return 3;
+    }
+}
+
 if (!function_exists('userManagementPrimaryRoleKey')) {
     function userManagementPrimaryRoleKey(string $userId, string $supabaseUrl, array $headers): string
     {
@@ -124,7 +131,7 @@ if (!function_exists('userManagementCanAssignAdminRole')) {
             return true;
         }
 
-        return count($adminUserIds) < 2;
+        return count($adminUserIds) < userManagementMaxActiveAdmins();
     }
 }
 
@@ -718,7 +725,7 @@ if ($action === 'role') {
     }
 
     if ($selectedRoleKey === 'admin' && !userManagementCanAssignAdminRole($userId, $supabaseUrl, $headers)) {
-        redirectWithState('error', 'Only 2 active admin accounts are allowed. Reassign an existing admin before promoting another user.');
+        redirectWithState('error', 'Only ' . userManagementMaxActiveAdmins() . ' active admin accounts are allowed. Reassign an existing admin before promoting another user.');
     }
 
     $assignedAt = $effectivityDate ? ($effectivityDate . 'T00:00:00Z') : gmdate('c');
@@ -981,10 +988,10 @@ if ($action === 'credential') {
 }
 
 if ($action === 'add_position') {
-    $positionTitle = cleanText($_POST['position_title'] ?? null) ?? '';
+    $positionTitle = trim((string)(cleanText($_POST['position_title'] ?? null) ?? ''));
     $positionCode = strtoupper((string)(cleanText($_POST['position_code'] ?? null) ?? ''));
     $employmentClassification = strtolower((string)(cleanText($_POST['employment_classification'] ?? null) ?? 'regular'));
-    $salaryGrade = cleanText($_POST['salary_grade'] ?? null);
+    $salaryGrade = trim((string)(cleanText($_POST['salary_grade'] ?? null) ?? ''));
     $isSupervisory = isset($_POST['is_supervisory']) && (string)$_POST['is_supervisory'] === '1';
 
     if ($positionTitle === '' || $positionCode === '') {
@@ -1033,6 +1040,22 @@ if ($action === 'add_position') {
     }
 
     $positionId = (string)($createPosition['data'][0]['id'] ?? '');
+    if ($positionId === '') {
+        $verifyCreatedPosition = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/job_positions?select=id,position_title,position_code,is_active'
+            . '&position_code=eq.' . encodeFilter($positionCode)
+            . '&limit=1',
+            $headers
+        );
+
+        if (!isSuccessful($verifyCreatedPosition) || empty((array)($verifyCreatedPosition['data'] ?? []))) {
+            redirectWithState('error', 'Position save could not be verified. Refresh the page and try again.');
+        }
+
+        $positionId = (string)($verifyCreatedPosition['data'][0]['id'] ?? '');
+    }
 
     apiRequest(
         'POST',
@@ -1055,6 +1078,8 @@ if ($action === 'add_position') {
             'ip_address' => clientIp(),
         ]]
     );
+
+    userManagementClearMetaCache();
 
     redirectWithState('success', 'Position added successfully.');
 }
@@ -1142,6 +1167,8 @@ if ($action === 'add_department') {
             'ip_address' => clientIp(),
         ]]
     );
+
+    userManagementClearMetaCache();
 
     redirectWithState('success', 'Division added successfully.');
 }

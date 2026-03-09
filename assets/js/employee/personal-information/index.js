@@ -118,6 +118,7 @@ const wireDynamicRows = () => {
   addChildButton?.addEventListener('click', () => {
     if (!childrenRows || !childTemplate) return;
     childrenRows.insertAdjacentHTML('beforeend', childTemplate.innerHTML.trim());
+    window.initializeEmployeePersonalInformationFlatpickr?.(childrenRows);
   });
 
   addEducationButton?.addEventListener('click', () => {
@@ -141,6 +142,95 @@ const wireDynamicRows = () => {
       if (row && educationRows && educationRows.querySelectorAll('.education-row').length > 1) {
         row.remove();
       }
+    }
+  });
+};
+
+const ensureFlatpickr = async () => {
+  if (window.flatpickr) {
+    return window.flatpickr;
+  }
+
+  const waitForFlatpickr = () => new Promise((resolve) => {
+    let attempts = 0;
+    const maxAttempts = 120;
+    const timer = window.setInterval(() => {
+      attempts += 1;
+      if (window.flatpickr || attempts >= maxAttempts) {
+        window.clearInterval(timer);
+        resolve(window.flatpickr || null);
+      }
+    }, 25);
+  });
+
+  const existingScript = document.querySelector('script[data-flatpickr="true"]');
+  if (existingScript) {
+    return waitForFlatpickr();
+  }
+
+  if (!document.querySelector('link[data-flatpickr="true"]')) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css';
+    link.dataset.flatpickr = 'true';
+    document.head.appendChild(link);
+  }
+
+  await new Promise((resolve) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/flatpickr';
+    script.defer = true;
+    script.dataset.flatpickr = 'true';
+    script.onload = () => resolve();
+    script.onerror = () => resolve();
+    document.head.appendChild(script);
+  });
+
+  return waitForFlatpickr();
+};
+
+const wireProfileSubmitConfirmation = () => {
+  const form = document.getElementById('employeeProfileForm');
+  if (!(form instanceof HTMLFormElement)) {
+    return;
+  }
+
+  form.addEventListener('submit', async (event) => {
+    if (form.dataset.confirmedSubmit === '1') {
+      form.dataset.confirmedSubmit = '0';
+      return;
+    }
+
+    event.preventDefault();
+
+    const confirmSubmit = async () => {
+      form.dataset.confirmedSubmit = '1';
+      if (typeof form.requestSubmit === 'function') {
+        form.requestSubmit();
+      } else {
+        form.submit();
+      }
+    };
+
+    if (window.Swal && typeof window.Swal.fire === 'function') {
+      const result = await window.Swal.fire({
+        title: 'Save profile changes?',
+        text: 'Your personal information will be updated with the values in this form.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, save changes',
+        cancelButtonText: 'Cancel',
+        reverseButtons: true,
+      });
+
+      if (result && result.isConfirmed) {
+        await confirmSubmit();
+      }
+      return;
+    }
+
+    if (window.confirm('Save profile changes?')) {
+      await confirmSubmit();
     }
   });
 };
@@ -279,9 +369,12 @@ const wirePhotoUploadPreview = () => {
 };
 
 const wirePasswordChangeFlow = () => {
+  const currentPasswordInput = document.getElementById('employeeCurrentPasswordInput');
   const passwordInput = document.getElementById('employeeNewPasswordInput');
+  const confirmPasswordInput = document.getElementById('employeeConfirmPasswordInput');
   const strengthBar = document.getElementById('employeePasswordStrengthBar');
   const strengthText = document.getElementById('employeePasswordStrengthText');
+  const passwordMatchIndicator = document.getElementById('employeePasswordMatchIndicator');
 
   const scorePassword = (value) => {
     let score = 0;
@@ -319,8 +412,73 @@ const wirePasswordChangeFlow = () => {
       const value = passwordInput.value || '';
       const score = value.length === 0 ? 0 : scorePassword(value);
       applyStrengthUi(score);
+      updatePasswordMatchUi();
     });
   }
+
+  const updatePasswordMatchUi = () => {
+    if (!(passwordInput instanceof HTMLInputElement) || !(confirmPasswordInput instanceof HTMLInputElement) || !passwordMatchIndicator) {
+      return;
+    }
+
+    const newPassword = passwordInput.value || '';
+    const confirmPassword = confirmPasswordInput.value || '';
+
+    passwordMatchIndicator.classList.remove('text-slate-500', 'text-emerald-700', 'text-rose-700');
+    confirmPasswordInput.classList.remove('border-emerald-400', 'border-rose-400');
+
+    if (newPassword === '' && confirmPassword === '') {
+      passwordMatchIndicator.textContent = 'Enter and confirm your new password.';
+      passwordMatchIndicator.classList.add('text-slate-500');
+      return;
+    }
+
+    if (confirmPassword === '') {
+      passwordMatchIndicator.textContent = 'Confirm your new password to check if it matches.';
+      passwordMatchIndicator.classList.add('text-slate-500');
+      return;
+    }
+
+    if (newPassword === confirmPassword) {
+      passwordMatchIndicator.textContent = 'Passwords match.';
+      passwordMatchIndicator.classList.add('text-emerald-700');
+      confirmPasswordInput.classList.add('border-emerald-400');
+      return;
+    }
+
+    passwordMatchIndicator.textContent = 'Passwords do not match.';
+    passwordMatchIndicator.classList.add('text-rose-700');
+    confirmPasswordInput.classList.add('border-rose-400');
+  };
+
+  if (confirmPasswordInput instanceof HTMLInputElement) {
+    confirmPasswordInput.addEventListener('input', updatePasswordMatchUi);
+    updatePasswordMatchUi();
+  }
+
+  [currentPasswordInput, passwordInput, confirmPasswordInput].forEach((input) => {
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
+
+    const toggleButton = document.querySelector(`[data-password-toggle="${input.id}"]`);
+    if (!(toggleButton instanceof HTMLButtonElement)) {
+      return;
+    }
+
+    toggleButton.addEventListener('click', () => {
+      const nextType = input.type === 'password' ? 'text' : 'password';
+      input.type = nextType;
+
+      const icon = toggleButton.querySelector('.material-symbols-outlined');
+      if (icon) {
+        icon.textContent = nextType === 'password' ? 'visibility' : 'visibility_off';
+      }
+
+      const label = nextType === 'password' ? 'Show' : 'Hide';
+      toggleButton.setAttribute('aria-label', `${label} ${input.name.replaceAll('_', ' ')}`);
+    });
+  });
 
   const passwordFlowDataNode = document.getElementById('employeePasswordFlowData');
   let passwordFlowData = { has_pending_code: false, state: '', message: '' };
@@ -711,12 +869,39 @@ const wireModernProfileSearch = async () => {
   });
 };
 
-const initEmployeePersonalInformationPage = () => {
+window.initializeEmployeePersonalInformationFlatpickr = function (scope) {
+  if (!window.flatpickr) {
+    return;
+  }
+
+  const root = scope instanceof Element || scope instanceof Document ? scope : document;
+  root.querySelectorAll('.js-employee-profile-date:not([data-flatpickr-initialized="true"])').forEach((input) => {
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
+
+    window.flatpickr(input, {
+      dateFormat: 'Y-m-d',
+      altInput: true,
+      altFormat: 'F j, Y',
+      allowInput: !input.readOnly,
+      clickOpens: !input.readOnly,
+      defaultDate: input.value || null,
+      disableMobile: true,
+    });
+    input.setAttribute('data-flatpickr-initialized', 'true');
+  });
+};
+
+const initEmployeePersonalInformationPage = async () => {
   const profileTabs = wireProfileTabs();
+  await ensureFlatpickr();
+  window.initializeEmployeePersonalInformationFlatpickr?.(document);
   wireDynamicRows();
   wirePermanentAddressToggle();
   wirePhotoUploadPreview();
   wirePasswordChangeFlow();
+  wireProfileSubmitConfirmation();
   wireModernProfileSearch();
 
   wireModal({
@@ -751,7 +936,9 @@ const initEmployeePersonalInformationPage = () => {
 };
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initEmployeePersonalInformationPage);
+  document.addEventListener('DOMContentLoaded', () => {
+    initEmployeePersonalInformationPage();
+  });
 } else {
   initEmployeePersonalInformationPage();
 }

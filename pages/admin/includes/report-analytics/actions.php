@@ -4,6 +4,44 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     return;
 }
 
+if (!function_exists('reportAnalyticsAppendPagination')) {
+    function reportAnalyticsAppendPagination(string $url, int $limit, int $offset): string
+    {
+        $separator = str_contains($url, '?') ? '&' : '?';
+        return $url . $separator . 'limit=' . max(1, $limit) . '&offset=' . max(0, $offset);
+    }
+}
+
+if (!function_exists('reportAnalyticsFetchAll')) {
+    function reportAnalyticsFetchAll(string $url, array $headers, int $batchSize = 1000, int $maxPages = 100): array
+    {
+        $rows = [];
+        $offset = 0;
+        $lastResponse = ['status' => 500, 'data' => [], 'raw' => ''];
+
+        for ($page = 0; $page < $maxPages; $page++) {
+            $lastResponse = apiRequest('GET', reportAnalyticsAppendPagination($url, $batchSize, $offset), $headers);
+            if (!isSuccessful($lastResponse)) {
+                return $lastResponse;
+            }
+
+            $batch = is_array($lastResponse['data'] ?? null)
+                ? array_values((array)$lastResponse['data'])
+                : [];
+
+            $rows = array_merge($rows, $batch);
+            if (count($batch) < $batchSize) {
+                break;
+            }
+
+            $offset += $batchSize;
+        }
+
+        $lastResponse['data'] = $rows;
+        return $lastResponse;
+    }
+}
+
 if (!function_exists('reportResolveDateRange')) {
     function reportResolveDateRange(string $coverage, ?string $customStartDate, ?string $customEndDate, string $supabaseUrl, array $headers): array
     {
@@ -73,15 +111,13 @@ if (!function_exists('reportResolveDateRange')) {
 if (!function_exists('reportDepartmentContext')) {
     function reportDepartmentContext(string $supabaseUrl, array $headers): array
     {
-        $officesResponse = apiRequest(
-            'GET',
-            $supabaseUrl . '/rest/v1/offices?select=id,office_name&limit=1000',
+        $officesResponse = reportAnalyticsFetchAll(
+            $supabaseUrl . '/rest/v1/offices?select=id,office_name',
             $headers
         );
 
-        $employmentResponse = apiRequest(
-            'GET',
-            $supabaseUrl . '/rest/v1/employment_records?select=person_id,office_id,is_current&is_current=eq.true&limit=5000',
+        $employmentResponse = reportAnalyticsFetchAll(
+            $supabaseUrl . '/rest/v1/employment_records?select=person_id,office_id,is_current&is_current=eq.true',
             $headers
         );
 
@@ -212,9 +248,8 @@ if (!function_exists('reportBuildDataset')) {
         }
 
         if ($reportType === 'attendance') {
-            $response = apiRequest(
-                'GET',
-                $supabaseUrl . '/rest/v1/attendance_logs?select=person_id,attendance_date,attendance_status,late_minutes,hours_worked,source,person:people(first_name,surname)&attendance_date=gte.' . $startDate . '&attendance_date=lte.' . $endDate . '&order=attendance_date.desc&limit=5000',
+            $response = reportAnalyticsFetchAll(
+                $supabaseUrl . '/rest/v1/attendance_logs?select=person_id,attendance_date,attendance_status,late_minutes,hours_worked,source,person:people(first_name,surname)&attendance_date=gte.' . $startDate . '&attendance_date=lte.' . $endDate . '&order=attendance_date.desc',
                 $headers
             );
 
@@ -261,9 +296,8 @@ if (!function_exists('reportBuildDataset')) {
         }
 
         if ($reportType === 'audit_logs') {
-            $response = apiRequest(
-                'GET',
-                $supabaseUrl . '/rest/v1/activity_logs?select=created_at,module_name,action_name,entity_name,ip_address,actor:user_accounts(email)&created_at=gte.' . $startDateTime . '&created_at=lte.' . $endDateTime . '&order=created_at.desc&limit=5000',
+            $response = reportAnalyticsFetchAll(
+                $supabaseUrl . '/rest/v1/activity_logs?select=created_at,module_name,action_name,entity_name,ip_address,actor:user_accounts(email)&created_at=gte.' . $startDateTime . '&created_at=lte.' . $endDateTime . '&order=created_at.desc',
                 $headers
             );
 
@@ -288,9 +322,8 @@ if (!function_exists('reportBuildDataset')) {
         }
 
         if ($reportType === 'payroll') {
-            $response = apiRequest(
-                'GET',
-                $supabaseUrl . '/rest/v1/payroll_items?select=person_id,gross_pay,net_pay,created_at,person:people(first_name,surname),payroll_run:payroll_runs(run_status,payroll_period:payroll_periods(period_start,period_end,period_code))&order=created_at.desc&limit=5000',
+            $response = reportAnalyticsFetchAll(
+                $supabaseUrl . '/rest/v1/payroll_items?select=person_id,gross_pay,net_pay,created_at,person:people(first_name,surname),payroll_run:payroll_runs(run_status,payroll_period:payroll_periods(period_start,period_end,period_code))&order=created_at.desc',
                 $headers
             );
 
@@ -334,9 +367,8 @@ if (!function_exists('reportBuildDataset')) {
         }
 
         if ($reportType === 'performance') {
-            $response = apiRequest(
-                'GET',
-                $supabaseUrl . '/rest/v1/performance_evaluations?select=employee_person_id,final_rating,status,updated_at,employee:people(first_name,surname),cycle:performance_cycles(cycle_name)&updated_at=gte.' . $startDateTime . '&updated_at=lte.' . $endDateTime . '&order=updated_at.desc&limit=5000',
+            $response = reportAnalyticsFetchAll(
+                $supabaseUrl . '/rest/v1/performance_evaluations?select=employee_person_id,final_rating,status,updated_at,employee:people(first_name,surname),cycle:performance_cycles(cycle_name)&updated_at=gte.' . $startDateTime . '&updated_at=lte.' . $endDateTime . '&order=updated_at.desc',
                 $headers
             );
 
@@ -366,9 +398,8 @@ if (!function_exists('reportBuildDataset')) {
         }
 
         if ($reportType === 'documents') {
-            $response = apiRequest(
-                'GET',
-                $supabaseUrl . '/rest/v1/documents?select=title,owner_person_id,document_status,updated_at,category:document_categories(category_name),owner:people(first_name,surname)&updated_at=gte.' . $startDateTime . '&updated_at=lte.' . $endDateTime . '&order=updated_at.desc&limit=5000',
+            $response = reportAnalyticsFetchAll(
+                $supabaseUrl . '/rest/v1/documents?select=title,owner_person_id,document_status,updated_at,category:document_categories(category_name),owner:people(first_name,surname)&updated_at=gte.' . $startDateTime . '&updated_at=lte.' . $endDateTime . '&order=updated_at.desc',
                 $headers
             );
 
@@ -398,14 +429,12 @@ if (!function_exists('reportBuildDataset')) {
         }
 
         if ($reportType === 'employee_demographics') {
-            $employmentResponse = apiRequest(
-                'GET',
-                $supabaseUrl . '/rest/v1/employment_records?select=person_id,office_id,is_current&is_current=eq.true&limit=10000',
+            $employmentResponse = reportAnalyticsFetchAll(
+                $supabaseUrl . '/rest/v1/employment_records?select=person_id,office_id,is_current&is_current=eq.true',
                 $headers
             );
-            $peopleResponse = apiRequest(
-                'GET',
-                $supabaseUrl . '/rest/v1/people?select=id,sex_at_birth,date_of_birth&limit=10000',
+            $peopleResponse = reportAnalyticsFetchAll(
+                $supabaseUrl . '/rest/v1/people?select=id,sex_at_birth,date_of_birth',
                 $headers
             );
 
@@ -485,9 +514,8 @@ if (!function_exists('reportBuildDataset')) {
         }
 
         if ($reportType === 'turnover_rates') {
-            $response = apiRequest(
-                'GET',
-                $supabaseUrl . '/rest/v1/employment_records?select=office_id,employment_status,hire_date,separation_date,is_current&limit=10000',
+            $response = reportAnalyticsFetchAll(
+                $supabaseUrl . '/rest/v1/employment_records?select=office_id,employment_status,hire_date,separation_date,is_current',
                 $headers
             );
 
@@ -547,9 +575,8 @@ if (!function_exists('reportBuildDataset')) {
         }
 
         if ($reportType === 'training_effectiveness') {
-            $response = apiRequest(
-                'GET',
-                $supabaseUrl . '/rest/v1/training_enrollments?select=*&limit=10000',
+            $response = reportAnalyticsFetchAll(
+                $supabaseUrl . '/rest/v1/training_enrollments?select=*',
                 $headers
             );
 
@@ -599,14 +626,12 @@ if (!function_exists('reportBuildDataset')) {
         }
 
         if ($reportType === 'activity_summary') {
-            $activityResponse = apiRequest(
-                'GET',
-                $supabaseUrl . '/rest/v1/activity_logs?select=actor_user_id,module_name,action_name,created_at&created_at=gte.' . $startDateTime . '&created_at=lte.' . $endDateTime . '&order=created_at.desc&limit=10000',
+            $activityResponse = reportAnalyticsFetchAll(
+                $supabaseUrl . '/rest/v1/activity_logs?select=actor_user_id,module_name,action_name,created_at&created_at=gte.' . $startDateTime . '&created_at=lte.' . $endDateTime . '&order=created_at.desc',
                 $headers
             );
-            $roleResponse = apiRequest(
-                'GET',
-                $supabaseUrl . '/rest/v1/user_role_assignments?select=user_id,is_primary,role:roles(role_key)&expires_at=is.null&limit=5000',
+            $roleResponse = reportAnalyticsFetchAll(
+                $supabaseUrl . '/rest/v1/user_role_assignments?select=user_id,is_primary,role:roles(role_key)&expires_at=is.null',
                 $headers
             );
 
@@ -668,9 +693,8 @@ if (!function_exists('reportBuildDataset')) {
             return [$columns, $rows];
         }
 
-        $response = apiRequest(
-            'GET',
-            $supabaseUrl . '/rest/v1/applications?select=application_ref_no,application_status,submitted_at,job:job_postings(title,office_id),applicant:applicant_profiles(full_name,email)&submitted_at=gte.' . $startDateTime . '&submitted_at=lte.' . $endDateTime . '&order=submitted_at.desc&limit=5000',
+        $response = reportAnalyticsFetchAll(
+            $supabaseUrl . '/rest/v1/applications?select=application_ref_no,application_status,submitted_at,job:job_postings(title,office_id),applicant:applicant_profiles(full_name,email)&submitted_at=gte.' . $startDateTime . '&submitted_at=lte.' . $endDateTime . '&order=submitted_at.desc',
             $headers
         );
 

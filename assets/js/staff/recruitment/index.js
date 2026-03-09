@@ -82,43 +82,92 @@
     };
 
     const setupTableFilters = () => {
-    const searchInput = document.getElementById('recruitmentSearchInput');
-    const statusFilter = document.getElementById('recruitmentStatusFilter');
-    const tableRows = Array.from(document.querySelectorAll('[data-recruitment-row]'));
-    const filterEmptyRow = document.getElementById('recruitmentFilterEmptyRow');
+        const searchInput = document.getElementById('recruitmentSearchInput');
+        const statusFilter = document.getElementById('recruitmentStatusFilter');
+        const tableRows = Array.from(document.querySelectorAll('[data-recruitment-row]'));
+        const filterEmptyRow = document.getElementById('recruitmentFilterEmptyRow');
+        const paginationInfo = document.getElementById('recruitmentPaginationInfo');
+        const pageLabel = document.getElementById('recruitmentPageLabel');
+        const prevButton = document.getElementById('recruitmentPrevPage');
+        const nextButton = document.getElementById('recruitmentNextPage');
+        const perPage = 10;
+        let currentPage = 1;
 
         if (!searchInput || !statusFilter) {
             return;
         }
 
-    const applyFilters = () => {
-        const query = normalize(searchInput.value);
-        const status = normalize(statusFilter.value);
-        let visibleCount = 0;
+        const applyFilters = () => {
+            const query = normalize(searchInput.value);
+            const status = normalize(statusFilter.value);
+            const filteredRows = tableRows.filter((row) => {
+                const haystack = normalize(row.getAttribute('data-recruitment-search'));
+                const rowStatus = normalize(row.getAttribute('data-recruitment-status'));
+                return (query === '' || haystack.includes(query)) && (status === '' || rowStatus === status);
+            });
 
-        tableRows.forEach((row) => {
-            const haystack = normalize(row.getAttribute('data-recruitment-search'));
-            const rowStatus = normalize(row.getAttribute('data-recruitment-status'));
-            const visible = (query === '' || haystack.includes(query)) && (status === '' || rowStatus === status);
-            row.classList.toggle('hidden', !visible);
-            if (visible) {
-                visibleCount += 1;
+            const totalEntries = filteredRows.length;
+            const totalPages = Math.max(1, Math.ceil(totalEntries / perPage));
+            currentPage = Math.min(currentPage, totalPages);
+
+            const startIndex = totalEntries === 0 ? 0 : (currentPage - 1) * perPage;
+            const endIndex = Math.min(startIndex + perPage, totalEntries);
+            const currentRows = filteredRows.slice(startIndex, endIndex);
+
+            tableRows.forEach((row) => {
+                row.classList.add('hidden');
+            });
+
+            currentRows.forEach((row) => {
+                row.classList.remove('hidden');
+            });
+
+            if (filterEmptyRow) {
+                filterEmptyRow.classList.toggle('hidden', totalEntries > 0);
             }
+
+            if (paginationInfo) {
+                const startLabel = totalEntries === 0 ? 0 : startIndex + 1;
+                paginationInfo.textContent = `Showing ${startLabel} to ${endIndex} of ${totalEntries} entries`;
+            }
+
+            if (pageLabel) {
+                pageLabel.textContent = `Page ${totalEntries === 0 ? 0 : currentPage} of ${totalEntries === 0 ? 0 : totalPages}`;
+            }
+
+            if (prevButton) {
+                prevButton.disabled = currentPage <= 1 || totalEntries === 0;
+            }
+
+            if (nextButton) {
+                nextButton.disabled = currentPage >= totalPages || totalEntries === 0;
+            }
+        };
+
+        let debounceTimer = null;
+        searchInput.addEventListener('input', () => {
+            currentPage = 1;
+            if (debounceTimer) {
+                window.clearTimeout(debounceTimer);
+            }
+            debounceTimer = window.setTimeout(applyFilters, 150);
         });
+        statusFilter.addEventListener('change', () => {
+            currentPage = 1;
+            applyFilters();
+        });
+        prevButton?.addEventListener('click', () => {
+            if (currentPage <= 1) {
+                return;
+            }
 
-        if (filterEmptyRow) {
-            filterEmptyRow.classList.toggle('hidden', visibleCount > 0);
-        }
-    };
-
-    let debounceTimer = null;
-    searchInput.addEventListener('input', () => {
-        if (debounceTimer) {
-            window.clearTimeout(debounceTimer);
-        }
-        debounceTimer = window.setTimeout(applyFilters, 150);
-    });
-        statusFilter.addEventListener('change', applyFilters);
+            currentPage -= 1;
+            applyFilters();
+        });
+        nextButton?.addEventListener('click', () => {
+            currentPage += 1;
+            applyFilters();
+        });
         applyFilters();
     };
 
