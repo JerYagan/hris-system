@@ -1,4 +1,4 @@
-.env
+*.env
 *.sql
 *.md
-!README.md
+!/README.md
