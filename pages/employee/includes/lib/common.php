@@ -219,6 +219,39 @@ if (!function_exists('apiRequestBatch')) {
             return [];
         }
 
+        $multiFunctionsAvailable = function_exists('curl_multi_init')
+            && function_exists('curl_multi_add_handle')
+            && function_exists('curl_multi_exec')
+            && function_exists('curl_multi_select')
+            && function_exists('curl_multi_getcontent')
+            && function_exists('curl_multi_remove_handle')
+            && function_exists('curl_multi_close');
+
+        if (!$multiFunctionsAvailable) {
+            $results = [];
+
+            foreach ($requests as $key => $request) {
+                $method = strtoupper((string)($request['method'] ?? 'GET'));
+                $url = (string)($request['url'] ?? '');
+                $body = isset($request['body']) && is_array($request['body']) ? (array)$request['body'] : null;
+
+                if ($url === '') {
+                    $results[$key] = [
+                        'status' => 0,
+                        'data' => [],
+                        'raw' => '',
+                        'error' => 'Missing request URL.',
+                        'duration_ms' => 0,
+                    ];
+                    continue;
+                }
+
+                $results[$key] = apiRequest($method, $url, $headers, $body);
+            }
+
+            return $results;
+        }
+
         $multiHandle = curl_multi_init();
         $handles = [];
         $results = [];

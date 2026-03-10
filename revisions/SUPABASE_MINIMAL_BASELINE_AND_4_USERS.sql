@@ -135,7 +135,7 @@ begin
     from (
       values
         ('admin@hris.local', 'Admin123!', 'admin', 'System', 'Administrator', 'DA-EMP-0001', 'SYS-ADMIN', true, 'organization'),
-        ('staff@hris.local', 'Password123!', 'staff', 'HR', 'Staff', 'DA-EMP-0002', 'HR-STAFF', true, 'office'),
+        ('staff@hris.local', 'Staff123!', 'staff', 'HR', 'Staff', 'DA-EMP-0002', 'HR-STAFF', true, 'office'),
         ('employee@hris.local', 'Employee123!', 'employee', 'Sample', 'Employee', 'DA-EMP-0003', 'EMP-GEN', true, 'self'),
         ('applicant@hris.local', 'Applicant123!', 'applicant', 'Sample', 'Applicant', null, null, false, null)
     ) as seeded(
@@ -414,7 +414,7 @@ $$;
 commit;
 
 -- Seeded credentials
--- admin@hris.local / P@ssw0rd!Admin123
--- staff@hris.local / P@ssw0rd!Staff123
--- employee@hris.local / P@ssw0rd!Employee123
--- applicant@hris.local / P@ssw0rd!Applicant123
+-- admin@hris.local / Admin123!
+-- staff@hris.local / Staff123!
+-- employee@hris.local / Employee123!
+-- applicant@hris.local / Applicant123!

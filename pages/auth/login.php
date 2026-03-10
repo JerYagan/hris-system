@@ -1,5 +1,5 @@
 <?php
-$pageTitle = 'Login | DA ATI';
+$pageTitle = 'Login | DA-ATI';
 
 ob_start();
 ?>
@@ -16,7 +16,7 @@ ob_start();
         <div class="swiper-slide relative">
           <img
             src="https://picsum.photos/seed/da-login-1/1200/1000"
-            alt="Department of Agriculture operations"
+            alt="Department of Agriculture - Agricultural Training Institute operations"
             class="absolute inset-0 w-full h-full object-cover"
           />
           <div class="absolute inset-0 bg-daGreen/75"></div>
@@ -43,7 +43,7 @@ ob_start();
               Responsive Public Service
             </h2>
             <p class="text-sm opacity-90 max-w-sm">
-              Enabling transparent and efficient HR operations across DA offices.
+              Enabling transparent and efficient HR operations across DA-ATI offices.
             </p>
           </div>
         </div>
@@ -57,7 +57,7 @@ ob_start();
           <div class="absolute inset-0 bg-daGreen/75"></div>
           <div class="relative z-10 p-10 text-white h-full flex flex-col justify-end">
             <h2 class="text-3xl font-bold mb-3">
-              One DA, One Digital Portal
+              One DA-ATI, One Digital Portal
             </h2>
             <p class="text-sm opacity-90 max-w-sm">
               Strengthening workforce support through secure and modern systems.
@@ -86,7 +86,7 @@ ob_start();
         Sign in to your account
       </h1>
       <p class="text-sm text-gray-600">
-        Use your official DA credentials to continue.
+        Use your official DA-ATI credentials to continue.
       </p>
     </div>
 
@@ -152,7 +152,7 @@ ob_start();
             type="email"
             name="email"
             autocomplete="username"
-            placeholder="name@da.gov.ph"
+            placeholder="name@da-ati.gov.ph"
             class="w-full pl-10 pr-4 py-2.5 border rounded-md
                    focus:outline-none focus:ring-2 focus:ring-daGreen"
             required>

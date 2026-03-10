@@ -22,6 +22,10 @@ if (in_array($dashboardPartial, ['dashboard-summary', 'dashboard-secondary'], tr
   exit;
 }
 
+$dashboardDataStage = 'summary';
+$dashboardContentSection = 'summary';
+require_once __DIR__ . '/includes/dashboard/data.php';
+
 ob_start();
 ?>
 
@@ -43,7 +47,7 @@ ob_start();
   data-dashboard-secondary-url="dashboard.php?partial=dashboard-secondary"
   aria-busy="true"
 >
-  <div id="employeeDashboardSummarySkeleton" class="space-y-6" aria-live="polite" role="status">
+  <div id="employeeDashboardSummarySkeleton" class="hidden space-y-6" aria-live="polite" role="status">
     <div class="rounded-xl border border-green-100 bg-green-50/70 px-4 py-3">
       <div class="h-4 w-72 max-w-full animate-pulse rounded bg-green-200/80"></div>
     </div>
@@ -69,7 +73,9 @@ ob_start();
     </button>
   </div>
 
-  <div id="employeeDashboardSummaryContent" class="hidden"></div>
+  <div id="employeeDashboardSummaryContent" data-summary-server-rendered="true">
+    <?php require __DIR__ . '/includes/dashboard/content.php'; ?>
+  </div>
 
   <div class="mt-6 grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
     <div class="order-2 lg:order-1 lg:col-span-2">

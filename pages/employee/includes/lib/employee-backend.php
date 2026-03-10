@@ -167,6 +167,131 @@ if (!function_exists('resolveEmployeeIdentityContextCached')) {
     }
 }
 
+if (!function_exists('resolveEmployeeDashboardIdentityContext')) {
+    function resolveEmployeeDashboardIdentityContext(string $supabaseUrl, array $headers, string $employeeUserId): array
+    {
+        $context = resolveEmployeeIdentityContext($supabaseUrl, $headers, $employeeUserId);
+
+        if ((bool)($context['is_valid'] ?? false)) {
+            return $context;
+        }
+
+        if (!isValidUuid($employeeUserId) || $supabaseUrl === '' || empty($headers)) {
+            return $context;
+        }
+
+        $fallbackContext = [
+            'is_valid' => false,
+            'error' => 'Employee session context is invalid. Please login again.',
+            'user_id' => $employeeUserId,
+            'role_assignment_id' => null,
+            'employee_role_assigned_at' => null,
+            'person_id' => null,
+            'first_name' => null,
+            'surname' => null,
+            'display_name' => null,
+            'employment_id' => null,
+            'office_id' => null,
+            'office_name' => null,
+            'position_id' => null,
+            'position_title' => null,
+            'employment_status' => null,
+        ];
+
+        $roleResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/user_role_assignments?select=id,is_primary,assigned_at,roles!inner(role_key)'
+            . '&user_id=eq.' . rawurlencode($employeeUserId)
+            . '&roles.role_key=eq.employee'
+            . '&order=is_primary.desc&limit=1',
+            $headers
+        );
+
+        if (!isSuccessful($roleResponse) || empty((array)($roleResponse['data'] ?? []))) {
+            return $context;
+        }
+
+        $roleRow = (array)$roleResponse['data'][0];
+        $roleAssignmentId = cleanText($roleRow['id'] ?? null);
+        if ($roleAssignmentId === null || !isValidUuid($roleAssignmentId)) {
+            return $context;
+        }
+
+        $fallbackContext['role_assignment_id'] = $roleAssignmentId;
+        $fallbackContext['employee_role_assigned_at'] = cleanText($roleRow['assigned_at'] ?? null);
+
+        $personResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/people?select=id,first_name,surname'
+            . '&user_id=eq.' . rawurlencode($employeeUserId)
+            . '&limit=1',
+            $headers
+        );
+
+        if (!isSuccessful($personResponse) || empty((array)($personResponse['data'] ?? []))) {
+            return $context;
+        }
+
+        $personRow = (array)$personResponse['data'][0];
+        $personId = cleanText($personRow['id'] ?? null);
+        if ($personId === null || !isValidUuid($personId)) {
+            return $context;
+        }
+
+        $firstName = cleanText($personRow['first_name'] ?? null);
+        $surname = cleanText($personRow['surname'] ?? null);
+
+        $fallbackContext['person_id'] = $personId;
+        $fallbackContext['first_name'] = $firstName;
+        $fallbackContext['surname'] = $surname;
+        $fallbackContext['display_name'] = cleanText(trim((string)$firstName . ' ' . (string)$surname));
+        $fallbackContext['is_valid'] = true;
+        $fallbackContext['error'] = null;
+
+        return $fallbackContext;
+    }
+}
+
+if (!function_exists('resolveEmployeeDashboardIdentityContextCached')) {
+    function resolveEmployeeDashboardIdentityContextCached(string $supabaseUrl, array $headers, string $employeeUserId, int $ttlSeconds = 45): array
+    {
+        $cache = isset($_SESSION['employee_dashboard_identity_context_cache']) && is_array($_SESSION['employee_dashboard_identity_context_cache'])
+            ? (array)$_SESSION['employee_dashboard_identity_context_cache']
+            : [];
+
+        $cacheUserId = (string)($cache['user_id'] ?? '');
+        $cachedAt = (int)($cache['cached_at'] ?? 0);
+        $cachedContext = isset($cache['context']) && is_array($cache['context'])
+            ? (array)$cache['context']
+            : [];
+
+        $cacheIsFresh = $cacheUserId !== ''
+            && $cacheUserId === $employeeUserId
+            && $cachedAt > 0
+            && (time() - $cachedAt) <= max(5, $ttlSeconds)
+            && !empty($cachedContext)
+            && (bool)($cachedContext['is_valid'] ?? false);
+
+        if ($cacheIsFresh) {
+            return $cachedContext;
+        }
+
+        $context = resolveEmployeeDashboardIdentityContext($supabaseUrl, $headers, $employeeUserId);
+
+        if ((bool)($context['is_valid'] ?? false)) {
+            $_SESSION['employee_dashboard_identity_context_cache'] = [
+                'user_id' => $employeeUserId,
+                'cached_at' => time(),
+                'context' => $context,
+            ];
+        }
+
+        return $context;
+    }
+}
+
 if (!function_exists('renderEmployeeContextErrorAndExit')) {
     function renderEmployeeContextErrorAndExit(string $message): never
     {

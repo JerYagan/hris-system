@@ -14,6 +14,7 @@ const initEmployeeDashboardPage = () => {
   const secondaryError = document.getElementById('employeeDashboardSecondaryError');
   const secondaryRetry = document.getElementById('employeeDashboardSecondaryRetry');
   const secondaryUrl = region?.getAttribute('data-dashboard-secondary-url') || '';
+  const hasServerRenderedSummary = summaryContent?.dataset.summaryServerRendered === 'true' && summaryContent.innerHTML.trim() !== '';
 
   if (!region || !summarySkeleton || !summaryContent || !summaryError || !summaryRetry || summaryUrl === '' || !secondaryTopSkeleton || !secondaryTopContent || !secondaryBottomSkeleton || !secondaryBottomContent || !secondaryError || !secondaryRetry || secondaryUrl === '') {
     return;
@@ -220,6 +221,16 @@ const initEmployeeDashboardPage = () => {
     secondaryRequestState = createRequestState(secondaryUrl);
     loadSecondary({ showSkeletonWhilePending: true }).catch(console.error);
   });
+
+  if (hasServerRenderedSummary) {
+    summarySkeleton.classList.add('hidden');
+    summaryError.classList.add('hidden');
+    summaryContent.classList.remove('hidden');
+    summaryRetry.disabled = false;
+    setRegionBusyState();
+    loadSecondary({ showSkeletonWhilePending: secondaryRequestState.status === 'pending' }).catch(console.error);
+    return;
+  }
 
   const summaryRequestState = createRequestState(summaryUrl);
 
