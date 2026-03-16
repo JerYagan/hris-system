@@ -109,6 +109,24 @@ if (!function_exists('staffPayrollCompensationAppliesToPeriod')) {
     }
 }
 
+if (!function_exists('staffPayrollIsCosEmploymentStatus')) {
+    function staffPayrollIsCosEmploymentStatus(?string $employmentStatus): bool
+    {
+        $normalized = strtolower(trim((string)$employmentStatus));
+        if ($normalized === '') {
+            return false;
+        }
+
+        foreach (['contract of service', 'cos', 'contractual', 'job order', 'job_order', 'casual'] as $marker) {
+            if (str_contains($normalized, $marker)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
 if (!function_exists('staffPayrollEnsureDirectory')) {
     function staffPayrollEnsureDirectory(string $dirPath): void
     {
@@ -667,10 +685,13 @@ if ($action === 'export_payroll_csv') {
         'Absent Days',
         'Late Minutes',
         'Undertime Hours',
-        'Leave Card Remarks',
+        'Attendance Impact Notes',
     ]);
 
     foreach ($exportRows as $row) {
+        $attendanceRemarks = ((int)$row['absent_days'] > 0)
+            ? ('Absence impact: ' . (string)((int)$row['absent_days']) . ' day(s)')
+            : 'No absence impact';
         fputcsv($output, [
             (string)$row['period_code'],
             (string)$row['run_id'],
@@ -690,9 +711,7 @@ if ($action === 'export_payroll_csv') {
             (string)((int)$row['absent_days']),
             (string)((int)$row['late_minutes']),
             number_format((float)$row['undertime_hours'], 2, '.', ''),
-            ((int)$row['absent_days'] > 0)
-                ? ('Absence impact: ' . (string)((int)$row['absent_days']) . ' day(s)')
-                : 'No absence impact',
+            $attendanceRemarks,
         ]);
     }
 
@@ -778,8 +797,9 @@ if ($action === 'compute_monthly_payroll') {
     $personIds = [];
     $peopleById = [];
     foreach ((array)($employmentResponse['data'] ?? []) as $employmentRow) {
-        $employmentStatus = strtolower((string)(cleanText($employmentRow['employment_status'] ?? null) ?? 'active'));
-        if ($employmentStatus !== 'active') {
+        $employmentStatus = trim((string)(cleanText($employmentRow['employment_status'] ?? null) ?? ''));
+        $employmentStatusKey = strtolower($employmentStatus);
+        if (in_array($employmentStatusKey, ['inactive', 'separated', 'terminated', 'resigned', 'retired'], true)) {
             continue;
         }
 
@@ -794,6 +814,7 @@ if ($action === 'compute_monthly_payroll') {
         }
 
         $personIds[] = $personId;
+        $personRow['employment_status'] = $employmentStatus;
         $peopleById[$personId] = $personRow;
     }
 
@@ -904,6 +925,8 @@ if ($action === 'compute_monthly_payroll') {
         $dailyRate = max(0.0, (float)($effectiveCompensation['daily_rate'] ?? 0));
         $hourlyRate = max(0.0, (float)($effectiveCompensation['hourly_rate'] ?? 0));
         $payFrequency = strtolower((string)(cleanText($effectiveCompensation['pay_frequency'] ?? null) ?? 'semi_monthly'));
+        $employmentStatus = (string)($personRow['employment_status'] ?? '');
+        $isCosEmployee = staffPayrollIsCosEmploymentStatus($employmentStatus);
 
         if ($monthlyRate <= 0) {
             continue;
@@ -962,6 +985,9 @@ if ($action === 'compute_monthly_payroll') {
                 'absent_days' => $absentDays,
                 'late_minutes' => (int)($attendanceStats['late_minutes'] ?? 0),
                 'undertime_hours' => $undertimeHours,
+                'attendance_policy' => $isCosEmployee ? 'payroll_deduction' : 'leave_card',
+                'employment_status' => $employmentStatus,
+                'is_cos_employee' => $isCosEmployee,
             ],
         ];
     }
@@ -1078,6 +1104,9 @@ if ($action === 'compute_monthly_payroll') {
                     'absent_days' => (int)($attendanceMetrics['absent_days'] ?? 0),
                     'late_minutes' => (int)($attendanceMetrics['late_minutes'] ?? 0),
                     'undertime_hours' => (float)($attendanceMetrics['undertime_hours'] ?? 0),
+                    'attendance_policy' => (string)($attendanceMetrics['attendance_policy'] ?? 'leave_card'),
+                    'employment_status' => (string)($attendanceMetrics['employment_status'] ?? ''),
+                    'is_cos_employee' => (bool)($attendanceMetrics['is_cos_employee'] ?? false),
                 ],
                 'net_pay' => (float)($source['net_pay'] ?? 0),
             ],

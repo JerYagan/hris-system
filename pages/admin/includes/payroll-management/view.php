@@ -81,6 +81,132 @@ $setupStatusPill = static function (string $status): array {
     </header>
 </section>
 
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-800">Payroll Source Sync</h2>
+        <p class="text-sm text-slate-500 mt-1">Store the client payroll source links, define the Excel-to-Google-Sheets workflow, and import canonical deduction workbooks before generating payroll batches.</p>
+    </header>
+
+    <div class="p-6 grid grid-cols-1 xl:grid-cols-2 gap-6 text-sm">
+        <section class="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <h3 class="text-base font-semibold text-slate-800">Source Links and Rules</h3>
+                    <p class="text-slate-500 mt-1">The links below become the module’s declared source of truth while imported deduction sheets feed actual payroll computation.</p>
+                </div>
+                <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium <?= $payrollSourceLinksConfirmed ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800' ?>"><?= $payrollSourceLinksConfirmed ? 'Links Confirmed' : 'Awaiting Client Links' ?></span>
+            </div>
+
+            <form action="payroll-management.php" method="POST" class="mt-5 space-y-4">
+                <input type="hidden" name="form_action" value="save_payroll_sync_settings">
+
+                <div>
+                    <label class="text-slate-600">Source Payroll Excel Link</label>
+                    <input type="url" name="payroll_excel_url" value="<?= htmlspecialchars((string)($payrollSyncConfig['payroll_excel_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-white" placeholder="https://...">
+                </div>
+
+                <div>
+                    <label class="text-slate-600">Source Payslip Excel Link</label>
+                    <input type="url" name="payslip_excel_url" value="<?= htmlspecialchars((string)($payrollSyncConfig['payslip_excel_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-white" placeholder="https://...">
+                </div>
+
+                <div>
+                    <label class="text-slate-600">Canonical Google Sheet Link</label>
+                    <input type="url" name="google_sheet_url" value="<?= htmlspecialchars((string)($payrollSyncConfig['google_sheet_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-white" placeholder="https://docs.google.com/spreadsheets/...">
+                    <p class="text-xs text-slate-500 mt-1">Use the Google Sheet that payroll deductions should flow into without double encoding.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-slate-600">Permanent Employee Timekeeping Source</label>
+                        <select name="permanent_timekeeping_source" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-white">
+                            <option value="attendance" <?= (($payrollRuleSummary['permanent_timekeeping_source'] ?? 'attendance') === 'attendance') ? 'selected' : '' ?>>Attendance and leave records</option>
+                            <option value="import" <?= (($payrollRuleSummary['permanent_timekeeping_source'] ?? '') === 'import') ? 'selected' : '' ?>>Imported deduction workbook</option>
+                        </select>
+                        <p class="text-xs text-slate-500 mt-1">Default recommended rule: permanent employees use attendance-driven deductions.</p>
+                    </div>
+                    <div>
+                        <label class="text-slate-600">COS Employee Timekeeping Source</label>
+                        <select name="cos_timekeeping_source" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-white">
+                            <option value="attendance" <?= (($payrollRuleSummary['cos_timekeeping_source'] ?? '') === 'attendance') ? 'selected' : '' ?>>Attendance and leave records</option>
+                            <option value="import" <?= (($payrollRuleSummary['cos_timekeeping_source'] ?? 'import') === 'import') ? 'selected' : '' ?>>Imported deduction workbook</option>
+                        </select>
+                        <p class="text-xs text-slate-500 mt-1">Default recommended rule: COS employees use imported canonical deductions for leave, lateness, and absences.</p>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-slate-600">Workflow Notes</label>
+                    <textarea name="workflow_notes" rows="4" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-white" placeholder="Describe how Excel should land in Google Sheets before payroll batch generation."><?= htmlspecialchars((string)($payrollSyncConfig['workflow_notes'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
+                </div>
+
+                <div class="flex justify-end">
+                    <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Save Payroll Sync Settings</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="rounded-2xl border border-slate-200 p-5">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <h3 class="text-base font-semibold text-slate-800">Deduction Workbook Import</h3>
+                    <p class="text-slate-500 mt-1">Accepted workbook columns: <span class="font-medium text-slate-700">employee_identifier</span>, optional <span class="font-medium text-slate-700">period_code</span>, and any of <span class="font-medium text-slate-700">statutory_deductions</span>, <span class="font-medium text-slate-700">timekeeping_deductions</span>, <span class="font-medium text-slate-700">other_deductions</span>, <span class="font-medium text-slate-700">notes</span>.</p>
+                </div>
+                <span class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-800">Workbook import</span>
+            </div>
+
+            <form action="payroll-management.php" method="POST" enctype="multipart/form-data" class="mt-5 space-y-4">
+                <input type="hidden" name="form_action" value="import_payroll_deduction_workbook">
+
+                <div>
+                    <label class="text-slate-600">Payroll Period</label>
+                    <select name="period_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-white" required>
+                        <option value="">Select payroll period</option>
+                        <?php foreach ($periodRows as $period): ?>
+                            <?php
+                            $periodId = (string)($period['id'] ?? '');
+                            $periodCode = (string)($period['period_code'] ?? 'PR');
+                            $periodStart = (string)($period['period_start'] ?? '');
+                            $periodEnd = (string)($period['period_end'] ?? '');
+                            $periodLabel = $periodCode;
+                            if ($periodStart !== '' && $periodEnd !== '') {
+                                $periodLabel .= ' • ' . date('M d, Y', strtotime($periodStart)) . ' - ' . date('M d, Y', strtotime($periodEnd));
+                            }
+                            ?>
+                            <option value="<?= htmlspecialchars($periodId, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($periodLabel, ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-slate-600">Deduction Workbook</label>
+                    <input type="file" name="deduction_workbook" accept=".xlsx,.xls,.csv" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-white" required>
+                    <p class="text-xs text-slate-500 mt-1">Excel exports from the client workbook or a Google Sheet download are both accepted.</p>
+                </div>
+
+                <?php if (is_array($payrollLastDeductionImport)): ?>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-1">
+                        <p class="text-xs uppercase text-slate-500">Last Import</p>
+                        <p class="font-medium text-slate-800"><?= htmlspecialchars((string)($payrollLastDeductionImport['file_name'] ?? 'Workbook'), ENT_QUOTES, 'UTF-8') ?></p>
+                        <p class="text-slate-600">Period: <?= htmlspecialchars((string)($payrollLastDeductionImport['period_code'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                        <p class="text-slate-600">Matched rows: <?= htmlspecialchars((string)($payrollLastDeductionImport['matched_rows'] ?? 0), ENT_QUOTES, 'UTF-8') ?> · Unmatched rows: <?= htmlspecialchars((string)($payrollLastDeductionImport['unmatched_rows'] ?? 0), ENT_QUOTES, 'UTF-8') ?> · Skipped rows: <?= htmlspecialchars((string)($payrollLastDeductionImport['skipped_rows'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
+                        <p class="text-slate-500 text-xs">Imported at <?= htmlspecialchars(formatDateTimeForPhilippines((string)($payrollLastDeductionImport['imported_at'] ?? ''), 'M d, Y h:i A'), ENT_QUOTES, 'UTF-8') ?></p>
+                    </div>
+                <?php endif; ?>
+
+                <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">
+                    Generation behavior:
+                    Permanent employees can continue to use attendance-based late and absence deductions, while COS employees can read those deductions from the imported workbook to avoid encoding the same deductions twice.
+                </div>
+
+                <div class="flex justify-end">
+                    <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Import Deduction Workbook</button>
+                </div>
+            </form>
+        </section>
+    </div>
+</section>
+
 <div id="payrollSalarySetupModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-slate-900/60" data-modal-close="payrollSalarySetupModal"></div>
     <div class="relative min-h-full flex items-start sm:items-center justify-center p-4 sm:p-6 overflow-y-auto">
@@ -165,11 +291,11 @@ $setupStatusPill = static function (string $status): array {
             <input type="number" step="0.01" min="0" name="government_deductions" value="0" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
         </div>
         <div>
-            <label class="text-slate-600">Other Deductions</label>
+            <label class="text-slate-600">Fallback Other Deductions</label>
             <input id="payrollOtherDeduction" type="number" step="0.01" min="0" name="other_deductions" value="0" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
         </div>
         <div class="md:col-span-4">
-            <p class="text-xs text-slate-500">Deduction inputs are applied to generated payroll totals and payslip net pay.</p>
+            <p class="text-xs text-slate-500">Tax and government deductions remain part of salary setup. Imported deduction workbooks override timekeeping deductions based on the COS/permanent rules above, and imported recurring deductions are used before this fallback field.</p>
         </div>
         <div>
             <label class="text-slate-600">Computed Monthly Rate</label>

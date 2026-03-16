@@ -1,5 +1,5 @@
 <meta charset="UTF-8" />
-<title><?= $pageTitle ?? 'DA HRIS' ?></title>
+<title><?= $pageTitle ?? 'ATI HRIS Portal' ?></title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
 <!-- Tailwind -->
@@ -18,11 +18,8 @@
 <script defer src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
 <!-- Favicon -->
-<link rel="icon" type="image/png" sizes="32x32" href="/hris-system/assets/images/favicon.png">
-<link rel="icon" type="image/x-icon" href="/hris-system/assets/images/favicon.ico">
-
-<!-- Apple Touch Icon (optional) -->
-<link rel="apple-touch-icon" sizes="180x180" href="/hris-system/assets/images/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/hris-system/assets/images/ati-logo/logo.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/hris-system/assets/images/ati-logo/logo.png">
 
 <link rel="stylesheet" href="/hris-system/global.css">
 

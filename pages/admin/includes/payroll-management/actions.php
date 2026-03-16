@@ -321,6 +321,240 @@ if (!function_exists('payrollEnsureDirectory')) {
     }
 }
 
+if (!function_exists('payrollSyncDefaultConfig')) {
+    function payrollSyncDefaultConfig(): array
+    {
+        return [
+            'payroll_excel_url' => '',
+            'payslip_excel_url' => '',
+            'google_sheet_url' => '',
+            'workflow_mode' => 'excel_to_google_sheet',
+            'workflow_notes' => '',
+            'permanent_timekeeping_source' => 'attendance',
+            'cos_timekeeping_source' => 'import',
+        ];
+    }
+}
+
+if (!function_exists('payrollGetSystemSettingValue')) {
+    function payrollGetSystemSettingValue(string $supabaseUrl, array $headers, string $settingKey, mixed $defaultValue = null): mixed
+    {
+        $response = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/system_settings?select=setting_value&setting_key=eq.' . rawurlencode($settingKey) . '&limit=1',
+            $headers
+        );
+
+        if (!isSuccessful($response)) {
+            return $defaultValue;
+        }
+
+        $row = $response['data'][0] ?? null;
+        if (!is_array($row) || !array_key_exists('setting_value', $row)) {
+            return $defaultValue;
+        }
+
+        return $row['setting_value'];
+    }
+}
+
+if (!function_exists('payrollUpsertSystemSettings')) {
+    function payrollUpsertSystemSettings(string $supabaseUrl, array $headers, array $rows): bool
+    {
+        if (empty($rows)) {
+            return true;
+        }
+
+        $response = apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/system_settings?on_conflict=setting_key',
+            array_merge($headers, ['Prefer: resolution=merge-duplicates,return=minimal']),
+            $rows
+        );
+
+        return isSuccessful($response);
+    }
+}
+
+if (!function_exists('payrollNormalizeSheetHeader')) {
+    function payrollNormalizeSheetHeader(string $value): string
+    {
+        $normalized = strtolower(trim($value));
+        $normalized = preg_replace('/[^a-z0-9]+/i', '_', $normalized);
+        return trim((string)$normalized, '_');
+    }
+}
+
+if (!function_exists('payrollSpreadsheetCellValue')) {
+    function payrollSpreadsheetCellValue(array $row, array $keys): mixed
+    {
+        foreach ($keys as $key) {
+            $normalizedKey = payrollNormalizeSheetHeader((string)$key);
+            if ($normalizedKey !== '' && array_key_exists($normalizedKey, $row)) {
+                return $row[$normalizedKey];
+            }
+        }
+
+        return null;
+    }
+}
+
+if (!function_exists('payrollSpreadsheetMoney')) {
+    function payrollSpreadsheetMoney(mixed $value): float
+    {
+        if (is_numeric($value)) {
+            return round(max(0.0, (float)$value), 2);
+        }
+
+        $raw = trim((string)$value);
+        if ($raw === '') {
+            return 0.0;
+        }
+
+        $normalized = preg_replace('/[^0-9.\-]/', '', $raw);
+        if (!is_string($normalized) || $normalized === '' || !is_numeric($normalized)) {
+            return 0.0;
+        }
+
+        return round(max(0.0, (float)$normalized), 2);
+    }
+}
+
+if (!function_exists('payrollNormalizeEmployeeLookupKey')) {
+    function payrollNormalizeEmployeeLookupKey(string $value): string
+    {
+        $normalized = strtolower(trim($value));
+        $normalized = preg_replace('/[^a-z0-9]+/i', ' ', $normalized);
+        return trim((string)$normalized);
+    }
+}
+
+if (!function_exists('payrollIsCosEmploymentStatus')) {
+    function payrollIsCosEmploymentStatus(?string $employmentStatus): bool
+    {
+        $normalized = strtolower(trim((string)$employmentStatus));
+        if ($normalized === '') {
+            return false;
+        }
+
+        foreach (['contract of service', 'cos', 'contractual', 'job order', 'job_order', 'casual'] as $marker) {
+            if (str_contains($normalized, $marker)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+if (!function_exists('payrollReadWorkbookRows')) {
+    function payrollReadWorkbookRows(string $absolutePath): array
+    {
+        $autoloadPath = dirname(__DIR__, 4) . '/vendor/autoload.php';
+        if (file_exists($autoloadPath)) {
+            require_once $autoloadPath;
+        }
+
+        if (!class_exists('PhpOffice\\PhpSpreadsheet\\IOFactory')) {
+            throw new RuntimeException('PhpSpreadsheet dependency is not available. Run composer install to enable payroll workbook imports.');
+        }
+
+        $ioFactoryClass = 'PhpOffice\\PhpSpreadsheet\\IOFactory';
+        $spreadsheet = $ioFactoryClass::load($absolutePath);
+        $sheet = $spreadsheet->getActiveSheet();
+        $rawRows = $sheet->toArray(null, true, true, false);
+
+        $headerRow = null;
+        $parsedRows = [];
+        foreach ($rawRows as $row) {
+            $cells = array_map(static fn($value): string => trim((string)$value), (array)$row);
+            $hasValues = count(array_filter($cells, static fn(string $value): bool => $value !== '')) > 0;
+            if (!$hasValues) {
+                continue;
+            }
+
+            if ($headerRow === null) {
+                $headerRow = array_map('payrollNormalizeSheetHeader', $cells);
+                continue;
+            }
+
+            $normalizedRow = [];
+            foreach ($headerRow as $index => $headerKey) {
+                if ($headerKey === '') {
+                    continue;
+                }
+                $normalizedRow[$headerKey] = $row[$index] ?? null;
+            }
+
+            $parsedRows[] = $normalizedRow;
+        }
+
+        return $parsedRows;
+    }
+}
+
+if (!function_exists('payrollLoadImportedDeductionsForPeriod')) {
+    function payrollLoadImportedDeductionsForPeriod(string $supabaseUrl, array $headers, string $periodId): array
+    {
+        if (!isValidUuid($periodId)) {
+            return [
+                'rows_by_person_id' => [],
+                'summary' => null,
+            ];
+        }
+
+        $response = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/activity_logs?select=new_data,created_at'
+            . '&entity_name=eq.payroll_deduction_imports'
+            . '&entity_id=eq.' . rawurlencode($periodId)
+            . '&action_name=eq.import_deduction_workbook'
+            . '&order=created_at.desc&limit=1',
+            $headers
+        );
+
+        if (!isSuccessful($response)) {
+            return [
+                'rows_by_person_id' => [],
+                'summary' => null,
+            ];
+        }
+
+        $row = $response['data'][0] ?? null;
+        $newData = is_array($row['new_data'] ?? null) ? (array)$row['new_data'] : [];
+        $importRows = is_array($newData['rows'] ?? null) ? (array)$newData['rows'] : [];
+
+        $rowsByPersonId = [];
+        foreach ($importRows as $importRowRaw) {
+            $importRow = (array)$importRowRaw;
+            $personId = strtolower(trim((string)($importRow['person_id'] ?? '')));
+            if (!isValidUuid($personId)) {
+                continue;
+            }
+
+            $rowsByPersonId[$personId] = [
+                'statutory_deductions' => round(max(0.0, (float)($importRow['statutory_deductions'] ?? 0)), 2),
+                'timekeeping_deductions' => round(max(0.0, (float)($importRow['timekeeping_deductions'] ?? 0)), 2),
+                'other_deductions' => round(max(0.0, (float)($importRow['other_deductions'] ?? 0)), 2),
+                'notes' => trim((string)($importRow['notes'] ?? '')),
+                'source_identifier' => trim((string)($importRow['source_identifier'] ?? '')),
+            ];
+        }
+
+        return [
+            'rows_by_person_id' => $rowsByPersonId,
+            'summary' => [
+                'created_at' => (string)($row['created_at'] ?? ''),
+                'imported_rows' => (int)($newData['imported_rows'] ?? count($rowsByPersonId)),
+                'matched_rows' => (int)($newData['matched_rows'] ?? count($rowsByPersonId)),
+                'unmatched_rows' => (int)($newData['unmatched_rows'] ?? 0),
+                'file_name' => (string)($newData['file_name'] ?? ''),
+            ],
+        ];
+    }
+}
+
 if (!function_exists('payrollGeneratePayslipDocument')) {
     function payrollGeneratePayslipDocument(array $payload): array
     {
@@ -538,6 +772,287 @@ if (!function_exists('payrollEnsureUpcomingPeriods')) {
 
 $action = (string)($_POST['form_action'] ?? '');
 
+if ($action === 'save_payroll_sync_settings') {
+    $config = payrollSyncDefaultConfig();
+    $config['payroll_excel_url'] = trim((string)(cleanText($_POST['payroll_excel_url'] ?? null) ?? ''));
+    $config['payslip_excel_url'] = trim((string)(cleanText($_POST['payslip_excel_url'] ?? null) ?? ''));
+    $config['google_sheet_url'] = trim((string)(cleanText($_POST['google_sheet_url'] ?? null) ?? ''));
+    $config['workflow_notes'] = trim((string)(cleanText($_POST['workflow_notes'] ?? null) ?? ''));
+
+    $permanentTimekeepingSource = strtolower(trim((string)(cleanText($_POST['permanent_timekeeping_source'] ?? null) ?? 'attendance')));
+    $cosTimekeepingSource = strtolower(trim((string)(cleanText($_POST['cos_timekeeping_source'] ?? null) ?? 'import')));
+
+    if (!in_array($permanentTimekeepingSource, ['attendance', 'import'], true) || !in_array($cosTimekeepingSource, ['attendance', 'import'], true)) {
+        redirectWithState('error', 'Invalid payroll rule source selected.');
+    }
+
+    $config['permanent_timekeeping_source'] = $permanentTimekeepingSource;
+    $config['cos_timekeeping_source'] = $cosTimekeepingSource;
+
+    $nowIso = gmdate('c');
+    $saved = payrollUpsertSystemSettings(
+        $supabaseUrl,
+        $headers,
+        [[
+            'setting_key' => 'payroll.sync.config',
+            'setting_value' => $config,
+            'updated_by' => $adminUserId !== '' ? $adminUserId : null,
+            'updated_at' => $nowIso,
+        ]]
+    );
+
+    if (!$saved) {
+        redirectWithState('error', 'Failed to save payroll sync configuration.');
+    }
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $adminUserId !== '' ? $adminUserId : null,
+            'module_name' => 'payroll_management',
+            'entity_name' => 'system_settings',
+            'entity_id' => 'payroll.sync.config',
+            'action_name' => 'save_payroll_sync_settings',
+            'old_data' => null,
+            'new_data' => $config,
+            'ip_address' => clientIp(),
+        ]]
+    );
+
+    redirectWithState('success', 'Payroll source links and deduction rules saved successfully.');
+}
+
+if ($action === 'import_payroll_deduction_workbook') {
+    $periodId = trim((string)(cleanText($_POST['period_id'] ?? null) ?? ''));
+    if (!isValidUuid($periodId)) {
+        redirectWithState('error', 'Please select a valid payroll period for deduction import.');
+    }
+
+    $periodResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/payroll_periods?select=id,period_code,period_start,period_end&id=eq.' . rawurlencode($periodId) . '&limit=1',
+        $headers
+    );
+    $periodRow = $periodResponse['data'][0] ?? null;
+    if (!is_array($periodRow)) {
+        redirectWithState('error', 'Selected payroll period was not found for deduction import.');
+    }
+
+    $uploadedFile = $_FILES['deduction_workbook'] ?? null;
+    if (!is_array($uploadedFile) || (int)($uploadedFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        redirectWithState('error', 'Please upload a valid payroll deduction workbook.');
+    }
+
+    $originalName = trim((string)($uploadedFile['name'] ?? 'payroll-deductions.xlsx'));
+    $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+    if (!in_array($extension, ['xlsx', 'xls', 'csv'], true)) {
+        redirectWithState('error', 'Payroll deduction import only accepts .xlsx, .xls, or .csv files.');
+    }
+
+    $importsDir = dirname(__DIR__, 4) . '/storage/reports/payroll-imports';
+    payrollEnsureDirectory($importsDir);
+    $storedBaseName = 'deduction-import-' . gmdate('Ymd-His') . '-' . substr(bin2hex(random_bytes(5)), 0, 10) . '.' . $extension;
+    $storedAbsolutePath = $importsDir . '/' . $storedBaseName;
+    if (!move_uploaded_file((string)($uploadedFile['tmp_name'] ?? ''), $storedAbsolutePath)) {
+        redirectWithState('error', 'Failed to store the uploaded payroll deduction workbook.');
+    }
+
+    try {
+        $worksheetRows = payrollReadWorkbookRows($storedAbsolutePath);
+    } catch (RuntimeException $error) {
+        redirectWithState('error', $error->getMessage());
+    } catch (Throwable $error) {
+        redirectWithState('error', 'Failed to read the payroll deduction workbook. Check the file format and try again.');
+    }
+
+    if (empty($worksheetRows)) {
+        redirectWithState('error', 'Payroll deduction workbook is empty or has no readable rows.');
+    }
+
+    $employmentResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/employment_records?select=person_id,employment_status,person:people!employment_records_person_id_fkey(id,first_name,middle_name,surname)'
+        . '&is_current=eq.true&limit=10000',
+        $headers
+    );
+    if (!isSuccessful($employmentResponse)) {
+        redirectWithState('error', 'Failed to load active employees for payroll deduction matching.');
+    }
+
+    $lookup = [];
+    foreach ((array)($employmentResponse['data'] ?? []) as $employmentRow) {
+        $personId = strtolower(trim((string)($employmentRow['person_id'] ?? '')));
+        if (!isValidUuid($personId)) {
+            continue;
+        }
+
+        $employmentStatus = trim((string)(cleanText($employmentRow['employment_status'] ?? null) ?? ''));
+        $statusKey = strtolower($employmentStatus);
+        if (in_array($statusKey, ['inactive', 'separated', 'terminated', 'resigned', 'retired'], true)) {
+            continue;
+        }
+
+        $person = is_array($employmentRow['person'] ?? null) ? (array)$employmentRow['person'] : [];
+        $employeeName = trim(
+            ((string)($person['first_name'] ?? ''))
+            . ' '
+            . ((string)($person['middle_name'] ?? ''))
+            . ' '
+            . ((string)($person['surname'] ?? ''))
+        );
+        $shortCode = strtoupper(substr(str_replace('-', '', $personId), 0, 6));
+
+        $keys = [
+            strtolower($personId),
+            strtolower($shortCode),
+            payrollNormalizeEmployeeLookupKey($employeeName),
+        ];
+
+        foreach ($keys as $key) {
+            if ($key === '' || isset($lookup[$key])) {
+                continue;
+            }
+
+            $lookup[$key] = [
+                'person_id' => $personId,
+                'employee_name' => $employeeName !== '' ? $employeeName : 'Unknown Employee',
+                'employment_status' => $employmentStatus,
+                'is_cos_employee' => payrollIsCosEmploymentStatus($employmentStatus),
+            ];
+        }
+    }
+
+    $periodCode = trim((string)($periodRow['period_code'] ?? ''));
+    $aggregatedRows = [];
+    $unmatchedIdentifiers = [];
+    $matchedRows = 0;
+    $skippedRows = 0;
+
+    foreach ($worksheetRows as $worksheetRow) {
+        $row = (array)$worksheetRow;
+        $identifierRaw = payrollSpreadsheetCellValue($row, ['employee_identifier', 'employee_id', 'person_id', 'employee_name', 'employee', 'name']);
+        $identifier = trim((string)$identifierRaw);
+        if ($identifier === '') {
+            $skippedRows++;
+            continue;
+        }
+
+        $rowPeriodCode = strtoupper(trim((string)payrollSpreadsheetCellValue($row, ['period_code', 'payroll_period', 'cutoff_period'])));
+        if ($rowPeriodCode !== '' && $periodCode !== '' && $rowPeriodCode !== strtoupper($periodCode)) {
+            $skippedRows++;
+            continue;
+        }
+
+        $lookupKey = payrollNormalizeEmployeeLookupKey($identifier);
+        $matchedEmployee = $lookup[strtolower($identifier)] ?? $lookup[strtolower(str_replace('-', '', $identifier))] ?? $lookup[$lookupKey] ?? null;
+        if (!is_array($matchedEmployee)) {
+            $unmatchedIdentifiers[$identifier] = true;
+            continue;
+        }
+
+        $personId = (string)($matchedEmployee['person_id'] ?? '');
+        if (!isValidUuid($personId)) {
+            continue;
+        }
+
+        if (!isset($aggregatedRows[$personId])) {
+            $aggregatedRows[$personId] = [
+                'person_id' => $personId,
+                'employee_name' => (string)($matchedEmployee['employee_name'] ?? 'Unknown Employee'),
+                'employment_status' => (string)($matchedEmployee['employment_status'] ?? ''),
+                'is_cos_employee' => (bool)($matchedEmployee['is_cos_employee'] ?? false),
+                'statutory_deductions' => 0.0,
+                'timekeeping_deductions' => 0.0,
+                'other_deductions' => 0.0,
+                'notes' => '',
+                'source_identifier' => $identifier,
+            ];
+        }
+
+        $aggregatedRows[$personId]['statutory_deductions'] += payrollSpreadsheetMoney(payrollSpreadsheetCellValue($row, ['statutory_deductions', 'statutory', 'recurring_deductions']));
+        $aggregatedRows[$personId]['timekeeping_deductions'] += payrollSpreadsheetMoney(payrollSpreadsheetCellValue($row, ['timekeeping_deductions', 'attendance_deductions', 'leave_late_absence_deductions']));
+        $aggregatedRows[$personId]['other_deductions'] += payrollSpreadsheetMoney(payrollSpreadsheetCellValue($row, ['other_deductions', 'other', 'additional_deductions']));
+
+        $rowNotes = trim((string)payrollSpreadsheetCellValue($row, ['notes', 'remarks', 'comment']));
+        if ($rowNotes !== '') {
+            $aggregatedRows[$personId]['notes'] = $aggregatedRows[$personId]['notes'] !== ''
+                ? ($aggregatedRows[$personId]['notes'] . '; ' . $rowNotes)
+                : $rowNotes;
+        }
+
+        $matchedRows++;
+    }
+
+    if (empty($aggregatedRows)) {
+        redirectWithState('error', 'No deduction rows matched active employees for the selected payroll period.');
+    }
+
+    foreach ($aggregatedRows as &$aggregatedRow) {
+        $aggregatedRow['statutory_deductions'] = round((float)$aggregatedRow['statutory_deductions'], 2);
+        $aggregatedRow['timekeeping_deductions'] = round((float)$aggregatedRow['timekeeping_deductions'], 2);
+        $aggregatedRow['other_deductions'] = round((float)$aggregatedRow['other_deductions'], 2);
+    }
+    unset($aggregatedRow);
+
+    $summary = [
+        'period_id' => $periodId,
+        'period_code' => $periodCode,
+        'file_name' => $originalName,
+        'stored_file_path' => '/hris-system/storage/reports/payroll-imports/' . $storedBaseName,
+        'imported_rows' => count($worksheetRows),
+        'matched_rows' => $matchedRows,
+        'unmatched_rows' => count($unmatchedIdentifiers),
+        'skipped_rows' => $skippedRows,
+        'rows' => array_values($aggregatedRows),
+    ];
+
+    $logResponse = apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $adminUserId !== '' ? $adminUserId : null,
+            'module_name' => 'payroll_management',
+            'entity_name' => 'payroll_deduction_imports',
+            'entity_id' => $periodId,
+            'action_name' => 'import_deduction_workbook',
+            'old_data' => null,
+            'new_data' => $summary,
+            'ip_address' => clientIp(),
+        ]]
+    );
+
+    if (!isSuccessful($logResponse)) {
+        redirectWithState('error', 'Payroll deduction workbook was read, but the import log could not be stored.');
+    }
+
+    payrollUpsertSystemSettings(
+        $supabaseUrl,
+        $headers,
+        [[
+            'setting_key' => 'payroll.sync.last_deduction_import',
+            'setting_value' => [
+                'period_id' => $periodId,
+                'period_code' => $periodCode,
+                'file_name' => $originalName,
+                'stored_file_path' => '/hris-system/storage/reports/payroll-imports/' . $storedBaseName,
+                'matched_rows' => $matchedRows,
+                'unmatched_rows' => count($unmatchedIdentifiers),
+                'skipped_rows' => $skippedRows,
+                'imported_at' => gmdate('c'),
+                'sample_unmatched_identifiers' => array_slice(array_keys($unmatchedIdentifiers), 0, 5),
+            ],
+            'updated_by' => $adminUserId !== '' ? $adminUserId : null,
+            'updated_at' => gmdate('c'),
+        ]]
+    );
+
+    redirectWithState('success', 'Payroll deduction workbook imported successfully for ' . ($periodCode !== '' ? $periodCode : 'the selected period') . '. Matched rows: ' . $matchedRows . '.');
+}
+
 if ($action === 'generate_payroll_batch') {
     $actionReason = cleanText($_POST['action_reason'] ?? null) ?? '';
     if (trim($actionReason) === '') {
@@ -592,9 +1107,18 @@ if ($action === 'generate_payroll_batch') {
         redirectWithState('error', 'A payroll batch already exists for this period (' . $existingRunId . ', status: ' . $existingStatus . ').');
     }
 
+    $syncConfigRaw = payrollGetSystemSettingValue($supabaseUrl, $headers, 'payroll.sync.config', payrollSyncDefaultConfig());
+    $syncConfig = is_array($syncConfigRaw) ? array_merge(payrollSyncDefaultConfig(), $syncConfigRaw) : payrollSyncDefaultConfig();
+    $permanentTimekeepingSource = in_array((string)($syncConfig['permanent_timekeeping_source'] ?? 'attendance'), ['attendance', 'import'], true)
+        ? (string)$syncConfig['permanent_timekeeping_source']
+        : 'attendance';
+    $cosTimekeepingSource = in_array((string)($syncConfig['cos_timekeeping_source'] ?? 'import'), ['attendance', 'import'], true)
+        ? (string)$syncConfig['cos_timekeeping_source']
+        : 'import';
+
     $employmentResponse = apiRequest(
         'GET',
-        $supabaseUrl . '/rest/v1/employment_records?select=person_id,office_id&is_current=eq.true&employment_status=eq.active&limit=5000',
+        $supabaseUrl . '/rest/v1/employment_records?select=person_id,office_id,employment_status&is_current=eq.true&limit=5000',
         $headers
     );
 
@@ -613,8 +1137,28 @@ if ($action === 'generate_payroll_batch') {
         redirectWithState('error', 'Failed to load active compensation records for payroll generation.');
     }
 
-    $employmentRows = (array)($employmentResponse['data'] ?? []);
+    $employmentRows = [];
+    $employmentStatusByPersonId = [];
+    foreach ((array)($employmentResponse['data'] ?? []) as $employmentRow) {
+        $personId = strtolower(trim((string)($employmentRow['person_id'] ?? '')));
+        if (!isValidUuid($personId)) {
+            continue;
+        }
+
+        $employmentStatus = trim((string)(cleanText($employmentRow['employment_status'] ?? null) ?? ''));
+        $statusKey = strtolower($employmentStatus);
+        if (in_array($statusKey, ['inactive', 'separated', 'terminated', 'resigned', 'retired'], true)) {
+            continue;
+        }
+
+        $employmentRows[] = $employmentRow;
+        $employmentStatusByPersonId[$personId] = $employmentStatus;
+    }
     $compensationRows = (array)($compensationFetch['rows'] ?? []);
+
+    $periodCode = (string)($periodRow['period_code'] ?? '');
+    $importedDeductionsPayload = payrollLoadImportedDeductionsForPeriod($supabaseUrl, $headers, $periodId);
+    $importedDeductionsByPersonId = (array)($importedDeductionsPayload['rows_by_person_id'] ?? []);
 
     if (empty($employmentRows)) {
         redirectWithState('error', 'No active employees found for payroll generation.');
@@ -708,6 +1252,10 @@ if ($action === 'generate_payroll_batch') {
             continue;
         }
 
+        $employmentStatus = (string)($employmentStatusByPersonId[$personId] ?? '');
+        $isCosEmployee = payrollIsCosEmploymentStatus($employmentStatus);
+        $importedRow = is_array($importedDeductionsByPersonId[$personId] ?? null) ? (array)$importedDeductionsByPersonId[$personId] : [];
+
         $monthlyRate = (float)($compensationRow['monthly_rate'] ?? 0);
         $allowanceMonthly = max(0.0, (float)($compensationRow['allowance_total'] ?? 0));
         $basePayMonthly = isset($compensationRow['base_pay'])
@@ -740,11 +1288,11 @@ if ($action === 'generate_payroll_batch') {
 
         $basicPay = $basePayMonthly / $divisor;
         $allowancesTotal = $allowanceMonthly / $divisor;
-        $statutoryDeductions = ($taxMonthly + $governmentMonthly + $otherMonthly) / $divisor;
+        $defaultStatutoryDeductions = ($taxMonthly + $governmentMonthly + $otherMonthly) / $divisor;
         $basicPay = round($basicPay, 2);
         $allowancesTotal = round($allowancesTotal, 2);
         $ctoPay = 0.0;
-        $statutoryDeductions = round($statutoryDeductions, 2);
+        $statutoryDeductions = round($defaultStatutoryDeductions, 2);
 
         $attendanceStats = $attendanceStatsByPersonId[$personId] ?? [
             'absent_days' => 0,
@@ -754,7 +1302,24 @@ if ($action === 'generate_payroll_batch') {
         $lateHours = ((float)($attendanceStats['late_minutes'] ?? 0)) / 60;
         $undertimeHours = max(0.0, (float)($attendanceStats['undertime_hours'] ?? 0));
         $absentDays = max(0, (int)($attendanceStats['absent_days'] ?? 0));
-        $timekeepingDeductions = round(max(0.0, ($absentDays * $dailyRate) + (($lateHours + $undertimeHours) * $hourlyRate)), 2);
+        $attendanceBasedTimekeepingDeductions = round(max(0.0, ($absentDays * $dailyRate) + (($lateHours + $undertimeHours) * $hourlyRate)), 2);
+
+        if (!empty($importedRow)) {
+            $importedStatutory = round(
+                max(0.0, (float)($importedRow['statutory_deductions'] ?? 0))
+                + max(0.0, (float)($importedRow['other_deductions'] ?? 0)),
+                2
+            );
+            if ($importedStatutory > 0) {
+                $statutoryDeductions = $importedStatutory;
+            }
+        }
+
+        $timekeepingSource = $isCosEmployee ? $cosTimekeepingSource : $permanentTimekeepingSource;
+        $importedTimekeepingDeductions = round(max(0.0, (float)($importedRow['timekeeping_deductions'] ?? 0)), 2);
+        $timekeepingDeductions = $timekeepingSource === 'import' && $importedTimekeepingDeductions > 0
+            ? $importedTimekeepingDeductions
+            : $attendanceBasedTimekeepingDeductions;
 
         $deductionsTotal = round($statutoryDeductions + $timekeepingDeductions, 2);
         $grossPay = round($basicPay + $allowancesTotal + $ctoPay, 2);
@@ -780,6 +1345,16 @@ if ($action === 'generate_payroll_batch') {
                 'absent_days' => $absentDays,
                 'late_minutes' => (int)($attendanceStats['late_minutes'] ?? 0),
                 'undertime_hours' => $undertimeHours,
+                'attendance_policy' => $timekeepingSource === 'import' ? 'import_sheet' : ($isCosEmployee ? 'payroll_deduction' : 'leave_card'),
+                'employment_status' => $employmentStatus,
+                'is_cos_employee' => $isCosEmployee,
+                'imported_timekeeping_deductions' => $importedTimekeepingDeductions,
+            ],
+            'deduction_source' => [
+                'statutory' => !empty($importedRow) && ((float)($importedRow['statutory_deductions'] ?? 0) > 0 || (float)($importedRow['other_deductions'] ?? 0) > 0) ? 'import' : 'salary_setup',
+                'timekeeping' => $timekeepingSource,
+                'import_period_code' => $periodCode,
+                'import_file_match' => (string)($importedRow['source_identifier'] ?? ''),
             ],
         ];
 
@@ -882,11 +1457,16 @@ if ($action === 'generate_payroll_batch') {
                         'adjustment_deductions' => 0.0,
                         'adjustment_earnings' => 0.0,
                         'total_deductions' => (float)($source['deductions_total'] ?? 0),
+                        'source' => (array)($source['deduction_source'] ?? []),
                     ],
                     'attendance_source' => [
                         'absent_days' => (int)($attendanceMetrics['absent_days'] ?? 0),
                         'late_minutes' => (int)($attendanceMetrics['late_minutes'] ?? 0),
                         'undertime_hours' => (float)($attendanceMetrics['undertime_hours'] ?? 0),
+                        'attendance_policy' => (string)($attendanceMetrics['attendance_policy'] ?? 'leave_card'),
+                        'employment_status' => (string)($attendanceMetrics['employment_status'] ?? ''),
+                        'is_cos_employee' => (bool)($attendanceMetrics['is_cos_employee'] ?? false),
+                        'imported_timekeeping_deductions' => (float)($attendanceMetrics['imported_timekeeping_deductions'] ?? 0),
                     ],
                     'net_pay' => (float)($source['net_pay'] ?? 0),
                 ],
@@ -936,10 +1516,15 @@ if ($action === 'generate_payroll_batch') {
                     'attendance_log_count' => $attendanceLogCount,
                     'compensation_rows_count' => count($latestCompensationByPerson),
                     'employment_rows_count' => count($employmentRows),
+                    'imported_deduction_rows_count' => count($importedDeductionsByPersonId),
                 ],
                 'computation_breakdown_totals' => [
                     'timekeeping_deductions' => round($totalTimekeepingDeductions, 2),
                     'statutory_deductions' => round($totalStatutoryDeductions, 2),
+                ],
+                'policy' => [
+                    'permanent_timekeeping_source' => $permanentTimekeepingSource,
+                    'cos_timekeeping_source' => $cosTimekeepingSource,
                 ],
             ],
             'ip_address' => clientIp(),

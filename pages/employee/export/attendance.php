@@ -11,19 +11,34 @@ if (!(bool)($employeeContextResolved ?? false)) {
 
 $from = cleanText($_GET['from'] ?? null) ?? '';
 $to = cleanText($_GET['to'] ?? null) ?? '';
+$reportScope = strtolower((string)(cleanText($_GET['report_scope'] ?? null) ?? 'date_range'));
+$year = (int)(cleanText($_GET['year'] ?? null) ?? '0');
+$disposition = strtolower((string)(cleanText($_GET['disposition'] ?? null) ?? 'attachment'));
 
 $isValidDate = static function (string $value): bool {
 	$timestamp = strtotime($value);
 	return $timestamp !== false && date('Y-m-d', $timestamp) === $value;
 };
 
-if (!$isValidDate($from) || !$isValidDate($to)) {
+if ($reportScope === 'yearly') {
+	if ($year < 2000 || $year > 2100) {
+		http_response_code(400);
+		exit('A valid attendance report year is required.');
+	}
+
+	$from = sprintf('%04d-01-01', $year);
+	$to = sprintf('%04d-12-31', $year);
+} elseif (!$isValidDate($from) || !$isValidDate($to)) {
 	http_response_code(400);
 	exit('A valid attendance export date range is required.');
 }
 
 if (strtotime($from) > strtotime($to)) {
 	[$from, $to] = [$to, $from];
+}
+
+if (!in_array($disposition, ['attachment', 'inline'], true)) {
+	$disposition = 'attachment';
 }
 
 $projectRoot = dirname(__DIR__, 3);
@@ -55,6 +70,7 @@ if ($employeeName === '') {
 	$employeeName = 'Employee';
 }
 $employeeCode = cleanText($personRow['agency_employee_no'] ?? null) ?? '-';
+$reportTitle = $reportScope === 'yearly' ? 'Yearly Attendance Report' : 'Attendance Record Export';
 
 $attendanceResponse = apiRequest(
 	'GET',
@@ -96,6 +112,10 @@ $escape = static function (mixed $value): string {
 	return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 };
 
+$reportCoverageLabel = $reportScope === 'yearly'
+	? ('January to December ' . date('Y', strtotime($from)))
+	: ($formatDate($from) . ' to ' . $formatDate($to));
+
 $rowsHtml = '';
 if (empty($attendanceRows)) {
 	$rowsHtml = '<tr><td colspan="7" class="empty">No attendance records found for the selected period.</td></tr>';
@@ -135,10 +155,11 @@ $html = '<!doctype html>
 		.signature td{border:none;padding:0 18px 0 0;vertical-align:bottom;}
 		.line{margin-top:38px;border-top:1px solid #334155;height:0;}
 		.sig-label{margin-top:6px;font-size:11px;color:#475569;}
+		.sig-sub{margin-top:2px;font-size:10px;color:#64748b;}
 	</style>
 </head>
 <body>
-	<h1>Attendance Record Export</h1>
+	<h1>' . $escape($reportTitle) . '</h1>
 	<table class="meta">
 		<tr>
 			<td class="meta-label">Employee Name:</td>
@@ -149,8 +170,8 @@ $html = '<!doctype html>
 			<td class="meta-value">' . $escape($employeeCode) . '</td>
 		</tr>
 		<tr>
-			<td class="meta-label">Date Range:</td>
-			<td class="meta-value">' . $escape($formatDate($from)) . ' to ' . $escape($formatDate($to)) . '</td>
+			<td class="meta-label">Coverage:</td>
+			<td class="meta-value">' . $escape($reportCoverageLabel) . '</td>
 		</tr>
 		<tr>
 			<td class="meta-label">Generated On:</td>
@@ -177,11 +198,16 @@ $html = '<!doctype html>
 		<tr>
 			<td>
 				<div class="line"></div>
-				<div class="sig-label">Employee Signature</div>
+				<div class="sig-label">Employee Acknowledgment / Signature</div>
 			</td>
 			<td>
 				<div class="line"></div>
 				<div class="sig-label">Date Signed</div>
+			</td>
+			<td>
+				<div class="line"></div>
+				<div class="sig-label">HR Head Signature Over Printed Name</div>
+				<div class="sig-sub">For review / certification</div>
 			</td>
 		</tr>
 	</table>
@@ -201,7 +227,9 @@ $dompdf->loadHtml($html);
 $dompdf->setPaper('A4', 'landscape');
 $dompdf->render();
 
-$fileName = 'attendance-record-' . $from . '-to-' . $to . '.pdf';
+$fileName = $reportScope === 'yearly'
+	? ('attendance-report-' . date('Y', strtotime($from)) . '.pdf')
+	: ('attendance-record-' . $from . '-to-' . $to . '.pdf');
 header('Content-Type: application/pdf');
-header('Content-Disposition: attachment; filename=' . $fileName);
+header('Content-Disposition: ' . $disposition . '; filename=' . $fileName);
 echo $dompdf->output();

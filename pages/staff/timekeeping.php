@@ -15,7 +15,7 @@ ob_start();
 
 <div class="mb-6">
     <h1 class="text-2xl font-bold text-gray-800">Timekeeping</h1>
-    <p class="text-sm text-gray-500">Review attendance and process employee leave/CTO, time adjustment, and official business requests across the organization.</p>
+    <p class="text-sm text-gray-500">Review attendance and process employee leave/CTO, time adjustment, COS flexible schedule, official business, and travel requests across the organization.</p>
 </div>
 
 <?php if ($state && $message): ?>
@@ -253,8 +253,8 @@ ob_start();
 <section class="bg-white border rounded-xl mt-6">
     <header class="px-6 py-4 border-b">
         <div>
-            <h2 class="text-lg font-semibold text-gray-800">Official Business Requests</h2>
-            <p class="text-sm text-gray-500 mt-1">Review official business entries routed with OB tagging.</p>
+            <h2 class="text-lg font-semibold text-gray-800">Special Timekeeping Requests</h2>
+            <p class="text-sm text-gray-500 mt-1">Review Official Business, COS flexible schedule, Travel Order, and Travel Abroad requests routed through the special request workflow.</p>
         </div>
     </header>
 
@@ -280,8 +280,10 @@ ob_start();
             <thead class="bg-gray-50 text-gray-600">
                 <tr>
                     <th class="text-left px-4 py-3">Employee</th>
+                    <th class="text-left px-4 py-3">Request Type</th>
                     <th class="text-left px-4 py-3">Date</th>
                     <th class="text-left px-4 py-3">Requested Window</th>
+                    <th class="text-left px-4 py-3">Details</th>
                     <th class="text-left px-4 py-3">Status</th>
                     <th class="text-left px-4 py-3">Requested</th>
                     <th class="text-left px-4 py-3">Action</th>
@@ -290,7 +292,7 @@ ob_start();
             <tbody class="divide-y">
                 <?php if (empty($officialBusinessRequestRows)): ?>
                     <tr>
-                        <td class="px-4 py-3 text-gray-500" colspan="6">No official business requests found.</td>
+                        <td class="px-4 py-3 text-gray-500" colspan="8">No special timekeeping requests found.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($officialBusinessRequestRows as $row): ?>
@@ -299,8 +301,21 @@ ob_start();
                                 <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($row['employee_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
                                 <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars((string)($row['office_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
                             </td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['request_label'] ?? 'Special Request'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['overtime_date'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['time_window'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3">
+                                <p><?= htmlspecialchars((string)($row['reason'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                                <?php if (!empty($row['detail_summary'])): ?>
+                                    <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars((string)$row['detail_summary'], ENT_QUOTES, 'UTF-8') ?></p>
+                                <?php endif; ?>
+                                <?php if (!empty($row['attachment_url']) && !empty($row['attachment_name'])): ?>
+                                    <a href="<?= htmlspecialchars((string)$row['attachment_url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 mt-1 text-xs font-medium text-green-700 hover:underline">
+                                        <span class="material-symbols-outlined text-sm">attach_file</span>
+                                        <?= htmlspecialchars((string)$row['attachment_name'], ENT_QUOTES, 'UTF-8') ?>
+                                    </a>
+                                <?php endif; ?>
+                            </td>
                             <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)($row['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($row['status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['requested_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3">
@@ -309,10 +324,11 @@ ob_start();
                                     data-open-ob-modal
                                     data-request-id="<?= htmlspecialchars((string)($row['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                     data-employee-name="<?= htmlspecialchars((string)($row['employee_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                    data-request-type-label="<?= htmlspecialchars((string)($row['request_label'] ?? 'Special Request'), ENT_QUOTES, 'UTF-8') ?>"
                                     data-current-status="<?= htmlspecialchars((string)($row['status_raw'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                     data-current-status-label="<?= htmlspecialchars((string)($row['status_label'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                     data-requested-window="<?= htmlspecialchars((string)($row['time_window'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                    data-reason="<?= htmlspecialchars((string)($row['reason'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
+                                    data-reason="<?= htmlspecialchars(trim((string)($row['reason'] ?? '-') . (!empty($row['detail_summary']) ? ' | ' . (string)$row['detail_summary'] : '')), ENT_QUOTES, 'UTF-8') ?>"
                                     class="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-md border border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
                                 >
                                     <span class="material-symbols-outlined text-sm">fact_check</span>
@@ -323,7 +339,7 @@ ob_start();
                     <?php endforeach; ?>
                 <?php endif; ?>
                 <tr id="obFilterEmptyRow" class="hidden">
-                    <td class="px-4 py-3 text-gray-500" colspan="6">No official business requests match your search/filter criteria.</td>
+                    <td class="px-4 py-3 text-gray-500" colspan="8">No special timekeeping requests match your search/filter criteria.</td>
                 </tr>
             </tbody>
         </table>
@@ -475,7 +491,7 @@ ob_start();
 <div id="obRequestModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4">
     <div class="w-full max-w-lg rounded-xl bg-white border shadow-lg">
         <div class="flex items-center justify-between px-6 py-4 border-b">
-            <h3 class="text-lg font-semibold text-gray-800">Recommend Official Business Decision</h3>
+            <h3 id="obModalTitle" class="text-lg font-semibold text-gray-800">Recommend Special Timekeeping Decision</h3>
             <button type="button" id="obModalClose" class="text-gray-500 hover:text-gray-700" aria-label="Close modal"><span class="material-symbols-outlined">close</span></button>
         </div>
         <form id="obForm" method="POST" action="timekeeping.php" class="px-6 py-4 space-y-4 text-sm">
@@ -486,6 +502,10 @@ ob_start();
             <div>
                 <label class="text-gray-600">Employee</label>
                 <p id="obEmployeeName" class="mt-1 text-sm font-medium text-gray-800">-</p>
+            </div>
+            <div>
+                <label class="text-gray-600">Request Type</label>
+                <p id="obRequestTypeLabel" class="mt-1 text-sm text-gray-700">-</p>
             </div>
             <div>
                 <label class="text-gray-600">Current Status</label>

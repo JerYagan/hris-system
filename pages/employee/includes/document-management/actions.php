@@ -13,9 +13,56 @@ if (!isValidCsrfToken(cleanText($_POST['csrf_token'] ?? null))) {
 }
 
 $action = strtolower((string)cleanText($_POST['action'] ?? ''));
-if (!in_array($action, ['upload_document', 'upload_new_version', 'archive_document', 'restore_document'], true)) {
+if (!in_array($action, ['upload_document', 'upload_new_version', 'archive_document', 'restore_document', 'submit_document_request'], true)) {
     redirectWithState('error', 'Unsupported document management action.', 'document-management.php');
 }
+
+$buildUuidV4 = static function (): string {
+    $bytes = random_bytes(16);
+    $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
+    $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
+    $hex = bin2hex($bytes);
+
+    return sprintf('%s-%s-%s-%s-%s', substr($hex, 0, 8), substr($hex, 8, 4), substr($hex, 12, 4), substr($hex, 16, 4), substr($hex, 20, 12));
+};
+
+$fetchRoleUserIds = static function (string $roleKey) use ($supabaseUrl, $headers): array {
+    $roleResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/roles?select=id&role_key=eq.' . rawurlencode($roleKey) . '&limit=1',
+        $headers
+    );
+
+    $roleId = isSuccessful($roleResponse)
+        ? trim((string)($roleResponse['data'][0]['id'] ?? ''))
+        : '';
+    if ($roleId === '') {
+        return [];
+    }
+
+    $assignmentResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/user_role_assignments?select=user_id'
+        . '&role_id=eq.' . rawurlencode($roleId)
+        . '&expires_at=is.null&limit=5000',
+        $headers
+    );
+
+    if (!isSuccessful($assignmentResponse)) {
+        return [];
+    }
+
+    $userIds = [];
+    foreach ((array)($assignmentResponse['data'] ?? []) as $assignmentRow) {
+        $userId = trim((string)($assignmentRow['user_id'] ?? ''));
+        if (isValidUuid($userId)) {
+            $userIds[$userId] = true;
+        }
+    }
+
+    return array_keys($userIds);
+};
 
 $requiredCategoryAliasMap = [
     'violation' => 'Violation',
@@ -136,6 +183,136 @@ $validateAndStoreUpload = static function (array $upload, string $personId, stri
         'storage_path' => $normalizedRelativePath,
     ];
 };
+
+if ($action === 'submit_document_request') {
+    $requestType = strtolower((string)(cleanText($_POST['request_type'] ?? null) ?? ''));
+    $customRequestLabel = trim((string)(cleanText($_POST['custom_request_label'] ?? null) ?? ''));
+    $purposeKey = strtolower((string)(cleanText($_POST['purpose_key'] ?? null) ?? ''));
+    $otherPurpose = trim((string)(cleanText($_POST['other_purpose'] ?? null) ?? ''));
+    $notes = trim((string)(cleanText($_POST['request_notes'] ?? null) ?? ''));
+
+    $requestTypeLabels = [
+        'coe' => 'COE',
+        'service_record' => 'Service Record',
+        'certificate_of_foreign_travel' => 'Certificate of Foreign Travel',
+        'other_hr_document' => 'Other HR Document',
+    ];
+
+    $purposeLabels = [
+        'employment' => 'Employment Requirement',
+        'loan' => 'Loan / Financing',
+        'visa_travel' => 'Visa / Travel',
+        'scholarship' => 'Scholarship / Training',
+        'compliance' => 'Compliance / Government Submission',
+        'personal_copy' => 'Personal Copy',
+        'other' => 'Other',
+    ];
+
+    if (!isset($requestTypeLabels[$requestType])) {
+        redirectWithState('error', 'Please choose a valid HR document request type.', 'document-management.php');
+    }
+
+    if (!isset($purposeLabels[$purposeKey])) {
+        redirectWithState('error', 'Please choose a valid request purpose.', 'document-management.php');
+    }
+
+    if ($requestType === 'other_hr_document') {
+        if ($customRequestLabel === '') {
+            redirectWithState('error', 'Specify the other HR document you are requesting.', 'document-management.php');
+        }
+        if (mb_strlen($customRequestLabel) > 120) {
+            redirectWithState('error', 'Other HR document label must be 120 characters or less.', 'document-management.php');
+        }
+    } else {
+        $customRequestLabel = '';
+    }
+
+    if ($purposeKey === 'other') {
+        if ($otherPurpose === '') {
+            redirectWithState('error', 'Provide the custom purpose for this document request.', 'document-management.php');
+        }
+        if (mb_strlen($otherPurpose) > 160) {
+            redirectWithState('error', 'Custom purpose must be 160 characters or less.', 'document-management.php');
+        }
+    } else {
+        $otherPurpose = '';
+    }
+
+    if ($notes !== '' && mb_strlen($notes) > 1000) {
+        redirectWithState('error', 'Additional notes must be 1000 characters or less.', 'document-management.php');
+    }
+
+    $requestId = $buildUuidV4();
+    $requestPayload = [
+        'request_id' => $requestId,
+        'requester_user_id' => $employeeUserId,
+        'requester_person_id' => $employeePersonId,
+        'requester_role' => 'employee',
+        'request_type' => $requestType,
+        'request_type_label' => $requestTypeLabels[$requestType],
+        'custom_request_label' => $customRequestLabel,
+        'purpose_key' => $purposeKey,
+        'purpose_label' => $purposeLabels[$purposeKey],
+        'other_purpose' => $otherPurpose,
+        'notes' => $notes,
+        'status' => 'submitted',
+    ];
+
+    $requestLogResponse = apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        $headers,
+        [[
+            'actor_user_id' => $employeeUserId,
+            'module_name' => 'document_management',
+            'entity_name' => 'document_requests',
+            'entity_id' => $requestId,
+            'action_name' => 'submit_document_request',
+            'old_data' => null,
+            'new_data' => $requestPayload,
+        ]]
+    );
+
+    if (!isSuccessful($requestLogResponse)) {
+        redirectWithState('error', 'Unable to submit your HR document request right now.', 'document-management.php');
+    }
+
+    $recipientUserLinks = [];
+    foreach (['admin', 'staff'] as $roleKey) {
+        $linkUrl = $roleKey === 'staff'
+            ? '/hris-system/pages/staff/document-management.php'
+            : '/hris-system/pages/admin/document-management.php';
+
+        foreach ($fetchRoleUserIds($roleKey) as $recipientUserId) {
+            if ($recipientUserId !== $employeeUserId) {
+                $recipientUserLinks[$recipientUserId] = $linkUrl;
+            }
+        }
+    }
+
+    if (!empty($recipientUserLinks)) {
+        $notificationRows = [];
+        foreach ($recipientUserLinks as $recipientUserId => $linkUrl) {
+            $notificationRows[] = [
+                'recipient_user_id' => $recipientUserId,
+                'category' => 'documents',
+                'title' => 'New HR document request',
+                'body' => 'Request: ' . $requestPayload['request_type_label'] . ' | Purpose: ' . $requestPayload['purpose_label'],
+                'link_url' => $linkUrl,
+                'is_read' => false,
+            ];
+        }
+
+        apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/notifications',
+            array_merge($headers, ['Prefer: return=minimal']),
+            $notificationRows
+        );
+    }
+
+    redirectWithState('success', 'HR document request submitted successfully.', 'document-management.php');
+}
 
 if ($action === 'upload_document') {
     $categoryId = cleanText($_POST['category_id'] ?? null) ?? '';

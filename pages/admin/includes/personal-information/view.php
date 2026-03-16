@@ -40,12 +40,8 @@ $rolePill = static function (string $roleKey): array {
     <div class="px-6 py-4 flex items-center justify-between gap-3">
         <div>
             <h2 class="text-lg font-semibold text-slate-800">Personal Information Workspace</h2>
-            <p class="text-sm text-slate-500 mt-1">Use quick actions to manage employee profiles without leaving this page.</p>
+            <p class="text-sm text-slate-500 mt-1">Review employee-submitted PDS update requests and monitor request deadlines.</p>
         </div>
-        <button type="button" data-modal-open="personalInfoEditProfileModal" class="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 text-sm">
-            <span class="material-symbols-outlined text-[18px]">edit</span>
-            Edit Profile
-        </button>
     </div>
 </section>
 
@@ -87,8 +83,8 @@ $rolePill = static function (string $roleKey): array {
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
         <div>
-            <h2 class="text-lg font-semibold text-slate-800">Pending Staff Review</h2>
-            <p class="text-sm text-slate-500 mt-1">Staff-submitted employee profile recommendations awaiting admin final review.</p>
+            <h2 class="text-lg font-semibold text-slate-800">Pending Employee Requests</h2>
+            <p class="text-sm text-slate-500 mt-1">Employee-submitted personal-information requests awaiting admin review and resolution.</p>
         </div>
         <span class="inline-flex items-center rounded-full bg-amber-100 text-amber-800 text-xs px-2.5 py-1 font-medium">Pending</span>
     </header>
@@ -117,15 +113,16 @@ $rolePill = static function (string $roleKey): array {
                 <tr>
                     <th class="text-left px-4 py-3 w-[24%]">Employee</th>
                     <th class="text-left px-4 py-3 w-[20%]">Submitted By</th>
-                    <th class="text-left px-4 py-3 w-[20%]">Submitted On</th>
-                    <th class="text-left px-4 py-3 w-[18%]">Status</th>
-                    <th class="text-left px-4 py-3 w-[18%]">Actions</th>
+                    <th class="text-left px-4 py-3 w-[18%]">Submitted On</th>
+                    <th class="text-left px-4 py-3 w-[18%]">Due Date</th>
+                    <th class="text-left px-4 py-3 w-[10%]">Status</th>
+                    <th class="text-left px-4 py-3 w-[10%]">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
                 <?php if (empty($recommendationHistoryRows)): ?>
                     <tr>
-                        <td class="px-4 py-3 text-slate-500" colspan="5">No pending staff profile recommendations found.</td>
+                        <td class="px-4 py-3 text-slate-500" colspan="6">No pending employee requests found.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($recommendationHistoryRows as $recommendationRow): ?>
@@ -143,6 +140,7 @@ $rolePill = static function (string $roleKey): array {
                             <td class="px-4 py-3 font-medium text-slate-700 align-top break-words"><?= htmlspecialchars((string)($recommendationRow['employee_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3 text-slate-600 align-top break-words"><?= htmlspecialchars((string)($recommendationRow['submitted_by'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3 text-slate-600 align-top"><?= htmlspecialchars((string)($recommendationRow['submitted_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-600 align-top"><?= htmlspecialchars((string)($recommendationRow['due_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3">
                                 <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs <?= htmlspecialchars((string)($recommendationRow['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>">
                                     <?= htmlspecialchars((string)($recommendationRow['status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?>
@@ -168,7 +166,7 @@ $rolePill = static function (string $roleKey): array {
                     <?php endforeach; ?>
                 <?php endif; ?>
                 <tr id="pendingProfileFilterEmpty" class="hidden">
-                    <td class="px-4 py-3 text-slate-500" colspan="5">No recommendation records match your current search/filter selection.</td>
+                    <td class="px-4 py-3 text-slate-500" colspan="6">No request records match your current search/filter selection.</td>
                 </tr>
             </tbody>
         </table>
@@ -262,7 +260,7 @@ $rolePill = static function (string $roleKey): array {
     <div class="relative min-h-full flex items-center justify-center p-4">
         <div class="w-full max-w-3xl bg-white rounded-2xl border border-slate-200 shadow-xl max-h-[calc(100vh-2rem)] overflow-y-auto">
             <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-slate-800">Review Staff Recommendation</h3>
+                <h3 class="text-lg font-semibold text-slate-800">Review Personal Information Request</h3>
                 <button type="button" data-modal-close="personalInfoRecommendationReviewModal" class="text-slate-500 hover:text-slate-700">✕</button>
             </div>
             <div class="px-6 py-5 space-y-4 text-sm">
@@ -426,10 +424,6 @@ $rolePill = static function (string $roleKey): array {
                                     </button>
 
                                     <div data-person-action-menu data-admin-action-menu role="menu" class="admin-action-menu hidden w-72">
-                                        <button type="button" data-action-menu-item data-action-target="edit-profile" role="menuitem" class="admin-action-item">
-                                            <span class="material-symbols-outlined">edit</span>
-                                            Edit Employee Profile
-                                        </button>
                                         <button type="button" data-action-menu-item data-action-target="assign" role="menuitem" class="admin-action-item">
                                             <span class="material-symbols-outlined">person_add</span>
                                             Assign Division and Position

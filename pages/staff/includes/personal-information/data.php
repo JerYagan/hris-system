@@ -30,6 +30,12 @@ $appendDataError = static function (string $label, array $response) use (&$dataL
     $dataLoadError = $dataLoadError ? ($dataLoadError . ' ' . $message) : $message;
 };
 
+$formatStaffPersonalInfoTimestamp = static function (?string $value, string $format = 'M d, Y h:i A'): string {
+    return function_exists('formatDateTimeForPhilippines')
+        ? formatDateTimeForPhilippines($value, $format)
+        : (($value !== null && $value !== '' && strtotime($value) !== false) ? date($format, strtotime($value)) : '-');
+};
+
 $employmentResponse = apiRequest(
     'GET',
     $supabaseUrl
@@ -307,6 +313,175 @@ if ($personIdFilter !== '') {
     }
 
     $pendingAdminApprovalRows = $recommendationHistoryRows;
+
+    $employeeRequestResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/activity_logs?select=id,entity_id,actor_user_id,created_at,new_data'
+        . '&module_name=eq.personal_information'
+        . '&entity_name=eq.people'
+        . '&action_name=eq.submit_employee_profile_update_request'
+        . '&entity_id=in.(' . $personIdFilter . ')'
+        . '&order=created_at.desc&limit=' . $staffPersonalInformationLimits['recommendations'],
+        $headers
+    );
+    $appendDataError('Employee personal information requests', $employeeRequestResponse);
+
+    if (isSuccessful($employeeRequestResponse)) {
+        $employeeRequestLogs = (array)($employeeRequestResponse['data'] ?? []);
+        $decisionResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/activity_logs?select=id,created_at,new_data,action_name'
+            . '&module_name=eq.personal_information'
+            . '&entity_name=eq.people'
+            . '&action_name=in.(approve_employee_profile_recommendation,reject_employee_profile_recommendation)'
+            . '&entity_id=in.(' . $personIdFilter . ')'
+            . '&order=created_at.desc&limit=500',
+            $headers
+        );
+
+        $decisionByRequestId = [];
+        if (isSuccessful($decisionResponse)) {
+            foreach ((array)($decisionResponse['data'] ?? []) as $decisionRaw) {
+                $decisionRow = (array)$decisionRaw;
+                $decisionData = is_array($decisionRow['new_data'] ?? null) ? (array)$decisionRow['new_data'] : [];
+                $requestId = (string)($decisionData['recommendation_log_id'] ?? '');
+                if ($requestId === '' || isset($decisionByRequestId[$requestId])) {
+                    continue;
+                }
+
+                $decisionByRequestId[$requestId] = [
+                    'decision' => strtolower((string)($decisionData['decision'] ?? '')),
+                    'reviewed_at' => (string)($decisionRow['created_at'] ?? ''),
+                ];
+            }
+        }
+
+        $actorIds = [];
+        foreach ($employeeRequestLogs as $requestLog) {
+            $actorId = cleanText($requestLog['actor_user_id'] ?? null) ?? '';
+            if (isValidUuid($actorId)) {
+                $actorIds[$actorId] = true;
+            }
+        }
+
+        $actorLabelById = [];
+        if (!empty($actorIds)) {
+            $actorResponse = apiRequest(
+                'GET',
+                $supabaseUrl . '/rest/v1/user_accounts?select=id,username,email&id=in.(' . implode(',', array_map('rawurlencode', array_keys($actorIds))) . ')&limit=' . $staffPersonalInformationLimits['actors'],
+                $headers
+            );
+            $appendDataError('Employee request submitters', $actorResponse);
+            if (isSuccessful($actorResponse)) {
+                foreach ((array)($actorResponse['data'] ?? []) as $actorRaw) {
+                    $actorRow = (array)$actorRaw;
+                    $actorId = (string)($actorRow['id'] ?? '');
+                    if ($actorId === '') {
+                        continue;
+                    }
+
+                    $actorLabelById[$actorId] = (string)(cleanText($actorRow['username'] ?? null) ?? cleanText($actorRow['email'] ?? null) ?? 'Employee');
+                }
+            }
+        }
+
+        $pendingAdminApprovalRows = [];
+        $nowManila = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
+        foreach ($employeeRequestLogs as $requestLog) {
+            $requestId = (string)($requestLog['id'] ?? '');
+            if ($requestId === '' || isset($decisionByRequestId[$requestId])) {
+                continue;
+            }
+
+            $personId = (string)($requestLog['entity_id'] ?? '');
+            if ($personId === '' || !isset($personNameById[$personId])) {
+                continue;
+            }
+
+            $newData = is_array($requestLog['new_data'] ?? null) ? (array)$requestLog['new_data'] : [];
+            $recommendedProfile = is_array($newData['recommended_profile'] ?? null) ? (array)$newData['recommended_profile'] : [];
+            $recommendedAddresses = is_array($newData['recommended_addresses'] ?? null) ? (array)$newData['recommended_addresses'] : [];
+            $recommendedGovernmentIds = is_array($newData['recommended_government_ids'] ?? null) ? (array)$newData['recommended_government_ids'] : [];
+            $recommendedFamily = is_array($newData['recommended_family'] ?? null) ? (array)$newData['recommended_family'] : [];
+            $recommendedEducation = is_array($newData['recommended_educational_backgrounds'] ?? null) ? (array)$newData['recommended_educational_backgrounds'] : [];
+            $dueAt = (string)($newData['request_due_at'] ?? '');
+            $dueAtDate = $dueAt !== '' && strtotime($dueAt) !== false ? new DateTimeImmutable($dueAt) : null;
+            $deadlineLabel = $dueAtDate instanceof DateTimeImmutable
+                ? $formatStaffPersonalInfoTimestamp($dueAtDate->format(DATE_ATOM)) . ' PST'
+                : '-';
+            $deadlineStatusLabel = 'Pending';
+            $deadlineStatusClass = 'bg-amber-100 text-amber-800';
+            if ($dueAtDate instanceof DateTimeImmutable) {
+                if ($dueAtDate < $nowManila) {
+                    $deadlineStatusLabel = 'Overdue';
+                    $deadlineStatusClass = 'bg-rose-100 text-rose-800';
+                } elseif ($dueAtDate <= $nowManila->modify('+2 days')) {
+                    $deadlineStatusLabel = 'Reminder Window';
+                    $deadlineStatusClass = 'bg-orange-100 text-orange-800';
+                }
+            }
+
+            $summaryParts = [];
+            if (!empty($recommendedProfile)) {
+                $summaryParts[] = count($recommendedProfile) . ' profile field(s)';
+            }
+            $addressCount = 0;
+            foreach ($recommendedAddresses as $addressRow) {
+                if (!is_array($addressRow)) {
+                    continue;
+                }
+                foreach ($addressRow as $value) {
+                    if (trim((string)$value) !== '') {
+                        $addressCount++;
+                    }
+                }
+            }
+            if ($addressCount > 0) {
+                $summaryParts[] = $addressCount . ' address detail(s)';
+            }
+            $governmentCount = 0;
+            foreach ($recommendedGovernmentIds as $value) {
+                if (trim((string)$value) !== '') {
+                    $governmentCount++;
+                }
+            }
+            if ($governmentCount > 0) {
+                $summaryParts[] = $governmentCount . ' government ID detail(s)';
+            }
+            if (!empty($recommendedFamily)) {
+                $summaryParts[] = 'family information';
+            }
+            if (!empty($recommendedEducation)) {
+                $summaryParts[] = count($recommendedEducation) . ' education row(s)';
+            }
+
+            $submittedBy = (string)($actorLabelById[(string)($requestLog['actor_user_id'] ?? '')] ?? 'Employee');
+            $submittedAtRaw = (string)($requestLog['created_at'] ?? '');
+            $pendingAdminApprovalRows[] = [
+                'employee_name' => $personNameById[$personId],
+                'submitted_by' => $submittedBy,
+                'submitted_at_label' => $formatStaffPersonalInfoTimestamp($submittedAtRaw),
+                'status_label' => $deadlineStatusLabel,
+                'status_class' => $deadlineStatusClass,
+                'summary' => !empty($summaryParts) ? implode(', ', $summaryParts) . ' requested for review' : 'Personal information update request',
+                'review_title' => 'Employee Personal Information Request',
+                'review_content' => 'Employee-submitted request due on ' . $deadlineLabel,
+                'review_pairs' => [
+                    ['field' => 'Source', 'current' => 'Employee', 'proposed' => 'Pending admin review'],
+                    ['field' => 'Deadline', 'current' => '-', 'proposed' => $deadlineLabel],
+                    ['field' => 'Reminder Status', 'current' => '-', 'proposed' => $deadlineStatusLabel],
+                ],
+                'recommendation_type' => 'Profile Update Request',
+                'recommendation_action' => 'submit_employee_profile_update_request',
+                'person_id' => $personId,
+                'request_id' => $requestId,
+                'due_at_label' => $deadlineLabel,
+                'search_text' => strtolower(trim($personNameById[$personId] . ' ' . $submittedBy . ' ' . implode(' ', $summaryParts) . ' ' . $deadlineLabel)),
+            ];
+        }
+    }
 }
 
 $addressRows = [];

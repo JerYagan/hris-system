@@ -8,7 +8,7 @@ $documentsResponse = apiRequest(
 
 $reviewsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/document_reviews?select=document_id,review_status,reviewed_at,review_notes,created_at,reviewer_user_id,reviewer:user_accounts(email)&order=created_at.desc&limit=4000',
+    $supabaseUrl . '/rest/v1/document_reviews?select=document_id,review_status,reviewed_at,review_notes,created_at,reviewer_user_id,reviewer:user_accounts(username,email)&order=created_at.desc&limit=4000',
     $headers
 );
 
@@ -37,6 +37,9 @@ $documentOwnerOptions = isSuccessful($ownersResponse) ? (array)($ownersResponse[
 $roleAssignments = isSuccessful($roleAssignmentsResponse) ? (array)($roleAssignmentsResponse['data'] ?? []) : [];
 
 $dataLoadError = null;
+$documentRequestRows = [];
+$documentAuditTrailById = [];
+$invalidCategoryNames = ['haugafia'];
 $appendDataError = static function (string $label, array $response) use (&$dataLoadError): void {
     if (isSuccessful($response)) {
         return;
@@ -125,11 +128,76 @@ $canonicalCategories = [
 ];
 
 $normalizeCategoryName = static function (string $value) use ($canonicalCategories): string {
-    $key = strtolower(trim(preg_replace('/\s+/', ' ', $value)));
+    $label = trim((string)preg_replace('/\s+/', ' ', $value));
+    $key = strtolower($label);
     if ($key === '') {
         return 'Others';
     }
-    return $canonicalCategories[$key] ?? 'Others';
+    return $canonicalCategories[$key] ?? $label;
+};
+
+$sanitizeCategoryName = static function (?string $value) use ($invalidCategoryNames): ?string {
+    $label = trim((string)$value);
+    if ($label === '') {
+        return null;
+    }
+
+    if (in_array(strtolower($label), $invalidCategoryNames, true)) {
+        return null;
+    }
+
+    return $label;
+};
+
+$buildActorLabel = static function (array $actor): string {
+    $username = trim((string)($actor['username'] ?? ''));
+    if ($username !== '') {
+        return $username;
+    }
+
+    $email = trim((string)($actor['email'] ?? ''));
+    return $email !== '' ? $email : 'System';
+};
+
+$resolveAuditActionLabel = static function (string $actionName, array $payload): string {
+    $statusContext = (array)($payload['status_context'] ?? []);
+    $reviewStatus = strtolower(trim((string)($payload['review_status'] ?? ($statusContext['review_status'] ?? ''))));
+    $statusTo = strtolower(trim((string)($payload['status_to'] ?? ($payload['status'] ?? ''))));
+
+    return match (strtolower(trim($actionName))) {
+        'upload_document', 'upload_document_file' => 'Created',
+        'upload_document_version' => 'Updated',
+        'recommend_document' => $reviewStatus !== ''
+            ? 'Reviewed: Recommend ' . ucwords(str_replace('_', ' ', $reviewStatus))
+            : 'Reviewed',
+        'review_document' => match ($reviewStatus !== '' ? $reviewStatus : $statusTo) {
+            'approved' => 'Approved',
+            'rejected' => 'Rejected',
+            'needs_revision', 'need_revision' => 'Needs Revision',
+            default => 'Reviewed',
+        },
+        'archive_document' => 'Archived',
+        'restore_document' => 'Restored',
+        default => ucwords(str_replace('_', ' ', trim($actionName))),
+    };
+};
+
+$resolveAuditNotes = static function (array $payload): string {
+    $statusContext = (array)($payload['status_context'] ?? []);
+    foreach ([
+        $payload['review_notes'] ?? null,
+        $statusContext['review_notes'] ?? null,
+        $payload['archive_reason'] ?? null,
+        $payload['status_reason'] ?? null,
+        $payload['reason'] ?? null,
+    ] as $candidate) {
+        $value = trim((string)$candidate);
+        if ($value !== '') {
+            return $value;
+        }
+    }
+
+    return '';
 };
 
 $orderedCategoryDisplay = [
@@ -152,16 +220,24 @@ $orderedCategoryDisplay = [
 $documentCategoryFilterOptions = $orderedCategoryDisplay;
 
 $categoryIdByCanonical = [];
+$customCategoryOptions = [];
 foreach ($documentCategoryOptionsRaw as $category) {
     $categoryId = trim((string)($category['id'] ?? ''));
-    $rawName = trim((string)($category['category_name'] ?? ''));
-    if ($categoryId === '' || $rawName === '') {
+    $rawName = $sanitizeCategoryName((string)($category['category_name'] ?? ''));
+    if ($categoryId === '' || $rawName === null) {
         continue;
     }
 
     $canonicalName = $normalizeCategoryName($rawName);
     if (!isset($categoryIdByCanonical[$canonicalName])) {
         $categoryIdByCanonical[$canonicalName] = $categoryId;
+    }
+
+    if (!in_array($rawName, $orderedCategoryDisplay, true)) {
+        $customCategoryOptions[strtolower($rawName)] = [
+            'id' => $categoryId,
+            'category_name' => $rawName,
+        ];
     }
 }
 
@@ -177,12 +253,21 @@ foreach ($orderedCategoryDisplay as $categoryName) {
     ];
 }
 
+foreach ($customCategoryOptions as $customCategory) {
+    $documentCategoryOptions[] = $customCategory;
+}
+
+$documentCategoryFilterOptions = array_values(array_unique(array_merge(
+    $orderedCategoryDisplay,
+    array_map(static fn(array $category): string => (string)($category['category_name'] ?? ''), array_values($customCategoryOptions))
+)));
+
 if (empty($documentCategoryOptions)) {
     $seen = [];
     foreach ($documentCategoryOptionsRaw as $category) {
         $categoryId = trim((string)($category['id'] ?? ''));
-        $rawName = trim((string)($category['category_name'] ?? ''));
-        if ($categoryId === '' || $rawName === '') {
+        $rawName = $sanitizeCategoryName((string)($category['category_name'] ?? ''));
+        if ($categoryId === '' || $rawName === null) {
             continue;
         }
 
@@ -253,6 +338,9 @@ foreach ($reviews as $review) {
         'reviewed_at' => trim((string)($review['reviewed_at'] ?? '')),
         'created_at' => trim((string)($review['created_at'] ?? '')),
         'notes' => trim((string)($review['review_notes'] ?? '')),
+        'reviewer_label' => trim((string)($review['reviewer']['username'] ?? '')) !== ''
+            ? trim((string)($review['reviewer']['username'] ?? ''))
+            : trim((string)($review['reviewer']['email'] ?? '')),
         'reviewer_email' => trim((string)($review['reviewer']['email'] ?? '')),
         'reviewer_role' => $reviewerRole,
     ];
@@ -263,6 +351,7 @@ $archivedDocumentRows = [];
 $pendingStaffApprovalRows = [];
 $pendingStaffReviewRows = [];
 $uploaderSummaryMap = [];
+$documentIds = [];
 
 foreach ($documents as $document) {
     $documentId = trim((string)($document['id'] ?? ''));
@@ -270,11 +359,13 @@ foreach ($documents as $document) {
         continue;
     }
 
+    $documentIds[] = $documentId;
+
     $title = trim((string)($document['title'] ?? 'Untitled Document'));
     $rawStatus = strtolower(trim((string)($document['document_status'] ?? 'draft')));
     $versionNo = (int)($document['current_version_no'] ?? 1);
     $rawCategory = trim((string)($document['category']['category_name'] ?? ''));
-    $categoryName = $normalizeCategoryName($rawCategory);
+    $categoryName = $sanitizeCategoryName($normalizeCategoryName($rawCategory)) ?? 'Others';
 
     $ownerFirst = trim((string)($document['owner']['first_name'] ?? ''));
     $ownerLast = trim((string)($document['owner']['surname'] ?? ''));
@@ -347,6 +438,9 @@ foreach ($documents as $document) {
         'preview_url' => $previewUrl,
         'download_url' => $documentUrl,
         'document_url' => $documentUrl,
+        'archived_at' => '',
+        'archived_label' => '-',
+        'audit_trail' => [],
     ];
 
     if ($rawStatus === 'archived') {
@@ -414,6 +508,114 @@ foreach ($documents as $document) {
         'download_url' => $documentUrl,
         'url' => $documentUrl,
     ];
+}
+
+if (!empty($documentIds)) {
+    $auditInClause = implode(',', array_map(static fn(string $id): string => rawurlencode($id), $documentIds));
+    $auditLogsResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/activity_logs?select=entity_id,action_name,new_data,created_at,actor:user_accounts(username,email)'
+        . '&entity_name=eq.documents'
+        . '&entity_id=in.(' . $auditInClause . ')'
+        . '&action_name=in.' . rawurlencode('(upload_document,upload_document_file,upload_document_version,recommend_document,review_document,archive_document,restore_document)')
+        . '&order=created_at.desc&limit=5000',
+        $headers
+    );
+    $appendDataError('Document audit logs', $auditLogsResponse);
+
+    if (isSuccessful($auditLogsResponse)) {
+        $archivedAtByDocumentId = [];
+
+        foreach ((array)($auditLogsResponse['data'] ?? []) as $auditLogRaw) {
+            $auditLog = (array)$auditLogRaw;
+            $documentId = trim((string)($auditLog['entity_id'] ?? ''));
+            if ($documentId === '') {
+                continue;
+            }
+
+            $payload = (array)($auditLog['new_data'] ?? []);
+            $actor = (array)($auditLog['actor'] ?? []);
+            $actionName = (string)($auditLog['action_name'] ?? '');
+
+            $documentAuditTrailById[$documentId][] = [
+                'action_label' => $resolveAuditActionLabel($actionName, $payload),
+                'actor_label' => $buildActorLabel($actor),
+                'created_at' => (string)($auditLog['created_at'] ?? ''),
+                'created_label' => formatDateTimeForPhilippines((string)($auditLog['created_at'] ?? ''), 'M d, Y g:i A'),
+                'notes' => $resolveAuditNotes($payload),
+            ];
+
+            if (strtolower(trim($actionName)) === 'archive_document' && !isset($archivedAtByDocumentId[$documentId])) {
+                $archivedAtByDocumentId[$documentId] = (string)($auditLog['created_at'] ?? '');
+            }
+        }
+
+        foreach ($documentRegistryRows as &$row) {
+            $documentId = (string)($row['id'] ?? '');
+            $row['audit_trail'] = (array)($documentAuditTrailById[$documentId] ?? []);
+        }
+        unset($row);
+
+        foreach ($pendingStaffApprovalRows as &$row) {
+            $documentId = (string)($row['id'] ?? '');
+            $row['audit_trail'] = (array)($documentAuditTrailById[$documentId] ?? []);
+        }
+        unset($row);
+
+        foreach ($pendingStaffReviewRows as &$row) {
+            $documentId = (string)($row['id'] ?? '');
+            $row['audit_trail'] = (array)($documentAuditTrailById[$documentId] ?? []);
+        }
+        unset($row);
+
+        foreach ($archivedDocumentRows as &$row) {
+            $documentId = (string)($row['id'] ?? '');
+            $archivedAt = (string)($archivedAtByDocumentId[$documentId] ?? '');
+            $row['archived_at'] = $archivedAt;
+            $row['archived_label'] = $archivedAt !== ''
+                ? formatDateTimeForPhilippines($archivedAt, 'M d, Y g:i A')
+                : '-';
+            $row['audit_trail'] = (array)($documentAuditTrailById[$documentId] ?? []);
+        }
+        unset($row);
+    }
+}
+
+$requestLogsResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/activity_logs?select=entity_id,action_name,new_data,created_at,actor:user_accounts(username,email)'
+    . '&module_name=eq.document_management'
+    . '&entity_name=eq.document_requests'
+    . '&order=created_at.desc&limit=2000',
+    $headers
+);
+$appendDataError('Document requests', $requestLogsResponse);
+
+if (isSuccessful($requestLogsResponse)) {
+    foreach ((array)($requestLogsResponse['data'] ?? []) as $requestLogRaw) {
+        $requestLog = (array)$requestLogRaw;
+        $payload = (array)($requestLog['new_data'] ?? []);
+        $requestId = trim((string)($requestLog['entity_id'] ?? ($payload['request_id'] ?? '')));
+        if ($requestId === '') {
+            continue;
+        }
+
+        $actor = (array)($requestLog['actor'] ?? []);
+        $documentRequestRows[] = [
+            'id' => $requestId,
+            'request_type_label' => trim((string)($payload['request_type_label'] ?? 'HR Document Request')),
+            'custom_request_label' => trim((string)($payload['custom_request_label'] ?? '')),
+            'purpose_label' => trim((string)($payload['purpose_label'] ?? 'Other')),
+            'other_purpose' => trim((string)($payload['other_purpose'] ?? '')),
+            'notes' => trim((string)($payload['notes'] ?? '')),
+            'status_label' => ucwords(str_replace('_', ' ', trim((string)($payload['status'] ?? 'submitted')))),
+            'requester_label' => $buildActorLabel($actor),
+            'submitted_at' => (string)($requestLog['created_at'] ?? ''),
+            'submitted_label' => formatDateTimeForPhilippines((string)($requestLog['created_at'] ?? ''), 'M d, Y g:i A'),
+        ];
+    }
 }
 
 $uploaderSummaryRows = array_values($uploaderSummaryMap);

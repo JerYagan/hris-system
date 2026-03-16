@@ -1,5 +1,5 @@
 <?php
-$pageTitle = 'Login | DA-ATI';
+$pageTitle = 'Login | ATI HRIS Portal';
 
 ob_start();
 ?>
@@ -15,8 +15,8 @@ ob_start();
       <div class="swiper-wrapper">
         <div class="swiper-slide relative">
           <img
-            src="https://picsum.photos/seed/da-login-1/1200/1000"
-            alt="Department of Agriculture - Agricultural Training Institute operations"
+            src="../../assets/images/hero-img/cUKZnTUV.jpg"
+            alt="ATI HRIS Portal operations"
             class="absolute inset-0 w-full h-full object-cover"
           />
           <div class="absolute inset-0 bg-daGreen/75"></div>
@@ -25,7 +25,7 @@ ob_start();
               Agricultural Training Institute
             </h2>
             <p class="text-sm opacity-90 max-w-sm">
-              Human Resource Information System.
+              ATI HRIS Portal.
               Secure access for authorized personnel.
             </p>
           </div>
@@ -33,8 +33,8 @@ ob_start();
 
         <div class="swiper-slide relative">
           <img
-            src="https://picsum.photos/seed/da-login-2/1200/1000"
-            alt="Public service and workforce"
+            src="../../assets/images/hero-img/NL7c-q11.jpg"
+            alt="ATI HRIS Portal workforce support"
             class="absolute inset-0 w-full h-full object-cover"
           />
           <div class="absolute inset-0 bg-daGreen/75"></div>
@@ -43,21 +43,21 @@ ob_start();
               Responsive Public Service
             </h2>
             <p class="text-sm opacity-90 max-w-sm">
-              Enabling transparent and efficient HR operations across DA-ATI offices.
+              Enabling transparent and efficient HR operations across ATI offices.
             </p>
           </div>
         </div>
 
         <div class="swiper-slide relative">
           <img
-            src="https://picsum.photos/seed/da-login-3/1200/1000"
-            alt="Agriculture and sustainability"
+            src="../../assets/images/hero-img/vIG7y6q-.jpg"
+            alt="ATI HRIS Portal leadership and public service"
             class="absolute inset-0 w-full h-full object-cover"
           />
           <div class="absolute inset-0 bg-daGreen/75"></div>
           <div class="relative z-10 p-10 text-white h-full flex flex-col justify-end">
             <h2 class="text-3xl font-bold mb-3">
-              One DA-ATI, One Digital Portal
+              Official ATI HRIS Portal
             </h2>
             <p class="text-sm opacity-90 max-w-sm">
               Strengthening workforce support through secure and modern systems.
@@ -86,7 +86,7 @@ ob_start();
         Sign in to your account
       </h1>
       <p class="text-sm text-gray-600">
-        Use your official DA-ATI credentials to continue.
+        Use your official ATI credentials to continue.
       </p>
     </div>
 
@@ -125,6 +125,12 @@ ob_start();
           $errorMessage = 'No active role is assigned to this account.';
         } elseif ($errorCode === 'config') {
           $errorMessage = 'Authentication is not configured. Check SUPABASE credentials.';
+        } elseif ($errorCode === 'mfa_send_failed') {
+          $errorMessage = 'Your password is correct, but we could not send the login verification code right now. Please try again.';
+        } elseif ($errorCode === 'mfa_missing') {
+          $errorMessage = 'Your verification step expired or is missing. Sign in again to request a new code.';
+        } elseif ($errorCode === 'mfa_locked') {
+          $errorMessage = 'Too many invalid verification attempts. Sign in again to request a new code.';
         }
       ?>
       <div class="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3

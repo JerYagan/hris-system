@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/includes/auth-support.php';
+require_once dirname(__DIR__) . '/admin/includes/notifications/email.php';
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
   header('Location: login.php');
@@ -16,24 +17,6 @@ $password = (string)($_POST['password'] ?? '');
 if ($email === '' || $password === '') {
   header('Location: login.php?error=invalid');
   exit;
-}
-
-function log_login_event(string $supabaseUrl, ?string $serviceRoleKey, array $payload): void
-{
-  if (!$serviceRoleKey) {
-    return;
-  }
-
-  authHttpJsonRequest(
-    'POST',
-    $supabaseUrl . '/rest/v1/login_audit_logs',
-    [
-      'apikey: ' . $serviceRoleKey,
-      'Authorization: Bearer ' . $serviceRoleKey,
-      'Prefer: return=minimal',
-    ],
-    $payload
-  );
 }
 
 $rootDir = dirname(__DIR__, 2);
@@ -83,7 +66,7 @@ if ($authResponse['status'] !== 200 || !is_array($authUser) || !$accessToken) {
 
   error_log('Login failure for ' . $email . ' | status=' . (string)($authResponse['status'] ?? 0) . ' | curl_error=' . ($curlError !== '' ? $curlError : 'none') . ' | response=' . ($authResponseBody !== '' ? $authResponseBody : 'empty'));
 
-  log_login_event($supabaseUrl, $supabaseServiceRoleKey, [
+  authLogLoginAuditEvent($supabaseUrl, $supabaseServiceRoleKey, [
     'user_id' => null,
     'email_attempted' => $email,
     'auth_provider' => 'password',
@@ -109,7 +92,7 @@ $accountResponse = authHttpJsonRequest(
 
 $accountStatus = $accountResponse['data'][0]['account_status'] ?? null;
 if ($accountStatus !== null && $accountStatus !== 'active') {
-  log_login_event($supabaseUrl, $supabaseServiceRoleKey, [
+  authLogLoginAuditEvent($supabaseUrl, $supabaseServiceRoleKey, [
     'user_id' => $userId,
     'email_attempted' => $email,
     'auth_provider' => 'password',
@@ -141,7 +124,7 @@ $redirectMap = [
 ];
 
 if ($roleKey === '' || !isset($redirectMap[$roleKey])) {
-  log_login_event($supabaseUrl, $supabaseServiceRoleKey, [
+  authLogLoginAuditEvent($supabaseUrl, $supabaseServiceRoleKey, [
     'user_id' => $userId,
     'email_attempted' => $email,
     'auth_provider' => 'password',
@@ -153,45 +136,93 @@ if ($roleKey === '' || !isset($redirectMap[$roleKey])) {
   exit;
 }
 
-$_SESSION['user'] = [
-  'id' => $userId,
+$headers = [
+  'Content-Type: application/json',
+  'apikey: ' . $supabaseServiceRoleKey,
+  'Authorization: Bearer ' . $supabaseServiceRoleKey,
+];
+
+$smtpConfig = [
+  'host' => (string)(authEnvValue('SMTP_HOST') ?? ''),
+  'port' => (int)(authEnvValue('SMTP_PORT') ?? 587),
+  'username' => (string)(authEnvValue('SMTP_USERNAME') ?? ''),
+  'password' => (string)(authEnvValue('SMTP_PASSWORD') ?? ''),
+  'encryption' => (string)(authEnvValue('SMTP_ENCRYPTION') ?? 'tls'),
+  'auth' => (string)(authEnvValue('SMTP_AUTH') ?? '1'),
+];
+$mailFrom = (string)(authEnvValue('MAIL_FROM') ?? '');
+$mailFromName = (string)(authEnvValue('MAIL_FROM_NAME') ?? 'ATI HRIS Portal');
+
+$resolvedMail = resolveSmtpMailConfig($supabaseUrl, $headers, $smtpConfig, $mailFrom, $mailFromName);
+$smtpConfig = (array)($resolvedMail['smtp'] ?? $smtpConfig);
+$mailFrom = (string)($resolvedMail['from'] ?? $mailFrom);
+$mailFromName = (string)($resolvedMail['from_name'] ?? $mailFromName);
+
+if (!smtpConfigIsReady($smtpConfig, $mailFrom)) {
+  header('Location: login.php?error=mfa_send_failed');
+  exit;
+}
+
+$verificationCode = authGenerateOtpCode();
+$displayName = (string)(
+  $authUser['user_metadata']['full_name']
+  ?? $authUser['user_metadata']['name']
+  ?? $userEmail
+);
+$pendingMfa = authStorePendingMfaChallenge([
+  'purpose' => 'login',
   'email' => $userEmail,
-  'name' => (string)(
-    $authUser['user_metadata']['full_name']
-    ?? $authUser['user_metadata']['name']
-    ?? $userEmail
-  ),
-  'role_key' => $roleKey,
-];
-
-$_SESSION['supabase'] = [
-  'access_token' => (string)$accessToken,
-  'refresh_token' => (string)($authResponse['data']['refresh_token'] ?? ''),
-  'expires_at' => (int)($authResponse['data']['expires_at'] ?? 0),
-];
-$_SESSION['remember_me'] = $rememberMe;
-
-session_regenerate_id(true);
-authSyncRememberMeCookie($rememberMe);
-
-authHttpJsonRequest(
-  'PATCH',
-  $supabaseUrl . '/rest/v1/user_accounts?id=eq.' . $userId,
-  [
-    'apikey: ' . $supabaseServiceRoleKey,
-    'Authorization: Bearer ' . $supabaseServiceRoleKey,
-    'Prefer: return=minimal',
+  'user_id' => $userId,
+  'remember_me' => $rememberMe,
+  'redirect_to' => $redirectMap[$roleKey],
+  'user' => [
+    'id' => $userId,
+    'email' => $userEmail,
+    'name' => $displayName,
+    'role_key' => $roleKey,
   ],
-  ['last_login_at' => gmdate('c')]
+  'tokens' => [
+    'access_token' => (string)$accessToken,
+    'refresh_token' => (string)($authResponse['data']['refresh_token'] ?? ''),
+    'expires_at' => (int)($authResponse['data']['expires_at'] ?? 0),
+  ],
+], $verificationCode);
+
+$safeCode = htmlspecialchars($verificationCode, ENT_QUOTES, 'UTF-8');
+$safeExpiry = htmlspecialchars(hrisEmailFormatPhilippinesTimestamp((int)$pendingMfa['expires_at']), ENT_QUOTES, 'UTF-8');
+
+$mailResponse = smtpSendTransactionalEmail(
+  $smtpConfig,
+  $mailFrom,
+  $mailFromName,
+  $userEmail,
+  $displayName,
+  'ATI HRIS Portal Login Verification Code',
+  '<p>Hello,</p>'
+    . '<p>Use the verification code below to complete your ATI HRIS Portal sign-in.</p>'
+    . '<p><strong>Verification Code</strong><br>'
+    . '<span style="display:inline-block;margin-top:8px;font-size:24px;font-weight:700;letter-spacing:2px;">' . $safeCode . '</span></p>'
+    . '<p>This code expires on <strong>' . $safeExpiry . '</strong>.</p>'
+    . '<p>If you did not attempt to sign in, you can ignore this email and consider changing your password.</p>'
 );
 
-log_login_event($supabaseUrl, $supabaseServiceRoleKey, [
+if (!isSuccessful($mailResponse)) {
+  unset($_SESSION[authPendingMfaSessionKey()]);
+  header('Location: login.php?error=mfa_send_failed');
+  exit;
+}
+
+authLogLoginAuditEvent($supabaseUrl, $supabaseServiceRoleKey, [
   'user_id' => $userId,
   'email_attempted' => $email,
   'auth_provider' => 'password',
-  'event_type' => 'login_success',
-  'metadata' => ['role_key' => $roleKey],
+  'event_type' => 'mfa_otp_issued',
+  'metadata' => [
+    'purpose' => 'login',
+    'channel' => (string)($pendingMfa['channel'] ?? 'email'),
+    'role_key' => $roleKey,
+  ],
 ]);
 
-header('Location: ' . $redirectMap[$roleKey]);
+header('Location: mfa-verify.php?mode=login&sent=1');
 exit;

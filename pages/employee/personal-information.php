@@ -74,7 +74,7 @@ $canEditPlaceOfBirth = $isBlankProfileValue($employeeProfile['place_of_birth'] ?
         <span class="material-symbols-outlined text-sm">password</span>
         Change Password
       </button>
-      <button data-open-profile class="bg-daGreen text-white px-5 py-2 rounded-lg text-sm font-medium hover:opacity-90">Edit Profile</button>
+      <button data-open-profile class="bg-daGreen text-white px-5 py-2 rounded-lg text-sm font-medium hover:opacity-90">Submit Update Request</button>
     </div>
   </header>
 
@@ -131,6 +131,58 @@ $canEditPlaceOfBirth = $isBlankProfileValue($employeeProfile['place_of_birth'] ?
         </div>
       </div>
     </article>
+  </div>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6 overflow-hidden">
+  <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
+    <div>
+      <h2 class="text-lg font-semibold text-slate-800">Request Tracker</h2>
+      <p class="text-sm text-slate-500 mt-1">Track submitted personal-information requests and the 5-business-day target completion window.</p>
+    </div>
+    <div class="text-right text-sm text-slate-600">
+      <p><span class="font-semibold text-slate-800"><?= $escape((string)$pendingPersonalInfoRequestCount) ?></span> pending</p>
+      <p class="text-xs text-slate-500">Nearest due: <?= $escape((string)$nearestPersonalInfoDueLabel) ?></p>
+    </div>
+  </header>
+
+  <div class="p-6 overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-slate-600">
+        <tr>
+          <th class="text-left px-4 py-3">Request ID</th>
+          <th class="text-left px-4 py-3">Submitted</th>
+          <th class="text-left px-4 py-3">Due Date</th>
+          <th class="text-left px-4 py-3">Status</th>
+          <th class="text-left px-4 py-3">Review</th>
+          <th class="text-left px-4 py-3">Summary</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        <?php if (empty($personalInfoRequestRows)): ?>
+          <tr><td class="px-4 py-3 text-slate-500" colspan="6">No personal-information update requests submitted yet.</td></tr>
+        <?php else: ?>
+          <?php foreach ($personalInfoRequestRows as $requestRow): ?>
+            <tr>
+              <td class="px-4 py-3 text-slate-600"><?= $escape((string)$requestRow['request_id']) ?></td>
+              <td class="px-4 py-3 text-slate-600"><?= $escape((string)$requestRow['submitted_at_label']) ?></td>
+              <td class="px-4 py-3 text-slate-600"><?= $escape((string)$requestRow['due_at_label']) ?></td>
+              <td class="px-4 py-3"><span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs <?= $escape((string)$requestRow['status_class']) ?>"><?= $escape((string)$requestRow['status_label']) ?></span></td>
+              <td class="px-4 py-3 text-slate-600">
+                <p><?= $escape((string)$requestRow['reviewed_by']) ?></p>
+                <p class="text-xs text-slate-500 mt-1"><?= $escape((string)$requestRow['reviewed_at_label']) ?></p>
+                <?php if (!empty($requestRow['review_remarks'])): ?>
+                  <p class="text-xs text-slate-500 mt-1">Remarks: <?= $escape((string)$requestRow['review_remarks']) ?></p>
+                <?php elseif (!empty($requestRow['updated_live_record'])): ?>
+                  <p class="text-xs text-emerald-700 mt-1">Approved changes were applied to your live record.</p>
+                <?php endif; ?>
+              </td>
+              <td class="px-4 py-3 text-slate-600"><?= $escape((string)$requestRow['summary']) ?></td>
+            </tr>
+          <?php endforeach; ?>
+        <?php endif; ?>
+      </tbody>
+    </table>
   </div>
 </section>
 
@@ -236,7 +288,7 @@ $canEditPlaceOfBirth = $isBlankProfileValue($employeeProfile['place_of_birth'] ?
     <div class="bg-white rounded-xl shadow-lg w-full max-w-6xl max-h-[92vh] overflow-hidden flex flex-col">
       <div class="px-6 py-4 border-b">
         <div class="flex justify-between items-center mb-3">
-          <h2 class="text-lg font-semibold">Update Personal Information</h2>
+          <h2 class="text-lg font-semibold">Submit Personal Information Update Request</h2>
           <button type="button" data-close-profile><span class="material-symbols-outlined">close</span></button>
         </div>
         <div class="grid grid-cols-3 text-sm border rounded-lg overflow-hidden">
@@ -258,7 +310,7 @@ $canEditPlaceOfBirth = $isBlankProfileValue($employeeProfile['place_of_birth'] ?
           <section data-profile-section="personal" class="space-y-6">
             <section class="space-y-3">
               <h4 class="text-sm font-semibold text-slate-700">Basic Identity</h4>
-              <p class="text-xs text-slate-500">Middle name, date of birth, and place of birth can only be set once here. Use the <a href="support.php" class="font-medium text-daGreen hover:underline">Support Center</a> for later corrections.</p>
+              <p class="text-xs text-slate-500">Changes submitted here go through admin review with a 5-business-day target completion SLA.</p>
               <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <label class="text-slate-600">First Name</label>

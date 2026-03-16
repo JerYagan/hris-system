@@ -7,6 +7,21 @@ if (!function_exists('isValidUuid')) {
     }
 }
 
+if (!function_exists('payrollSyncDefaultConfig')) {
+    function payrollSyncDefaultConfig(): array
+    {
+        return [
+            'payroll_excel_url' => '',
+            'payslip_excel_url' => '',
+            'google_sheet_url' => '',
+            'workflow_mode' => 'excel_to_google_sheet',
+            'workflow_notes' => '',
+            'permanent_timekeeping_source' => 'attendance',
+            'cos_timekeeping_source' => 'import',
+        ];
+    }
+}
+
 $normalizeCompensationRow = static function (array $row): array {
     $monthlyRate = (float)($row['monthly_rate'] ?? 0);
     $allowanceTotal = max(0.0, (float)($row['allowance_total'] ?? 0));
@@ -66,6 +81,12 @@ $runsResponse = apiRequest(
     $headers
 );
 
+$payrollSyncSettingsResponse = apiRequest(
+    'GET',
+    $supabaseUrl . '/rest/v1/system_settings?select=setting_key,setting_value&setting_key=in.(' . rawurlencode('payroll.sync.config,payroll.sync.last_deduction_import') . ')&limit=10',
+    $headers
+);
+
 $itemsResponse = apiRequest(
     'GET',
     $supabaseUrl . '/rest/v1/payroll_items?select=id,payroll_run_id,person_id,basic_pay,overtime_pay,allowances_total,gross_pay,deductions_total,net_pay,created_at,person:people(first_name,surname)&order=created_at.desc&limit=' . (int)$payrollManagementLimits['items'],
@@ -86,6 +107,31 @@ $periodRows = isSuccessful($periodsResponse) ? (array)$periodsResponse['data'] :
 $runRows = isSuccessful($runsResponse) ? (array)$runsResponse['data'] : [];
 $itemRows = isSuccessful($itemsResponse) ? (array)$itemsResponse['data'] : [];
 $payslipRows = isSuccessful($payslipsResponse) ? (array)$payslipsResponse['data'] : [];
+
+$payrollSyncConfig = payrollSyncDefaultConfig();
+$payrollLastDeductionImport = null;
+if (isSuccessful($payrollSyncSettingsResponse)) {
+    foreach ((array)($payrollSyncSettingsResponse['data'] ?? []) as $settingRow) {
+        $settingKey = trim((string)($settingRow['setting_key'] ?? ''));
+        $settingValue = $settingRow['setting_value'] ?? null;
+
+        if ($settingKey === 'payroll.sync.config' && is_array($settingValue)) {
+            $payrollSyncConfig = array_merge($payrollSyncConfig, $settingValue);
+            continue;
+        }
+
+        if ($settingKey === 'payroll.sync.last_deduction_import' && is_array($settingValue)) {
+            $payrollLastDeductionImport = $settingValue;
+        }
+    }
+}
+
+$payrollSourceLinksConfirmed = trim((string)($payrollSyncConfig['payroll_excel_url'] ?? '')) !== ''
+    && trim((string)($payrollSyncConfig['payslip_excel_url'] ?? '')) !== '';
+$payrollRuleSummary = [
+    'permanent_timekeeping_source' => (string)($payrollSyncConfig['permanent_timekeeping_source'] ?? 'attendance'),
+    'cos_timekeeping_source' => (string)($payrollSyncConfig['cos_timekeeping_source'] ?? 'import'),
+];
 
 $employeeRoleUserIds = [];
 $employmentUserIds = [];

@@ -774,7 +774,7 @@ if (!empty($personNameById)) {
         . '/rest/v1/activity_logs?select=id,entity_id,actor_user_id,created_at,new_data,module_name,action_name,entity_name'
         . '&module_name=eq.personal_information'
         . '&entity_name=eq.people'
-        . '&action_name=eq.recommend_employee_profile_update'
+        . '&action_name=eq.submit_employee_profile_update_request'
         . '&entity_id=in.(' . $personIdFilter . ')'
         . '&order=created_at.desc&limit=200',
         $headers
@@ -823,7 +823,7 @@ if (!empty($personNameById)) {
             $actorFilter = implode(',', array_map('rawurlencode', array_keys($actorIds)));
             $actorResponse = apiRequest(
                 'GET',
-                $supabaseUrl . '/rest/v1/user_accounts?select=id,email&id=in.(' . $actorFilter . ')&limit=500',
+                $supabaseUrl . '/rest/v1/user_accounts?select=id,username,email&id=in.(' . $actorFilter . ')&limit=500',
                 $headers
             );
 
@@ -833,7 +833,7 @@ if (!empty($personNameById)) {
                     if ($actorId === '') {
                         continue;
                     }
-                    $actorEmailById[$actorId] = (string)($actorRow['email'] ?? 'Staff');
+                    $actorEmailById[$actorId] = (string)(cleanText($actorRow['username'] ?? null) ?? cleanText($actorRow['email'] ?? null) ?? 'Employee');
                 }
             }
         }
@@ -855,6 +855,7 @@ if (!empty($personNameById)) {
             $recommendedGovernmentIds = is_array($newData['recommended_government_ids'] ?? null) ? (array)$newData['recommended_government_ids'] : [];
             $recommendedFamily = is_array($newData['recommended_family'] ?? null) ? (array)$newData['recommended_family'] : [];
             $recommendedEducation = is_array($newData['recommended_educational_backgrounds'] ?? null) ? (array)$newData['recommended_educational_backgrounds'] : [];
+            $requestDueAt = (string)($newData['request_due_at'] ?? '');
             $profileFieldCount = count($recommendedProfile);
             $addressFieldCount = 0;
             foreach ($recommendedAddresses as $addressRow) {
@@ -902,17 +903,31 @@ if (!empty($personNameById)) {
             }
 
             $actorId = (string)($recommendationRow['actor_user_id'] ?? '');
-            $submittedBy = $actorEmailById[$actorId] ?? 'Staff';
+            $submittedBy = $actorEmailById[$actorId] ?? 'Employee';
             $submittedAtRaw = (string)($recommendationRow['created_at'] ?? '');
             $submittedAt = $submittedAtRaw !== '' ? strtotime($submittedAtRaw) : false;
             $submittedAtDate = $submittedAt ? date('Y-m-d', $submittedAt) : '';
+            $dueAtTs = $requestDueAt !== '' ? strtotime($requestDueAt) : false;
+            $statusLabel = 'Pending Admin Action';
+            $statusClass = 'bg-amber-100 text-amber-800';
+            if ($dueAtTs !== false) {
+                $nowTs = time();
+                if ($dueAtTs < $nowTs) {
+                    $statusLabel = 'Overdue';
+                    $statusClass = 'bg-rose-100 text-rose-800';
+                } elseif ($dueAtTs <= strtotime('+2 days', $nowTs)) {
+                    $statusLabel = 'Reminder Window';
+                    $statusClass = 'bg-orange-100 text-orange-800';
+                }
+            }
             $summaryText = !empty($summaryFragments)
-                ? implode(', ', $summaryFragments) . ' recommended for review'
-                : 'Profile details recommended for update';
+                ? implode(', ', $summaryFragments) . ' requested for review'
+                : 'Profile details requested for update';
             $searchText = strtolower(trim(implode(' ', [
                 $personNameById[$entityId],
                 $submittedBy,
                 $summaryText,
+                $requestDueAt,
             ])));
 
             $recommendationHistoryRows[] = [
@@ -920,11 +935,12 @@ if (!empty($personNameById)) {
                 'person_id' => $entityId,
                 'employee_name' => $personNameById[$entityId],
                 'submitted_by' => $submittedBy,
-                'submitted_at_label' => $submittedAt ? date('M d, Y h:i A', $submittedAt) : '-',
+                'submitted_at_label' => $submittedAt ? formatDateTimeForPhilippines(date(DATE_ATOM, $submittedAt), 'M d, Y h:i A') : '-',
                 'submitted_at_date' => $submittedAtDate,
-                'status_label' => 'Pending Admin Action',
-                'status_class' => 'bg-amber-100 text-amber-800',
+                'status_label' => $statusLabel,
+                'status_class' => $statusClass,
                 'summary' => $summaryText,
+                'due_at_label' => $dueAtTs ? formatDateTimeForPhilippines(date(DATE_ATOM, $dueAtTs), 'M d, Y h:i A') . ' PST' : '-',
                 'proposed_changes' => [
                     'recommended_profile' => $recommendedProfile,
                     'recommended_addresses' => $recommendedAddresses,

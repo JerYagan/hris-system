@@ -1,5 +1,5 @@
 <?php
-$pageTitle = 'Register | DA HRIS';
+$pageTitle = 'Register | ATI HRIS Portal';
 
 ob_start();
 ?>
@@ -28,10 +28,20 @@ ob_start();
         $errorMessage = 'Passwords do not match.';
       } elseif ($errorCode === 'missing_name') {
         $errorMessage = 'First name and surname are required.';
+      } elseif ($errorCode === 'invalid_first_name') {
+        $errorMessage = 'Enter a valid first name using letters, spaces, apostrophes, periods, or hyphens only.';
+      } elseif ($errorCode === 'invalid_surname') {
+        $errorMessage = 'Enter a valid surname using letters, spaces, apostrophes, periods, or hyphens only.';
+      } elseif ($errorCode === 'invalid_mobile') {
+        $errorMessage = 'Enter a valid Philippine mobile number using 09XXXXXXXXX or +639XXXXXXXXX.';
       } elseif ($errorCode === 'role_missing') {
         $errorMessage = 'Applicant role is missing from the system configuration.';
       } elseif ($errorCode === 'email_exists') {
         $errorMessage = 'This email is already registered.';
+      } elseif ($errorCode === 'otp_send_failed') {
+        $errorMessage = 'We could not send the verification code right now. Please try again.';
+      } elseif ($errorCode === 'mfa_locked') {
+        $errorMessage = 'Too many invalid verification attempts. Start registration again to request a new code.';
       } elseif ($errorCode === 'config') {
         $errorMessage = 'Registration is not configured. Check Supabase credentials.';
       }
@@ -46,22 +56,23 @@ ob_start();
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
       <div>
         <label class="block text-sm font-medium mb-1">First Name</label>
-        <input type="text" name="first_name" required class="w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-daGreen">
+        <input type="text" id="registerFirstName" name="first_name" autocomplete="given-name" required minlength="2" maxlength="80" pattern="[A-Za-z][A-Za-z\s'.-]*" title="Use letters, spaces, apostrophes, periods, or hyphens only." class="w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-daGreen">
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Surname</label>
-        <input type="text" name="surname" required class="w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-daGreen">
+        <input type="text" id="registerSurname" name="surname" autocomplete="family-name" required minlength="2" maxlength="80" pattern="[A-Za-z][A-Za-z\s'.-]*" title="Use letters, spaces, apostrophes, periods, or hyphens only." class="w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-daGreen">
       </div>
     </div>
 
     <div>
       <label class="block text-sm font-medium mb-1">Email Address</label>
-      <input type="email" name="email" required class="w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-daGreen">
+      <input type="email" id="registerEmail" name="email" autocomplete="email" maxlength="120" required class="w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-daGreen">
     </div>
 
     <div>
       <label class="block text-sm font-medium mb-1">Mobile Number</label>
-      <input type="text" name="mobile" required class="w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-daGreen">
+      <input type="text" id="registerMobile" name="mobile" autocomplete="tel" inputmode="tel" placeholder="09XXXXXXXXX" required pattern="(?:\+639\d{9}|09\d{9})" title="Use 09XXXXXXXXX or +639XXXXXXXXX." class="w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-daGreen">
+      <p class="mt-1 text-xs text-gray-500">We will send your one-time verification code to this email address after you submit the form.</p>
     </div>
 
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -85,8 +96,74 @@ ob_start();
 
 <script>
   const registerForm = document.querySelector('form');
+  const firstNameInput = document.getElementById('registerFirstName');
+  const surnameInput = document.getElementById('registerSurname');
+  const emailInput = document.getElementById('registerEmail');
+  const mobileInput = document.getElementById('registerMobile');
   const passwordInput = document.getElementById('registerPassword');
   const confirmPasswordInput = document.getElementById('registerConfirmPassword');
+  const namePattern = /^[A-Za-z][A-Za-z\s'.-]*$/;
+  const mobilePattern = /^(?:\+639\d{9}|09\d{9})$/;
+
+  const setFieldValidity = (input, message) => {
+    if (!input) {
+      return true;
+    }
+
+    input.setCustomValidity(message);
+    return message === '';
+  };
+
+  const validateNameField = (input, label) => {
+    if (!input) {
+      return true;
+    }
+
+    const value = input.value.trim();
+    if (value === '') {
+      return setFieldValidity(input, `${label} is required.`);
+    }
+    if (value.length < 2) {
+      return setFieldValidity(input, `${label} must be at least 2 characters.`);
+    }
+    if (!namePattern.test(value)) {
+      return setFieldValidity(input, `${label} may only contain letters, spaces, apostrophes, periods, and hyphens.`);
+    }
+
+    return setFieldValidity(input, '');
+  };
+
+  const validateEmailField = () => {
+    if (!emailInput) {
+      return true;
+    }
+
+    const value = emailInput.value.trim();
+    if (value === '') {
+      return setFieldValidity(emailInput, 'Email address is required.');
+    }
+    if (!emailInput.checkValidity()) {
+      return setFieldValidity(emailInput, 'Please enter a valid email address.');
+    }
+
+    return setFieldValidity(emailInput, '');
+  };
+
+  const validateMobileField = () => {
+    if (!mobileInput) {
+      return true;
+    }
+
+    const value = mobileInput.value.trim();
+    if (value === '') {
+      return setFieldValidity(mobileInput, 'Mobile number is required.');
+    }
+    if (!mobilePattern.test(value)) {
+      return setFieldValidity(mobileInput, 'Use 09XXXXXXXXX or +639XXXXXXXXX.');
+    }
+
+    return setFieldValidity(mobileInput, '');
+  };
 
   const setMismatchState = (hasMismatch) => {
     if (!passwordInput || !confirmPasswordInput) {
@@ -123,10 +200,37 @@ ob_start();
   passwordInput?.addEventListener('input', validatePasswordMatch);
   confirmPasswordInput?.addEventListener('input', validatePasswordMatch);
   confirmPasswordInput?.addEventListener('blur', validatePasswordMatch);
+  firstNameInput?.addEventListener('input', () => validateNameField(firstNameInput, 'First name'));
+  surnameInput?.addEventListener('input', () => validateNameField(surnameInput, 'Surname'));
+  emailInput?.addEventListener('input', validateEmailField);
+  mobileInput?.addEventListener('input', validateMobileField);
 
   registerForm?.addEventListener('submit', (event) => {
+    const isNameValid = validateNameField(firstNameInput, 'First name')
+      && validateNameField(surnameInput, 'Surname');
+    const isEmailValid = validateEmailField();
+    const isMobileValid = validateMobileField();
+
     if (!validatePasswordMatch()) {
       confirmPasswordInput?.reportValidity();
+      event.preventDefault();
+      return;
+    }
+
+    if (!isNameValid) {
+      firstNameInput?.reportValidity();
+      event.preventDefault();
+      return;
+    }
+
+    if (!isEmailValid) {
+      emailInput?.reportValidity();
+      event.preventDefault();
+      return;
+    }
+
+    if (!isMobileValid) {
+      mobileInput?.reportValidity();
       event.preventDefault();
       return;
     }

@@ -161,11 +161,11 @@ if ($action === 'review_ob_request') {
     $notes = cleanText($_POST['notes'] ?? null);
 
     if (!isValidUuid($requestId)) {
-        redirectWithState('error', 'Invalid official business request selected.');
+        redirectWithState('error', 'Invalid special timekeeping request selected.');
     }
 
     if (!in_array($decision, ['approved', 'rejected', 'cancelled'], true)) {
-        redirectWithState('error', 'Invalid official business decision selected.');
+        redirectWithState('error', 'Invalid special timekeeping decision selected.');
     }
 
     $requestResponse = apiRequest(
@@ -176,35 +176,38 @@ if ($action === 'review_ob_request') {
 
     $requestRow = isSuccessful($requestResponse) ? ($requestResponse['data'][0] ?? null) : null;
     if (!is_array($requestRow)) {
-        redirectWithState('error', 'Official business request not found.');
+        redirectWithState('error', 'Special timekeeping request not found.');
     }
 
-    $reasonRaw = trim((string)($requestRow['reason'] ?? ''));
-    if (preg_match('/^\[OB\]\s*/i', $reasonRaw) !== 1) {
-        redirectWithState('error', 'Only official business requests can use OB review.');
+    $parsedRequest = timekeepingParseTaggedReason((string)($requestRow['reason'] ?? ''));
+    if (($parsedRequest['is_special'] ?? false) !== true) {
+        redirectWithState('error', 'Only tagged special timekeeping requests can use this review flow.');
     }
+
+    $requestLabel = (string)($parsedRequest['label'] ?? 'Special timekeeping request');
+    $requestLabelLower = strtolower($requestLabel);
 
     $personId = cleanText($requestRow['person_id'] ?? null) ?? '';
     $recipientUserId = cleanText($requestRow['person']['user_id'] ?? null) ?? '';
 
     if (!$isPersonInScope($personId)) {
-        redirectWithState('error', 'Official business request target is invalid or no longer active.');
+        redirectWithState('error', $requestLabel . ' target is invalid or no longer active.');
     }
 
     $oldStatus = strtolower((string)(cleanText($requestRow['status'] ?? null) ?? 'pending'));
     if (!canTransitionStatus('overtime_requests', $oldStatus, $decision)) {
-        redirectWithState('error', 'Invalid official business transition from ' . $oldStatus . ' to ' . $decision . '.');
+        redirectWithState('error', 'Invalid ' . $requestLabelLower . ' transition from ' . $oldStatus . ' to ' . $decision . '.');
     }
 
     $notifyRequester(
         $recipientUserId,
-        'Official Business Recommendation Submitted',
-        'A staff recommendation (' . str_replace('_', ' ', $decision) . ') was submitted for your official business request. Final approval will be done by admin.'
+        $requestLabel . ' Recommendation Submitted',
+        'A staff recommendation (' . str_replace('_', ' ', $decision) . ') was submitted for your ' . $requestLabelLower . '. Final approval will be done by admin.'
     );
 
     $notifyAdmins(
-        'Official Business Recommendation Pending Approval',
-        'A staff recommendation was submitted for an official business request: ' . str_replace('_', ' ', $decision) . '. Please review for final decision.'
+        $requestLabel . ' Recommendation Pending Approval',
+        'A staff recommendation was submitted for a ' . $requestLabelLower . ': ' . str_replace('_', ' ', $decision) . '. Please review for final decision.'
     );
 
     $writeActivityLog(
@@ -217,11 +220,12 @@ if ($action === 'review_ob_request') {
             'recommended_status' => $decision,
             'notes' => $notes,
             'submitted_for_admin_approval' => true,
-            'request_type' => 'official_business',
+            'request_type' => (string)($parsedRequest['request_type'] ?? 'official_business'),
+            'request_label' => $requestLabel,
         ]
     );
 
-    redirectWithState('success', 'Official business recommendation submitted to admin for final approval.');
+    redirectWithState('success', $requestLabel . ' recommendation submitted to admin for final approval.');
 }
 
 if ($action === 'review_time_adjustment') {

@@ -59,8 +59,8 @@ $profileSummary = [
     'office_name' => $officeName,
     'account_status' => $accountStatusLabel,
     'account_status_class' => $accountStatusClass,
-    'last_login_at' => !empty($accountRow['last_login_at']) ? date('M d, Y h:i A', strtotime((string)$accountRow['last_login_at'])) : 'No login activity yet',
-    'member_since' => !empty($accountRow['created_at']) ? date('M d, Y', strtotime((string)$accountRow['created_at'])) : '-',
+    'last_login_at' => !empty($accountRow['last_login_at']) ? formatDateTimeForPhilippines((string)$accountRow['last_login_at'], 'M d, Y h:i A') . ' PST' : 'No login activity yet',
+    'member_since' => !empty($accountRow['created_at']) ? formatDateTimeForPhilippines((string)$accountRow['created_at'], 'M d, Y') : '-',
 ];
 
 $rawProfilePhotoPath = trim((string)($profileSummary['profile_photo_url'] ?? ''));
@@ -123,7 +123,7 @@ foreach ($loginHistoryRowsRaw as $entry) {
         'ip_address' => (string)($entry['ip_address'] ?? 'unknown'),
         'user_agent' => $userAgent,
         'device_label' => $deviceLabel,
-        'created_at' => $createdAt !== '' ? date('M d, Y h:i A', strtotime($createdAt)) : '-',
+        'created_at' => $createdAt !== '' ? formatDateTimeForPhilippines($createdAt, 'M d, Y h:i A') . ' PST' : '-',
         'search_text' => strtolower(trim($eventLabel . ' ' . ((string)($entry['auth_provider'] ?? '')) . ' ' . ((string)($entry['ip_address'] ?? '')) . ' ' . $userAgent . ' ' . $deviceLabel)),
     ];
 }

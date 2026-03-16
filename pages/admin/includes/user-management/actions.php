@@ -135,19 +135,276 @@ if (!function_exists('userManagementCanAssignAdminRole')) {
     }
 }
 
-if (!function_exists('userManagementCreateEmployeeAccount')) {
-    function userManagementCreateEmployeeAccount(
+if (!function_exists('userManagementAssignableRoleById')) {
+    function userManagementAssignableRoleById(string $roleId, string $supabaseUrl, array $headers): array
+    {
+        if (!userManagementIsValidUuid($roleId)) {
+            return [];
+        }
+
+        $roleResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/roles?select=id,role_key,role_name&id=eq.' . rawurlencode($roleId) . '&limit=1',
+            $headers
+        );
+
+        if (!isSuccessful($roleResponse) || empty((array)($roleResponse['data'] ?? []))) {
+            return [];
+        }
+
+        $role = (array)($roleResponse['data'][0] ?? []);
+        $roleKey = strtolower(trim((string)($role['role_key'] ?? '')));
+        $assignableRolePolicy = array_flip(userManagementAssignableRolePolicy());
+        if ($roleKey === '' || !isset($assignableRolePolicy[$roleKey])) {
+            return [];
+        }
+
+        return $role;
+    }
+}
+
+if (!function_exists('userManagementLoadEmployeeIdPrefix')) {
+    function userManagementLoadEmployeeIdPrefix(string $supabaseUrl, array $headers): string
+    {
+        $defaultPrefix = 'DA-EMP-';
+        $response = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/system_settings?select=setting_value&setting_key=eq.' . rawurlencode('employee_id_prefix') . '&limit=1',
+            $headers
+        );
+
+        $storedValue = '';
+        if (isSuccessful($response) && !empty((array)($response['data'] ?? []))) {
+            $raw = $response['data'][0]['setting_value'] ?? null;
+            $value = is_array($raw) && array_key_exists('value', $raw) ? $raw['value'] : $raw;
+            if (is_scalar($value)) {
+                $storedValue = trim((string)$value);
+            }
+        }
+
+        $prefix = strtoupper((string)preg_replace('/[^A-Z0-9-]+/i', '-', $storedValue));
+        $prefix = preg_replace('/-+/', '-', $prefix ?? '') ?: '';
+        $prefix = trim($prefix);
+        if ($prefix === '') {
+            $prefix = $defaultPrefix;
+        }
+        if (!str_ends_with($prefix, '-')) {
+            $prefix .= '-';
+        }
+
+        return $prefix;
+    }
+}
+
+if (!function_exists('userManagementGenerateEmployeeId')) {
+    function userManagementGenerateEmployeeId(string $supabaseUrl, array $headers): string
+    {
+        $prefix = userManagementLoadEmployeeIdPrefix($supabaseUrl, $headers);
+        $response = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/people?select=agency_employee_no&agency_employee_no=ilike.' . rawurlencode($prefix . '%') . '&limit=5000',
+            $headers
+        );
+
+        $maxSequence = 0;
+        $usedCodes = [];
+        if (isSuccessful($response)) {
+            foreach ((array)($response['data'] ?? []) as $row) {
+                $code = trim((string)($row['agency_employee_no'] ?? ''));
+                if ($code === '' || stripos($code, $prefix) !== 0) {
+                    continue;
+                }
+
+                $usedCodes[strtolower($code)] = true;
+                $suffix = substr($code, strlen($prefix));
+                if ($suffix !== '' && ctype_digit($suffix)) {
+                    $maxSequence = max($maxSequence, (int)$suffix);
+                }
+            }
+        }
+
+        $sequence = max(1, $maxSequence + 1);
+        for ($attempt = 0; $attempt < 10000; $attempt++, $sequence++) {
+            $candidate = $prefix . str_pad((string)$sequence, 4, '0', STR_PAD_LEFT);
+            if (!isset($usedCodes[strtolower($candidate)])) {
+                return $candidate;
+            }
+        }
+
+        return $prefix . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
+    }
+}
+
+if (!function_exists('userManagementEnsureApplicantProfile')) {
+    function userManagementEnsureApplicantProfile(string $userId, string $email, string $fullName, string $supabaseUrl, array $headers): array
+    {
+        if (!userManagementIsValidUuid($userId)) {
+            return ['ok' => false, 'message' => 'Applicant profile requires a valid user account.'];
+        }
+
+        $profileResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/applicant_profiles?select=id,email,full_name&user_id=eq.' . rawurlencode($userId) . '&limit=1',
+            $headers
+        );
+
+        if (isSuccessful($profileResponse) && !empty((array)($profileResponse['data'] ?? []))) {
+            $profile = (array)($profileResponse['data'][0] ?? []);
+            $profileId = trim((string)($profile['id'] ?? ''));
+            if (userManagementIsValidUuid($profileId)) {
+                $patchPayload = [];
+                if (trim((string)($profile['email'] ?? '')) === '') {
+                    $patchPayload['email'] = $email;
+                }
+                if (trim((string)($profile['full_name'] ?? '')) === '') {
+                    $patchPayload['full_name'] = $fullName;
+                }
+                if (!empty($patchPayload)) {
+                    apiRequest(
+                        'PATCH',
+                        $supabaseUrl . '/rest/v1/applicant_profiles?id=eq.' . rawurlencode($profileId),
+                        array_merge($headers, ['Prefer: return=minimal']),
+                        $patchPayload
+                    );
+                }
+
+                return ['ok' => true, 'message' => 'Applicant profile already exists.', 'id' => $profileId];
+            }
+        }
+
+        $createProfileResponse = apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/applicant_profiles',
+            array_merge($headers, ['Prefer: return=representation']),
+            [[
+                'user_id' => $userId,
+                'full_name' => $fullName,
+                'email' => $email,
+            ]]
+        );
+
+        if (!isSuccessful($createProfileResponse)) {
+            return ['ok' => false, 'message' => 'Account created but applicant profile initialization failed.'];
+        }
+
+        return [
+            'ok' => true,
+            'message' => 'Applicant profile created successfully.',
+            'id' => (string)($createProfileResponse['data'][0]['id'] ?? ''),
+        ];
+    }
+}
+
+if (!function_exists('userManagementEnsureEmploymentRecord')) {
+    function userManagementEnsureEmploymentRecord(string $personId, ?string $officeId, ?string $positionId, string $supabaseUrl, array $headers): array
+    {
+        if (!userManagementIsValidUuid($personId)) {
+            return ['ok' => false, 'message' => 'Employment record requires a valid person profile.'];
+        }
+
+        if (!userManagementIsValidUuid((string)$officeId) || !userManagementIsValidUuid((string)$positionId)) {
+            return ['ok' => false, 'message' => 'Division and position are required for employment-backed user accounts.'];
+        }
+
+        $personResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/people?select=id,agency_employee_no&id=eq.' . rawurlencode($personId) . '&limit=1',
+            $headers
+        );
+
+        $personRow = isSuccessful($personResponse) ? (array)($personResponse['data'][0] ?? []) : [];
+        $agencyEmployeeNo = trim((string)($personRow['agency_employee_no'] ?? ''));
+        if ($agencyEmployeeNo === '') {
+            $agencyEmployeeNo = userManagementGenerateEmployeeId($supabaseUrl, $headers);
+            apiRequest(
+                'PATCH',
+                $supabaseUrl . '/rest/v1/people?id=eq.' . rawurlencode($personId),
+                array_merge($headers, ['Prefer: return=minimal']),
+                ['agency_employee_no' => $agencyEmployeeNo]
+            );
+        }
+
+        $employmentResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/employment_records?select=id&person_id=eq.' . rawurlencode($personId) . '&is_current=eq.true&limit=1',
+            $headers
+        );
+
+        if (isSuccessful($employmentResponse) && !empty((array)($employmentResponse['data'] ?? []))) {
+            return ['ok' => true, 'message' => 'Employment record already exists.'];
+        }
+
+        $employmentPayload = [
+            'person_id' => $personId,
+            'office_id' => $officeId,
+            'position_id' => $positionId,
+            'hire_date' => gmdate('Y-m-d'),
+            'employment_status' => 'active',
+            'is_current' => true,
+        ];
+
+        $employmentInsert = apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/employment_records',
+            array_merge($headers, ['Prefer: return=representation']),
+            [$employmentPayload]
+        );
+
+        if (!isSuccessful($employmentInsert)) {
+            return ['ok' => false, 'message' => 'Account created but employment record initialization failed.'];
+        }
+
+        return [
+            'ok' => true,
+            'message' => 'Employment record created successfully.',
+            'id' => (string)($employmentInsert['data'][0]['id'] ?? ''),
+        ];
+    }
+}
+
+if (!function_exists('userManagementProvisionRoleRecords')) {
+    function userManagementProvisionRoleRecords(
+        string $roleKey,
+        string $userId,
+        string $personId,
         string $email,
         string $fullName,
+        ?string $officeId,
+        ?string $positionId,
+        string $supabaseUrl,
+        array $headers
+    ): array {
+        if ($roleKey === 'applicant') {
+            return userManagementEnsureApplicantProfile($userId, $email, $fullName, $supabaseUrl, $headers);
+        }
+
+        if (in_array($roleKey, ['admin', 'staff', 'employee'], true)) {
+            return userManagementEnsureEmploymentRecord($personId, $officeId, $positionId, $supabaseUrl, $headers);
+        }
+
+        return ['ok' => true, 'message' => 'No additional role-specific record required.'];
+    }
+}
+
+if (!function_exists('userManagementCreateAccount')) {
+    function userManagementCreateAccount(
+        string $email,
+        string $fullName,
+        string $password,
+        string $roleId,
         ?string $officeId,
         string $adminUserId,
         string $supabaseUrl,
         array $headers,
+        bool $mustChangePassword = false,
         ?string &$createdUserId = null,
-        ?string &$temporaryPassword = null
+        ?string &$roleKey = null,
+        ?string &$personId = null
     ): array {
         $email = strtolower(trim($email));
         $fullName = trim($fullName);
+        $password = (string)$password;
+        $roleId = trim($roleId);
         $officeId = trim((string)$officeId);
 
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -156,9 +413,21 @@ if (!function_exists('userManagementCreateEmployeeAccount')) {
         if ($fullName === '') {
             return ['ok' => false, 'message' => 'Full name is required for new account.'];
         }
+        if (strlen($password) < 8) {
+            return ['ok' => false, 'message' => 'Password must be at least 8 characters.'];
+        }
+
+        $selectedRole = userManagementAssignableRoleById($roleId, $supabaseUrl, $headers);
+        if (empty($selectedRole)) {
+            return ['ok' => false, 'message' => 'Selected role is not assignable.'];
+        }
+
+        $roleKey = strtolower(trim((string)($selectedRole['role_key'] ?? '')));
+        if ($roleKey === 'admin' && count(userManagementActiveAdminUserIds($supabaseUrl, $headers)) >= userManagementMaxActiveAdmins()) {
+            return ['ok' => false, 'message' => 'Only ' . userManagementMaxActiveAdmins() . ' active admin accounts are allowed. Reassign an existing admin before creating another admin account.'];
+        }
 
         [$firstName, $surname] = splitFullName($fullName);
-        $temporaryPassword = 'Temp#' . substr(bin2hex(random_bytes(6)), 0, 10);
 
         $createAuth = apiRequest(
             'POST',
@@ -166,11 +435,12 @@ if (!function_exists('userManagementCreateEmployeeAccount')) {
             $headers,
             [
                 'email' => $email,
-                'password' => $temporaryPassword,
+                'password' => $password,
                 'email_confirm' => true,
                 'user_metadata' => [
                     'full_name' => $fullName,
                     'created_by_admin' => $adminUserId,
+                    'role_key' => $roleKey,
                 ],
             ]
         );
@@ -198,7 +468,7 @@ if (!function_exists('userManagementCreateEmployeeAccount')) {
                 'email' => $email,
                 'account_status' => 'active',
                 'email_verified_at' => gmdate('c'),
-                'must_change_password' => true,
+                'must_change_password' => $mustChangePassword,
             ]]
         );
 
@@ -209,7 +479,7 @@ if (!function_exists('userManagementCreateEmployeeAccount')) {
         $personResponse = apiRequest(
             'POST',
             $supabaseUrl . '/rest/v1/people',
-            array_merge($headers, ['Prefer: resolution=merge-duplicates,return=minimal']),
+            array_merge($headers, ['Prefer: resolution=merge-duplicates,return=representation']),
             [[
                 'user_id' => $createdUserId,
                 'first_name' => $firstName,
@@ -222,6 +492,54 @@ if (!function_exists('userManagementCreateEmployeeAccount')) {
             return ['ok' => false, 'message' => 'Account created but people profile creation failed.'];
         }
 
+        $personId = trim((string)($personResponse['data'][0]['id'] ?? ''));
+        if (!userManagementIsValidUuid($personId)) {
+            $personLookupResponse = apiRequest(
+                'GET',
+                $supabaseUrl . '/rest/v1/people?select=id&user_id=eq.' . rawurlencode($createdUserId) . '&limit=1',
+                $headers
+            );
+            $personId = trim((string)($personLookupResponse['data'][0]['id'] ?? ''));
+        }
+
+        $assignmentPayload = [
+            'user_id' => $createdUserId,
+            'role_id' => $roleId,
+            'is_primary' => true,
+            'assigned_by' => $adminUserId !== '' ? $adminUserId : null,
+            'assigned_at' => gmdate('c'),
+        ];
+
+        if ($officeId !== '' && userManagementIsValidUuid($officeId)) {
+            $assignmentPayload['office_id'] = $officeId;
+        }
+
+        $assignmentResponse = apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/user_role_assignments',
+            array_merge($headers, ['Prefer: return=minimal']),
+            [$assignmentPayload]
+        );
+
+        if (!isSuccessful($assignmentResponse)) {
+            return ['ok' => false, 'message' => 'Account created but role assignment failed.'];
+        }
+
+        return ['ok' => true, 'message' => 'Account created successfully.'];
+    }
+}
+
+if (!function_exists('userManagementCreateEmployeeAccount')) {
+    function userManagementCreateEmployeeAccount(
+        string $email,
+        string $fullName,
+        ?string $officeId,
+        string $adminUserId,
+        string $supabaseUrl,
+        array $headers,
+        ?string &$createdUserId = null,
+        ?string &$temporaryPassword = null
+    ): array {
         $employeeRole = apiRequest(
             'GET',
             $supabaseUrl . '/rest/v1/roles?select=id&role_key=eq.employee&limit=1',
@@ -229,28 +547,46 @@ if (!function_exists('userManagementCreateEmployeeAccount')) {
         );
 
         $employeeRoleId = (string)($employeeRole['data'][0]['id'] ?? '');
-        if ($employeeRoleId !== '') {
-            $assignmentPayload = [
-                'user_id' => $createdUserId,
-                'role_id' => $employeeRoleId,
-                'is_primary' => true,
-                'assigned_by' => $adminUserId !== '' ? $adminUserId : null,
-                'assigned_at' => gmdate('c'),
-            ];
-
-            if ($officeId !== '' && userManagementIsValidUuid($officeId)) {
-                $assignmentPayload['office_id'] = $officeId;
-            }
-
-            apiRequest(
-                'POST',
-                $supabaseUrl . '/rest/v1/user_role_assignments',
-                array_merge($headers, ['Prefer: return=minimal']),
-                [$assignmentPayload]
-            );
+        if (!userManagementIsValidUuid($employeeRoleId)) {
+            return ['ok' => false, 'message' => 'Employee role configuration is missing.'];
         }
 
-        return ['ok' => true, 'message' => 'Account created successfully.'];
+        $temporaryPassword = 'Temp#' . substr(bin2hex(random_bytes(6)), 0, 10);
+        $selectedRoleKey = null;
+
+        $personId = null;
+
+        return userManagementCreateAccount(
+            $email,
+            $fullName,
+            $temporaryPassword,
+            $employeeRoleId,
+            $officeId,
+            $adminUserId,
+            $supabaseUrl,
+            $headers,
+            true,
+            $createdUserId,
+            $selectedRoleKey,
+            $personId
+        );
+    }
+}
+
+if (!function_exists('userManagementDeleteAuthUser')) {
+    function userManagementDeleteAuthUser(string $userId, string $supabaseUrl, array $headers): bool
+    {
+        if (!userManagementIsValidUuid($userId)) {
+            return false;
+        }
+
+        $response = apiRequest(
+            'DELETE',
+            $supabaseUrl . '/auth/v1/admin/users/' . rawurlencode($userId),
+            $headers
+        );
+
+        return isSuccessful($response);
     }
 }
 
@@ -271,7 +607,10 @@ if ($action === 'account') {
     $accountAction = strtolower((string)($_POST['account_action'] ?? 'add'));
     $email = strtolower((string)(cleanText($_POST['email'] ?? null) ?? ''));
     $fullName = (string)(cleanText($_POST['full_name'] ?? null) ?? '');
+    $password = (string)($_POST['password'] ?? '');
+    $roleId = cleanText($_POST['role_id'] ?? null) ?? '';
     $officeId = cleanText($_POST['office_id'] ?? null);
+    $positionId = cleanText($_POST['position_id'] ?? null);
     $notes = cleanText($_POST['account_notes'] ?? null);
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -341,21 +680,59 @@ if ($action === 'account') {
         redirectWithState('error', 'Full name is required for new account.');
     }
 
+    if (strlen($password) < 8) {
+        redirectWithState('error', 'Password must be at least 8 characters.');
+    }
+
+    $selectedRole = userManagementAssignableRoleById($roleId, $supabaseUrl, $headers);
+    if (empty($selectedRole)) {
+        redirectWithState('error', 'Select a valid role for the new account.');
+    }
+
+    $selectedRoleKey = strtolower(trim((string)($selectedRole['role_key'] ?? '')));
+
+    if (in_array($selectedRoleKey, ['admin', 'staff', 'employee'], true)) {
+        if (!userManagementIsValidUuid((string)$officeId) || !userManagementIsValidUuid((string)$positionId)) {
+            redirectWithState('error', 'Division and position are required when creating Admin, Staff, or Employee accounts.');
+        }
+    }
+
     $newUserId = null;
-    $tempPassword = null;
-    $createAccountResult = userManagementCreateEmployeeAccount(
+    $createdRoleKey = null;
+    $personId = null;
+    $createAccountResult = userManagementCreateAccount(
         $email,
         $fullName,
+        $password,
+        $roleId,
         $officeId,
         $adminUserId,
         $supabaseUrl,
         $headers,
+        false,
         $newUserId,
-        $tempPassword
+        $createdRoleKey,
+        $personId
     );
 
     if (!(bool)($createAccountResult['ok'] ?? false)) {
         redirectWithState('error', (string)($createAccountResult['message'] ?? 'Failed to create user account.'));
+    }
+
+    $provisionResult = userManagementProvisionRoleRecords(
+        $createdRoleKey !== null ? $createdRoleKey : $selectedRoleKey,
+        (string)$newUserId,
+        (string)$personId,
+        $email,
+        $fullName,
+        $officeId,
+        $positionId,
+        $supabaseUrl,
+        $headers
+    );
+
+    if (!(bool)($provisionResult['ok'] ?? false)) {
+        redirectWithState('error', (string)($provisionResult['message'] ?? 'Account created but linked record initialization failed.'));
     }
 
     apiRequest(
@@ -371,15 +748,142 @@ if ($action === 'account') {
             'old_data' => null,
             'new_data' => [
                 'email' => $email,
-                'role_key' => 'employee',
+                'role_id' => $roleId,
+                'role_key' => $createdRoleKey !== null ? $createdRoleKey : $selectedRoleKey,
                 'office_id' => $officeId,
+                'position_id' => $positionId,
                 'notes' => $notes,
             ],
             'ip_address' => clientIp(),
         ]]
     );
 
-    redirectWithState('success', 'User account created. Temporary password is generated server-side.');
+    redirectWithState('success', 'User account created successfully.');
+}
+
+if ($action === 'delete_user') {
+    $userId = cleanText($_POST['user_id'] ?? null) ?? '';
+    $email = strtolower(trim((string)(cleanText($_POST['email'] ?? null) ?? '')));
+    $notes = cleanText($_POST['delete_notes'] ?? null);
+
+    if (!userManagementIsValidUuid($userId)) {
+        redirectWithState('error', 'Invalid user selected for deletion.');
+    }
+
+    if ($userId === $adminUserId) {
+        redirectWithState('error', 'You cannot delete the currently signed-in admin account.');
+    }
+
+    if (userManagementIsProtectedAdminTarget($userId, $adminUserId, $supabaseUrl, $headers)) {
+        redirectWithState('error', 'Protected admin account cannot be deleted from User Management.');
+    }
+
+    $personResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/people?select=id&user_id=eq.' . rawurlencode($userId) . '&limit=1',
+        $headers
+    );
+    $personId = trim((string)($personResponse['data'][0]['id'] ?? ''));
+
+    $applicantProfileResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/applicant_profiles?select=id&user_id=eq.' . rawurlencode($userId) . '&limit=1',
+        $headers
+    );
+    $applicantProfileId = trim((string)($applicantProfileResponse['data'][0]['id'] ?? ''));
+
+    if (userManagementIsValidUuid($applicantProfileId)) {
+        $applicationsResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/applications?select=id&applicant_profile_id=eq.' . rawurlencode($applicantProfileId) . '&limit=1',
+            $headers
+        );
+
+        if (isSuccessful($applicationsResponse) && !empty((array)($applicationsResponse['data'] ?? []))) {
+            redirectWithState('error', 'This applicant has recruitment history and cannot be deleted. Archive the account instead.');
+        }
+    }
+
+    if (userManagementIsValidUuid($personId)) {
+        $employmentDeleteResponse = apiRequest(
+            'DELETE',
+            $supabaseUrl . '/rest/v1/employment_records?person_id=eq.' . rawurlencode($personId),
+            array_merge($headers, ['Prefer: return=minimal'])
+        );
+
+        if (!isSuccessful($employmentDeleteResponse)) {
+            redirectWithState('error', 'User has linked employment records that could not be removed. Archive the account instead.');
+        }
+    }
+
+    if (userManagementIsValidUuid($applicantProfileId)) {
+        $deleteApplicantProfile = apiRequest(
+            'DELETE',
+            $supabaseUrl . '/rest/v1/applicant_profiles?id=eq.' . rawurlencode($applicantProfileId),
+            array_merge($headers, ['Prefer: return=minimal'])
+        );
+
+        if (!isSuccessful($deleteApplicantProfile)) {
+            redirectWithState('error', 'Applicant profile could not be removed. Archive the account instead.');
+        }
+    }
+
+    $deleteRoleAssignments = apiRequest(
+        'DELETE',
+        $supabaseUrl . '/rest/v1/user_role_assignments?user_id=eq.' . rawurlencode($userId),
+        array_merge($headers, ['Prefer: return=minimal'])
+    );
+
+    if (!isSuccessful($deleteRoleAssignments)) {
+        redirectWithState('error', 'Role assignments could not be removed. Archive the account instead.');
+    }
+
+    if (userManagementIsValidUuid($personId)) {
+        $deletePersonResponse = apiRequest(
+            'DELETE',
+            $supabaseUrl . '/rest/v1/people?id=eq.' . rawurlencode($personId),
+            array_merge($headers, ['Prefer: return=minimal'])
+        );
+
+        if (!isSuccessful($deletePersonResponse)) {
+            redirectWithState('error', 'People profile could not be removed. Archive the account instead.');
+        }
+    }
+
+    $deleteAccountResponse = apiRequest(
+        'DELETE',
+        $supabaseUrl . '/rest/v1/user_accounts?id=eq.' . rawurlencode($userId),
+        array_merge($headers, ['Prefer: return=minimal'])
+    );
+
+    if (!isSuccessful($deleteAccountResponse)) {
+        redirectWithState('error', 'User account record could not be removed. Archive the account instead.');
+    }
+
+    if (!userManagementDeleteAuthUser($userId, $supabaseUrl, $headers)) {
+        redirectWithState('error', 'Application records were removed, but authentication user deletion failed. Check Supabase auth users.');
+    }
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $adminUserId,
+            'module_name' => 'user_management',
+            'entity_name' => 'user_accounts',
+            'entity_id' => $userId,
+            'action_name' => 'delete_user',
+            'old_data' => null,
+            'new_data' => [
+                'email' => $email,
+                'notes' => $notes,
+            ],
+            'ip_address' => clientIp(),
+        ]]
+    );
+
+    redirectWithState('success', 'User deleted successfully.');
 }
 
 if ($action === 'onboard_new_hire') {

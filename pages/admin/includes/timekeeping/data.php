@@ -49,7 +49,7 @@ $timekeepingQueryLimits = [
 $attendanceTodayResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/attendance_logs?select=id,attendance_date,time_in,time_out,hours_worked,late_minutes,attendance_status,person:people(first_name,surname)'
+    . '/rest/v1/attendance_logs?select=id,person_id,attendance_date,time_in,time_out,hours_worked,late_minutes,attendance_status,person:people(first_name,surname)'
     . '&attendance_date=eq.' . rawurlencode($todayDate)
     . '&order=attendance_date.desc,time_in.asc&limit=' . (int)$timekeepingQueryLimits['attendance_today'],
     $headers
@@ -58,7 +58,7 @@ $attendanceTodayResponse = apiRequest(
 $attendanceHistoryResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/attendance_logs?select=id,attendance_date,time_in,attendance_status,person:people(first_name,surname)'
+    . '/rest/v1/attendance_logs?select=id,person_id,attendance_date,time_in,time_out,attendance_status,person:people(first_name,surname)'
     . '&order=attendance_date.desc,created_at.desc&limit=' . (int)$timekeepingQueryLimits['attendance_history'],
     $headers
 );
@@ -165,6 +165,9 @@ $historyEntries = [];
 $staffRecommendationRows = [];
 $employeeOptions = [];
 $leaveTypeOptions = [];
+$approvedTravelByPersonDate = [];
+$specialRequestCreateMetaById = [];
+$specialRequestStatusOverrideById = [];
 
 $employeeRoleUserIds = [];
 if (isSuccessful($employeeRoleAssignmentsResponse)) {
@@ -233,6 +236,84 @@ if (isSuccessful($leaveTypeOptionsResponse)) {
     }
 }
 
+$approvedTravelResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/overtime_requests?select=person_id,overtime_date,reason,status'
+    . '&status=eq.approved'
+    . '&order=overtime_date.desc&limit=' . (int)$timekeepingQueryLimits['requests'],
+    $headers
+);
+
+if (isSuccessful($approvedTravelResponse)) {
+    foreach ((array)($approvedTravelResponse['data'] ?? []) as $travelRaw) {
+        $travelRow = (array)$travelRaw;
+        $personId = trim((string)($travelRow['person_id'] ?? ''));
+        $travelDate = trim((string)($travelRow['overtime_date'] ?? ''));
+        if ($personId === '' || $travelDate === '') {
+            continue;
+        }
+
+        $parsedTravel = timekeepingParseTaggedReason((string)($travelRow['reason'] ?? ''));
+        if (($parsedTravel['category'] ?? '') !== 'travel') {
+            continue;
+        }
+
+        $approvedTravelByPersonDate[$personId . '|' . $travelDate] = (string)($parsedTravel['label'] ?? 'Approved Travel');
+    }
+}
+
+$specialRequestIds = [];
+if (isSuccessful($ctoRequestsResponse)) {
+    foreach ((array)$ctoRequestsResponse['data'] as $requestRaw) {
+        $request = (array)$requestRaw;
+        $parsedRequest = timekeepingParseTaggedReason((string)($request['reason'] ?? ''));
+        if (($parsedRequest['is_special'] ?? false) !== true) {
+            continue;
+        }
+
+        $requestId = trim((string)($request['id'] ?? ''));
+        if ($requestId !== '') {
+            $specialRequestIds[] = $requestId;
+        }
+    }
+}
+
+if (!empty($specialRequestIds)) {
+    $specialRequestLogsResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/activity_logs?select=entity_id,action_name,new_data,created_at'
+        . '&module_name=eq.timekeeping'
+        . '&entity_name=eq.overtime_requests'
+        . '&entity_id=in.' . rawurlencode('(' . implode(',', array_values(array_unique($specialRequestIds))) . ')')
+        . '&action_name=in.' . rawurlencode('(create_official_business_request,create_cos_schedule_request,create_travel_order_request,create_travel_abroad_request,review_ob,review_ob_revision)')
+        . '&order=created_at.desc&limit=' . (int)$timekeepingQueryLimits['recommendations'],
+        $headers
+    );
+
+    if (isSuccessful($specialRequestLogsResponse)) {
+        foreach ((array)($specialRequestLogsResponse['data'] ?? []) as $logRaw) {
+            $log = (array)$logRaw;
+            $entityId = trim((string)($log['entity_id'] ?? ''));
+            if ($entityId === '') {
+                continue;
+            }
+
+            $actionName = strtolower((string)($log['action_name'] ?? ''));
+            $newData = is_array($log['new_data'] ?? null) ? (array)$log['new_data'] : [];
+            if (str_starts_with($actionName, 'create_') && !isset($specialRequestCreateMetaById[$entityId])) {
+                $specialRequestCreateMetaById[$entityId] = $newData;
+            }
+
+            $statusTo = strtolower((string)($newData['status_to'] ?? $newData['status'] ?? ''));
+            if (($actionName === 'review_ob' || $actionName === 'review_ob_revision') && $statusTo === 'needs_revision') {
+                $specialRequestStatusOverrideById[$entityId] = 'needs_revision';
+            }
+        }
+    }
+}
+
 $attendanceSummaryToday = [
     'present' => 0,
     'late' => 0,
@@ -245,10 +326,15 @@ if (isSuccessful($attendanceTodayResponse)) {
     foreach ((array)$attendanceTodayResponse['data'] as $attendanceRowRaw) {
         $attendanceRow = (array)$attendanceRowRaw;
         $employeeName = $buildEmployeeName((array)($attendanceRow['person'] ?? []));
+        $personId = trim((string)($attendanceRow['person_id'] ?? ''));
         $rawStatus = strtolower((string)($attendanceRow['attendance_status'] ?? 'present'));
         $displayStatus = $rawStatus;
         if ($isLateByPolicy((string)($attendanceRow['time_in'] ?? '')) && in_array($rawStatus, ['present', 'late'], true)) {
             $displayStatus = 'late';
+        }
+        $attendanceDate = (string)($attendanceRow['attendance_date'] ?? '');
+        if ($personId !== '' && isset($approvedTravelByPersonDate[$personId . '|' . $attendanceDate]) && trim((string)($attendanceRow['time_in'] ?? '')) === '' && trim((string)($attendanceRow['time_out'] ?? '')) === '') {
+            $displayStatus = 'travel';
         }
 
         if ($displayStatus === 'present') {
@@ -264,7 +350,7 @@ if (isSuccessful($attendanceTodayResponse)) {
         $attendanceLogs[] = [
             'id' => (string)($attendanceRow['id'] ?? ''),
             'employee_name' => $employeeName,
-            'attendance_date' => (string)($attendanceRow['attendance_date'] ?? ''),
+            'attendance_date' => $attendanceDate,
             'time_in' => (string)($attendanceRow['time_in'] ?? ''),
             'time_out' => (string)($attendanceRow['time_out'] ?? ''),
             'hours_worked' => (float)($attendanceRow['hours_worked'] ?? 0),
@@ -279,17 +365,22 @@ if (isSuccessful($attendanceHistoryResponse)) {
     foreach ((array)$attendanceHistoryResponse['data'] as $attendanceRowRaw) {
         $attendanceRow = (array)$attendanceRowRaw;
         $employeeName = $buildEmployeeName((array)($attendanceRow['person'] ?? []));
+        $personId = trim((string)($attendanceRow['person_id'] ?? ''));
         $rawStatus = strtolower((string)($attendanceRow['attendance_status'] ?? 'present'));
         $displayStatus = $rawStatus;
         if ($isLateByPolicy((string)($attendanceRow['time_in'] ?? '')) && in_array($rawStatus, ['present', 'late'], true)) {
             $displayStatus = 'late';
         }
+        $attendanceDate = (string)($attendanceRow['attendance_date'] ?? '');
+        if ($personId !== '' && isset($approvedTravelByPersonDate[$personId . '|' . $attendanceDate]) && trim((string)($attendanceRow['time_in'] ?? '')) === '') {
+            $displayStatus = 'travel';
+        }
 
         $historyEntries[] = [
-            'sort_ts' => strtotime((string)($attendanceRow['attendance_date'] ?? '') . ' 00:00:00') ?: 0,
+            'sort_ts' => strtotime($attendanceDate . ' 00:00:00') ?: 0,
             'employee_name' => $employeeName,
             'entry_type' => 'Attendance',
-            'entry_date' => (string)($attendanceRow['attendance_date'] ?? ''),
+            'entry_date' => $attendanceDate,
             'summary' => 'Status: ' . ucfirst(str_replace('_', ' ', $displayStatus)),
             'status' => ucfirst(str_replace('_', ' ', $displayStatus)),
         ];
@@ -301,30 +392,51 @@ if (isSuccessful($ctoRequestsResponse)) {
         $request = (array)$requestRaw;
         $employeeName = $buildEmployeeName((array)($request['person'] ?? []));
         $reasonRaw = trim((string)($request['reason'] ?? ''));
-        $isObRequest = preg_match('/^\[OB\]\s*/i', $reasonRaw) === 1;
-        $cleanReason = $isObRequest ? trim((string)preg_replace('/^\[OB\]\s*/i', '', $reasonRaw)) : $reasonRaw;
+        $parsedRequest = timekeepingParseTaggedReason($reasonRaw);
+        $isSpecialRequest = (bool)($parsedRequest['is_special'] ?? false);
+        $cleanReason = (string)($parsedRequest['clean_reason'] ?? $reasonRaw);
         if ($cleanReason === '') {
             $cleanReason = '-';
         }
+        $requestId = (string)($request['id'] ?? '');
+        $createMeta = (array)($specialRequestCreateMetaById[$requestId] ?? []);
+        $attachmentMeta = is_array($createMeta['attachment'] ?? null) ? (array)$createMeta['attachment'] : [];
+        $destination = cleanText($createMeta['destination'] ?? null);
+        $referenceNumber = cleanText($createMeta['reference_number'] ?? null);
+        $attachmentPath = cleanText($attachmentMeta['relative_path'] ?? null);
+        $attachmentName = cleanText($attachmentMeta['original_name'] ?? null);
+        $statusRaw = strtolower((string)($request['status'] ?? 'pending'));
+        if (isset($specialRequestStatusOverrideById[$requestId])) {
+            $statusRaw = (string)$specialRequestStatusOverrideById[$requestId];
+        }
         $requestRow = [
-            'id' => (string)($request['id'] ?? ''),
+            'id' => $requestId,
             'employee_name' => $employeeName,
             'overtime_date' => (string)($request['overtime_date'] ?? ''),
             'start_time' => (string)($request['start_time'] ?? ''),
             'end_time' => (string)($request['end_time'] ?? ''),
             'hours_requested' => (float)($request['hours_requested'] ?? 0),
             'reason' => $cleanReason,
-            'status' => strtolower((string)($request['status'] ?? 'pending')),
+            'status' => $statusRaw,
             'created_at' => (string)($request['created_at'] ?? ''),
             'user_id' => (string)($request['person']['user_id'] ?? ''),
+            'request_type' => (string)($parsedRequest['request_type'] ?? 'legacy_cto'),
+            'request_label' => (string)($parsedRequest['label'] ?? 'CTO (Legacy)'),
+            'detail_summary' => trim(implode(' | ', array_filter([
+                $destination !== null ? 'Destination: ' . $destination : '',
+                $referenceNumber !== null ? 'Ref: ' . $referenceNumber : '',
+                $attachmentName !== null ? 'Attachment: ' . $attachmentName : '',
+            ]))),
+            'attachment_url' => $attachmentPath !== null ? systemAppPath($attachmentPath) : null,
+            'attachment_name' => $attachmentName,
         ];
 
-        if ($isObRequest) {
+        if ($isSpecialRequest) {
             $obRequests[] = $requestRow;
             $historyEntries[] = [
                 'sort_ts' => strtotime((string)($requestRow['created_at'] ?? '')) ?: 0,
                 'employee_name' => $employeeName,
-                'entry_type' => 'Official Business',
+                'entry_type' => (string)($requestRow['request_label'] ?? 'Special Request'),
                 'entry_date' => (string)$requestRow['overtime_date'],
                 'summary' => $cleanReason,
                 'status' => ucfirst(str_replace('_', ' ', (string)$requestRow['status'])),
@@ -491,6 +603,7 @@ foreach ($obRequests as $request) {
         'status' => strtolower((string)($request['status'] ?? 'pending')),
         'status_label' => ucfirst(str_replace('_', ' ', strtolower((string)($request['status'] ?? 'pending')))),
         'window' => trim((string)($request['start_time'] ?? '')) . ' - ' . trim((string)($request['end_time'] ?? '')),
+        'request_label' => (string)($request['request_label'] ?? 'Special Request'),
     ];
 }
 
@@ -538,7 +651,7 @@ if (isSuccessful($staffRecommendationsResponse)) {
         } elseif ($entityName === 'overtime_requests') {
             if (isset($obLookup[$entityId])) {
                 $item = $obLookup[$entityId];
-                $requestType = 'Official Business';
+                $requestType = (string)($item['request_label'] ?? 'Special Request');
                 $employeeName = (string)$item['employee_name'];
                 $currentStatus = (string)$item['status'];
                 $currentStatusLabel = (string)$item['status_label'];

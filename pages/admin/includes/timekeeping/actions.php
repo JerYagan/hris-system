@@ -419,6 +419,19 @@ if ($action === 'log_leave_from_card') {
 
     $leaveTypeName = (string)($leaveTypeRow['leave_name'] ?? 'Leave');
     $leaveTypeCode = (string)($leaveTypeRow['leave_code'] ?? '');
+    $ctoBucketMeta = null;
+    if ($ctoPoints > 0) {
+        $fromMonth = (int)date('n', strtotime($dateFrom));
+        $fromYearLabel = (int)date('Y', strtotime($dateFrom));
+        $halfKey = $fromMonth <= 6 ? 'jan_jun' : 'jul_dec';
+        $halfLabel = $fromMonth <= 6 ? 'JAN-JUN' : 'JULY-DEC';
+        $ctoBucketMeta = [
+            'bucket_key' => $halfKey,
+            'bucket_label' => $halfLabel,
+            'year' => $fromYearLabel,
+            'display_label' => $halfLabel . ' ' . $fromYearLabel,
+        ];
+    }
     $leavePointBreakdown = [
         'sl' => round($slPoints, 2),
         'vl' => round($vlPoints, 2),
@@ -637,6 +650,7 @@ if ($action === 'log_leave_from_card') {
                 'days_count' => $daysCount,
                 'leave_type_name' => $leaveTypeName,
                 'leave_point_breakdown' => $leavePointBreakdown,
+                'cto_bucket' => $ctoBucketMeta,
             ],
         ]]
     );
@@ -977,11 +991,11 @@ if ($action === 'review_ob_request') {
     $notes = cleanText($_POST['notes'] ?? null);
 
     if ($requestId === '' || $decision === '') {
-        redirectWithState('error', 'OB request and decision are required.');
+        redirectWithState('error', 'Special request and decision are required.');
     }
 
-    if (!in_array($decision, ['approved', 'rejected'], true)) {
-        redirectWithState('error', 'Invalid OB decision selected.');
+    if (!in_array($decision, ['approved', 'rejected', 'needs_revision'], true)) {
+        redirectWithState('error', 'Invalid special request decision selected.');
     }
 
     $requestResponse = apiRequest(
@@ -992,36 +1006,42 @@ if ($action === 'review_ob_request') {
 
     $requestRow = $requestResponse['data'][0] ?? null;
     if (!is_array($requestRow)) {
-        redirectWithState('error', 'OB request not found.');
+        redirectWithState('error', 'Special request not found.');
     }
 
-    $reasonRaw = trim((string)($requestRow['reason'] ?? ''));
-    if (preg_match('/^\[OB\]\s*/i', $reasonRaw) !== 1) {
-        redirectWithState('error', 'Selected request is not tagged as an Official Business request.');
+    $parsedRequest = timekeepingParseTaggedReason((string)($requestRow['reason'] ?? ''));
+    if (($parsedRequest['is_special'] ?? false) !== true) {
+        redirectWithState('error', 'Selected request is not a tagged special timekeeping request.');
     }
+
+    $requestLabel = (string)($parsedRequest['label'] ?? 'Special request');
+    $requestLabelLower = strtolower($requestLabel);
 
     $oldStatus = strtolower((string)($requestRow['status'] ?? 'pending'));
     if ($isFinalDecision($oldStatus)) {
-        redirectWithState('error', 'This OB request is locked after final decision.');
+        redirectWithState('error', 'This ' . $requestLabelLower . ' is locked after final decision.');
     }
+
+    $persistedDecision = $decision === 'needs_revision' ? 'cancelled' : $decision;
 
     $patchResponse = apiRequest(
         'PATCH',
         $supabaseUrl . '/rest/v1/overtime_requests?id=eq.' . $requestId,
         array_merge($headers, ['Prefer: return=minimal']),
         [
-            'status' => $decision,
+            'status' => $persistedDecision,
             'approved_by' => $adminUserId !== '' ? $adminUserId : null,
             'approved_at' => gmdate('c'),
         ]
     );
 
     if (!isSuccessful($patchResponse)) {
-        redirectWithState('error', 'Failed to update OB request.');
+        redirectWithState('error', 'Failed to update ' . $requestLabelLower . '.');
     }
 
     $recipientUserId = (string)($requestRow['person']['user_id'] ?? '');
     if ($recipientUserId !== '') {
+        $decisionLabel = $decision === 'needs_revision' ? 'returned for revision' : $decision;
         apiRequest(
             'POST',
             $supabaseUrl . '/rest/v1/notifications',
@@ -1029,8 +1049,8 @@ if ($action === 'review_ob_request') {
             [[
                 'recipient_user_id' => $recipientUserId,
                 'category' => 'timekeeping',
-                'title' => 'Official Business Request Updated',
-                'body' => 'Your Official Business request was ' . $decision . '.',
+                'title' => $requestLabel . ' Updated',
+                'body' => 'Your ' . $requestLabelLower . ' was ' . $decisionLabel . '.',
                 'link_url' => '/hris-system/pages/employee/timekeeping.php',
             ]]
         );
@@ -1046,10 +1066,22 @@ if ($action === 'review_ob_request') {
         'review_ob',
         $oldStatus,
         $decision,
-        $notes
+        $notes,
+        ['persisted_status' => $persistedDecision, 'request_type' => (string)($parsedRequest['request_type'] ?? 'official_business')]
     );
 
-    redirectWithState('success', 'Official Business request updated successfully.');
+    $notifyStaffFinalDecision(
+        'overtime_requests',
+        $requestId,
+        'recommend_ob_request',
+        $decision,
+        $notes,
+        $requestLabel . ' Recommendation Reviewed',
+        '/hris-system/pages/staff/timekeeping.php',
+        $requestLabelLower . ' recommendation'
+    );
+
+    redirectWithState('success', $requestLabel . ' updated successfully.');
 }
 
 if ($action === 'save_holiday_config') {

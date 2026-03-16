@@ -6,6 +6,7 @@ $attendancePill = static function (string $status): array {
         'late' => ['Late', 'bg-amber-100 text-amber-800'],
         'absent' => ['Absent', 'bg-rose-100 text-rose-800'],
         'leave' => ['Leave', 'bg-blue-100 text-blue-800'],
+        'travel' => ['Approved Travel', 'bg-indigo-100 text-indigo-800'],
         'holiday' => ['Holiday', 'bg-indigo-100 text-indigo-800'],
         'rest_day' => ['Rest Day', 'bg-slate-200 text-slate-700'],
         'approved' => ['Approved', 'bg-emerald-100 text-emerald-800'],
@@ -68,7 +69,7 @@ $formatTime = static function (?string $raw): string {
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Timekeeping Policy Baseline</h2>
-        <p class="text-sm text-slate-500 mt-1">Flexi schedules (7AM-4PM, 8AM-5PM, 9AM-6PM) are enabled. Time-in at 9:01 AM onwards is tagged as late.</p>
+        <p class="text-sm text-slate-500 mt-1">Standard flexi schedules (7AM-4PM, 8AM-5PM, 9AM-6PM) remain enabled. COS schedule requests are reviewed separately and may extend up to 10:00 PM when approved. Time-in at 9:01 AM onwards is tagged as late.</p>
     </header>
     <div class="px-6 py-4 grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
         <div class="rounded-lg border border-slate-200 p-3 bg-slate-50">
@@ -223,6 +224,9 @@ $formatTime = static function (?string $raw): string {
                 <option value="Time Adjustment">Time Adjustment</option>
                 <option value="CTO">CTO</option>
                 <option value="Official Business">Official Business</option>
+                <option value="COS Flexible Schedule">COS Flexible Schedule</option>
+                <option value="Travel Order">Travel Order</option>
+                <option value="Travel Abroad">Travel Abroad</option>
             </select>
         </div>
     </div>
@@ -250,9 +254,7 @@ $formatTime = static function (?string $raw): string {
                         $actionType = (string)($row['action_type'] ?? '');
                         $isFinal = (bool)($row['is_final'] ?? false);
                         $requestTypeLabel = (string)($row['request_type'] ?? '-');
-                        if ($actionType === 'ob') {
-                            $requestTypeLabel = 'Official Business';
-                        } elseif ($actionType === 'adjustment') {
+                        if ($actionType === 'adjustment') {
                             $requestTypeLabel = 'Time Adjustment';
                         }
                         $recommendationSearch = strtolower(trim($formatDate((string)($row['submitted_at'] ?? ''), 'M d, Y h:i A') . ' ' . (string)($row['staff_actor'] ?? '') . ' ' . $requestTypeLabel . ' ' . (string)($row['employee_name'] ?? '') . ' ' . $recommendedLabel . ' ' . $currentLabel));
@@ -272,7 +274,7 @@ $formatTime = static function (?string $raw): string {
                                 <?php elseif ($actionType === 'cto'): ?>
                                     <button type="button" data-cto-review data-request-id="<?= htmlspecialchars((string)($row['entity_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars((string)($row['employee_name'] ?? 'Unknown Employee'), ENT_QUOTES, 'UTF-8') ?>" data-current-status="<?= htmlspecialchars((string)($row['current_status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?>" data-window="<?= htmlspecialchars((string)($row['window'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50" <?= $isFinal ? 'disabled' : '' ?>><span class="material-symbols-outlined text-[15px]">approval</span><?= $isFinal ? 'Finalized' : 'Approve/Reject' ?></button>
                                 <?php elseif ($actionType === 'ob'): ?>
-                                    <button type="button" data-ob-review data-request-id="<?= htmlspecialchars((string)($row['entity_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars((string)($row['employee_name'] ?? 'Unknown Employee'), ENT_QUOTES, 'UTF-8') ?>" data-current-status="<?= htmlspecialchars((string)($row['current_status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?>" data-window="<?= htmlspecialchars((string)($row['window'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50" <?= $isFinal ? 'disabled' : '' ?>><span class="material-symbols-outlined text-[15px]">approval</span><?= $isFinal ? 'Finalized' : 'Approve/Reject' ?></button>
+                                    <button type="button" data-ob-review data-request-id="<?= htmlspecialchars((string)($row['entity_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars((string)($row['employee_name'] ?? 'Unknown Employee'), ENT_QUOTES, 'UTF-8') ?>" data-request-type-label="<?= htmlspecialchars((string)($requestTypeLabel ?? 'Special Request'), ENT_QUOTES, 'UTF-8') ?>" data-current-status="<?= htmlspecialchars((string)($row['current_status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?>" data-window="<?= htmlspecialchars((string)($row['window'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50" <?= $isFinal ? 'disabled' : '' ?>><span class="material-symbols-outlined text-[15px]">approval</span><?= $isFinal ? 'Finalized' : 'Approve/Reject' ?></button>
                                 <?php else: ?>
                                     <span class="text-xs text-slate-400">-</span>
                                 <?php endif; ?>
@@ -466,8 +468,8 @@ $formatTime = static function (?string $raw): string {
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800">Official Business Requests</h2>
-        <p class="text-sm text-slate-500 mt-1">Pending and finalized OB approvals.</p>
+        <h2 class="text-lg font-semibold text-slate-800">Special Timekeeping Requests</h2>
+        <p class="text-sm text-slate-500 mt-1">Pending and finalized approvals for Official Business, COS schedules, Travel Orders, and Travel Abroad requests.</p>
     </header>
     <div class="px-6 pt-4 flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
         <div class="w-full md:w-1/2">
@@ -490,16 +492,17 @@ $formatTime = static function (?string $raw): string {
             <thead class="bg-slate-50 text-slate-600">
                 <tr>
                     <th class="text-left px-4 py-3">Employee</th>
+                    <th class="text-left px-4 py-3">Request Type</th>
                     <th class="text-left px-4 py-3">Date</th>
                     <th class="text-left px-4 py-3">Window</th>
-                    <th class="text-left px-4 py-3">Reason</th>
+                    <th class="text-left px-4 py-3">Details</th>
                     <th class="text-left px-4 py-3">Status</th>
                     <th class="text-left px-4 py-3">Action</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
                 <?php if (empty($obRequests)): ?>
-                    <tr><td class="px-4 py-3 text-slate-500" colspan="6">No OB requests found.</td></tr>
+                    <tr><td class="px-4 py-3 text-slate-500" colspan="7">No special timekeeping requests found.</td></tr>
                 <?php else: ?>
                     <?php foreach ($obRequests as $ob): ?>
                         <?php
@@ -507,16 +510,27 @@ $formatTime = static function (?string $raw): string {
                         $locked = in_array($statusRaw, ['approved', 'rejected', 'cancelled'], true);
                         [$statusLabel, $statusClass] = $attendancePill($statusRaw);
                         $window = $formatTime((string)($ob['start_time'] ?? '')) . ' - ' . $formatTime((string)($ob['end_time'] ?? ''));
-                        $obSearch = strtolower(trim((string)($ob['employee_name'] ?? '') . ' ' . $formatDate((string)($ob['overtime_date'] ?? '')) . ' ' . $window . ' ' . (string)($ob['reason'] ?? '') . ' ' . $statusLabel));
+                        $obSearch = strtolower(trim((string)($ob['employee_name'] ?? '') . ' ' . (string)($ob['request_label'] ?? '') . ' ' . $formatDate((string)($ob['overtime_date'] ?? '')) . ' ' . $window . ' ' . (string)($ob['reason'] ?? '') . ' ' . (string)($ob['detail_summary'] ?? '') . ' ' . $statusLabel));
                         ?>
                         <tr data-page-row data-table-search="<?= htmlspecialchars($obSearch, ENT_QUOTES, 'UTF-8') ?>" data-table-filter="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>">
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($ob['employee_name'] ?? 'Unknown Employee'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($ob['request_label'] ?? 'Special Request'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($formatDate((string)($ob['overtime_date'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($window, ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($ob['reason'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3">
+                                <p><?= htmlspecialchars((string)($ob['reason'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                                <?php if (!empty($ob['detail_summary'])): ?>
+                                    <p class="text-xs text-slate-500 mt-1"><?= htmlspecialchars((string)$ob['detail_summary'], ENT_QUOTES, 'UTF-8') ?></p>
+                                <?php endif; ?>
+                                <?php if (!empty($ob['attachment_url']) && !empty($ob['attachment_name'])): ?>
+                                    <a href="<?= htmlspecialchars((string)$ob['attachment_url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 mt-1 text-xs font-medium text-slate-700 hover:underline">
+                                        <span class="material-symbols-outlined text-sm">attach_file</span><?= htmlspecialchars((string)$ob['attachment_name'], ENT_QUOTES, 'UTF-8') ?>
+                                    </a>
+                                <?php endif; ?>
+                            </td>
                             <td class="px-4 py-3"><span class="inline-flex px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td class="px-4 py-3">
-                                <button type="button" data-ob-review data-request-id="<?= htmlspecialchars((string)($ob['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars((string)($ob['employee_name'] ?? 'Unknown Employee'), ENT_QUOTES, 'UTF-8') ?>" data-current-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>" data-window="<?= htmlspecialchars($window, ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50" <?= $locked ? 'disabled' : '' ?>>
+                                <button type="button" data-ob-review data-request-id="<?= htmlspecialchars((string)($ob['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars((string)($ob['employee_name'] ?? 'Unknown Employee'), ENT_QUOTES, 'UTF-8') ?>" data-request-type-label="<?= htmlspecialchars((string)($ob['request_label'] ?? 'Special Request'), ENT_QUOTES, 'UTF-8') ?>" data-current-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>" data-window="<?= htmlspecialchars($window, ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50" <?= $locked ? 'disabled' : '' ?>>
                                     <span class="material-symbols-outlined text-[15px]">rate_review</span><?= $locked ? 'Locked' : 'Review' ?>
                                 </button>
                             </td>
@@ -554,6 +568,9 @@ $formatTime = static function (?string $raw): string {
                 <option value="Leave">Leave</option>
                 <option value="CTO">CTO</option>
                 <option value="Official Business">Official Business</option>
+                <option value="COS Flexible Schedule">COS Flexible Schedule</option>
+                <option value="Travel Order">Travel Order</option>
+                <option value="Travel Abroad">Travel Abroad</option>
                 <option value="Time Adjustment">Time Adjustment</option>
             </select>
         </div>
@@ -947,16 +964,17 @@ $formatTime = static function (?string $raw): string {
     <div class="relative min-h-full flex items-center justify-center p-4">
         <div class="w-full max-w-2xl bg-white rounded-2xl border border-slate-200 shadow-xl">
             <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-slate-800">Review Official Business Request</h3>
+                <h3 id="reviewObModalTitle" class="text-lg font-semibold text-slate-800">Review Special Timekeeping Request</h3>
                 <button type="button" data-modal-close="reviewObModal" class="text-slate-500 hover:text-slate-700">✕</button>
             </div>
             <form action="timekeeping.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <input type="hidden" name="form_action" value="review_ob_request">
                 <input type="hidden" id="obRequestId" name="request_id" value="">
                 <div class="md:col-span-2"><label class="text-slate-600">Employee</label><input id="obEmployeeName" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly></div>
+                <div><label class="text-slate-600">Request Type</label><input id="obRequestTypeLabel" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly></div>
                 <div><label class="text-slate-600">Current Status</label><input id="obCurrentStatus" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly></div>
                 <div><label class="text-slate-600">Requested Window</label><input id="obWindow" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly></div>
-                <div><label class="text-slate-600">Decision</label><select name="decision" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required><option value="approved">Approve</option><option value="rejected">Reject</option></select></div>
+                <div><label class="text-slate-600">Decision</label><select name="decision" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required><option value="approved">Approve</option><option value="rejected">Reject</option><option value="needs_revision">Needs Revision</option></select></div>
                 <div class="md:col-span-2"><label class="text-slate-600">Notes</label><textarea name="notes" rows="3" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></textarea></div>
                 <div class="md:col-span-2 flex justify-end gap-3 mt-2"><button type="button" data-modal-close="reviewObModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button><button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Save Decision</button></div>
             </form>
@@ -971,7 +989,11 @@ $formatTime = static function (?string $raw): string {
     const setValue = (id, value) => {
         const el = document.getElementById(id);
         if (el) {
-            el.value = value || '';
+            if ('value' in el) {
+                el.value = value || '';
+                return;
+            }
+            el.textContent = value || '';
         }
     };
 
@@ -1290,7 +1312,7 @@ $formatTime = static function (?string $raw): string {
             nextId: 'obRequestsNextPage',
             searchInputId: 'obRequestsSearch',
             filterId: 'obRequestsStatusFilter',
-            emptyMessage: 'No official business requests match your search/filter criteria.',
+            emptyMessage: 'No special timekeeping requests match your search/filter criteria.',
         },
         {
             tableId: 'timekeepingHistoryTable',
@@ -1352,10 +1374,13 @@ $formatTime = static function (?string $raw): string {
     document.querySelectorAll('[data-ob-review]').forEach((button) => {
         button.addEventListener('click', () => {
             if (button.hasAttribute('disabled')) return;
+            const requestTypeLabel = button.getAttribute('data-request-type-label') || 'Special Request';
             setValue('obRequestId', button.getAttribute('data-request-id'));
             setValue('obEmployeeName', button.getAttribute('data-employee-name'));
+            setValue('obRequestTypeLabel', requestTypeLabel);
             setValue('obCurrentStatus', button.getAttribute('data-current-status'));
             setValue('obWindow', button.getAttribute('data-window'));
+            setValue('reviewObModalTitle', `Review ${requestTypeLabel}`);
             openModal('reviewObModal');
         });
     });

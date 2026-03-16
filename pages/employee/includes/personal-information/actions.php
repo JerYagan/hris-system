@@ -506,6 +506,414 @@ if ($action === 'confirm_password_change_code') {
     redirectWithState('success', 'Password changed successfully.', 'personal-information.php');
 }
 
+if ($action === 'update_profile') {
+    $toNullableRequestValue = static function (mixed $value, int $maxLength = 255): ?string {
+        $text = cleanText($value);
+        if ($text === null) {
+            return null;
+        }
+
+        if (mb_strlen($text) > $maxLength) {
+            return mb_substr($text, 0, $maxLength);
+        }
+
+        return $text;
+    };
+
+    $isValidRequestDate = static function (?string $value): bool {
+        if ($value === null || $value === '') {
+            return true;
+        }
+
+        $ts = strtotime($value);
+        return $ts !== false && date('Y-m-d', $ts) === $value;
+    };
+
+    $normalizeRequestNumber = static function (?string $value, string $label, float $maxValue, int $scale = 2): ?float {
+        if ($value === null || trim($value) === '') {
+            return null;
+        }
+
+        $normalized = str_replace(',', '.', trim($value));
+        if (!is_numeric($normalized)) {
+            redirectWithState('error', $label . ' must be numeric.', 'personal-information.php');
+        }
+
+        $number = round((float)$normalized, $scale);
+        if ($number < 0) {
+            redirectWithState('error', $label . ' cannot be negative.', 'personal-information.php');
+        }
+
+        if ($number > $maxValue) {
+            redirectWithState('error', $label . ' is too large. Please enter a smaller value.', 'personal-information.php');
+        }
+
+        return $number;
+    };
+
+    $assertNoPlaceholderValue = static function (mixed $value, string $label) use (&$assertNoPlaceholderValue): void {
+        if (is_array($value)) {
+            foreach ($value as $nestedValue) {
+                $assertNoPlaceholderValue($nestedValue, $label);
+            }
+            return;
+        }
+
+        if (strtolower(trim((string)$value)) === 'haugafia') {
+            redirectWithState('error', $label . ' contains an invalid placeholder value.', 'personal-information.php');
+        }
+    };
+
+    $addBusinessDays = static function (DateTimeImmutable $dateTime, int $businessDays, int $hour, int $minute): DateTimeImmutable {
+        $cursor = $dateTime;
+        $count = 0;
+        while ($count < $businessDays) {
+            $cursor = $cursor->modify('+1 day');
+            $dayOfWeek = (int)$cursor->format('N');
+            if ($dayOfWeek >= 6) {
+                continue;
+            }
+            $count++;
+        }
+
+        return $cursor->setTime($hour, $minute, 0);
+    };
+
+    $accountLookupResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/user_accounts?select=id,email,username&id=eq.' . rawurlencode($employeeUserId) . '&limit=1',
+        $headers
+    );
+
+    $personLookupResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/people?select=id,first_name,middle_name,surname,name_extension,user_id&id=eq.' . rawurlencode((string)$employeePersonId) . '&limit=1',
+        $headers
+    );
+
+    $accountRow = isSuccessful($accountLookupResponse) ? (array)($accountLookupResponse['data'][0] ?? []) : [];
+    $personRow = isSuccessful($personLookupResponse) ? (array)($personLookupResponse['data'][0] ?? []) : [];
+
+    $firstName = $toNullableRequestValue($_POST['first_name'] ?? null, 120);
+    $middleName = $toNullableRequestValue($_POST['middle_name'] ?? null, 120);
+    $surname = $toNullableRequestValue($_POST['surname'] ?? null, 120);
+    $nameExtension = $toNullableRequestValue($_POST['name_extension'] ?? null, 30);
+    $dateOfBirth = $toNullableRequestValue($_POST['date_of_birth'] ?? null, 10);
+    $placeOfBirth = $toNullableRequestValue($_POST['place_of_birth'] ?? null, 160);
+    $sexAtBirth = $toNullableRequestValue($_POST['sex_at_birth'] ?? null, 12);
+    $civilStatus = $toNullableRequestValue($_POST['civil_status'] ?? null, 40);
+    $heightM = $toNullableRequestValue($_POST['height_m'] ?? null, 10);
+    $weightKg = $toNullableRequestValue($_POST['weight_kg'] ?? null, 10);
+    $bloodType = $toNullableRequestValue($_POST['blood_type'] ?? null, 10);
+    $citizenship = $toNullableRequestValue($_POST['citizenship'] ?? null, 80);
+    $dualCitizenshipCountry = $toNullableRequestValue($_POST['dual_citizenship_country'] ?? null, 80);
+    $telephoneNo = $toNullableRequestValue($_POST['telephone_no'] ?? null, 30);
+    $mobileNo = $toNullableRequestValue($_POST['mobile_no'] ?? null, 30);
+    $personalEmail = $toNullableRequestValue($_POST['email'] ?? $_POST['personal_email'] ?? null, 200);
+    $agencyEmployeeNo = $toNullableRequestValue($_POST['agency_employee_no'] ?? null, 80);
+
+    $residentialRecommendation = [
+        'house_no' => $toNullableRequestValue($_POST['residential_house_no'] ?? $_POST['house_no'] ?? null, 60) ?? '',
+        'street' => $toNullableRequestValue($_POST['residential_street'] ?? $_POST['street'] ?? null, 160) ?? '',
+        'subdivision' => $toNullableRequestValue($_POST['residential_subdivision'] ?? $_POST['subdivision'] ?? null, 160) ?? '',
+        'barangay' => $toNullableRequestValue($_POST['residential_barangay'] ?? $_POST['barangay'] ?? null, 120) ?? '',
+        'city_municipality' => $toNullableRequestValue($_POST['residential_city_municipality'] ?? $_POST['city_municipality'] ?? null, 120) ?? '',
+        'province' => $toNullableRequestValue($_POST['residential_province'] ?? $_POST['province'] ?? null, 120) ?? '',
+        'zip_code' => $toNullableRequestValue($_POST['residential_zip_code'] ?? $_POST['zip_code'] ?? null, 20) ?? '',
+    ];
+
+    $permanentSameAsResidential = isset($_POST['permanent_same_as_residential']) && (string)$_POST['permanent_same_as_residential'] === '1';
+    $permanentRecommendation = [
+        'house_no' => $toNullableRequestValue($_POST['permanent_house_no'] ?? null, 60) ?? '',
+        'street' => $toNullableRequestValue($_POST['permanent_street'] ?? null, 160) ?? '',
+        'subdivision' => $toNullableRequestValue($_POST['permanent_subdivision'] ?? null, 160) ?? '',
+        'barangay' => $toNullableRequestValue($_POST['permanent_barangay'] ?? null, 120) ?? '',
+        'city_municipality' => $toNullableRequestValue($_POST['permanent_city_municipality'] ?? null, 120) ?? '',
+        'province' => $toNullableRequestValue($_POST['permanent_province'] ?? null, 120) ?? '',
+        'zip_code' => $toNullableRequestValue($_POST['permanent_zip_code'] ?? null, 20) ?? '',
+    ];
+
+    if ($permanentSameAsResidential) {
+        $permanentRecommendation = $residentialRecommendation;
+    }
+
+    $governmentRecommendation = [
+        'umid' => $toNullableRequestValue($_POST['umid_no'] ?? null, 80) ?? '',
+        'pagibig' => $toNullableRequestValue($_POST['pagibig_no'] ?? null, 80) ?? '',
+        'philhealth' => $toNullableRequestValue($_POST['philhealth_no'] ?? null, 80) ?? '',
+        'psn' => $toNullableRequestValue($_POST['psn_no'] ?? null, 80) ?? '',
+        'tin' => $toNullableRequestValue($_POST['tin_no'] ?? null, 80) ?? '',
+    ];
+
+    $familyRecommendation = [
+        'spouse_surname' => $toNullableRequestValue($_POST['spouse_surname'] ?? null, 120) ?? '',
+        'spouse_first_name' => $toNullableRequestValue($_POST['spouse_first_name'] ?? null, 120) ?? '',
+        'spouse_middle_name' => $toNullableRequestValue($_POST['spouse_middle_name'] ?? null, 120) ?? '',
+        'spouse_extension_name' => $toNullableRequestValue($_POST['spouse_name_extension'] ?? $_POST['spouse_extension_name'] ?? null, 30) ?? '',
+        'spouse_occupation' => $toNullableRequestValue($_POST['spouse_occupation'] ?? null, 160) ?? '',
+        'spouse_employer_business_name' => $toNullableRequestValue($_POST['spouse_employer_business_name'] ?? null, 180) ?? '',
+        'spouse_business_address' => $toNullableRequestValue($_POST['spouse_business_address'] ?? null, 200) ?? '',
+        'spouse_telephone_no' => $toNullableRequestValue($_POST['spouse_telephone_no'] ?? null, 30) ?? '',
+        'father_surname' => $toNullableRequestValue($_POST['father_surname'] ?? null, 120) ?? '',
+        'father_first_name' => $toNullableRequestValue($_POST['father_first_name'] ?? null, 120) ?? '',
+        'father_middle_name' => $toNullableRequestValue($_POST['father_middle_name'] ?? null, 120) ?? '',
+        'father_extension_name' => $toNullableRequestValue($_POST['father_name_extension'] ?? $_POST['father_extension_name'] ?? null, 30) ?? '',
+        'mother_surname' => $toNullableRequestValue($_POST['mother_surname'] ?? null, 120) ?? '',
+        'mother_first_name' => $toNullableRequestValue($_POST['mother_first_name'] ?? null, 120) ?? '',
+        'mother_middle_name' => $toNullableRequestValue($_POST['mother_middle_name'] ?? null, 120) ?? '',
+        'mother_extension_name' => $toNullableRequestValue($_POST['mother_name_extension'] ?? $_POST['mother_extension_name'] ?? null, 30) ?? '',
+    ];
+
+    $childrenRecommendation = [];
+    $childrenNames = (array)($_POST['children_full_name'] ?? []);
+    $childrenBirthDates = (array)($_POST['children_birth_date'] ?? []);
+    $childrenCount = max(count($childrenNames), count($childrenBirthDates));
+    for ($index = 0; $index < $childrenCount; $index++) {
+        $childName = $toNullableRequestValue($childrenNames[$index] ?? null, 180);
+        $childBirthDate = $toNullableRequestValue($childrenBirthDates[$index] ?? null, 10);
+        if ($childName === null && $childBirthDate === null) {
+            continue;
+        }
+
+        if (!$isValidRequestDate($childBirthDate)) {
+            redirectWithState('error', 'One of the child birth dates is invalid.', 'personal-information.php');
+        }
+
+        $childrenRecommendation[] = [
+            'full_name' => $childName ?? '',
+            'birth_date' => $childBirthDate ?? '',
+        ];
+    }
+
+    $educationRecommendation = [];
+    $educationLevels = (array)($_POST['education_level'] ?? []);
+    $educationSchoolNames = (array)($_POST['education_school_name'] ?? []);
+    $educationCourses = (array)($_POST['education_course_degree'] ?? []);
+    $educationFrom = (array)($_POST['education_period_from'] ?? []);
+    $educationTo = (array)($_POST['education_period_to'] ?? []);
+    $educationUnits = (array)($_POST['education_highest_level_units'] ?? []);
+    $educationYearGraduated = (array)($_POST['education_year_graduated'] ?? []);
+    $educationHonors = (array)($_POST['education_honors_received'] ?? []);
+    $educationCount = max(
+        count($educationLevels),
+        count($educationSchoolNames),
+        count($educationCourses),
+        count($educationFrom),
+        count($educationTo),
+        count($educationUnits),
+        count($educationYearGraduated),
+        count($educationHonors)
+    );
+    for ($index = 0; $index < $educationCount; $index++) {
+        $educationLevel = $toNullableRequestValue($educationLevels[$index] ?? null, 30);
+        $schoolName = $toNullableRequestValue($educationSchoolNames[$index] ?? null, 220);
+        $degreeCourse = $toNullableRequestValue($educationCourses[$index] ?? null, 220);
+        $attendanceFrom = $toNullableRequestValue($educationFrom[$index] ?? null, 15);
+        $attendanceTo = $toNullableRequestValue($educationTo[$index] ?? null, 15);
+        $highestUnits = $toNullableRequestValue($educationUnits[$index] ?? null, 140);
+        $yearGraduated = $toNullableRequestValue($educationYearGraduated[$index] ?? null, 20);
+        $honorsReceived = $toNullableRequestValue($educationHonors[$index] ?? null, 180);
+
+        if ($educationLevel === null && $schoolName === null && $degreeCourse === null && $attendanceFrom === null && $attendanceTo === null && $highestUnits === null && $yearGraduated === null && $honorsReceived === null) {
+            continue;
+        }
+
+        $educationRecommendation[] = [
+            'education_level' => $educationLevel ?? '',
+            'school_name' => $schoolName ?? '',
+            'degree_course' => $degreeCourse ?? '',
+            'attendance_from_year' => $attendanceFrom ?? '',
+            'attendance_to_year' => $attendanceTo ?? '',
+            'highest_level_units_earned' => $highestUnits ?? '',
+            'year_graduated' => $yearGraduated ?? '',
+            'scholarship_honors_received' => $honorsReceived ?? '',
+        ];
+    }
+
+    if ($personalEmail !== null && !filter_var($personalEmail, FILTER_VALIDATE_EMAIL)) {
+        redirectWithState('error', 'Please provide a valid personal email address.', 'personal-information.php');
+    }
+
+    if ($sexAtBirth !== null && $sexAtBirth !== '' && !in_array($sexAtBirth, ['male', 'female'], true)) {
+        redirectWithState('error', 'Sex at birth must be male or female.', 'personal-information.php');
+    }
+
+    if (!$isValidRequestDate($dateOfBirth)) {
+        redirectWithState('error', 'Date of birth must be a valid date.', 'personal-information.php');
+    }
+
+    foreach ([$residentialRecommendation['zip_code'], $permanentRecommendation['zip_code']] as $zipCodeValue) {
+        if ($zipCodeValue !== '' && !preg_match('/^\d{4}$/', $zipCodeValue)) {
+            redirectWithState('error', 'ZIP code must be a valid 4-digit value.', 'personal-information.php');
+        }
+    }
+
+    $assertNoPlaceholderValue([
+        $firstName,
+        $middleName,
+        $surname,
+        $nameExtension,
+        $dateOfBirth,
+        $placeOfBirth,
+        $civilStatus,
+        $bloodType,
+        $citizenship,
+        $dualCitizenshipCountry,
+        $telephoneNo,
+        $mobileNo,
+        $personalEmail,
+        $agencyEmployeeNo,
+        $residentialRecommendation,
+        $permanentRecommendation,
+        $governmentRecommendation,
+        $familyRecommendation,
+        $childrenRecommendation,
+        $educationRecommendation,
+    ], 'Personal information request');
+
+    $requestProfilePayload = [
+        'first_name' => $firstName ?? (string)($personRow['first_name'] ?? ''),
+        'middle_name' => $middleName,
+        'surname' => $surname ?? (string)($personRow['surname'] ?? ''),
+        'name_extension' => $nameExtension,
+        'date_of_birth' => $dateOfBirth,
+        'place_of_birth' => $placeOfBirth,
+        'sex_at_birth' => $sexAtBirth,
+        'civil_status' => $civilStatus,
+        'height_m' => $normalizeRequestNumber($heightM, 'Height', 3.0),
+        'weight_kg' => $normalizeRequestNumber($weightKg, 'Weight', 999.99),
+        'blood_type' => $bloodType,
+        'citizenship' => $citizenship,
+        'dual_citizenship' => $dualCitizenshipCountry !== null && $dualCitizenshipCountry !== '',
+        'dual_citizenship_country' => $dualCitizenshipCountry,
+        'telephone_no' => $telephoneNo,
+        'mobile_no' => $mobileNo,
+        'personal_email' => $personalEmail,
+        'agency_employee_no' => $agencyEmployeeNo,
+    ];
+
+    $employeeName = trim(implode(' ', array_filter([
+        (string)($requestProfilePayload['first_name'] ?? ''),
+        (string)($requestProfilePayload['middle_name'] ?? ''),
+        (string)($requestProfilePayload['surname'] ?? ''),
+        (string)($requestProfilePayload['name_extension'] ?? ''),
+    ], static fn(string $part): bool => trim($part) !== '')));
+    if ($employeeName === '') {
+        $employeeName = trim(implode(' ', array_filter([
+            (string)($personRow['first_name'] ?? ''),
+            (string)($personRow['middle_name'] ?? ''),
+            (string)($personRow['surname'] ?? ''),
+            (string)($personRow['name_extension'] ?? ''),
+        ], static fn(string $part): bool => trim($part) !== '')));
+    }
+    if ($employeeName === '') {
+        $employeeName = 'Employee';
+    }
+
+    $manilaNow = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
+    $dueAt = $addBusinessDays($manilaNow, 5, 17, 0);
+    $reminderWindowStartsAt = $addBusinessDays($manilaNow, 3, 9, 0);
+    $dueAtIso = $dueAt->format(DATE_ATOM);
+    $reminderAtIso = $reminderWindowStartsAt->format(DATE_ATOM);
+    $dueAtLabel = function_exists('formatDateTimeForPhilippines')
+        ? formatDateTimeForPhilippines($dueAtIso, 'M d, Y h:i A') . ' PST'
+        : $dueAt->format('M d, Y h:i A') . ' PST';
+
+    $requestLogResponse = apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=representation']),
+        [[
+            'actor_user_id' => $employeeUserId,
+            'module_name' => 'personal_information',
+            'entity_name' => 'people',
+            'entity_id' => $employeePersonId,
+            'action_name' => 'submit_employee_profile_update_request',
+            'old_data' => [
+                'submitted_by_email' => (string)($accountRow['email'] ?? ''),
+                'submitted_by_username' => (string)($accountRow['username'] ?? ''),
+            ],
+            'new_data' => [
+                'review_status' => 'pending_admin_review',
+                'request_source' => 'employee',
+                'submitted_at' => $manilaNow->format(DATE_ATOM),
+                'request_due_at' => $dueAtIso,
+                'reminder_window_starts_at' => $reminderAtIso,
+                'submitted_by_email' => (string)($accountRow['email'] ?? ''),
+                'submitted_by_username' => (string)($accountRow['username'] ?? ''),
+                'recommended_profile' => $requestProfilePayload,
+                'recommended_addresses' => [
+                    'residential' => $residentialRecommendation,
+                    'permanent' => $permanentRecommendation,
+                ],
+                'recommended_government_ids' => $governmentRecommendation,
+                'recommended_family' => array_merge($familyRecommendation, [
+                    'children' => $childrenRecommendation,
+                ]),
+                'recommended_educational_backgrounds' => $educationRecommendation,
+            ],
+            'ip_address' => clientIp(),
+        ]]
+    );
+
+    if (!isSuccessful($requestLogResponse)) {
+        redirectWithState('error', 'Unable to submit your personal information update request right now.', 'personal-information.php');
+    }
+
+    $adminRoleResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/roles?select=id&role_key=eq.admin&limit=1',
+        $headers
+    );
+
+    $adminRoleId = isSuccessful($adminRoleResponse)
+        ? cleanText($adminRoleResponse['data'][0]['id'] ?? null)
+        : null;
+
+    if ($adminRoleId !== null) {
+        $adminAssignmentsResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/user_role_assignments?select=user_id'
+            . '&role_id=eq.' . rawurlencode($adminRoleId)
+            . '&expires_at=is.null&limit=200',
+            $headers
+        );
+
+        if (isSuccessful($adminAssignmentsResponse)) {
+            $notificationPayload = [];
+            $recipientSet = [];
+            foreach ((array)($adminAssignmentsResponse['data'] ?? []) as $assignmentRaw) {
+                $assignment = (array)$assignmentRaw;
+                $recipientId = cleanText($assignment['user_id'] ?? null);
+                if ($recipientId === null || isset($recipientSet[$recipientId])) {
+                    continue;
+                }
+
+                $recipientSet[$recipientId] = true;
+                $notificationPayload[] = [
+                    'recipient_user_id' => $recipientId,
+                    'category' => 'employee_profile',
+                    'title' => 'Personal Information Update Request',
+                    'body' => $employeeName . ' submitted a personal information update request. Target completion: ' . $dueAtLabel . '.',
+                    'link_url' => '/hris-system/pages/admin/personal-information.php',
+                ];
+            }
+
+            if (!empty($notificationPayload)) {
+                apiRequest(
+                    'POST',
+                    $supabaseUrl . '/rest/v1/notifications',
+                    array_merge($headers, ['Prefer: return=minimal']),
+                    $notificationPayload
+                );
+            }
+        }
+    }
+
+    redirectWithState('success', 'Your personal information request was submitted for review. Target completion: ' . $dueAtLabel . '.', 'personal-information.php');
+}
+
 $toNullable = static function (mixed $value, int $maxLength = 255): ?string {
     $text = cleanText($value);
     if ($text === null) {

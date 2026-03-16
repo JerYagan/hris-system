@@ -46,6 +46,26 @@ $leaveTypeMetaById = [];
 $leaveRequestRows = [];
 $timeAdjustmentRows = [];
 $overtimeRows = [];
+$specialTimekeepingRows = [];
+$employeeIsCos = timekeepingIsCosEmploymentStatus($employeeEmploymentStatus ?? null);
+$employeeResourceLinks = [
+    'leave_card_view_url' => 'https://docs.google.com/spreadsheets/d/1fnUaDNmAleeF6NcWwg_jUUFKpip6uBiy/edit?usp=sharing&ouid=110457973112188470700&rtpof=true&sd=true',
+    'official_business_template_url' => 'https://docs.google.com/document/d/1oF-k_14HArDNj3YxyIEOAQQwO2lTNUcy/edit',
+    'application_for_leave_template_url' => 'https://docs.google.com/spreadsheets/d/1jEz7xOB82ndjYqf0teL7DUU0gePZlEjx/edit?gid=419957008#gid=419957008',
+];
+$configuredEmployeeLinks = systemSettingLinksMap(
+    $supabaseUrl,
+    $headers,
+    [
+        'employee_leave_card_url',
+        'official_business_report_template_url',
+        'application_for_leave_template_url',
+    ]
+);
+$employeeLeaveCardUrl = (string)($configuredEmployeeLinks['employee_leave_card_url'] ?? $employeeResourceLinks['leave_card_view_url'] ?? '');
+$officialBusinessTemplateUrl = (string)($configuredEmployeeLinks['official_business_report_template_url'] ?? $employeeResourceLinks['official_business_template_url'] ?? '');
+$applicationForLeaveTemplateUrl = (string)($configuredEmployeeLinks['application_for_leave_template_url'] ?? $employeeResourceLinks['application_for_leave_template_url'] ?? '');
+$ctoExpiryBucketRows = [];
 
 $aggregateLeaveBalanceRows = static function (array $rows, array $approvedDeductionByTypeId = [], array $pendingDeductionByTypeId = []): array {
     $aggregated = [];
@@ -115,6 +135,86 @@ $aggregateLeaveBalanceRows = static function (array $rows, array $approvedDeduct
     return array_values($aggregated);
 };
 
+$resolveCtoBucketMeta = static function (?string $dateValue, ?array $bucketMeta = null): ?array {
+    $meta = is_array($bucketMeta) ? $bucketMeta : [];
+    $bucketKey = strtolower(trim((string)($meta['bucket_key'] ?? '')));
+    $bucketYear = (int)($meta['year'] ?? 0);
+    $displayLabel = trim((string)($meta['display_label'] ?? ''));
+
+    if ($bucketKey === '' || $bucketYear <= 0) {
+        $timestamp = strtotime((string)$dateValue);
+        if ($timestamp === false) {
+            return null;
+        }
+
+        $month = (int)date('n', $timestamp);
+        $bucketKey = $month <= 6 ? 'jan_jun' : 'jul_dec';
+        $bucketYear = (int)date('Y', $timestamp);
+        $displayLabel = ($month <= 6 ? 'JAN-JUN' : 'JULY-DEC') . ' ' . $bucketYear;
+    }
+
+    $bucketOrder = $bucketKey === 'jan_jun' ? 1 : 2;
+
+    return [
+        'key' => $bucketYear . '-' . $bucketKey,
+        'bucket_key' => $bucketKey,
+        'bucket_label' => $bucketKey === 'jan_jun' ? 'JAN-JUN' : 'JULY-DEC',
+        'year' => $bucketYear,
+        'display_label' => $displayLabel !== '' ? $displayLabel : (($bucketKey === 'jan_jun' ? 'JAN-JUN' : 'JULY-DEC') . ' ' . $bucketYear),
+        'sort_key' => sprintf('%04d-%d', $bucketYear, $bucketOrder),
+    ];
+};
+
+$allocateCtoUsageToBuckets = static function (array &$buckets, float $points, string $targetField): void {
+    if ($points <= 0 || $buckets === []) {
+        return;
+    }
+
+    uasort($buckets, static function (array $left, array $right): int {
+        return strcmp((string)($left['sort_key'] ?? ''), (string)($right['sort_key'] ?? ''));
+    });
+
+    $remaining = $points;
+    foreach ($buckets as &$bucket) {
+        $available = max(0.0, (float)($bucket['posted_points'] ?? 0) - (float)($bucket['used_points'] ?? 0) - (float)($bucket['pending_points'] ?? 0));
+        if ($targetField === 'used_points') {
+            $available = max(0.0, (float)($bucket['posted_points'] ?? 0) - (float)($bucket['used_points'] ?? 0));
+        }
+
+        if ($available <= 0) {
+            continue;
+        }
+
+        $allocated = min($available, $remaining);
+        $bucket[$targetField] = (float)($bucket[$targetField] ?? 0) + $allocated;
+        $remaining -= $allocated;
+
+        if ($remaining <= 0.0001) {
+            break;
+        }
+    }
+    unset($bucket);
+
+    if ($remaining > 0.0001) {
+        $legacyKey = 'legacy-unmapped';
+        if (!isset($buckets[$legacyKey])) {
+            $buckets[$legacyKey] = [
+                'key' => $legacyKey,
+                'bucket_key' => 'legacy',
+                'bucket_label' => 'LEGACY',
+                'year' => 0,
+                'display_label' => 'Legacy / Unmapped',
+                'sort_key' => '9999-9',
+                'posted_points' => 0.0,
+                'used_points' => 0.0,
+                'pending_points' => 0.0,
+            ];
+        }
+
+        $buckets[$legacyKey][$targetField] = (float)($buckets[$legacyKey][$targetField] ?? 0) + $remaining;
+    }
+};
+
 $attendancePage = max(1, (int)($_GET['attendance_page'] ?? 1));
 $attendancePageSize = 10;
 $attendanceOffset = ($attendancePage - 1) * $attendancePageSize;
@@ -136,7 +236,7 @@ $isLateByApprovedPolicy = static function (?string $timeInValue): bool {
 };
 
 $attendanceStatusFilter = strtolower((string)cleanText($_GET['attendance_status'] ?? null));
-if (!in_array($attendanceStatusFilter, ['', 'present', 'late', 'absent', 'leave', 'holiday', 'rest_day'], true)) {
+if (!in_array($attendanceStatusFilter, ['', 'present', 'late', 'absent', 'leave', 'holiday', 'rest_day', 'travel'], true)) {
     $attendanceStatusFilter = '';
 }
 
@@ -185,6 +285,34 @@ if (isSuccessful($peopleResponse) && !empty((array)($peopleResponse['data'] ?? [
     $employeeCode = (string)($person['agency_employee_no'] ?? '-');
 }
 
+$approvedTravelLabelsByDate = [];
+$approvedTravelResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/overtime_requests?select=overtime_date,reason,status,start_time,end_time'
+    . '&person_id=eq.' . rawurlencode((string)$employeePersonId)
+    . '&status=eq.approved'
+    . '&order=overtime_date.desc&limit=200',
+    $headers
+);
+
+if (isSuccessful($approvedTravelResponse)) {
+    foreach ((array)($approvedTravelResponse['data'] ?? []) as $travelRaw) {
+        $travelRow = (array)$travelRaw;
+        $parsedRequest = timekeepingParseTaggedReason((string)($travelRow['reason'] ?? ''));
+        if (($parsedRequest['category'] ?? '') !== 'travel') {
+            continue;
+        }
+
+        $travelDate = (string)($travelRow['overtime_date'] ?? '');
+        if ($travelDate === '') {
+            continue;
+        }
+
+        $approvedTravelLabelsByDate[$travelDate] = (string)($parsedRequest['label'] ?? 'Approved Travel');
+    }
+}
+
 $attendanceUrl = $supabaseUrl
     . '/rest/v1/attendance_logs?select=id,attendance_date,time_in,time_out,hours_worked,undertime_hours,late_minutes,attendance_status,source'
     . '&person_id=eq.' . rawurlencode((string)$employeePersonId)
@@ -217,13 +345,18 @@ if (!isSuccessful($attendanceResponse)) {
         $isLateByPolicy = $isLateByApprovedPolicy((string)($row['time_in'] ?? ''));
         $rawStatus = strtolower((string)($row['attendance_status'] ?? 'present'));
         $displayStatus = $rawStatus;
+        $attendanceDate = (string)($row['attendance_date'] ?? '');
+        $hasApprovedTravel = isset($approvedTravelLabelsByDate[$attendanceDate]);
         if ($isLateByPolicy && in_array($rawStatus, ['present', 'late'], true)) {
             $displayStatus = 'late';
+        }
+        if ($hasApprovedTravel && trim((string)($row['time_in'] ?? '')) === '' && trim((string)($row['time_out'] ?? '')) === '') {
+            $displayStatus = 'travel';
         }
 
         $attendanceRows[] = [
             'id' => (string)($row['id'] ?? ''),
-            'attendance_date' => (string)($row['attendance_date'] ?? ''),
+            'attendance_date' => $attendanceDate,
             'time_in' => (string)($row['time_in'] ?? ''),
             'time_out' => (string)($row['time_out'] ?? ''),
             'hours_worked' => (float)($row['hours_worked'] ?? 0),
@@ -232,6 +365,7 @@ if (!isSuccessful($attendanceResponse)) {
             'attendance_status' => $rawStatus,
             'display_status' => $displayStatus,
             'is_late_by_policy' => $isLateByPolicy,
+            'travel_label' => $hasApprovedTravel ? (string)$approvedTravelLabelsByDate[$attendanceDate] : '',
             'source' => (string)($row['source'] ?? ''),
         ];
     }
@@ -258,15 +392,19 @@ if (isSuccessful($attendanceSummaryResponse)) {
         $summaryRow = (array)$summaryRaw;
         $status = strtolower((string)($summaryRow['attendance_status'] ?? ''));
         $isLateByPolicy = $isLateByApprovedPolicy((string)($summaryRow['time_in'] ?? ''));
+        $summaryDate = (string)($summaryRow['attendance_date'] ?? '');
         if ($isLateByPolicy && in_array($status, ['present', 'late'], true)) {
             $status = 'late';
+        }
+        if (isset($approvedTravelLabelsByDate[$summaryDate]) && trim((string)($summaryRow['time_in'] ?? '')) === '') {
+            $status = 'travel';
         }
 
         if ($status === 'present') {
             $attendanceSummary['present_days']++;
         } elseif ($status === 'late') {
             $attendanceSummary['late_days']++;
-        } elseif ($status === 'leave') {
+        } elseif (in_array($status, ['leave', 'travel'], true)) {
             $attendanceSummary['leave_days']++;
         }
     }
@@ -349,6 +487,7 @@ $pendingDeductionByTypeId = [];
 $approvedDeductionByTypeId = [];
 $approvedPointRows = [];
 $pendingPointRows = [];
+$leaveRequestIds = [];
 
 if (isSuccessful($leaveRequestsResponse)) {
     foreach ((array)($leaveRequestsResponse['data'] ?? []) as $requestRaw) {
@@ -389,6 +528,67 @@ if (isSuccessful($leaveRequestsResponse)) {
             'status' => $leaveStatus,
             'created_at' => (string)($request['created_at'] ?? ''),
         ];
+
+        $leaveRequestId = (string)($request['id'] ?? '');
+        if ($leaveRequestId !== '') {
+            $leaveRequestIds[] = $leaveRequestId;
+        }
+    }
+}
+
+$ctoExpiryBuckets = [];
+if (!empty($leaveRequestIds)) {
+    $leaveRequestIdFilter = implode(',', array_values(array_unique(array_filter($leaveRequestIds, static fn ($id): bool => $id !== ''))));
+    if ($leaveRequestIdFilter !== '') {
+        $leaveCardLogResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/activity_logs?select=entity_id,new_data,created_at'
+            . '&entity_name=eq.leave_requests'
+            . '&action_name=eq.log_leave_from_card'
+            . '&entity_id=in.' . rawurlencode('(' . $leaveRequestIdFilter . ')')
+            . '&order=created_at.desc&limit=1000',
+            $headers
+        );
+
+        if (isSuccessful($leaveCardLogResponse)) {
+            foreach ((array)($leaveCardLogResponse['data'] ?? []) as $logRaw) {
+                $log = (array)$logRaw;
+                $newData = is_array($log['new_data'] ?? null) ? (array)$log['new_data'] : [];
+                if ((string)($newData['person_id'] ?? '') !== (string)$employeePersonId) {
+                    continue;
+                }
+
+                $pointBreakdown = is_array($newData['leave_point_breakdown'] ?? null) ? (array)$newData['leave_point_breakdown'] : [];
+                $ctoPoints = max(0.0, (float)($pointBreakdown['cto'] ?? 0));
+                if ($ctoPoints <= 0) {
+                    continue;
+                }
+
+                $bucketMeta = $resolveCtoBucketMeta(
+                    (string)($newData['date_from'] ?? ''),
+                    is_array($newData['cto_bucket'] ?? null) ? (array)$newData['cto_bucket'] : null
+                );
+                if (!is_array($bucketMeta)) {
+                    continue;
+                }
+
+                $bucketKey = (string)($bucketMeta['key'] ?? '');
+                if ($bucketKey === '') {
+                    continue;
+                }
+
+                if (!isset($ctoExpiryBuckets[$bucketKey])) {
+                    $ctoExpiryBuckets[$bucketKey] = array_merge($bucketMeta, [
+                        'posted_points' => 0.0,
+                        'used_points' => 0.0,
+                        'pending_points' => 0.0,
+                    ]);
+                }
+
+                $ctoExpiryBuckets[$bucketKey]['posted_points'] += $ctoPoints;
+            }
+        }
     }
 }
 
@@ -447,12 +647,83 @@ if (isSuccessful($overtimeResponse)) {
     $ctoBalanceTypeIds = array_values(array_unique(array_filter($ctoBalanceTypeIds, static fn ($id): bool => $id !== '')));
     $primaryCtoTypeId = $ctoBalanceTypeIds[0] ?? '';
 
-    foreach ((array)($overtimeResponse['data'] ?? []) as $overtimeRaw) {
+    $overtimeRequestRows = (array)($overtimeResponse['data'] ?? []);
+    $specialRequestIds = [];
+    foreach ($overtimeRequestRows as $candidateRaw) {
+        $candidate = (array)$candidateRaw;
+        $parsedReason = timekeepingParseTaggedReason((string)($candidate['reason'] ?? ''));
+        if (($parsedReason['is_special'] ?? false) === true) {
+            $requestId = (string)($candidate['id'] ?? '');
+            if ($requestId !== '') {
+                $specialRequestIds[] = $requestId;
+            }
+        }
+    }
+
+    $specialRequestCreateMetaById = [];
+    $specialRequestTimelineById = [];
+    $specialRequestStatusOverrideById = [];
+
+    if (!empty($specialRequestIds)) {
+        $activityResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/activity_logs?select=entity_id,action_name,new_data,created_at'
+            . '&module_name=eq.timekeeping'
+            . '&entity_name=eq.overtime_requests'
+            . '&entity_id=in.' . rawurlencode('(' . implode(',', array_values(array_unique($specialRequestIds))) . ')')
+            . '&action_name=in.' . rawurlencode('(create_official_business_request,create_cos_schedule_request,create_travel_order_request,create_travel_abroad_request,recommend_ob_request,review_ob,review_ob_revision)')
+            . '&order=created_at.desc&limit=500',
+            $headers
+        );
+
+        if (isSuccessful($activityResponse)) {
+            foreach ((array)($activityResponse['data'] ?? []) as $logRaw) {
+                $log = (array)$logRaw;
+                $entityId = (string)($log['entity_id'] ?? '');
+                if ($entityId === '') {
+                    continue;
+                }
+
+                $actionName = strtolower((string)($log['action_name'] ?? ''));
+                $newData = is_array($log['new_data'] ?? null) ? (array)$log['new_data'] : [];
+                $createdAt = formatDateTimeForPhilippines((string)($log['created_at'] ?? ''), 'M d, Y h:i A');
+
+                if (str_starts_with($actionName, 'create_') && !isset($specialRequestCreateMetaById[$entityId])) {
+                    $specialRequestCreateMetaById[$entityId] = $newData;
+                }
+
+                if ($actionName === 'recommend_ob_request') {
+                    $recommendedStatus = ucfirst(str_replace('_', ' ', strtolower((string)($newData['recommended_status'] ?? 'pending'))));
+                    $specialRequestTimelineById[$entityId][] = 'Staff recommended ' . $recommendedStatus . ' on ' . $createdAt;
+                    continue;
+                }
+
+                if ($actionName === 'review_ob' || $actionName === 'review_ob_revision') {
+                    $statusTo = strtolower((string)($newData['status_to'] ?? $newData['status'] ?? 'pending'));
+                    if ($statusTo === 'needs_revision') {
+                        $specialRequestStatusOverrideById[$entityId] = 'needs_revision';
+                        $specialRequestTimelineById[$entityId][] = 'Admin requested revision on ' . $createdAt;
+                    } else {
+                        $specialRequestTimelineById[$entityId][] = 'Admin ' . ucfirst(str_replace('_', ' ', $statusTo)) . ' on ' . $createdAt;
+                    }
+                    continue;
+                }
+
+                if (str_starts_with($actionName, 'create_')) {
+                    $specialRequestTimelineById[$entityId][] = 'Submitted on ' . $createdAt;
+                }
+            }
+        }
+    }
+
+    foreach ($overtimeRequestRows as $overtimeRaw) {
         $overtime = (array)$overtimeRaw;
         $rawReason = (string)($overtime['reason'] ?? '');
-        $isOfficialBusiness = preg_match('/^\[OB\]\s*/i', $rawReason) === 1;
+        $parsedRequest = timekeepingParseTaggedReason($rawReason);
+        $isSpecialRequest = (bool)($parsedRequest['is_special'] ?? false);
 
-        if (!$isOfficialBusiness) {
+        if (!$isSpecialRequest) {
             $requestStatus = strtolower((string)($overtime['status'] ?? 'pending'));
             $hoursRequested = (float)($overtime['hours_requested'] ?? 0);
             if ($requestStatus === 'pending' && $hoursRequested > 0) {
@@ -479,23 +750,132 @@ if (isSuccessful($overtimeResponse)) {
             continue;
         }
 
-        $displayReason = preg_replace('/^\[OB\]\s*/i', '', $rawReason) ?? $rawReason;
+        $requestId = (string)($overtime['id'] ?? '');
+        $createMeta = (array)($specialRequestCreateMetaById[$requestId] ?? []);
+        $statusOverride = cleanText($specialRequestStatusOverrideById[$requestId] ?? null);
+        $displayStatus = strtolower($statusOverride ?? (string)($overtime['status'] ?? 'pending'));
+        $displayReason = (string)($parsedRequest['clean_reason'] ?? $rawReason);
+        $requestLabel = (string)($parsedRequest['label'] ?? 'Special Request');
+        $timelineEntries = array_reverse((array)($specialRequestTimelineById[$requestId] ?? []));
+        $detailParts = [];
+        $destination = cleanText($createMeta['destination'] ?? null);
+        $referenceNumber = cleanText($createMeta['reference_number'] ?? null);
+        $attachmentMeta = is_array($createMeta['attachment'] ?? null) ? (array)$createMeta['attachment'] : [];
+        $attachmentPath = cleanText($attachmentMeta['relative_path'] ?? null);
+        $attachmentName = cleanText($attachmentMeta['original_name'] ?? null);
 
-        $overtimeRows[] = [
-            'id' => (string)($overtime['id'] ?? ''),
+        if ($destination !== null) {
+            $detailParts[] = 'Destination: ' . $destination;
+        }
+        if ($referenceNumber !== null) {
+            $detailParts[] = 'Ref: ' . $referenceNumber;
+        }
+        if ($attachmentName !== null) {
+            $detailParts[] = 'Attachment: ' . $attachmentName;
+        }
+
+        $requestRow = [
+            'id' => $requestId,
             'overtime_date' => (string)($overtime['overtime_date'] ?? ''),
             'start_time' => (string)($overtime['start_time'] ?? ''),
             'end_time' => (string)($overtime['end_time'] ?? ''),
             'hours_requested' => (float)($overtime['hours_requested'] ?? 0),
             'reason' => $displayReason,
-            'status' => strtolower((string)($overtime['status'] ?? 'pending')),
+            'status' => $displayStatus,
             'created_at' => (string)($overtime['created_at'] ?? ''),
+            'request_type' => (string)($parsedRequest['request_type'] ?? 'official_business'),
+            'request_label' => $requestLabel,
+            'request_category' => (string)($parsedRequest['category'] ?? 'official_business'),
+            'destination' => $destination,
+            'reference_number' => $referenceNumber,
+            'attachment_path' => $attachmentPath,
+            'attachment_url' => $attachmentPath !== null ? systemAppPath($attachmentPath) : null,
+            'attachment_name' => $attachmentName,
+            'detail_summary' => implode(' | ', $detailParts),
+            'timeline_summary' => implode(' | ', $timelineEntries),
         ];
+
+        $overtimeRows[] = $requestRow;
+        $specialTimekeepingRows[] = $requestRow;
     }
 }
 
 $usedLeavePointSummary = resolveEmployeeLeavePointSummary($approvedPointRows, 'points');
 $pendingLeavePointSummary = resolveEmployeeLeavePointSummary($pendingPointRows, 'points');
+
+$ctoPostedTotal = (float)($postedLeavePointSummary['cto'] ?? 0.0);
+if ($ctoPostedTotal > 0 && $ctoExpiryBuckets === []) {
+    $currentYear = (int)date('Y');
+    foreach (['jan_jun' => 'JAN-JUN', 'jul_dec' => 'JULY-DEC'] as $bucketKey => $bucketLabel) {
+        $derivedKey = $currentYear . '-' . $bucketKey;
+        $ctoExpiryBuckets[$derivedKey] = [
+            'key' => $derivedKey,
+            'bucket_key' => $bucketKey,
+            'bucket_label' => $bucketLabel,
+            'year' => $currentYear,
+            'display_label' => $bucketLabel . ' ' . $currentYear,
+            'sort_key' => sprintf('%04d-%d', $currentYear, $bucketKey === 'jan_jun' ? 1 : 2),
+            'posted_points' => 0.0,
+            'used_points' => 0.0,
+            'pending_points' => 0.0,
+        ];
+    }
+}
+
+if ($ctoPostedTotal > 0) {
+    $bucketedPostedTotal = 0.0;
+    foreach ($ctoExpiryBuckets as $bucket) {
+        $bucketedPostedTotal += (float)($bucket['posted_points'] ?? 0);
+    }
+
+    $unmappedPosted = max(0.0, $ctoPostedTotal - $bucketedPostedTotal);
+    if ($unmappedPosted > 0.0001) {
+        $legacyKey = 'legacy-unmapped';
+        if (!isset($ctoExpiryBuckets[$legacyKey])) {
+            $ctoExpiryBuckets[$legacyKey] = [
+                'key' => $legacyKey,
+                'bucket_key' => 'legacy',
+                'bucket_label' => 'LEGACY',
+                'year' => 0,
+                'display_label' => 'Legacy / Unmapped',
+                'sort_key' => '9999-9',
+                'posted_points' => 0.0,
+                'used_points' => 0.0,
+                'pending_points' => 0.0,
+            ];
+        }
+
+        $ctoExpiryBuckets[$legacyKey]['posted_points'] += $unmappedPosted;
+    }
+}
+
+$allocateCtoUsageToBuckets($ctoExpiryBuckets, (float)($usedLeavePointSummary['cto'] ?? 0.0), 'used_points');
+$allocateCtoUsageToBuckets($ctoExpiryBuckets, (float)($pendingLeavePointSummary['cto'] ?? 0.0), 'pending_points');
+
+if ($ctoExpiryBuckets !== []) {
+    uasort($ctoExpiryBuckets, static function (array $left, array $right): int {
+        return strcmp((string)($left['sort_key'] ?? ''), (string)($right['sort_key'] ?? ''));
+    });
+
+    foreach ($ctoExpiryBuckets as $bucket) {
+        $postedPoints = (float)($bucket['posted_points'] ?? 0.0);
+        $usedPoints = (float)($bucket['used_points'] ?? 0.0);
+        $pendingPoints = (float)($bucket['pending_points'] ?? 0.0);
+        $remainingPoints = max(0.0, $postedPoints - $usedPoints);
+        $projectedRemaining = max(0.0, $remainingPoints - $pendingPoints);
+
+        $ctoExpiryBucketRows[] = [
+            'display_label' => (string)($bucket['display_label'] ?? 'CTO Bucket'),
+            'bucket_label' => (string)($bucket['bucket_label'] ?? ''),
+            'year' => (int)($bucket['year'] ?? 0),
+            'posted_points' => $postedPoints,
+            'used_points' => $usedPoints,
+            'pending_points' => $pendingPoints,
+            'remaining_points' => $remainingPoints,
+            'projected_remaining' => $projectedRemaining,
+        ];
+    }
+}
 
 if (!empty($leaveBalanceEntries)) {
     $leaveBalanceRows = $aggregateLeaveBalanceRows($leaveBalanceEntries, $approvedDeductionByTypeId, $pendingDeductionByTypeId);

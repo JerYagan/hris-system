@@ -18,7 +18,7 @@ $isDocumentSection = in_array($activePage, $documentPages, true);
             <div class="min-w-0 flex-1">
                 <div class="admin-brand-text">
                     <h1 class="text-sm font-semibold text-slate-100 leading-tight tracking-wide">Admin Panel</h1>
-                    <p class="mt-1 text-xs text-slate-400">DA-ATI HRIS</p>
+                    <p class="mt-1 text-xs text-slate-400">ATI HRIS Portal</p>
                 </div>
             </div>
             <button id="sidebarClose" type="button" class="admin-top-chip w-8 h-8 inline-flex items-center justify-center text-slate-300 hover:text-white focus:outline-none" aria-label="Close sidebar">

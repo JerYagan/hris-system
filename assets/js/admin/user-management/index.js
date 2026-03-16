@@ -65,10 +65,18 @@ const initDateInputs = () => {
 };
 
 const initAccountPrefill = () => {
+  const quickCreateForm = document.getElementById('quickCreateUserForm');
+  const quickCreateNameInput = quickCreateForm?.querySelector('input[name="full_name"]');
+  const quickCreateRoleSelect = document.getElementById('quickCreateRoleSelect');
+  const quickCreateOfficeSelect = document.getElementById('quickCreateOfficeSelect');
+  const quickCreatePositionSelect = document.getElementById('quickCreatePositionSelect');
   const accountForm = document.getElementById('accountForm');
-  const accountActionSelect = document.getElementById('accountActionSelect');
   const accountEmailInput = document.getElementById('accountEmailInput');
   const accountFullNameInput = document.getElementById('accountFullNameInput');
+  const deleteUserForm = document.getElementById('deleteUserForm');
+  const deleteUserIdInput = document.getElementById('deleteUserIdInput');
+  const deleteUserEmailInput = document.getElementById('deleteUserEmailInput');
+  const deleteUserNameInput = document.getElementById('deleteUserNameInput');
   const roleForm = document.getElementById('roleForm');
   const roleUserSelect = document.getElementById('roleUserSelect');
   const roleSelect = document.getElementById('roleSelect');
@@ -88,41 +96,70 @@ const initAccountPrefill = () => {
     return String(selectedOption?.textContent || '').trim();
   };
 
-  const getAccountTargetLabel = () => {
-    const fullName = accountFullNameInput instanceof HTMLInputElement ? accountFullNameInput.value.trim() : '';
-    const email = accountEmailInput instanceof HTMLInputElement ? accountEmailInput.value.trim() : '';
-
-    if (fullName !== '') {
-      return fullName;
+  const updateQuickCreateConfirmation = () => {
+    if (!(quickCreateForm instanceof HTMLFormElement)) {
+      return;
     }
 
-    if (email !== '') {
-      return email;
-    }
+    const fullName = quickCreateNameInput instanceof HTMLInputElement ? quickCreateNameInput.value.trim() : '';
+    const selectedOption = quickCreateRoleSelect instanceof HTMLSelectElement
+      ? quickCreateRoleSelect.options[quickCreateRoleSelect.selectedIndex] || null
+      : null;
+    const roleLabel = String(selectedOption?.textContent || '').trim().toLowerCase() || 'selected role';
+    const targetLabel = fullName !== '' ? fullName : 'this user';
 
-    return 'this user';
+    quickCreateForm.dataset.confirmTitle = 'Create this user account?';
+    quickCreateForm.dataset.confirmText = `This will create an account for ${targetLabel} and provision ${roleLabel} records.`;
+    quickCreateForm.dataset.confirmButtonText = 'Create user';
+    quickCreateForm.dataset.confirmButtonColor = '#0f172a';
   };
 
-  const updateAccountConfirmation = () => {
-    if (!(accountForm instanceof HTMLFormElement) || !(accountActionSelect instanceof HTMLSelectElement)) {
+  const updateQuickCreateEmploymentRequirements = () => {
+    if (!(quickCreateRoleSelect instanceof HTMLSelectElement)) {
       return;
     }
 
-    const targetLabel = getAccountTargetLabel();
-    const accountAction = String(accountActionSelect.value || 'add').trim().toLowerCase();
+    const selectedOption = quickCreateRoleSelect.options[quickCreateRoleSelect.selectedIndex] || null;
+    const selectedRoleKey = String(selectedOption?.getAttribute('data-role-key') || '').trim().toLowerCase();
+    const requiresEmployment = ['admin', 'staff', 'employee'].includes(selectedRoleKey);
 
-    if (accountAction === 'archive') {
-      accountForm.dataset.confirmTitle = 'Archive this user account?';
-      accountForm.dataset.confirmText = `${targetLabel} will be archived and removed from active sign-in access.`;
-      accountForm.dataset.confirmButtonText = 'Archive account';
-      accountForm.dataset.confirmButtonColor = '#dc2626';
+    if (quickCreateOfficeSelect instanceof HTMLSelectElement) {
+      quickCreateOfficeSelect.required = requiresEmployment;
+    }
+
+    if (quickCreatePositionSelect instanceof HTMLSelectElement) {
+      quickCreatePositionSelect.required = requiresEmployment;
+    }
+  };
+
+  const updateArchiveConfirmation = () => {
+    if (!(accountForm instanceof HTMLFormElement)) {
       return;
     }
 
-    accountForm.dataset.confirmTitle = 'Create this user account?';
-    accountForm.dataset.confirmText = `This will create an account for ${targetLabel} and apply the selected onboarding details.`;
-    accountForm.dataset.confirmButtonText = 'Create account';
-    accountForm.dataset.confirmButtonColor = '#0f172a';
+    const fullName = accountFullNameInput instanceof HTMLInputElement ? accountFullNameInput.value.trim() : '';
+    const email = accountEmailInput instanceof HTMLInputElement ? accountEmailInput.value.trim() : '';
+    const targetLabel = fullName !== '' ? fullName : (email !== '' ? email : 'this user');
+
+    accountForm.dataset.confirmTitle = 'Archive this user account?';
+    accountForm.dataset.confirmText = `${targetLabel} will be archived and removed from active sign-in access.`;
+    accountForm.dataset.confirmButtonText = 'Archive account';
+    accountForm.dataset.confirmButtonColor = '#dc2626';
+  };
+
+  const updateDeleteConfirmation = () => {
+    if (!(deleteUserForm instanceof HTMLFormElement)) {
+      return;
+    }
+
+    const targetLabel = deleteUserNameInput instanceof HTMLInputElement && deleteUserNameInput.value.trim() !== ''
+      ? deleteUserNameInput.value.trim()
+      : (deleteUserEmailInput instanceof HTMLInputElement ? deleteUserEmailInput.value.trim() : 'this user');
+
+    deleteUserForm.dataset.confirmTitle = 'Delete this user?';
+    deleteUserForm.dataset.confirmText = `${targetLabel} and any removable linked records will be deleted permanently.`;
+    deleteUserForm.dataset.confirmButtonText = 'Delete user';
+    deleteUserForm.dataset.confirmButtonColor = '#dc2626';
   };
 
   const updateRoleConfirmation = () => {
@@ -196,6 +233,24 @@ const initAccountPrefill = () => {
     }
   };
 
+  const updateQuickCreateAdminGuard = () => {
+    if (!(quickCreateRoleSelect instanceof HTMLSelectElement) || !(roleSelect instanceof HTMLSelectElement)) {
+      return;
+    }
+
+    const activeAdminCount = Number(roleSelect.dataset.activeAdminCount || '0');
+    const activeAdminMax = Number(roleSelect.dataset.activeAdminMax || '3');
+    const adminRoleOption = quickCreateRoleSelect.querySelector('option[data-role-key="admin"]');
+    const capReached = activeAdminCount >= activeAdminMax;
+
+    if (adminRoleOption instanceof HTMLOptionElement) {
+      adminRoleOption.disabled = capReached;
+      if (capReached && quickCreateRoleSelect.value === adminRoleOption.value) {
+        quickCreateRoleSelect.value = '';
+      }
+    }
+  };
+
   const updateCredentialAdminGuard = () => {
     if (!(credentialUserSelect instanceof HTMLSelectElement) || !(credentialActionSelect instanceof HTMLSelectElement)) {
       return;
@@ -248,11 +303,9 @@ const initAccountPrefill = () => {
     });
   }
 
-  updateRoleAdminGuard();
   if (roleSelect instanceof HTMLSelectElement) {
     roleSelect.addEventListener('change', updateRoleConfirmation);
   }
-  updateRoleConfirmation();
 
   document.querySelectorAll('[data-fill-credential]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -278,16 +331,12 @@ const initAccountPrefill = () => {
     credentialActionSelect.addEventListener('change', updateCredentialConfirmation);
   }
 
-  updateCredentialAdminGuard();
-  updateCredentialConfirmation();
-
   document.querySelectorAll('[data-prepare-archive]').forEach((button) => {
     button.addEventListener('click', () => {
-      if (!(accountActionSelect instanceof HTMLSelectElement) || !(accountEmailInput instanceof HTMLInputElement)) {
+      if (!(accountEmailInput instanceof HTMLInputElement)) {
         return;
       }
 
-      accountActionSelect.value = 'archive';
       accountEmailInput.value = button.getAttribute('data-email') || '';
       if (accountFullNameInput instanceof HTMLInputElement) {
         accountFullNameInput.value = button.getAttribute('data-display-name') || '';
@@ -295,23 +344,56 @@ const initAccountPrefill = () => {
 
       openModal('accountModal');
       accountEmailInput.focus();
-      updateAccountConfirmation();
+      updateArchiveConfirmation();
     });
   });
 
-  if (accountActionSelect instanceof HTMLSelectElement) {
-    accountActionSelect.addEventListener('change', updateAccountConfirmation);
+  document.querySelectorAll('[data-prepare-delete]').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (deleteUserIdInput instanceof HTMLInputElement) {
+        deleteUserIdInput.value = button.getAttribute('data-user-id') || '';
+      }
+      if (deleteUserEmailInput instanceof HTMLInputElement) {
+        deleteUserEmailInput.value = button.getAttribute('data-email') || '';
+      }
+      if (deleteUserNameInput instanceof HTMLInputElement) {
+        deleteUserNameInput.value = button.getAttribute('data-display-name') || '';
+      }
+
+      openModal('deleteUserModal');
+      updateDeleteConfirmation();
+    });
+  });
+
+  if (quickCreateNameInput instanceof HTMLInputElement) {
+    quickCreateNameInput.addEventListener('input', updateQuickCreateConfirmation);
+  }
+
+  if (quickCreateRoleSelect instanceof HTMLSelectElement) {
+    quickCreateRoleSelect.addEventListener('change', () => {
+      updateQuickCreateAdminGuard();
+      updateQuickCreateEmploymentRequirements();
+      updateQuickCreateConfirmation();
+    });
   }
 
   if (accountEmailInput instanceof HTMLInputElement) {
-    accountEmailInput.addEventListener('input', updateAccountConfirmation);
+    accountEmailInput.addEventListener('input', updateArchiveConfirmation);
   }
 
   if (accountFullNameInput instanceof HTMLInputElement) {
-    accountFullNameInput.addEventListener('input', updateAccountConfirmation);
+    accountFullNameInput.addEventListener('input', updateArchiveConfirmation);
   }
 
-  updateAccountConfirmation();
+  updateQuickCreateAdminGuard();
+  updateQuickCreateEmploymentRequirements();
+  updateQuickCreateConfirmation();
+  updateArchiveConfirmation();
+  updateDeleteConfirmation();
+  updateRoleAdminGuard();
+  updateRoleConfirmation();
+  updateCredentialAdminGuard();
+  updateCredentialConfirmation();
 };
 
 const initUserManagementFilters = () => {

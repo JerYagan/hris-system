@@ -1,5 +1,5 @@
 <?php
-$pageTitle = 'Forgot Password | DA HRIS';
+$pageTitle = 'Forgot Password | ATI HRIS Portal';
 
 ob_start();
 

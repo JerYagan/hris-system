@@ -6,7 +6,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $action = cleanText($_POST['form_action'] ?? null) ?? '';
 
-if (!in_array($action, ['review_document', 'archive_document', 'restore_document'], true)) {
+if (!in_array($action, ['review_document', 'archive_document', 'restore_document', 'create_document_category'], true)) {
     redirectWithState('error', 'Unknown document action request.');
 }
 
@@ -14,12 +14,83 @@ if (!isValidCsrfToken($_POST['csrf_token'] ?? null)) {
     redirectWithState('error', 'Invalid request token. Please refresh the page and try again.');
 }
 
-$documentId = cleanText($_POST['document_id'] ?? null) ?? '';
 $reviewStatus = strtolower((string)(cleanText($_POST['review_status'] ?? null) ?? ''));
 $reviewNotes = cleanText($_POST['review_notes'] ?? null);
 $archiveReason = cleanText($_POST['archive_reason'] ?? null);
 $restoreReason = cleanText($_POST['restore_reason'] ?? null);
 
+if ($action === 'create_document_category') {
+    $categoryName = trim((string)(cleanText($_POST['category_name'] ?? null) ?? ''));
+    if ($categoryName === '') {
+        redirectWithState('error', 'Category name is required.');
+    }
+
+    if (mb_strlen($categoryName) > 80) {
+        redirectWithState('error', 'Category name must be 80 characters or less.');
+    }
+
+    if (strtolower($categoryName) === 'haugafia') {
+        redirectWithState('error', 'That category label is not allowed.');
+    }
+
+    if (preg_match('/^[A-Za-z0-9][A-Za-z0-9()\/,&\-\s]{1,79}$/', $categoryName) !== 1) {
+        redirectWithState('error', 'Use letters, numbers, spaces, and basic punctuation only for category names.');
+    }
+
+    $categoryKey = strtolower(trim((string)preg_replace('/[^a-z0-9]+/i', '_', $categoryName), '_'));
+    if ($categoryKey === '') {
+        redirectWithState('error', 'Unable to generate a valid category key.');
+    }
+
+    $existingResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/document_categories?select=id,category_name&category_key=eq.' . rawurlencode($categoryKey) . '&limit=1',
+        $headers
+    );
+
+    if (isSuccessful($existingResponse) && !empty((array)($existingResponse['data'] ?? []))) {
+        redirectWithState('success', 'Document category already exists.');
+    }
+
+    $createResponse = apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/document_categories',
+        array_merge($headers, ['Prefer: return=representation']),
+        [[
+            'category_key' => $categoryKey,
+            'category_name' => $categoryName,
+            'requires_approval' => true,
+        ]]
+    );
+
+    if (!isSuccessful($createResponse)) {
+        redirectWithState('error', 'Failed to create document category.');
+    }
+
+    $createdCategoryId = trim((string)($createResponse['data'][0]['id'] ?? ''));
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $staffUserId,
+            'module_name' => 'document_management',
+            'entity_name' => 'document_categories',
+            'entity_id' => $createdCategoryId !== '' ? $createdCategoryId : null,
+            'action_name' => 'create_document_category',
+            'old_data' => null,
+            'new_data' => [
+                'category_name' => $categoryName,
+                'category_key' => $categoryKey,
+            ],
+            'ip_address' => clientIp(),
+        ]]
+    );
+
+    redirectWithState('success', 'Document category created successfully.');
+}
+
+$documentId = cleanText($_POST['document_id'] ?? null) ?? '';
 if (!isValidUuid($documentId)) {
     redirectWithState('error', 'Invalid document identifier.');
 }

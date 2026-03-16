@@ -213,6 +213,75 @@
   color: rgb(71 85 105);
 }
 
+.employee-doc-template-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.employee-doc-template-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 1rem;
+  background: rgb(248 250 252 / 0.7);
+}
+
+.employee-doc-template-card-copy {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.employee-doc-template-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 0.8rem;
+  background: rgb(255 255 255);
+  color: rgb(71 85 105);
+  border: 1px solid rgb(226 232 240);
+}
+
+.employee-doc-template-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 0.8rem;
+  background: rgb(255 255 255);
+  color: rgb(51 65 85);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.employee-doc-template-action:hover {
+  background: rgb(248 250 252);
+  border-color: rgb(148 163 184);
+}
+
+.employee-doc-registry-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.employee-doc-registry-table th,
+.employee-doc-registry-table td {
+  word-break: break-word;
+}
+
 .employee-doc-upload-dropzone {
   display: flex;
   align-items: center;
@@ -267,6 +336,10 @@
     padding: 0.85rem;
   }
 
+  .employee-doc-template-card-copy {
+    gap: 0.7rem;
+  }
+
   .employee-doc-upload-dropzone,
   .employee-doc-upload-preview {
     flex-direction: column;
@@ -275,6 +348,73 @@
 
   .employee-doc-upload-trigger {
     width: 100%;
+  }
+}
+
+@media (min-width: 768px) {
+  .employee-doc-template-card {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .employee-doc-template-card-copy {
+    flex: 1 1 auto;
+  }
+
+  .employee-doc-template-action {
+    width: auto;
+    min-width: 11.5rem;
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 960px) {
+  .employee-doc-registry-table thead {
+    display: none;
+  }
+
+  .employee-doc-registry-table,
+  .employee-doc-registry-table tbody,
+  .employee-doc-registry-table tr,
+  .employee-doc-registry-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .employee-doc-registry-table tr {
+    padding: 0.9rem 0;
+  }
+
+  .employee-doc-registry-table td {
+    padding: 0.4rem 0;
+    text-align: left !important;
+  }
+
+  .employee-doc-registry-table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.25rem;
+    color: rgb(100 116 139);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .employee-doc-registry-table td:last-child {
+    padding-top: 0.75rem;
+  }
+
+  .employee-doc-registry-table td:last-child .relative.inline-flex {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 1280px) {
+  .employee-doc-tabs {
+    overflow-x: hidden;
   }
 }
 /* Sidebar items */

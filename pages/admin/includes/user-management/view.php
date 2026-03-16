@@ -122,6 +122,66 @@
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-800">Quick Create User</h2>
+        <p class="text-sm text-slate-500 mt-1">Create an account with only the required credentials: name, email, password, and role.</p>
+    </header>
+    <form id="quickCreateUserForm" action="user-management.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 text-sm" data-confirm-title="Create this user account?" data-confirm-text="This will create the selected account and assign the chosen role immediately." data-confirm-button-text="Create user" data-confirm-button-color="#0f172a">
+        <input type="hidden" name="form_action" value="account">
+        <input type="hidden" name="account_action" value="add">
+        <div>
+            <label class="text-slate-600">Full Name</label>
+            <input type="text" name="full_name" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Enter full name" required>
+        </div>
+        <div>
+            <label class="text-slate-600">Email Address</label>
+            <input type="email" name="email" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Enter email" required>
+        </div>
+        <div>
+            <label class="text-slate-600">Password</label>
+            <input type="password" name="password" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Minimum 8 characters" minlength="8" required>
+        </div>
+        <div>
+            <label class="text-slate-600">Role</label>
+            <select id="quickCreateRoleSelect" name="role_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                <option value="">Select role</option>
+                <?php foreach ($roles as $role): ?>
+                    <option value="<?= htmlspecialchars((string)($role['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-role-key="<?= htmlspecialchars(strtolower((string)($role['role_key'] ?? '')), ENT_QUOTES, 'UTF-8') ?>">
+                        <?= htmlspecialchars((string)($role['role_name'] ?? $role['role_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <p class="mt-1 text-xs text-slate-500">Applicant accounts can be created immediately. Admin, Staff, and Employee accounts also require division and position so an employment record can be initialized correctly.</p>
+        </div>
+        <div>
+            <label class="text-slate-600">Division</label>
+            <select id="quickCreateOfficeSelect" name="office_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                <option value="">Select division</option>
+                <?php foreach ($offices as $office): ?>
+                    <option value="<?= htmlspecialchars((string)($office['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                        <?= htmlspecialchars((string)($office['office_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div>
+            <label class="text-slate-600">Position</label>
+            <select id="quickCreatePositionSelect" name="position_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
+                <option value="">Select position</option>
+                <?php foreach ($positions as $position): ?>
+                    <option value="<?= htmlspecialchars((string)($position['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                        <?= htmlspecialchars((string)($position['position_title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="md:col-span-2 xl:col-span-4 flex justify-end gap-3 mt-2">
+            <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Create User</button>
+        </div>
+    </form>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">New Hires Without Employee Accounts</h2>
         <p class="text-sm text-slate-500 mt-1">Creates employee accounts from hired applicants using their application email, sends welcome credentials, and logs onboarding activity.</p>
     </header>
@@ -208,7 +268,7 @@
                 </button>
                 <button type="button" data-action-menu-item data-action-target="top-account" class="w-full text-left px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50 inline-flex items-center gap-2">
                     <span class="material-symbols-outlined text-[16px]">person_add</span>
-                    Add / Archive Account
+                    Archive Account
                 </button>
             </div>
 
@@ -300,11 +360,16 @@
                                             <span class="material-symbols-outlined">archive</span>
                                             Archive
                                         </button>
+                                        <button type="button" data-action-menu-item data-action-target="delete-user" role="menuitem" class="<?= $isAdminUser ? 'admin-action-item admin-action-item-disabled' : 'admin-action-item admin-action-item-danger' ?>" <?= $isAdminUser ? 'disabled title="Admin accounts cannot be deleted from User Management."' : '' ?>>
+                                            <span class="material-symbols-outlined">delete</span>
+                                            Delete
+                                        </button>
                                     </div>
 
                                     <button type="button" data-action-trigger="manage-role" data-fill-role data-user-id="<?= htmlspecialchars((string)($user['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="hidden">Role</button>
                                     <button type="button" data-action-trigger="credentials" data-fill-credential data-user-id="<?= htmlspecialchars((string)($user['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="hidden">Credentials</button>
                                     <button type="button" data-action-trigger="archive-account" data-prepare-archive data-email="<?= htmlspecialchars((string)($user['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-display-name="<?= htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8') ?>" class="hidden">Archive</button>
+                                    <button type="button" data-action-trigger="delete-user" data-prepare-delete data-user-id="<?= htmlspecialchars((string)($user['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-email="<?= htmlspecialchars((string)($user['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-display-name="<?= htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8') ?>" class="hidden">Delete</button>
                                 </div>
                             </td>
                         </tr>
@@ -320,44 +385,60 @@
     <div class="relative min-h-full flex items-center justify-center p-4">
         <div class="w-full max-w-3xl bg-white rounded-2xl border border-slate-200 shadow-xl">
             <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-slate-800">Add / Archive User Account</h3>
+                <h3 class="text-lg font-semibold text-slate-800">Archive User Account</h3>
                 <button type="button" data-modal-close="accountModal" class="text-slate-500 hover:text-slate-700">✕</button>
             </div>
-            <form id="accountForm" action="user-management.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm" data-confirm-title="Create this user account?" data-confirm-text="This will create the user account and apply the selected onboarding details." data-confirm-button-text="Create account">
+            <form id="accountForm" action="user-management.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm" data-confirm-title="Archive this user account?" data-confirm-text="This will archive the selected account and end its active role assignments." data-confirm-button-text="Archive account">
                 <input type="hidden" name="form_action" value="account">
+                <input type="hidden" name="account_action" value="archive">
                 <div>
-                    <label class="text-slate-600">Full Name</label>
-                    <input id="accountFullNameInput" type="text" name="full_name" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Enter full name">
-                </div>
-                <div>
-                    <label class="text-slate-600">Action</label>
-                    <select id="accountActionSelect" name="account_action" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
-                        <option value="add">Add User Account</option>
-                        <option value="archive">Archive User Account</option>
-                    </select>
+                    <label class="text-slate-600">Account</label>
+                    <input id="accountFullNameInput" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" placeholder="Selected user" readonly>
                 </div>
                 <div>
                     <label class="text-slate-600">Email Address</label>
                     <input id="accountEmailInput" type="email" name="email" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Enter official email" required>
                 </div>
-                <div>
-                    <label class="text-slate-600">Division</label>
-                    <select name="office_id" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
-                        <option value="">Select division</option>
-                        <?php foreach ($offices as $office): ?>
-                            <option value="<?= htmlspecialchars((string)($office['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
-                                <?= htmlspecialchars((string)($office['office_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
                 <div class="md:col-span-2">
-                    <label class="text-slate-600">Account Notes</label>
-                    <textarea name="account_notes" rows="3" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Add onboarding details or archival reason"></textarea>
+                    <label class="text-slate-600">Archive Notes</label>
+                    <textarea name="account_notes" rows="3" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Add reason for archiving this account"></textarea>
                 </div>
                 <div class="md:col-span-2 flex justify-end gap-3 mt-2">
                     <button type="button" data-modal-close="accountModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button>
-                    <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Save Account</button>
+                    <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Archive Account</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="deleteUserModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-slate-900/60" data-modal-close="deleteUserModal"></div>
+    <div class="relative min-h-full flex items-center justify-center p-4">
+        <div class="w-full max-w-2xl bg-white rounded-2xl border border-slate-200 shadow-xl">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-slate-800">Delete User</h3>
+                <button type="button" data-modal-close="deleteUserModal" class="text-slate-500 hover:text-slate-700">✕</button>
+            </div>
+            <form id="deleteUserForm" action="user-management.php" method="POST" class="p-6 grid grid-cols-1 gap-4 text-sm" data-confirm-title="Delete this user?" data-confirm-text="This permanently deletes the account and any removable linked records." data-confirm-button-text="Delete user" data-confirm-button-color="#dc2626">
+                <input type="hidden" name="form_action" value="delete_user">
+                <input id="deleteUserIdInput" type="hidden" name="user_id" value="">
+                <div>
+                    <label class="text-slate-600">Account</label>
+                    <input id="deleteUserNameInput" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
+                </div>
+                <div>
+                    <label class="text-slate-600">Email Address</label>
+                    <input id="deleteUserEmailInput" type="email" name="email" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
+                </div>
+                <div>
+                    <label class="text-slate-600">Delete Notes</label>
+                    <textarea name="delete_notes" rows="3" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Add reason for deleting this user"></textarea>
+                </div>
+                <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Delete is permanent. Users with retained recruitment or other protected records may still be blocked and should be archived instead.</p>
+                <div class="flex justify-end gap-3 mt-2">
+                    <button type="button" data-modal-close="deleteUserModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button>
+                    <button type="submit" class="px-5 py-2 rounded-md bg-red-600 text-white hover:bg-red-700">Delete User</button>
                 </div>
             </form>
         </div>

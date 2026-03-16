@@ -498,7 +498,9 @@
     });
 
     const obId = document.getElementById('obRequestId');
+    const obModalTitle = document.getElementById('obModalTitle');
     const obEmployee = document.getElementById('obEmployeeName');
+    const obRequestType = document.getElementById('obRequestTypeLabel');
     const obCurrent = document.getElementById('obCurrentStatus');
     const obWindow = document.getElementById('obRequestedWindow');
     const obReason = document.getElementById('obReason');
@@ -512,11 +514,18 @@
         cancelId: 'obModalCancel',
         openSelector: '[data-open-ob-modal]',
         fill: (button) => {
+            const requestTypeLabel = button.getAttribute('data-request-type-label') || 'Special Request';
             if (obId) {
                 obId.value = button.getAttribute('data-request-id') || '';
             }
+            if (obModalTitle) {
+                obModalTitle.textContent = `Recommend ${requestTypeLabel} Decision`;
+            }
             if (obEmployee) {
                 obEmployee.textContent = button.getAttribute('data-employee-name') || '-';
+            }
+            if (obRequestType) {
+                obRequestType.textContent = requestTypeLabel;
             }
             if (obCurrent) {
                 obCurrent.textContent = button.getAttribute('data-current-status-label') || '-';
@@ -534,7 +543,7 @@
         titleField: obEmployee,
         currentField: obCurrent,
         decisionField: obDecision,
-        entityLabel: 'official business request',
+        entityLabel: 'special timekeeping request',
     });
 
     const adjustmentId = document.getElementById('adjustmentRequestId');

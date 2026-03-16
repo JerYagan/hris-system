@@ -531,6 +531,8 @@ $syncEducationalBackground = static function (string $targetPersonId) use ($supa
 };
 
 if ($action === 'save_profile') {
+    redirectWithState('error', 'Direct staff editing of employee PDS information has been removed. Staff access is now limited to viewing employee-submitted requests.', 'personal-information.php');
+
     $profileAction = strtolower((string)(cleanText($_POST['profile_action'] ?? null) ?? 'edit'));
     $personId = cleanText($_POST['person_id'] ?? null) ?? '';
     $employmentId = cleanText($_POST['employment_id'] ?? null) ?? '';

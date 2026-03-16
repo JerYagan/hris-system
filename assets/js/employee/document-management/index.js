@@ -21,6 +21,11 @@ const formatFileSize = (bytes) => {
   return `${sized.toFixed(exponent === 0 ? 0 : 2)} ${units[exponent]}`;
 };
 
+const parseDate = (value) => {
+  const timestamp = Date.parse(String(value || '').trim());
+  return Number.isNaN(timestamp) ? null : timestamp;
+};
+
 const buildDocumentTitleFromFile = (fileName) => {
   const raw = (fileName || '').replace(/\.[^/.]+$/, '');
   return raw.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
@@ -80,6 +85,8 @@ const wireDetailsModals = () => {
 const wireFilters = () => {
   const searchInput = document.getElementById('documentSearchInput');
   const categoryFilter = document.getElementById('documentCategoryFilter');
+  const archivedFromInput = document.getElementById('documentArchivedFromFilter');
+  const archivedToInput = document.getElementById('documentArchivedToFilter');
   const rows = Array.from(document.querySelectorAll('[data-document-row]'));
   const filterEmpty = document.getElementById('documentFilterEmpty');
   const viewTabButtons = Array.from(document.querySelectorAll('[data-document-view-tab]'));
@@ -194,25 +201,40 @@ const wireFilters = () => {
   const render = () => {
     const term = (searchInput.value || '').toLowerCase().trim();
     const category = (categoryFilter.value || '').toLowerCase().trim();
+    const archivedFrom = parseDate(archivedFromInput?.value || '');
+    const archivedToRaw = parseDate(archivedToInput?.value || '');
+    const archivedTo = archivedToRaw === null ? null : (archivedToRaw + (24 * 60 * 60 * 1000) - 1);
 
     const filteredRows = rows.filter((row) => {
       const haystack = (row.getAttribute('data-search') || '').toLowerCase();
       const rowCategory = (row.getAttribute('data-category') || '').toLowerCase();
       const rowStatus = (row.getAttribute('data-status') || '').toLowerCase();
       const rowView = (row.getAttribute('data-view') || 'active').toLowerCase();
+      const rowArchivedDate = parseDate(row.getAttribute('data-archived-date') || '');
 
       const passTerm = term === '' || haystack.includes(term);
       const passCategory = category === '' || rowCategory === category;
       const passView = rowView === activeViewTab;
       const passStatus = activeViewTab === 'archived' || activeStatusTab === 'all' || rowStatus === activeStatusTab;
-      return passTerm && passCategory && passView && passStatus;
+      const passArchivedFrom = activeViewTab !== 'archived' || archivedFrom === null || (rowArchivedDate !== null && rowArchivedDate >= archivedFrom);
+      const passArchivedTo = activeViewTab !== 'archived' || archivedTo === null || (rowArchivedDate !== null && rowArchivedDate <= archivedTo);
+
+      return passTerm && passCategory && passView && passStatus && passArchivedFrom && passArchivedTo;
     });
 
-    const isFiltered = term !== '' || category !== '' || activeStatusTab !== 'all' || activeViewTab !== 'active';
+    const isFiltered = term !== ''
+      || category !== ''
+      || activeStatusTab !== 'all'
+      || activeViewTab !== 'active'
+      || (archivedFromInput?.value || '') !== ''
+      || (archivedToInput?.value || '') !== '';
     renderPaginatedRows('employeeDocumentTable', rows, filteredRows, filterEmpty, isFiltered);
   };
 
-  [searchInput, categoryFilter].forEach((input) => {
+  [searchInput, categoryFilter, archivedFromInput, archivedToInput].forEach((input) => {
+    if (!input) {
+      return;
+    }
     input.addEventListener('input', render);
     input.addEventListener('change', render);
   });
@@ -261,6 +283,12 @@ const wireFilters = () => {
     button.addEventListener('click', () => {
       searchInput.value = '';
       categoryFilter.value = '';
+      if (archivedFromInput) {
+        archivedFromInput.value = '';
+      }
+      if (archivedToInput) {
+        archivedToInput.value = '';
+      }
       activeViewTab = 'active';
       activeStatusTab = 'all';
       setPage('employeeDocumentTable', 1);
@@ -291,6 +319,44 @@ const wireFilters = () => {
   });
 
   render();
+};
+
+const wireHrRequestForm = () => {
+  const requestTypeSelect = document.getElementById('hrRequestType');
+  const requestTypeOtherWrap = document.getElementById('hrRequestTypeOtherWrap');
+  const requestTypeOtherInput = document.getElementById('hrRequestTypeOther');
+  const purposeSelect = document.getElementById('hrRequestPurpose');
+  const purposeOtherWrap = document.getElementById('hrRequestPurposeOtherWrap');
+  const purposeOtherInput = document.getElementById('hrRequestPurposeOther');
+
+  const syncConditionalFields = () => {
+    const requiresOtherRequestType = (requestTypeSelect?.value || '') === 'other_hr_document';
+    const requiresOtherPurpose = (purposeSelect?.value || '') === 'other';
+
+    if (requestTypeOtherWrap) {
+      requestTypeOtherWrap.classList.toggle('hidden', !requiresOtherRequestType);
+    }
+    if (requestTypeOtherInput) {
+      requestTypeOtherInput.required = requiresOtherRequestType;
+      if (!requiresOtherRequestType) {
+        requestTypeOtherInput.value = '';
+      }
+    }
+
+    if (purposeOtherWrap) {
+      purposeOtherWrap.classList.toggle('hidden', !requiresOtherPurpose);
+    }
+    if (purposeOtherInput) {
+      purposeOtherInput.required = requiresOtherPurpose;
+      if (!requiresOtherPurpose) {
+        purposeOtherInput.value = '';
+      }
+    }
+  };
+
+  requestTypeSelect?.addEventListener('change', syncConditionalFields);
+  purposeSelect?.addEventListener('change', syncConditionalFields);
+  syncConditionalFields();
 };
 
 const wireVersionModalData = () => {
@@ -670,6 +736,7 @@ const initEmployeeDocumentManagementPage = () => {
   wireFilters();
   wireUploadModal();
   wireArchiveRestoreActions();
+  wireHrRequestForm();
   wireActionDropdowns();
 
   document.addEventListener('keydown', (event) => {

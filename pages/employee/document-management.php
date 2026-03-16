@@ -96,7 +96,26 @@ $documentCategoryFilters = array_values(array_unique(array_merge(
   $document201Types,
   ['Resume/CV', 'Transcript of Records', 'Valid Government ID', 'Eligibility (CSC/PRC)', 'Application Letter']
 )));
+$documentCategoryFilters = array_values(array_unique(array_merge(
+  $documentCategoryFilters,
+  array_values(array_filter(array_map(static fn(array $documentRow): string => (string)($documentRow['category_name'] ?? ''), $employeeDocuments)))
+)));
 $document201Lookup = array_fill_keys(array_map('strtolower', $document201Types), true);
+$hrRequestTypeOptions = [
+  'coe' => 'COE',
+  'service_record' => 'Service Record',
+  'certificate_of_foreign_travel' => 'Certificate of Foreign Travel',
+  'other_hr_document' => 'Other HR Document',
+];
+$hrRequestPurposeOptions = [
+  'employment' => 'Employment Requirement',
+  'loan' => 'Loan / Financing',
+  'visa_travel' => 'Visa / Travel',
+  'scholarship' => 'Scholarship / Training',
+  'compliance' => 'Compliance / Government Submission',
+  'personal_copy' => 'Personal Copy',
+  'other' => 'Other',
+];
 $activeDocumentCount = 0;
 $archivedDocumentCount = 0;
 foreach ($employeeDocuments as $documentCountRow) {
@@ -138,6 +157,99 @@ foreach ($employeeDocuments as $documentCountRow) {
   </div>
 </section>
 
+<section class="mb-6 bg-white border rounded-xl p-6">
+  <div class="grid grid-cols-1 xl:grid-cols-[1.15fr_0.85fr] gap-6">
+    <div class="min-w-0">
+      <h2 class="text-lg font-semibold text-gray-800">HR Document Requests</h2>
+      <p class="text-sm text-gray-500 mt-1">Request COE, Service Record, Foreign Travel Certificate, or another HR document from this page.</p>
+
+      <form method="post" action="document-management.php" class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4" id="employeeHrDocumentRequestForm">
+        <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken ?? '') ?>">
+        <input type="hidden" name="action" value="submit_document_request">
+
+        <div>
+          <label for="hrRequestType" class="text-sm font-medium text-gray-700">Request Type</label>
+          <select id="hrRequestType" name="request_type" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm" required>
+            <option value="">Select request type</option>
+            <?php foreach ($hrRequestTypeOptions as $requestKey => $requestLabel): ?>
+              <option value="<?= $escape($requestKey) ?>"><?= $escape($requestLabel) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+
+        <div id="hrRequestTypeOtherWrap" class="hidden">
+          <label for="hrRequestTypeOther" class="text-sm font-medium text-gray-700">Other HR Document</label>
+          <input id="hrRequestTypeOther" name="custom_request_label" type="text" maxlength="120" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm" placeholder="Specify the document you need">
+        </div>
+
+        <div>
+          <label for="hrRequestPurpose" class="text-sm font-medium text-gray-700">Purpose</label>
+          <select id="hrRequestPurpose" name="purpose_key" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm" required>
+            <option value="">Select purpose</option>
+            <?php foreach ($hrRequestPurposeOptions as $purposeKey => $purposeLabel): ?>
+              <option value="<?= $escape($purposeKey) ?>"><?= $escape($purposeLabel) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+
+        <div id="hrRequestPurposeOtherWrap" class="hidden">
+          <label for="hrRequestPurposeOther" class="text-sm font-medium text-gray-700">Other Purpose</label>
+          <input id="hrRequestPurposeOther" name="other_purpose" type="text" maxlength="160" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm" placeholder="Explain the specific purpose">
+        </div>
+
+        <div class="md:col-span-2">
+          <label for="hrRequestNotes" class="text-sm font-medium text-gray-700">Additional Notes</label>
+          <textarea id="hrRequestNotes" name="request_notes" rows="3" maxlength="1000" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm" placeholder="Include deadlines, destination office, or special instructions if needed."></textarea>
+        </div>
+
+        <div class="md:col-span-2 flex justify-end">
+          <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-daGreen px-4 py-2 text-sm font-medium text-white hover:opacity-90">
+            <span class="material-icons text-sm">outgoing_mail</span>Submit HR Request
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div class="min-w-0 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+      <div class="flex items-center justify-between gap-3 mb-4">
+        <div>
+          <h3 class="text-sm font-semibold text-slate-800">Recent Requests</h3>
+          <p class="text-xs text-slate-500 mt-1">Your submitted HR document requests with purpose and submission time.</p>
+        </div>
+        <span class="inline-flex items-center rounded-full bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700"><?= $escape((string)count($employeeDocumentRequests)) ?> total</span>
+      </div>
+
+      <?php if (empty($employeeDocumentRequests)): ?>
+        <div class="rounded-lg border border-dashed border-slate-300 bg-white px-4 py-8 text-center">
+          <p class="font-medium text-slate-700">No HR document requests yet</p>
+          <p class="text-sm text-slate-500 mt-1">Use the request form to notify HR about document needs and purpose.</p>
+        </div>
+      <?php else: ?>
+        <div class="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+          <?php foreach ($employeeDocumentRequests as $requestRow): ?>
+            <article class="rounded-lg border border-slate-200 bg-white p-4">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="font-medium text-slate-800"><?= $escape($requestRow['request_type_label'] ?? 'HR Document Request') ?></p>
+                  <?php if (!empty($requestRow['custom_request_label'])): ?>
+                    <p class="text-xs text-slate-500 mt-1">Custom request: <?= $escape($requestRow['custom_request_label']) ?></p>
+                  <?php endif; ?>
+                </div>
+                <span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800"><?= $escape($requestRow['status_label'] ?? 'Submitted') ?></span>
+              </div>
+              <p class="text-xs text-slate-500 mt-3">Purpose: <?= $escape($requestRow['purpose_label'] ?? '-') ?><?php if (!empty($requestRow['other_purpose'])): ?> · <?= $escape($requestRow['other_purpose']) ?><?php endif; ?></p>
+              <p class="text-xs text-slate-500 mt-1">Submitted by <?= $escape($requestRow['submitted_by'] ?? '-') ?> on <?= $escape($requestRow['submitted_label'] ?? '-') ?></p>
+              <?php if (!empty($requestRow['notes'])): ?>
+                <p class="text-sm text-slate-600 mt-3"><?= $escape($requestRow['notes']) ?></p>
+              <?php endif; ?>
+            </article>
+          <?php endforeach; ?>
+        </div>
+      <?php endif; ?>
+    </div>
+  </div>
+</section>
+
 <div class="employee-doc-tabs mb-6">
   <div class="employee-doc-tabs-row" role="tablist" aria-label="Document View Tabs">
     <button type="button" data-document-view-tab="active" class="employee-doc-tab employee-doc-tab-active">Current Documents</button>
@@ -152,17 +264,17 @@ foreach ($employeeDocuments as $documentCountRow) {
   </div>
 </div>
 
-<div class="bg-white border rounded-xl p-6">
+<div class="bg-white border rounded-xl p-6 max-w-full overflow-hidden">
   <div class="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
     <h2 class="text-lg font-semibold text-gray-800">My Document Registry</h2>
 
-    <div class="w-full xl:w-auto xl:ml-auto flex flex-col lg:flex-row gap-3 lg:items-end">
-      <div class="w-full lg:w-80">
+    <div class="w-full xl:w-auto xl:ml-auto flex flex-col xl:flex-row xl:flex-wrap gap-3 xl:items-end">
+      <div class="w-full xl:w-80 xl:min-w-0">
         <label class="text-sm text-gray-700">Search</label>
         <input id="documentSearchInput" type="search" placeholder="Search title, category, status" class="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm bg-white">
       </div>
 
-      <div class="w-full lg:w-64">
+      <div class="w-full xl:w-64 xl:min-w-0">
         <label class="text-sm text-gray-700">Category</label>
         <select id="documentCategoryFilter" class="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm bg-white">
           <option value="">All Categories</option>
@@ -172,7 +284,17 @@ foreach ($employeeDocuments as $documentCountRow) {
         </select>
       </div>
 
-      <button data-open-upload class="bg-daGreen text-white px-4 py-2 rounded-md text-sm font-medium hover:opacity-90 h-[42px] inline-flex items-center justify-center gap-1.5 whitespace-nowrap"><span class="material-icons text-base">upload_file</span>Upload Document</button>
+      <div class="w-full xl:w-52 xl:min-w-0">
+        <label class="text-sm text-gray-700">Archived From</label>
+        <input id="documentArchivedFromFilter" type="date" class="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm bg-white">
+      </div>
+
+      <div class="w-full xl:w-52 xl:min-w-0">
+        <label class="text-sm text-gray-700">Archived To</label>
+        <input id="documentArchivedToFilter" type="date" class="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm bg-white">
+      </div>
+
+      <button data-open-upload class="bg-daGreen text-white px-4 py-2 rounded-md text-sm font-medium hover:opacity-90 min-h-[42px] inline-flex items-center justify-center gap-1.5"><span class="material-icons text-base">upload_file</span>Upload Document</button>
     </div>
   </div>
 
@@ -184,7 +306,7 @@ foreach ($employeeDocuments as $documentCountRow) {
     </div>
   <?php else: ?>
     <div class="w-full">
-      <table id="employeeDocumentTable" class="w-full text-sm table-fixed">
+      <table id="employeeDocumentTable" class="employee-doc-registry-table w-full text-sm table-fixed">
         <thead>
           <tr class="border-b text-gray-500">
             <th class="text-left py-3 pr-2 w-[35%]">Document</th>
@@ -212,8 +334,8 @@ foreach ($employeeDocuments as $documentCountRow) {
               [$fileIcon, $fileIconClass, $fileTypeLabel] = $fileTypeMeta($latestExt);
               $detailsModalId = 'document-details-' . $documentId;
             ?>
-            <tr class="border-b" data-document-row data-search="<?= $escape(strtolower((string)($document['title'] ?? '') . ' ' . strtolower($categoryName) . ' ' . strtolower($statusLabel) . ' ' . strtolower($fileTypeLabel))) ?>" data-category="<?= $escape(strtolower($categoryName)) ?>" data-status="<?= $escape(strtolower($status)) ?>" data-view="<?= $isArchived ? 'archived' : 'active' ?>">
-              <td class="py-3 pr-2 align-top">
+            <tr class="border-b" data-document-row data-search="<?= $escape(strtolower((string)($document['title'] ?? '') . ' ' . strtolower($categoryName) . ' ' . strtolower($statusLabel) . ' ' . strtolower($fileTypeLabel))) ?>" data-category="<?= $escape(strtolower($categoryName)) ?>" data-status="<?= $escape(strtolower($status)) ?>" data-view="<?= $isArchived ? 'archived' : 'active' ?>" data-archived-date="<?= $escape((string)($document['archived_at'] ?? '')) ?>">
+              <td class="py-3 pr-2 align-top" data-label="Document">
                 <div class="flex items-start gap-2">
                   <span class="material-icons text-lg mt-0.5 <?= $escape($fileIconClass) ?>" title="<?= $escape($fileTypeLabel) ?>"><?= $escape($fileIcon) ?></span>
                   <div class="min-w-0">
@@ -225,10 +347,10 @@ foreach ($employeeDocuments as $documentCountRow) {
                   </div>
                 </div>
               </td>
-              <td class="py-3 pr-2 align-top break-words"><?= $escape($categoryName) ?></td>
-              <td class="py-3 pr-2 align-top break-words"><?= $escape($formatDate($document['updated_at'] ?? '')) ?></td>
-              <td class="py-3 pr-2 align-top"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium <?= $escape($statusClass) ?>"><?= $escape($statusLabel) ?></span></td>
-              <td class="py-3 align-top text-right">
+              <td class="py-3 pr-2 align-top break-words" data-label="Category"><?= $escape($categoryName) ?></td>
+              <td class="py-3 pr-2 align-top break-words" data-label="Uploaded"><?= $escape($formatDate($document['updated_at'] ?? '')) ?></td>
+              <td class="py-3 pr-2 align-top" data-label="Status"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium <?= $escape($statusClass) ?>"><?= $escape($statusLabel) ?></span></td>
+              <td class="py-3 align-top text-right" data-label="Actions">
                 <div class="relative inline-flex text-left" data-action-dropdown data-admin-action-scope>
                   <button type="button" data-action-trigger aria-haspopup="menu" aria-expanded="false" class="admin-action-button">
                     <span class="admin-action-button-label">
@@ -321,6 +443,10 @@ foreach ($employeeDocuments as $documentCountRow) {
                       <p class="text-gray-500 text-xs">Last Updated</p>
                       <p class="font-medium mt-1"><?= $escape($formatDate($document['updated_at'] ?? '')) ?></p>
                     </div>
+                    <div class="border rounded-lg p-3">
+                      <p class="text-gray-500 text-xs">Archived On</p>
+                      <p class="font-medium mt-1"><?= $escape((string)($document['archived_label'] ?? '-')) ?></p>
+                    </div>
                   </div>
 
                   <div>
@@ -346,7 +472,7 @@ foreach ($employeeDocuments as $documentCountRow) {
                         <?php foreach ($reviews as $review): ?>
                           <div class="border rounded-md px-3 py-2 bg-gray-50">
                             <p class="font-medium"><?= $escape(ucwords(str_replace('_', ' ', (string)($review['review_status'] ?? 'pending')))) ?></p>
-                            <p class="text-gray-500 text-xs mt-1"><?= $escape($review['reviewer_email'] ?? '-') ?> · <?= $escape($formatDate($review['reviewed_at'] ?? '')) ?></p>
+                            <p class="text-gray-500 text-xs mt-1"><?= $escape($review['reviewer_label'] ?? ($review['reviewer_email'] ?? '-')) ?> · <?= $escape($formatDate($review['reviewed_at'] ?? '')) ?></p>
                             <?php if (!empty($review['review_notes'])): ?>
                               <p class="text-gray-600 text-xs mt-2"><?= $escape($review['review_notes']) ?></p>
                             <?php endif; ?>
@@ -355,6 +481,26 @@ foreach ($employeeDocuments as $documentCountRow) {
                       </div>
                     <?php else: ?>
                       <p class="text-gray-500">No review history yet.</p>
+                    <?php endif; ?>
+                  </div>
+
+                  <div>
+                    <h4 class="font-semibold mb-2">Audit Trail</h4>
+                    <?php $auditTrailEntries = (array)($documentAuditTrailById[$documentId] ?? []); ?>
+                    <?php if (!empty($auditTrailEntries)): ?>
+                      <div class="space-y-2">
+                        <?php foreach ($auditTrailEntries as $auditEntry): ?>
+                          <div class="border rounded-md px-3 py-2 bg-gray-50">
+                            <p class="font-medium"><?= $escape($auditEntry['action_label'] ?? 'Updated') ?></p>
+                            <p class="text-gray-500 text-xs mt-1"><?= $escape($auditEntry['actor_label'] ?? 'System') ?> · <?= $escape($auditEntry['created_label'] ?? '-') ?></p>
+                            <?php if (!empty($auditEntry['notes'])): ?>
+                              <p class="text-gray-600 text-xs mt-2"><?= $escape($auditEntry['notes']) ?></p>
+                            <?php endif; ?>
+                          </div>
+                        <?php endforeach; ?>
+                      </div>
+                    <?php else: ?>
+                      <p class="text-gray-500">No audit trail entries available yet.</p>
                     <?php endif; ?>
                   </div>
                 </div>
@@ -392,6 +538,44 @@ foreach ($employeeDocuments as $documentCountRow) {
     </div>
   <?php endif; ?>
 </div>
+
+<section class="mt-6 mb-6 bg-white border rounded-xl p-6">
+  <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between mb-5">
+    <div>
+      <h2 class="text-lg font-semibold text-gray-800">HR Templates and Forms</h2>
+      <p class="text-sm text-gray-500 mt-1">Open the approved HR forms for document requests, travel, leave, overtime, clearance, and other employee paperwork.</p>
+    </div>
+    <?php if (!empty($sharedHrTemplateDriveUrl)): ?>
+      <a href="<?= $escape($sharedHrTemplateDriveUrl) ?>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <span class="material-icons text-sm">open_in_new</span>Open Template Source
+      </a>
+    <?php endif; ?>
+  </div>
+
+  <div class="employee-doc-template-list">
+    <?php foreach ($hrTemplateDownloadCards as $templateCard): ?>
+      <?php $templateUrl = trim((string)($templateCard['url'] ?? '')); ?>
+      <article class="employee-doc-template-card">
+        <div class="employee-doc-template-card-copy">
+          <span class="material-icons employee-doc-template-icon"><?= $escape($templateCard['icon'] ?? 'description') ?></span>
+          <div class="min-w-0">
+            <h3 class="text-sm font-semibold text-slate-800"><?= $escape($templateCard['label'] ?? 'HR Template') ?></h3>
+            <p class="text-xs text-slate-500 mt-1"><?= $escape($templateCard['description'] ?? '') ?></p>
+          </div>
+        </div>
+        <?php if ($templateUrl !== ''): ?>
+          <a href="<?= $escape($templateUrl) ?>" target="_blank" rel="noopener noreferrer" class="employee-doc-template-action">
+            <span class="material-icons text-sm">download</span>Open Template
+          </a>
+        <?php else: ?>
+          <div class="employee-doc-template-action border-dashed text-slate-400">
+            <span class="material-icons text-sm">link_off</span>Link Not Configured
+          </div>
+        <?php endif; ?>
+      </article>
+    <?php endforeach; ?>
+  </div>
+</section>
 
 <div id="uploadModal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden px-4 py-6" aria-hidden="true">
   <div class="bg-white rounded-2xl shadow-lg w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col">

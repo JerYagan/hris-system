@@ -10,6 +10,8 @@
     const pendingFilterEmptyRow = document.getElementById('pendingStaffReviewFilterEmpty');
     const archivedSearchInput = document.getElementById('archivedDocumentSearchInput');
     const archivedCategoryFilter = document.getElementById('archivedDocumentCategoryFilter');
+    const archivedDateFromInput = document.getElementById('archivedDocumentDateFrom');
+    const archivedDateToInput = document.getElementById('archivedDocumentDateTo');
     const archivedRows = Array.from(document.querySelectorAll('[data-archived-row]'));
     const archivedFilterEmptyRow = document.getElementById('archivedDocumentFilterEmpty');
     const uploaderTableSearch = document.getElementById('uploaderTableSearch');
@@ -59,7 +61,23 @@
     const uploaderSearch = document.getElementById('uploaderModalSearch');
     const uploaderCategoryFilter = document.getElementById('uploaderModalCategoryFilter');
 
+    const auditModal = document.getElementById('documentAuditModal');
+    const auditModalClose = document.getElementById('documentAuditModalClose');
+    const auditModalCancel = document.getElementById('documentAuditModalCancel');
+    const auditTitle = document.getElementById('documentAuditTitle');
+    const auditBody = document.getElementById('documentAuditBody');
+    const auditOpenButtons = Array.from(document.querySelectorAll('[data-open-audit-modal]'));
+
+    const categoryModal = document.getElementById('documentCategoryModal');
+    const categoryModalOpen = document.getElementById('openCategoryCreateModal');
+    const categoryModalClose = document.getElementById('documentCategoryModalClose');
+    const categoryModalCancel = document.getElementById('documentCategoryModalCancel');
+
     const normalize = (value) => (value || '').toString().trim().toLowerCase();
+    const parseDate = (value) => {
+        const timestamp = Date.parse((value || '').toString().trim());
+        return Number.isNaN(timestamp) ? null : timestamp;
+    };
     const PER_PAGE = 10;
 
     const paginationByTable = new Map();
@@ -213,13 +231,19 @@
 
         const query = normalize(archivedSearchInput.value);
         const category = normalize(archivedCategoryFilter.value);
+        const dateFrom = parseDate(archivedDateFromInput ? archivedDateFromInput.value : '');
+        const dateToRaw = parseDate(archivedDateToInput ? archivedDateToInput.value : '');
+        const dateTo = dateToRaw === null ? null : (dateToRaw + (24 * 60 * 60 * 1000) - 1);
 
         const filteredRows = archivedRows.filter((row) => {
             const haystack = normalize(row.getAttribute('data-archived-search'));
             const rowCategory = normalize(row.getAttribute('data-archived-category'));
+            const rowArchivedDate = parseDate(row.getAttribute('data-archived-date'));
             const matchesSearch = query === '' || haystack.includes(query);
             const matchesCategory = category === '' || rowCategory === category;
-            return matchesSearch && matchesCategory;
+            const matchesDateFrom = dateFrom === null || (rowArchivedDate !== null && rowArchivedDate >= dateFrom);
+            const matchesDateTo = dateTo === null || (rowArchivedDate !== null && rowArchivedDate <= dateTo);
+            return matchesSearch && matchesCategory && matchesDateFrom && matchesDateTo;
         });
 
         renderPaginatedRows('archivedDocumentTable', archivedRows, filteredRows, archivedFilterEmptyRow);
@@ -297,6 +321,14 @@
             setPage('archivedDocumentTable', 1);
             applyArchivedFilters();
         });
+        archivedDateFromInput?.addEventListener('change', () => {
+            setPage('archivedDocumentTable', 1);
+            applyArchivedFilters();
+        });
+        archivedDateToInput?.addEventListener('change', () => {
+            setPage('archivedDocumentTable', 1);
+            applyArchivedFilters();
+        });
         applyArchivedFilters();
     }
 
@@ -347,6 +379,15 @@
         modal.classList.remove('flex');
     };
 
+    const parseJsonArray = (value) => {
+        try {
+            const parsed = JSON.parse(value || '[]');
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (_error) {
+            return [];
+        }
+    };
+
     const buildEmbeddedPreviewUrl = (url) => {
         const raw = (url || '').toString().trim();
         if (raw === '') {
@@ -389,6 +430,32 @@
         }
     };
 
+    const renderAuditTrail = (entries) => {
+        if (!auditBody) {
+            return;
+        }
+
+        if (!entries.length) {
+            auditBody.innerHTML = '<p class="text-gray-500">No audit trail entries available.</p>';
+            return;
+        }
+
+        auditBody.innerHTML = entries.map((entry) => {
+            const actionLabel = escapeHtml(entry.action_label || 'Updated');
+            const actorLabel = escapeHtml(entry.actor_label || 'System');
+            const createdLabel = escapeHtml(entry.created_label || '-');
+            const notes = escapeHtml(entry.notes || '');
+
+            return `
+                <article class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                    <p class="font-medium text-slate-800">${actionLabel}</p>
+                    <p class="text-xs text-slate-500 mt-1">${actorLabel} · ${createdLabel}</p>
+                    ${notes ? `<p class="text-sm text-slate-600 mt-2">${notes}</p>` : ''}
+                </article>
+            `;
+        }).join('');
+    };
+
     const openDocumentPreviewModal = ({ title, previewUrl, downloadUrl }) => {
         const rawPreviewUrl = (previewUrl || '').toString().trim();
         if (!documentPreviewModal || !documentPreviewFrame || rawPreviewUrl === '') {
@@ -413,6 +480,35 @@
         documentPreviewFrame.src = buildEmbeddedPreviewUrl(rawPreviewUrl);
         openModal(documentPreviewModal);
     };
+
+    auditOpenButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            const documentTitle = button.getAttribute('data-document-title') || 'Document';
+            const entries = parseJsonArray(button.getAttribute('data-audit-trail') || '[]');
+            if (auditTitle) {
+                auditTitle.textContent = documentTitle;
+            }
+            renderAuditTrail(entries);
+            openModal(auditModal);
+        });
+    });
+
+    categoryModalOpen?.addEventListener('click', () => openModal(categoryModal));
+    categoryModalClose?.addEventListener('click', () => closeModal(categoryModal));
+    categoryModalCancel?.addEventListener('click', () => closeModal(categoryModal));
+    categoryModal?.addEventListener('click', (event) => {
+        if (event.target === categoryModal) {
+            closeModal(categoryModal);
+        }
+    });
+
+    auditModalClose?.addEventListener('click', () => closeModal(auditModal));
+    auditModalCancel?.addEventListener('click', () => closeModal(auditModal));
+    auditModal?.addEventListener('click', (event) => {
+        if (event.target === auditModal) {
+            closeModal(auditModal);
+        }
+    });
 
     reviewOpenButtons.forEach((button) => {
         button.addEventListener('click', () => {

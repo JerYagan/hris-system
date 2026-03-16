@@ -20,8 +20,8 @@ $formatDateTime = static function (?string $value): string {
         return '-';
     }
 
-    $ts = strtotime($value);
-    return $ts === false ? '-' : date('M j, Y g:i A', $ts);
+  $formatted = formatDateTimeForPhilippines($value, 'M j, Y g:i A');
+  return $formatted === '-' ? '-' : ($formatted . ' PST');
 };
 
 $buildQuery = static function (array $params): string {

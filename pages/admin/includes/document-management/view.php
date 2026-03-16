@@ -96,12 +96,18 @@ foreach ($documentOwnerOptions as $owner) {
     <header class="px-6 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
         <div>
             <h2 class="text-lg font-semibold text-slate-800">Document Management</h2>
-            <p class="text-sm text-slate-500 mt-1">Upload files to local storage with required file type, owner, and date details.</p>
+            <p class="text-sm text-slate-500 mt-1">Upload files to local storage, manage upload categories, and monitor cross-role document activity.</p>
         </div>
-        <button type="button" data-open-upload-modal class="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-slate-900 text-white text-sm hover:bg-slate-800">
-            <span class="material-symbols-outlined text-[18px]">upload_file</span>
-            Upload Document to Local Storage
-        </button>
+        <div class="flex flex-wrap items-center gap-2">
+            <button type="button" id="openDocumentCategoryModal" class="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-slate-300 bg-white text-slate-700 text-sm hover:bg-slate-50">
+                <span class="material-symbols-outlined text-[18px]">create_new_folder</span>
+                Create Upload Category
+            </button>
+            <button type="button" data-open-upload-modal class="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-slate-900 text-white text-sm hover:bg-slate-800">
+                <span class="material-symbols-outlined text-[18px]">upload_file</span>
+                Upload Document to Local Storage
+            </button>
+        </div>
     </header>
 </section>
 
@@ -244,10 +250,10 @@ foreach ($documentOwnerOptions as $owner) {
                             </td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['owner_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['category'] ?? 'Others'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><span class="inline-flex items-center justify-center min-w-[95px] px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($statusText, ENT_QUOTES, 'UTF-8') ?></span></td>
+                            <td class="px-4 py-3"><span class="inline-flex items-center justify-center min-w-24 px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($statusText, ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td class="px-4 py-3">
                                 <span class="text-slate-700"><?= htmlspecialchars((string)($row['updated_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></span>
-                                <div class="mt-1"><span class="inline-flex items-center justify-center min-w-[80px] px-2 py-0.5 text-xs rounded-full <?= htmlspecialchars($accountClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($accountLabel, ENT_QUOTES, 'UTF-8') ?></span></div>
+                                <div class="mt-1"><span class="inline-flex items-center justify-center min-w-20 px-2 py-0.5 text-xs rounded-full <?= htmlspecialchars($accountClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($accountLabel, ENT_QUOTES, 'UTF-8') ?></span></div>
                             </td>
                             <td class="px-4 py-3">
                                 <div class="relative inline-flex text-left" data-doc-action-wrap data-admin-action-scope>
@@ -275,6 +281,14 @@ foreach ($documentOwnerOptions as $owner) {
                                             role="menuitem"
                                             class="admin-action-item"
                                         ><span class="material-symbols-outlined">fact_check</span>Review</button>
+                                        <button
+                                            type="button"
+                                            data-doc-audit
+                                            data-document-title="<?= htmlspecialchars((string)($row['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
+                                            data-audit-trail='<?= htmlspecialchars((string)json_encode((array)($row['audit_trail'] ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?>'
+                                            role="menuitem"
+                                            class="admin-action-item"
+                                        ><span class="material-symbols-outlined">history</span>Audit Trail</button>
                                         <button
                                             type="button"
                                             data-doc-archive
@@ -581,7 +595,7 @@ foreach ($documentOwnerOptions as $owner) {
                     <th class="text-left px-4 py-3">Owner</th>
                     <th class="text-left px-4 py-3">Category</th>
                     <th class="text-left px-4 py-3">Archived Status</th>
-                    <th class="text-left px-4 py-3">Updated</th>
+                    <th class="text-left px-4 py-3">Archived On</th>
                     <th class="text-left px-4 py-3">Actions</th>
                 </tr>
             </thead>
@@ -599,7 +613,7 @@ foreach ($documentOwnerOptions as $owner) {
                             data-status="Archived"
                             data-category="<?= htmlspecialchars((string)($row['category'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                             data-account="<?= htmlspecialchars((string)($row['account_type'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                            data-date="<?= htmlspecialchars((string)($row['updated_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                            data-date="<?= htmlspecialchars((string)($row['archived_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                         >
                             <td class="px-4 py-3">
                                 <div class="font-medium text-slate-700"><?= htmlspecialchars((string)($row['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>
@@ -607,7 +621,7 @@ foreach ($documentOwnerOptions as $owner) {
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['owner_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['category'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><span class="inline-flex items-center justify-center min-w-[95px] px-2.5 py-1 text-xs rounded-full bg-slate-200 text-slate-700">Archived</span></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['updated_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['archived_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3">
                                 <form method="POST" action="document-management.php" class="inline-flex" data-restore-form>
                                     <input type="hidden" name="form_action" value="restore_document">
@@ -616,7 +630,100 @@ foreach ($documentOwnerOptions as $owner) {
                                         <span class="material-symbols-outlined text-[14px]">restore</span>Restore
                                     </button>
                                 </form>
+                                <button
+                                    type="button"
+                                    data-doc-audit
+                                    data-document-title="<?= htmlspecialchars((string)($row['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
+                                    data-audit-trail='<?= htmlspecialchars((string)json_encode((array)($row['audit_trail'] ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?>'
+                                    class="ml-2 inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                                ><span class="material-symbols-outlined text-[14px]">history</span>Audit</button>
                             </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+        <div class="mt-4 flex items-center justify-between gap-3">
+            <p data-table-meta class="text-xs text-slate-500">Showing 0 to 0 of 0 entries</p>
+            <div class="inline-flex items-center gap-2">
+                <button type="button" data-page-prev class="px-3 py-1.5 text-xs border border-slate-300 rounded-md text-slate-700">Prev</button>
+                <span data-page-info class="text-xs text-slate-600">Page 1 of 1</span>
+                <button type="button" data-page-next class="px-3 py-1.5 text-xs border border-slate-300 rounded-md text-slate-700">Next</button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6" data-managed-table="requests">
+    <header class="px-6 py-4 border-b border-slate-200">
+        <div>
+            <h2 class="text-lg font-semibold text-slate-800">HR Document Requests</h2>
+            <p class="text-sm text-slate-500 mt-1">Employee-submitted requests for COE, Service Record, Foreign Travel Certificate, and other HR documents.</p>
+        </div>
+    </header>
+
+    <div class="px-6 py-4 grid grid-cols-1 md:grid-cols-5 gap-3">
+        <input data-table-search type="search" class="md:col-span-2 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search request type, requester, or purpose">
+        <select data-table-status class="border border-slate-300 rounded-md px-3 py-2 text-sm">
+            <option value="">All Status</option>
+            <option value="Submitted">Submitted</option>
+        </select>
+        <input data-table-date-from type="text" placeholder="From date" class="border border-slate-300 rounded-md px-3 py-2 text-sm">
+        <input data-table-date-to type="text" placeholder="To date" class="border border-slate-300 rounded-md px-3 py-2 text-sm">
+    </div>
+
+    <div class="px-6 pb-6 overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600">
+                <tr>
+                    <th class="text-left px-4 py-3">Request</th>
+                    <th class="text-left px-4 py-3">Requested By</th>
+                    <th class="text-left px-4 py-3">Purpose</th>
+                    <th class="text-left px-4 py-3">Status</th>
+                    <th class="text-left px-4 py-3">Submitted</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                <?php if (empty($documentRequestRows)): ?>
+                    <tr><td class="px-4 py-3 text-slate-500" colspan="5">No HR document requests found.</td></tr>
+                <?php else: ?>
+                    <?php foreach ($documentRequestRows as $requestRow): ?>
+                        <?php
+                        $requestSearch = strtolower(trim(
+                            (string)($requestRow['request_type_label'] ?? '') . ' '
+                            . (string)($requestRow['custom_request_label'] ?? '') . ' '
+                            . (string)($requestRow['requester_label'] ?? '') . ' '
+                            . (string)($requestRow['purpose_label'] ?? '') . ' '
+                            . (string)($requestRow['other_purpose'] ?? '') . ' '
+                            . (string)($requestRow['notes'] ?? '')
+                        ));
+                        ?>
+                        <tr
+                            data-table-row
+                            data-search="<?= htmlspecialchars($requestSearch, ENT_QUOTES, 'UTF-8') ?>"
+                            data-status="<?= htmlspecialchars((string)($requestRow['status_label'] ?? 'Submitted'), ENT_QUOTES, 'UTF-8') ?>"
+                            data-category=""
+                            data-account="all"
+                            data-date="<?= htmlspecialchars((string)($requestRow['submitted_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                        >
+                            <td class="px-4 py-3">
+                                <div class="font-medium text-slate-800"><?= htmlspecialchars((string)($requestRow['request_type_label'] ?? 'HR Document Request'), ENT_QUOTES, 'UTF-8') ?></div>
+                                <?php if (trim((string)($requestRow['custom_request_label'] ?? '')) !== ''): ?>
+                                    <div class="text-xs text-slate-500 mt-1">Custom: <?= htmlspecialchars((string)($requestRow['custom_request_label'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
+                                <?php endif; ?>
+                                <?php if (trim((string)($requestRow['notes'] ?? '')) !== ''): ?>
+                                    <div class="text-xs text-slate-500 mt-1"><?= htmlspecialchars((string)($requestRow['notes'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
+                                <?php endif; ?>
+                            </td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($requestRow['requester_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3">
+                                <?= htmlspecialchars((string)($requestRow['purpose_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
+                                <?php if (trim((string)($requestRow['other_purpose'] ?? '')) !== ''): ?>
+                                    <div class="text-xs text-slate-500 mt-1"><?= htmlspecialchars((string)($requestRow['other_purpose'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
+                                <?php endif; ?>
+                            </td>
+                            <td class="px-4 py-3"><span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800"><?= htmlspecialchars((string)($requestRow['status_label'] ?? 'Submitted'), ENT_QUOTES, 'UTF-8') ?></span></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($requestRow['submitted_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -735,6 +842,61 @@ foreach ($documentOwnerOptions as $owner) {
                 <div class="md:col-span-2 flex justify-end gap-3 mt-2">
                     <button type="button" data-modal-close="archiveDocumentModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button>
                     <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Confirm Archive</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="documentAuditModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-slate-900/60" data-modal-close="documentAuditModal"></div>
+    <div class="relative min-h-full flex items-center justify-center p-4">
+        <div class="w-full max-w-3xl bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
+                <div>
+                    <h3 class="text-lg font-semibold text-slate-800">Document Audit Trail</h3>
+                    <p id="documentAuditTitle" class="text-xs text-slate-500 mt-1">-</p>
+                </div>
+                <button type="button" data-modal-close="documentAuditModal" class="text-slate-500 hover:text-slate-700">✕</button>
+            </div>
+
+            <div class="p-6 max-h-[65vh] overflow-y-auto">
+                <div id="documentAuditBody" class="space-y-3 text-sm">
+                    <p class="text-slate-500">No audit trail entries available.</p>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 border-t border-slate-200 flex justify-end">
+                <button type="button" data-modal-close="documentAuditModal" class="px-4 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="documentCategoryModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-slate-900/60" data-modal-close="documentCategoryModal"></div>
+    <div class="relative min-h-full flex items-center justify-center p-4">
+        <div class="w-full max-w-lg bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                <div>
+                    <h3 class="text-lg font-semibold text-slate-800">Create Upload Category</h3>
+                    <p class="text-sm text-slate-500 mt-1">Admin and staff can add controlled category options for future uploads.</p>
+                </div>
+                <button type="button" data-modal-close="documentCategoryModal" class="text-slate-500 hover:text-slate-700">✕</button>
+            </div>
+
+            <form action="document-management.php" method="POST" class="p-6 space-y-4 text-sm">
+                <input type="hidden" name="form_action" value="create_document_category">
+
+                <div>
+                    <label class="text-slate-600">Category Name</label>
+                    <input type="text" name="category_name" maxlength="80" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Examples: Certification, Compliance Letter" required>
+                    <p class="text-xs text-slate-500 mt-1">Placeholder values such as haugafia are rejected.</p>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" data-modal-close="documentCategoryModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button>
+                    <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Create Category</button>
                 </div>
             </form>
         </div>

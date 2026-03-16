@@ -107,7 +107,7 @@ ob_start();
 
       <div class="grid grid-cols-1 gap-3 text-sm">
         <a href="timekeeping.php#leave-balance" class="inline-flex items-center justify-between border rounded-lg px-4 py-3 hover:bg-gray-50">
-          <span class="inline-flex items-center gap-2"><span class="material-icons text-daGreen text-base">visibility</span>View Leave Card</span>
+          <span class="inline-flex items-center gap-2"><span class="material-icons text-daGreen text-base">visibility</span><?= !empty($employeeEmploymentStatus) && timekeepingIsCosEmploymentStatus($employeeEmploymentStatus) ? 'View CTO Tracking' : 'View Leave Card' ?></span>
           <span class="material-icons text-gray-400 text-base">arrow_forward</span>
         </a>
         <a href="document-management.php?quick_action=upload-document" class="inline-flex items-center justify-between border rounded-lg px-4 py-3 hover:bg-gray-50">

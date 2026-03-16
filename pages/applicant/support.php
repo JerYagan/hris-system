@@ -191,7 +191,7 @@ ob_start();
                             <a href="<?= htmlspecialchars('/hris-system/' . ltrim((string)$inquiry['attachment_path'], '/'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="mt-2 inline-flex text-xs text-green-700 hover:underline">View Attachment</a>
                         <?php endif; ?>
                         <?php if (!empty($inquiry['created_at'])): ?>
-                            <p class="mt-2 text-xs text-gray-500"><?= htmlspecialchars(date('M j, Y g:i A', strtotime((string)$inquiry['created_at'])), ENT_QUOTES, 'UTF-8') ?></p>
+                            <p class="mt-2 text-xs text-gray-500"><?= htmlspecialchars(formatDateTimeForPhilippines((string)$inquiry['created_at'], 'M j, Y g:i A') . ' PST', ENT_QUOTES, 'UTF-8') ?></p>
                         <?php endif; ?>
                     </article>
                 <?php endforeach; ?>

@@ -69,7 +69,7 @@ ob_start();
     <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
         <div>
             <h2 class="text-lg font-semibold text-slate-800">Pending Admin Approval</h2>
-            <p class="text-sm text-slate-500 mt-1">Staff recommendations awaiting admin final action for profile, status, and division/position updates.</p>
+            <p class="text-sm text-slate-500 mt-1">Employee-submitted personal-information requests within your scope that are awaiting admin review.</p>
         </div>
         <span class="inline-flex items-center rounded-full bg-amber-100 text-amber-800 text-xs px-2.5 py-1 font-medium">
             Pending
@@ -85,9 +85,7 @@ ob_start();
             <label for="personalInfoPendingTypeFilter" class="text-slate-600">Recommendation Type</label>
             <select id="personalInfoPendingTypeFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
                 <option value="">All Types</option>
-                <option value="profile update">Profile Update</option>
-                <option value="status change">Status Change</option>
-                <option value="division/position">Division/Position</option>
+                <option value="profile update request">Profile Update Request</option>
             </select>
         </div>
     </div>
@@ -101,6 +99,7 @@ ob_start();
                     <th class="text-left px-4 py-3">Type</th>
                     <th class="text-left px-4 py-3">Submitted By</th>
                     <th class="text-left px-4 py-3">Submitted On</th>
+                    <th class="text-left px-4 py-3">Due Date</th>
                     <th class="text-left px-4 py-3">Status</th>
                     <th class="text-left px-4 py-3">Action</th>
                 </tr>
@@ -108,7 +107,7 @@ ob_start();
             <tbody class="divide-y divide-slate-100">
                 <?php if (empty($pendingAdminApprovalRows)): ?>
                     <tr>
-                        <td class="px-4 py-3 text-slate-500" colspan="7">No pending recommendations found.</td>
+                        <td class="px-4 py-3 text-slate-500" colspan="8">No pending employee requests found.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($pendingAdminApprovalRows as $recommendationRow): ?>
@@ -128,6 +127,7 @@ ob_start();
                             <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)($recommendationRow['recommendation_type'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)($recommendationRow['submitted_by'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)($recommendationRow['submitted_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)($recommendationRow['due_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3">
                                 <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs <?= htmlspecialchars((string)($recommendationRow['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>">
                                     <?= htmlspecialchars((string)($recommendationRow['status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?>
@@ -143,7 +143,7 @@ ob_start();
                     <?php endforeach; ?>
                 <?php endif; ?>
                 <tr id="personalInfoPendingFilterEmpty" class="hidden">
-                    <td class="px-4 py-3 text-slate-500" colspan="7">No pending recommendations match your search/filter criteria.</td>
+                    <td class="px-4 py-3 text-slate-500" colspan="8">No pending requests match your search/filter criteria.</td>
                 </tr>
             </tbody>
         </table>
@@ -236,10 +236,6 @@ ob_start();
                                     </button>
 
                                     <div data-person-action-menu role="menu" class="admin-action-menu hidden w-72">
-                                        <button type="button" data-action-menu-item data-action-target="edit-profile" role="menuitem" class="admin-action-item">
-                                            <span class="material-symbols-outlined">edit</span>
-                                            Edit Employee Profile
-                                        </button>
                                         <button type="button" data-action-menu-item data-action-target="assign" role="menuitem" class="admin-action-item">
                                             <span class="material-symbols-outlined">person_add</span>
                                             Assign Division and Position

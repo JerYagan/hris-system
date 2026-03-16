@@ -127,6 +127,85 @@ $adjustmentResponse = apiRequest(
 $appendDataError('Time adjustment requests', $adjustmentResponse);
 $adjustmentRows = isSuccessful($adjustmentResponse) ? (array)($adjustmentResponse['data'] ?? []) : [];
 
+$approvedTravelByPersonDate = [];
+$approvedTravelResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/overtime_requests?select=person_id,overtime_date,reason,status'
+    . $personFilter
+    . '&status=eq.approved'
+    . '&order=overtime_date.desc&limit=500',
+    $headers
+);
+$appendDataError('Approved travel requests', $approvedTravelResponse);
+if (isSuccessful($approvedTravelResponse)) {
+    foreach ((array)($approvedTravelResponse['data'] ?? []) as $travelRaw) {
+        $travelRow = (array)$travelRaw;
+        $personId = cleanText($travelRow['person_id'] ?? null) ?? '';
+        $travelDate = cleanText($travelRow['overtime_date'] ?? null) ?? '';
+        if ($personId === '' || $travelDate === '') {
+            continue;
+        }
+
+        $parsedTravel = timekeepingParseTaggedReason((string)($travelRow['reason'] ?? ''));
+        if (($parsedTravel['category'] ?? '') !== 'travel') {
+            continue;
+        }
+
+        $approvedTravelByPersonDate[$personId . '|' . $travelDate] = (string)($parsedTravel['label'] ?? 'Approved Travel');
+    }
+}
+
+$specialRequestCreateMetaById = [];
+$specialRequestStatusOverrideById = [];
+$specialRequestIds = [];
+foreach ($overtimeRows as $overtimeRaw) {
+    $overtimeRow = (array)$overtimeRaw;
+    $parsedRequest = timekeepingParseTaggedReason((string)($overtimeRow['reason'] ?? ''));
+    if (($parsedRequest['is_special'] ?? false) === true) {
+        $requestId = cleanText($overtimeRow['id'] ?? null) ?? '';
+        if ($requestId !== '') {
+            $specialRequestIds[] = $requestId;
+        }
+    }
+}
+
+if (!empty($specialRequestIds)) {
+    $specialRequestLogsResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/activity_logs?select=entity_id,action_name,new_data,created_at'
+        . '&module_name=eq.timekeeping'
+        . '&entity_name=eq.overtime_requests'
+        . '&entity_id=in.' . rawurlencode('(' . implode(',', array_values(array_unique($specialRequestIds))) . ')')
+        . '&action_name=in.' . rawurlencode('(create_official_business_request,create_cos_schedule_request,create_travel_order_request,create_travel_abroad_request,review_ob,review_ob_revision)')
+        . '&order=created_at.desc&limit=500',
+        $headers
+    );
+    $appendDataError('Special request activity logs', $specialRequestLogsResponse);
+
+    if (isSuccessful($specialRequestLogsResponse)) {
+        foreach ((array)($specialRequestLogsResponse['data'] ?? []) as $logRaw) {
+            $log = (array)$logRaw;
+            $entityId = cleanText($log['entity_id'] ?? null) ?? '';
+            if ($entityId === '') {
+                continue;
+            }
+
+            $actionName = strtolower((string)($log['action_name'] ?? ''));
+            $newData = is_array($log['new_data'] ?? null) ? (array)$log['new_data'] : [];
+            if (str_starts_with($actionName, 'create_') && !isset($specialRequestCreateMetaById[$entityId])) {
+                $specialRequestCreateMetaById[$entityId] = $newData;
+            }
+
+            $statusTo = strtolower((string)($newData['status_to'] ?? $newData['status'] ?? ''));
+            if (($actionName === 'review_ob' || $actionName === 'review_ob_revision') && $statusTo === 'needs_revision') {
+                $specialRequestStatusOverrideById[$entityId] = 'needs_revision';
+            }
+        }
+    }
+}
+
 $attendancePill = static function (string $status): array {
     $key = strtolower(trim($status));
     return match ($key) {
@@ -134,6 +213,7 @@ $attendancePill = static function (string $status): array {
         'late' => ['Late', 'bg-amber-50 text-amber-700'],
         'absent' => ['Absent', 'bg-rose-50 text-rose-700'],
         'leave' => ['Leave', 'bg-blue-50 text-blue-700'],
+        'travel' => ['Approved Travel', 'bg-indigo-50 text-indigo-700'],
         'holiday' => ['Holiday', 'bg-indigo-50 text-indigo-700'],
         'rest_day' => ['Rest Day', 'bg-slate-100 text-slate-700'],
         default => ['Unknown', 'bg-slate-50 text-slate-700'],
@@ -159,13 +239,18 @@ foreach ($attendanceLogs as $log) {
 
     $employee = $scopedPersonMap[$personId];
     $statusRaw = strtolower((string)(cleanText($log['attendance_status'] ?? null) ?? 'present'));
+    $attendanceDateRaw = cleanText($log['attendance_date'] ?? null) ?? '';
+    $hasApprovedTravel = isset($approvedTravelByPersonDate[$personId . '|' . $attendanceDateRaw]);
+    if ($hasApprovedTravel && cleanText($log['time_in'] ?? null) === null && cleanText($log['time_out'] ?? null) === null) {
+        $statusRaw = 'travel';
+    }
     [$statusLabel, $statusClass] = $attendancePill($statusRaw);
 
     $attendanceRows[] = [
         'employee_name' => $employee['employee_name'],
         'office_name' => $employee['office_name'],
-        'attendance_date_raw' => cleanText($log['attendance_date'] ?? null) ?? '',
-        'date_label' => formatDateTimeForPhilippines(cleanText($log['attendance_date'] ?? null), 'M d, Y'),
+        'attendance_date_raw' => $attendanceDateRaw,
+        'date_label' => formatDateTimeForPhilippines($attendanceDateRaw, 'M d, Y'),
         'time_in_label' => formatDateTimeForPhilippines(cleanText($log['time_in'] ?? null), 'h:i A'),
         'time_out_label' => formatDateTimeForPhilippines(cleanText($log['time_out'] ?? null), 'h:i A'),
         'status_label' => $statusLabel,
@@ -225,45 +310,64 @@ foreach ($overtimeRows as $row) {
     }
 
     $employee = $scopedPersonMap[$personId];
-    $statusRaw = strtolower((string)(cleanText($row['status'] ?? null) ?? 'pending'));
+    $parsedRequest = timekeepingParseTaggedReason((string)($row['reason'] ?? ''));
+    if (($parsedRequest['is_special'] ?? false) !== true) {
+        continue;
+    }
+
+    $statusRaw = strtolower((string)(cleanText($specialRequestStatusOverrideById[$requestId] ?? null) ?? cleanText($row['status'] ?? null) ?? 'pending'));
     [$statusLabel, $statusClass] = $requestPill($statusRaw);
 
     $reasonRaw = cleanText($row['reason'] ?? null) ?? '-';
-    $isOfficialBusiness = preg_match('/^\[OB\]\s*/i', $reasonRaw) === 1;
-    $reason = $isOfficialBusiness
-        ? trim((string)preg_replace('/^\[OB\]\s*/i', '', $reasonRaw))
-        : $reasonRaw;
+    $reason = (string)($parsedRequest['clean_reason'] ?? $reasonRaw);
     if ($reason === '') {
         $reason = '-';
     }
 
     if ($statusRaw === 'pending') {
-        if ($isOfficialBusiness) {
-            $timekeepingMetrics['pending_official_business']++;
-        }
+        $timekeepingMetrics['pending_official_business']++;
     }
 
     $startTime = formatDateTimeForPhilippines(cleanText($row['start_time'] ?? null), 'h:i A');
     $endTime = formatDateTimeForPhilippines(cleanText($row['end_time'] ?? null), 'h:i A');
+    $createMeta = (array)($specialRequestCreateMetaById[$requestId] ?? []);
+    $attachmentMeta = is_array($createMeta['attachment'] ?? null) ? (array)$createMeta['attachment'] : [];
+    $destination = cleanText($createMeta['destination'] ?? null);
+    $referenceNumber = cleanText($createMeta['reference_number'] ?? null);
+    $attachmentPath = cleanText($attachmentMeta['relative_path'] ?? null);
+    $attachmentName = cleanText($attachmentMeta['original_name'] ?? null);
+    $detailParts = [];
+    if ($destination !== null) {
+        $detailParts[] = 'Destination: ' . $destination;
+    }
+    if ($referenceNumber !== null) {
+        $detailParts[] = 'Ref: ' . $referenceNumber;
+    }
+    if ($attachmentName !== null) {
+        $detailParts[] = 'Attachment: ' . $attachmentName;
+    }
 
     $requestRow = [
         'id' => $requestId,
         'employee_name' => $employee['employee_name'],
         'office_name' => $employee['office_name'],
+        'request_type' => (string)($parsedRequest['request_type'] ?? 'official_business'),
+        'request_label' => (string)($parsedRequest['label'] ?? 'Special Request'),
         'overtime_date' => formatDateTimeForPhilippines(cleanText($row['overtime_date'] ?? null), 'M d, Y'),
         'time_window' => $startTime . ' - ' . $endTime,
         'hours_requested' => number_format((float)($row['hours_requested'] ?? 0), 2),
         'reason' => $reason,
+        'detail_summary' => implode(' | ', $detailParts),
+        'attachment_url' => $attachmentPath !== null ? systemAppPath($attachmentPath) : null,
+        'attachment_name' => $attachmentName,
         'requested_label' => formatDateTimeForPhilippines(cleanText($row['created_at'] ?? null), 'M d, Y'),
         'status_raw' => $statusRaw,
         'status_label' => $statusLabel,
         'status_class' => $statusClass,
-        'search_text' => strtolower(trim($employee['employee_name'] . ' ' . $employee['office_name'] . ' ' . $reason . ' ' . $statusLabel)),
+        'search_text' => strtolower(trim($employee['employee_name'] . ' ' . $employee['office_name'] . ' ' . ($parsedRequest['label'] ?? '') . ' ' . $reason . ' ' . implode(' ', $detailParts) . ' ' . $statusLabel)),
     ];
 
-    if ($isOfficialBusiness) {
-        $officialBusinessRequestRows[] = $requestRow;
-    }
+    $officialBusinessRequestRows[] = $requestRow;
 }
 
 foreach ($adjustmentRows as $row) {

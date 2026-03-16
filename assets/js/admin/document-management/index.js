@@ -319,6 +319,17 @@ const initUploadModalTrigger = () => {
   });
 };
 
+const initCategoryModalTrigger = () => {
+  const trigger = document.getElementById('openDocumentCategoryModal');
+  if (!trigger) {
+    return;
+  }
+
+  trigger.addEventListener('click', () => {
+    openModal('documentCategoryModal');
+  });
+};
+
 const initSectionTabs = () => {
   document.querySelectorAll('[data-section-toggle]').forEach((toggle) => {
     const buttons = Array.from(toggle.querySelectorAll('[data-section-tab]'));
@@ -392,12 +403,49 @@ const initManagedTables = () => {
         const rowSearch = String(row.getAttribute('data-search') || '').toLowerCase();
         const rowStatus = String(row.getAttribute('data-status') || '').toLowerCase();
         const rowCategory = String(row.getAttribute('data-category') || '').toLowerCase();
+
+      document.querySelectorAll('[data-doc-audit]').forEach((button) => {
+        button.addEventListener('click', () => {
+          closeAllActionMenus();
+          const title = button.getAttribute('data-document-title') || 'Document';
+          const auditEntries = parseJsonArray(button.getAttribute('data-audit-trail') || '[]');
+
+          setText('documentAuditTitle', title);
+
+          const body = document.getElementById('documentAuditBody');
+          if (!body) {
+            return;
+          }
+
+          if (!auditEntries.length) {
+            body.innerHTML = '<p class="text-slate-500">No audit trail entries available.</p>';
+          } else {
+            body.innerHTML = auditEntries.map((entry) => {
+              const actionLabel = escapeHtml(entry.action_label || 'Updated');
+              const actorLabel = escapeHtml(entry.actor_label || 'System');
+              const createdLabel = escapeHtml(entry.created_label || '-');
+              const notes = escapeHtml(entry.notes || '');
+
+              return `
+                <article class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p class="font-medium text-slate-800">${actionLabel}</p>
+                  <p class="text-xs text-slate-500 mt-1">${actorLabel} • ${createdLabel}</p>
+                  ${notes ? `<p class="text-sm text-slate-600 mt-2">${notes}</p>` : ''}
+                </article>
+              `;
+            }).join('');
+          }
+
+          openModal('documentAuditModal');
+        });
+      });
         const rowAccount = String(row.getAttribute('data-account') || '').toLowerCase();
         const rowDate = parseDate(row.getAttribute('data-date') || '');
 
         if (query && !rowSearch.includes(query)) {
           return false;
         }
+      initCategoryModalTrigger();
 
         if (status && rowStatus !== status) {
           return false;

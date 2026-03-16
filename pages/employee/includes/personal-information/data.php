@@ -19,6 +19,16 @@ $normalizeLookup = static function (string $value): string {
     return strtolower(trim((string)preg_replace('/\s+/', ' ', $value)));
 };
 
+$formatPersonalInfoTimestamp = static function (?string $value, string $format = 'M d, Y h:i A'): string {
+    return function_exists('formatDateTimeForPhilippines')
+        ? formatDateTimeForPhilippines($value, $format)
+        : (($value !== null && $value !== '' && strtotime($value) !== false) ? date($format, strtotime($value)) : '-');
+};
+
+$excludePlaceholderLookupValue = static function (string $value): bool {
+    return strtolower(trim($value)) === 'haugafia';
+};
+
 $assetRoot = dirname(__DIR__, 4) . '/assets';
 $municipalitiesPath = $assetRoot . '/psgc/municipalities.json';
 if (is_file($municipalitiesPath)) {
@@ -129,6 +139,13 @@ if (is_file($barangaysPath)) {
         sort($barangayOptions, SORT_NATURAL | SORT_FLAG_CASE);
     }
 }
+
+$civilStatusOptions = array_values(array_filter($civilStatusOptions, static fn(string $value): bool => !$excludePlaceholderLookupValue($value)));
+$bloodTypeOptions = array_values(array_filter($bloodTypeOptions, static fn(string $value): bool => !$excludePlaceholderLookupValue($value)));
+$placeOfBirthOptions = array_values(array_filter($placeOfBirthOptions, static fn(string $value): bool => !$excludePlaceholderLookupValue($value)));
+$cityMunicipalityOptions = array_values(array_filter($cityMunicipalityOptions, static fn(string $value): bool => !$excludePlaceholderLookupValue($value)));
+$provinceOptions = array_values(array_filter($provinceOptions, static fn(string $value): bool => !$excludePlaceholderLookupValue($value)));
+$barangayOptions = array_values(array_filter($barangayOptions, static fn(string $value): bool => !$excludePlaceholderLookupValue($value)));
 
 $personal201Categories = [
     'violation',
@@ -679,6 +696,187 @@ if (isSuccessful($spouseRequestResponse)) {
     }
 }
 
+$personalInfoRequestRows = [];
+$pendingPersonalInfoRequestCount = 0;
+$nearestPersonalInfoDueLabel = '-';
+$personalInfoRequestResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/activity_logs?select=id,created_at,new_data'
+    . '&module_name=eq.personal_information'
+    . '&entity_name=eq.people'
+    . '&action_name=eq.submit_employee_profile_update_request'
+    . '&entity_id=eq.' . rawurlencode((string)$employeePersonId)
+    . '&order=created_at.desc&limit=25',
+    $headers
+);
+
+if (isSuccessful($personalInfoRequestResponse)) {
+    $requestRows = (array)($personalInfoRequestResponse['data'] ?? []);
+    $decisionResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/activity_logs?select=id,actor_user_id,created_at,new_data,action_name'
+        . '&module_name=eq.personal_information'
+        . '&entity_name=eq.people'
+        . '&entity_id=eq.' . rawurlencode((string)$employeePersonId)
+        . '&action_name=in.(approve_employee_profile_recommendation,reject_employee_profile_recommendation)'
+        . '&order=created_at.desc&limit=100',
+        $headers
+    );
+
+    $decisionByRequestId = [];
+    $reviewerIds = [];
+    if (isSuccessful($decisionResponse)) {
+        foreach ((array)($decisionResponse['data'] ?? []) as $decisionRaw) {
+            $decisionRow = (array)$decisionRaw;
+            $decisionData = is_array($decisionRow['new_data'] ?? null) ? (array)$decisionRow['new_data'] : [];
+            $requestId = (string)($decisionData['recommendation_log_id'] ?? '');
+            if ($requestId === '' || isset($decisionByRequestId[$requestId])) {
+                continue;
+            }
+
+            $reviewerId = (string)($decisionRow['actor_user_id'] ?? '');
+            if ($reviewerId !== '') {
+                $reviewerIds[$reviewerId] = true;
+            }
+
+            $decisionByRequestId[$requestId] = [
+                'decision' => strtolower((string)($decisionData['decision'] ?? '')),
+                'remarks' => (string)($decisionData['remarks'] ?? ''),
+                'reviewed_at' => (string)($decisionRow['created_at'] ?? ''),
+                'reviewer_id' => $reviewerId,
+                'updated_live_record' => (bool)($decisionData['updated_live_record'] ?? false),
+            ];
+        }
+    }
+
+    $reviewerLabelById = [];
+    if (!empty($reviewerIds)) {
+        $reviewerResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/user_accounts?select=id,username,email&id=in.(' . implode(',', array_map('rawurlencode', array_keys($reviewerIds))) . ')&limit=100',
+            $headers
+        );
+
+        if (isSuccessful($reviewerResponse)) {
+            foreach ((array)($reviewerResponse['data'] ?? []) as $reviewerRaw) {
+                $reviewerRow = (array)$reviewerRaw;
+                $reviewerId = (string)($reviewerRow['id'] ?? '');
+                if ($reviewerId === '') {
+                    continue;
+                }
+
+                $reviewerLabelById[$reviewerId] = (string)(cleanText($reviewerRow['username'] ?? null) ?? cleanText($reviewerRow['email'] ?? null) ?? 'Admin');
+            }
+        }
+    }
+
+    $nowManila = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
+    $nearestDueDate = null;
+
+    foreach ($requestRows as $requestRaw) {
+        $requestRow = (array)$requestRaw;
+        $requestId = (string)($requestRow['id'] ?? '');
+        $newData = is_array($requestRow['new_data'] ?? null) ? (array)$requestRow['new_data'] : [];
+        $requestDueAt = (string)($newData['request_due_at'] ?? '');
+        $decisionRow = $decisionByRequestId[$requestId] ?? null;
+        $status = 'pending_admin_review';
+        if (is_array($decisionRow)) {
+            $status = (string)($decisionRow['decision'] ?? $status);
+        }
+
+        $summaryParts = [];
+        $recommendedProfile = is_array($newData['recommended_profile'] ?? null) ? (array)$newData['recommended_profile'] : [];
+        $recommendedAddresses = is_array($newData['recommended_addresses'] ?? null) ? (array)$newData['recommended_addresses'] : [];
+        $recommendedGovernmentIds = is_array($newData['recommended_government_ids'] ?? null) ? (array)$newData['recommended_government_ids'] : [];
+        $recommendedFamily = is_array($newData['recommended_family'] ?? null) ? (array)$newData['recommended_family'] : [];
+        $recommendedEducation = is_array($newData['recommended_educational_backgrounds'] ?? null) ? (array)$newData['recommended_educational_backgrounds'] : [];
+
+        if (!empty($recommendedProfile)) {
+            $summaryParts[] = count($recommendedProfile) . ' profile field(s)';
+        }
+        $addressDetailCount = 0;
+        foreach ($recommendedAddresses as $addressRow) {
+            if (!is_array($addressRow)) {
+                continue;
+            }
+            foreach ($addressRow as $value) {
+                if (trim((string)$value) !== '') {
+                    $addressDetailCount++;
+                }
+            }
+        }
+        if ($addressDetailCount > 0) {
+            $summaryParts[] = $addressDetailCount . ' address detail(s)';
+        }
+        $governmentDetailCount = 0;
+        foreach ($recommendedGovernmentIds as $value) {
+            if (trim((string)$value) !== '') {
+                $governmentDetailCount++;
+            }
+        }
+        if ($governmentDetailCount > 0) {
+            $summaryParts[] = $governmentDetailCount . ' government ID detail(s)';
+        }
+        if (!empty($recommendedFamily)) {
+            $summaryParts[] = 'family information';
+        }
+        if (!empty($recommendedEducation)) {
+            $summaryParts[] = count($recommendedEducation) . ' education row(s)';
+        }
+
+        $deadlineStatusLabel = 'Pending';
+        $deadlineStatusClass = 'bg-amber-100 text-amber-800';
+        if ($status === 'approve' || $status === 'approved') {
+            $deadlineStatusLabel = 'Approved';
+            $deadlineStatusClass = 'bg-emerald-100 text-emerald-800';
+        } elseif ($status === 'reject' || $status === 'rejected') {
+            $deadlineStatusLabel = 'Rejected';
+            $deadlineStatusClass = 'bg-rose-100 text-rose-800';
+        } elseif ($requestDueAt !== '' && strtotime($requestDueAt) !== false) {
+            $dueAtDate = new DateTimeImmutable($requestDueAt);
+            if ($dueAtDate < $nowManila) {
+                $deadlineStatusLabel = 'Overdue';
+                $deadlineStatusClass = 'bg-rose-100 text-rose-800';
+            } elseif ($dueAtDate <= $nowManila->modify('+2 days')) {
+                $deadlineStatusLabel = 'Reminder Window';
+                $deadlineStatusClass = 'bg-orange-100 text-orange-800';
+            }
+
+            if ($status === 'pending_admin_review' && ($nearestDueDate === null || $dueAtDate < $nearestDueDate)) {
+                $nearestDueDate = $dueAtDate;
+            }
+        }
+
+        if ($status === 'pending_admin_review') {
+            $pendingPersonalInfoRequestCount++;
+        }
+
+        $reviewerLabel = '';
+        if (is_array($decisionRow)) {
+            $reviewerLabel = (string)($reviewerLabelById[(string)($decisionRow['reviewer_id'] ?? '')] ?? 'Admin');
+        }
+
+        $personalInfoRequestRows[] = [
+            'request_id' => $requestId,
+            'submitted_at_label' => $formatPersonalInfoTimestamp((string)($requestRow['created_at'] ?? '')),
+            'due_at_label' => $requestDueAt !== '' ? $formatPersonalInfoTimestamp($requestDueAt) . ' PST' : '-',
+            'status_label' => $deadlineStatusLabel,
+            'status_class' => $deadlineStatusClass,
+            'summary' => !empty($summaryParts) ? implode(', ', $summaryParts) : 'Personal information update request',
+            'reviewed_at_label' => is_array($decisionRow) ? $formatPersonalInfoTimestamp((string)($decisionRow['reviewed_at'] ?? '')) : '-',
+            'reviewed_by' => $reviewerLabel !== '' ? $reviewerLabel : '-',
+            'review_remarks' => is_array($decisionRow) ? (string)($decisionRow['remarks'] ?? '') : '',
+            'updated_live_record' => is_array($decisionRow) ? (bool)($decisionRow['updated_live_record'] ?? false) : false,
+        ];
+    }
+
+    if ($nearestDueDate instanceof DateTimeImmutable) {
+        $nearestPersonalInfoDueLabel = $formatPersonalInfoTimestamp($nearestDueDate->format(DATE_ATOM)) . ' PST';
+    }
+}
+
 $passwordChangePending = (array)($_SESSION['employee_profile_password_change'] ?? []);
 $pendingExpiresAt = (int)($passwordChangePending['expires_at'] ?? 0);
 if ($pendingExpiresAt > time()) {
@@ -763,7 +961,7 @@ foreach ($loginHistoryRowsRaw as $entry) {
         'ip_address' => (string)($entry['ip_address'] ?? 'unknown'),
         'user_agent' => $userAgent,
         'device_label' => $deviceLabel,
-        'created_at' => $createdAt !== '' ? date('M d, Y h:i A', strtotime($createdAt)) : '-',
+        'created_at' => $createdAt !== '' ? $formatPersonalInfoTimestamp($createdAt) . ' PST' : '-',
         'search_text' => strtolower(trim($eventLabel . ' ' . ((string)($entry['auth_provider'] ?? '')) . ' ' . ((string)($entry['ip_address'] ?? '')) . ' ' . $userAgent . ' ' . $deviceLabel)),
     ];
 }

@@ -212,7 +212,7 @@ const initFilterDatePickers = async () => {
       return;
     }
 
-    const modalContainer = input.closest('#leaveModal, #obModal, #adjustmentModal');
+    const modalContainer = input.closest('#leaveModal, #specialRequestModal, #adjustmentModal');
     const modalPanel = modalContainer ? modalContainer.querySelector('.bg-white') : null;
 
     flatpickr(input, {
@@ -258,6 +258,21 @@ const initActionConfirmations = () => {
         create_official_business_request: {
           title: 'Submit official business request?',
           text: 'Your official business request will be submitted for review.',
+          confirm: 'Yes, submit',
+        },
+        create_cos_schedule_request: {
+          title: 'Submit COS flexible schedule request?',
+          text: 'Your COS flexible schedule request will be submitted for staff and admin review.',
+          confirm: 'Yes, submit',
+        },
+        create_travel_order_request: {
+          title: 'Submit Travel Order request?',
+          text: 'Your Travel Order request and attachment will be submitted for review.',
+          confirm: 'Yes, submit',
+        },
+        create_travel_abroad_request: {
+          title: 'Submit Travel Abroad request?',
+          text: 'Your Travel Abroad request and attachment will be submitted for review.',
           confirm: 'Yes, submit',
         },
         cancel_leave_request: {
@@ -339,6 +354,124 @@ const initActionConfirmations = () => {
   });
 };
 
+const wireSpecialRequestModalData = () => {
+  const title = document.getElementById('specialRequestModalTitle');
+  const actionInput = document.getElementById('specialRequestAction');
+  const typeSelect = document.getElementById('specialRequestType');
+  const dateLabel = document.getElementById('specialRequestDateLabel');
+  const reasonInput = document.getElementById('specialRequestReason');
+  const helpText = document.getElementById('specialRequestHelpText');
+  const destinationField = document.getElementById('specialDestinationField');
+  const destinationLabel = document.getElementById('specialDestinationLabel');
+  const destinationInput = destinationField ? destinationField.querySelector('input[name="destination"]') : null;
+  const referenceField = document.getElementById('specialReferenceField');
+  const referenceInput = referenceField ? referenceField.querySelector('input[name="reference_number"]') : null;
+  const attachmentField = document.getElementById('specialAttachmentField');
+  const attachmentLabel = document.getElementById('specialAttachmentLabel');
+  const attachmentInput = document.getElementById('specialAttachmentInput');
+  const endTimeInput = document.querySelector('#specialRequestModal input[name="end_time"]');
+
+  const configByType = {
+    official_business: {
+      action: 'create_official_business_request',
+      title: 'Official Business Request',
+      dateLabel: 'Official Business Date',
+      reasonPlaceholder: 'Reason for official business',
+      helpText: 'Provide enough context so staff and admin can review the request quickly.',
+      destinationLabel: 'Destination / Coverage',
+      showDestination: false,
+      showReference: false,
+      showAttachment: false,
+      requireAttachment: false,
+      maxEndTime: '',
+    },
+    cos_schedule: {
+      action: 'create_cos_schedule_request',
+      title: 'COS Flexible Schedule Request',
+      dateLabel: 'Requested Schedule Date',
+      reasonPlaceholder: 'Reason for the COS schedule adjustment',
+      helpText: 'COS flexible schedules are reviewed separately. Approved COS requests may extend only up to 10:00 PM.',
+      destinationLabel: 'Destination / Coverage',
+      showDestination: false,
+      showReference: false,
+      showAttachment: false,
+      requireAttachment: false,
+      maxEndTime: '22:00',
+    },
+    travel_order: {
+      action: 'create_travel_order_request',
+      title: 'Travel Order Request',
+      dateLabel: 'Travel Date',
+      reasonPlaceholder: 'Purpose / justification for the travel order request',
+      helpText: 'Attach the supporting travel order or memorandum before submitting.',
+      destinationLabel: 'Destination / Coverage',
+      showDestination: true,
+      showReference: true,
+      showAttachment: true,
+      requireAttachment: true,
+      maxEndTime: '',
+    },
+    travel_abroad: {
+      action: 'create_travel_abroad_request',
+      title: 'Travel Abroad Request',
+      dateLabel: 'Travel Date',
+      reasonPlaceholder: 'Purpose / justification for the travel abroad request',
+      helpText: 'Attach the approved travel document, itinerary, or memorandum before submitting.',
+      destinationLabel: 'Country / Destination',
+      showDestination: true,
+      showReference: true,
+      showAttachment: true,
+      requireAttachment: true,
+      maxEndTime: '',
+    },
+  };
+
+  return (button) => {
+    const requestType = button.getAttribute('data-request-type') || 'official_business';
+    const config = configByType[requestType] || configByType.official_business;
+
+    if (title) title.textContent = config.title;
+    if (actionInput) actionInput.value = config.action;
+    if (typeSelect) typeSelect.value = requestType;
+    if (dateLabel) dateLabel.textContent = config.dateLabel;
+    if (reasonInput) reasonInput.placeholder = config.reasonPlaceholder;
+    if (helpText) helpText.textContent = config.helpText;
+    if (destinationLabel) destinationLabel.textContent = config.destinationLabel;
+
+    destinationField?.classList.toggle('hidden', !config.showDestination);
+    referenceField?.classList.toggle('hidden', !config.showReference);
+    attachmentField?.classList.toggle('hidden', !config.showAttachment);
+
+    if (destinationInput) {
+      destinationInput.required = config.showDestination;
+      if (!config.showDestination) destinationInput.value = '';
+    }
+
+    if (referenceInput && !config.showReference) {
+      referenceInput.value = '';
+    }
+
+    if (attachmentInput) {
+      attachmentInput.required = config.requireAttachment;
+      if (!config.showAttachment) {
+        attachmentInput.value = '';
+      }
+    }
+
+    if (attachmentLabel) {
+      attachmentLabel.textContent = config.requireAttachment ? 'Supporting Attachment (required)' : 'Supporting Attachment';
+    }
+
+    if (endTimeInput instanceof HTMLInputElement) {
+      if (config.maxEndTime) {
+        endTimeInput.max = config.maxEndTime;
+      } else {
+        endTimeInput.removeAttribute('max');
+      }
+    }
+  };
+};
+
 const initLiveLeaveBalance = () => {
   const getSection = () => document.getElementById('leave-balance');
   const initialSection = getSection();
@@ -414,9 +547,10 @@ const initEmployeeTimekeepingPage = async () => {
   });
 
   wireModal({
-    openSelector: '[data-open-ob]',
-    closeSelector: '[data-close-ob]',
-    modalId: 'obModal',
+    openSelector: '[data-open-special-request]',
+    closeSelector: '[data-close-special-request]',
+    modalId: 'specialRequestModal',
+    onOpen: wireSpecialRequestModalData(),
   });
 
   wireModal({
@@ -434,7 +568,7 @@ const initEmployeeTimekeepingPage = async () => {
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
 
-    ['attendanceExportModal', 'obModal', 'adjustmentModal'].forEach((modalId) => {
+    ['attendanceExportModal', 'specialRequestModal', 'adjustmentModal'].forEach((modalId) => {
       const modal = document.getElementById(modalId);
       if (modal && !modal.classList.contains('hidden')) {
         toggleModal(modal, false);

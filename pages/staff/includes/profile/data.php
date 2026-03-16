@@ -162,7 +162,7 @@ foreach ($loginHistoryRowsRaw as $entry) {
         'ip_address' => (string)($entry['ip_address'] ?? 'unknown'),
         'user_agent' => $userAgent,
         'device_label' => $deviceLabel,
-        'created_at' => $createdAt !== '' ? date('M d, Y h:i A', strtotime($createdAt)) : '-',
+        'created_at' => $createdAt !== '' ? formatDateTimeForPhilippines($createdAt, 'M d, Y h:i A') . ' PST' : '-',
         'search_text' => strtolower(trim($eventLabel . ' ' . ((string)($entry['auth_provider'] ?? '')) . ' ' . ((string)($entry['ip_address'] ?? '')) . ' ' . $userAgent . ' ' . $deviceLabel)),
     ];
 }

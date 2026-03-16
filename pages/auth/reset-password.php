@@ -4,7 +4,7 @@ require_once __DIR__ . '/includes/auth-support.php';
 
 authStartSession();
 
-$pageTitle = 'Reset Password | DA HRIS';
+$pageTitle = 'Reset Password | ATI HRIS Portal';
 
 ob_start();
 

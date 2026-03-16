@@ -78,7 +78,7 @@
                             <td class="px-4 py-3"><?php echo htmlspecialchars(ucwords(str_replace('_', ' ', (string)($row['category'] ?? 'general'))), ENT_QUOTES, 'UTF-8'); ?></td>
                             <td class="px-4 py-3"><?php echo htmlspecialchars((string)($row['subject'] ?? 'Support Ticket'), ENT_QUOTES, 'UTF-8'); ?></td>
                             <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs <?php echo htmlspecialchars((string)($row['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(ucwords(str_replace('_', ' ', (string)($row['status'] ?? 'submitted'))), ENT_QUOTES, 'UTF-8'); ?></span></td>
-                            <td class="px-4 py-3"><?php echo htmlspecialchars(!empty($row['updated_at']) ? date('M j, Y g:i A', strtotime((string)$row['updated_at'])) : '-', ENT_QUOTES, 'UTF-8'); ?></td>
+                            <td class="px-4 py-3"><?php echo htmlspecialchars(!empty($row['updated_at']) ? (formatDateTimeForPhilippines((string)$row['updated_at'], 'M j, Y g:i A') . ' PST') : '-', ENT_QUOTES, 'UTF-8'); ?></td>
                             <td class="px-4 py-3">
                                 <a class="rounded-md border border-slate-300 px-3 py-1.5 hover:bg-slate-50" href="support.php?ticket_id=<?php echo rawurlencode((string)($row['ticket_id'] ?? '')); ?>">Manage</a>
                             </td>
@@ -173,7 +173,7 @@
                 <?php foreach (array_reverse((array)$selectedTicket['history']) as $historyItem): ?>
                     <article class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
                         <p class="font-medium text-slate-800"><?php echo htmlspecialchars((string)($historyItem['action'] ?? 'Update'), ENT_QUOTES, 'UTF-8'); ?></p>
-                        <p class="text-xs text-slate-500 mt-1"><?php echo htmlspecialchars(!empty($historyItem['created_at']) ? date('M j, Y g:i A', strtotime((string)$historyItem['created_at'])) : '-', ENT_QUOTES, 'UTF-8'); ?></p>
+                        <p class="text-xs text-slate-500 mt-1"><?php echo htmlspecialchars(!empty($historyItem['created_at']) ? (formatDateTimeForPhilippines((string)$historyItem['created_at'], 'M j, Y g:i A') . ' PST') : '-', ENT_QUOTES, 'UTF-8'); ?></p>
                         <?php if (!empty($historyItem['notes'])): ?><p class="mt-2 text-slate-700">Note: <?php echo htmlspecialchars((string)$historyItem['notes'], ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
                         <?php if (!empty($historyItem['resolution'])): ?><p class="mt-1 text-slate-700">Resolution: <?php echo htmlspecialchars((string)$historyItem['resolution'], ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
                     </article>

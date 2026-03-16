@@ -30,10 +30,32 @@ $formatCurrency = static function (float $value): string {
 
 $attendanceExportFrom = (string)($reportFilters['date_from'] ?? date('Y-01-01'));
 $attendanceExportTo = (string)($reportFilters['date_to'] ?? date('Y-m-d'));
+$attendanceReportYear = (string)date('Y', strtotime($attendanceExportTo !== '' ? $attendanceExportTo : date('Y-m-d')));
 $attendanceReportDownloadUrl = 'export/attendance.php?' . http_build_query([
   'from' => $attendanceExportFrom,
   'to' => $attendanceExportTo,
 ]);
+$attendanceYearlyViewUrl = 'export/attendance.php?' . http_build_query([
+  'report_scope' => 'yearly',
+  'year' => $attendanceReportYear,
+  'disposition' => 'inline',
+]);
+$attendanceYearlyDownloadUrl = 'export/attendance.php?' . http_build_query([
+  'report_scope' => 'yearly',
+  'year' => $attendanceReportYear,
+  'disposition' => 'attachment',
+]);
+$templateLinkDefaults = [
+  'official_business_report_template_url' => 'https://docs.google.com/document/d/1oF-k_14HArDNj3YxyIEOAQQwO2lTNUcy/edit',
+  'application_for_leave_template_url' => 'https://docs.google.com/spreadsheets/d/1jEz7xOB82ndjYqf0teL7DUU0gePZlEjx/edit?gid=419957008#gid=419957008',
+];
+$templateLinkSettings = systemSettingLinksMap(
+    $supabaseUrl,
+    $headers,
+    ['official_business_report_template_url', 'application_for_leave_template_url']
+);
+$officialBusinessTemplateUrl = (string)($templateLinkSettings['official_business_report_template_url'] ?? $templateLinkDefaults['official_business_report_template_url']);
+$applicationForLeaveTemplateUrl = (string)($templateLinkSettings['application_for_leave_template_url'] ?? $templateLinkDefaults['application_for_leave_template_url']);
 
 $payrollExportParams = [];
 if (!empty($reportFilters['date_from'])) {
@@ -119,7 +141,7 @@ $generatedReportTypeLabel = static function (string $value): string {
     <p class="text-sm text-gray-500">Download your own attendance, payroll, and document reports instantly using the current filters.</p>
   </div>
 
-  <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+  <div class="grid grid-cols-1 xl:grid-cols-5 gap-4">
     <article class="bg-white border rounded-xl p-5">
       <div class="flex items-start justify-between gap-3 mb-4">
         <div>
@@ -129,6 +151,20 @@ $generatedReportTypeLabel = static function (string $value): string {
         <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-blue-100 text-blue-700">PDF</span>
       </div>
       <a href="<?= $escape($attendanceReportDownloadUrl) ?>" target="_blank" rel="noopener noreferrer" class="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><span class="material-icons text-sm">download</span>Download Attendance Report</a>
+    </article>
+
+    <article class="bg-white border rounded-xl p-5">
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <div>
+          <h3 class="text-base font-semibold text-slate-800">Yearly Attendance Report</h3>
+          <p class="text-sm text-slate-500 mt-1">Yearly PDF for <?= $escape($attendanceReportYear) ?> with employee acknowledgment and HR Head signature area.</p>
+        </div>
+        <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-amber-100 text-amber-700">PDF</span>
+      </div>
+      <div class="grid grid-cols-1 gap-2">
+        <a href="<?= $escape($attendanceYearlyViewUrl) ?>" target="_blank" rel="noopener noreferrer" class="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"><span class="material-icons text-sm">visibility</span>View Yearly Report</a>
+        <a href="<?= $escape($attendanceYearlyDownloadUrl) ?>" target="_blank" rel="noopener noreferrer" class="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><span class="material-icons text-sm">download</span>Download Yearly Report</a>
+      </div>
     </article>
 
     <article class="bg-white border rounded-xl p-5">
@@ -151,6 +187,21 @@ $generatedReportTypeLabel = static function (string $value): string {
         <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-violet-100 text-violet-700">XLS</span>
       </div>
       <a href="<?= $escape($documentsReportDownloadUrl) ?>" class="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><span class="material-icons text-sm">download</span>Download Document Report</a>
+    </article>
+
+    <article class="bg-white border rounded-xl p-5 xl:col-span-2">
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <div>
+          <h3 class="text-base font-semibold text-slate-800">Forms and Templates</h3>
+          <p class="text-sm text-slate-500 mt-1">Access the Official Business Report template for viewing, editing, and download, plus the Application for Leave template for download.</p>
+        </div>
+        <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-slate-100 text-slate-700">Forms</span>
+      </div>
+      <div class="grid grid-cols-1 gap-2 md:grid-cols-3">
+        <a href="<?= $escape($officialBusinessTemplateUrl) ?>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><span class="material-icons text-sm">edit_document</span>View / Edit OB Template</a>
+        <a href="<?= $escape($officialBusinessTemplateUrl) ?>" download class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><span class="material-icons text-sm">download</span>Download OB Template</a>
+        <a href="<?= $escape($applicationForLeaveTemplateUrl) ?>" download class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><span class="material-icons text-sm">download</span>Download Leave Template</a>
+      </div>
     </article>
   </div>
 </section>

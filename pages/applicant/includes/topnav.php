@@ -190,13 +190,13 @@ $allMobileLinks = array_merge($primaryLinks, $recruitmentLinks, $accountLinks);
             <!-- LEFT: BRAND + NAV -->
             <div class="flex min-w-0 items-center gap-3 lg:gap-5">
                 <a href="dashboard.php" class="flex items-center gap-2.5 shrink-0">
-                    <div class="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 shadow-sm">
+                    <div class="flex items-center gap-2">
                         <img src="<?= htmlspecialchars(systemAppPath('/assets/images/Bagong_Pilipinas_logo.png'), ENT_QUOTES, 'UTF-8') ?>" alt="Bagong Pilipinas" class="h-8 w-auto object-contain" loading="lazy">
-                        <img src="<?= htmlspecialchars(systemAppPath('/assets/images/DA_logo.png'), ENT_QUOTES, 'UTF-8') ?>" alt="Department of Agriculture" class="h-8 w-8 object-contain" loading="lazy">
+                        <img src="<?= htmlspecialchars(systemAppPath('/assets/images/ati-logo/logo.png'), ENT_QUOTES, 'UTF-8') ?>" alt="ATI HRIS Portal" class="h-8 w-8 object-contain" loading="lazy">
                     </div>
                     <div class="hidden sm:block leading-tight">
                         <p class="text-xs text-gray-500">Applicant Portal · Bagong Pilipinas</p>
-                        <p class="text-sm font-semibold text-gray-800">DA-ATI HRIS</p>
+                        <p class="text-sm font-semibold text-gray-800">ATI HRIS Portal</p>
                     </div>
                 </a>
 

@@ -13,6 +13,7 @@ $payrollSummary = [
 
 $employeePayrollRows = [];
 $payrollYears = [];
+$employeePayrollIsCos = timekeepingIsCosEmploymentStatus($employeeEmploymentStatus ?? null);
 
 $payFrequencyDivisor = static function (?string $payFrequency): float {
     $frequency = strtolower(trim((string)$payFrequency));
@@ -162,6 +163,9 @@ if (isSuccessful($itemBreakdownResponse)) {
             'absent_days' => (int)($attendance['absent_days'] ?? 0),
             'late_minutes' => (int)($attendance['late_minutes'] ?? 0),
             'undertime_hours' => (float)($attendance['undertime_hours'] ?? 0),
+            'attendance_policy' => (string)($attendance['attendance_policy'] ?? ''),
+            'employment_status' => (string)($attendance['employment_status'] ?? ''),
+            'is_cos_employee' => (bool)($attendance['is_cos_employee'] ?? false),
         ];
     }
 }
@@ -446,8 +450,15 @@ foreach ($itemRows as $index => $itemRaw) {
     }
 
     if (!empty($itemBreakdown)) {
+        $isCosRow = (bool)($itemBreakdown['is_cos_employee'] ?? false);
+        if (!$isCosRow && empty($itemBreakdown['employment_status'])) {
+            $isCosRow = $employeePayrollIsCos;
+        }
+
+        $attendancePrefix = $isCosRow ? 'COS Payroll Impact' : 'Leave Card Remarks';
         $attendanceSummary = sprintf(
-            'Leave Card Remarks: Absence impact %d day(s); Late/Undertime %d minute(s) / %.2f hour(s)',
+            '%s: Absence impact %d day(s); Late/Undertime %d minute(s) / %.2f hour(s)',
+            $attendancePrefix,
             (int)($itemBreakdown['absent_days'] ?? 0),
             (int)($itemBreakdown['late_minutes'] ?? 0),
             (float)($itemBreakdown['undertime_hours'] ?? 0)

@@ -175,14 +175,14 @@ if ($topnavInitialSource !== '') {
             <span class="material-symbols-outlined">menu</span>
         </button>
 
-        <div class="hidden md:flex items-center gap-3 rounded-xl bg-white/5 px-3 py-1.5">
+        <div class="hidden md:flex items-center gap-3">
             <div class="flex items-center gap-2">
-                <img src="<?= htmlspecialchars(systemAppPath('/assets/images/DA_logo.png'), ENT_QUOTES, 'UTF-8') ?>" alt="Department of Agriculture" class="h-8 w-8 object-contain" loading="lazy">
+                <img src="<?= htmlspecialchars(systemAppPath('/assets/images/ati-logo/logo.png'), ENT_QUOTES, 'UTF-8') ?>" alt="ATI HRIS Portal" class="h-8 w-8 object-contain" loading="lazy">
                 <img src="<?= htmlspecialchars(systemAppPath('/assets/images/Bagong_Pilipinas_logo.png'), ENT_QUOTES, 'UTF-8') ?>" alt="Bagong Pilipinas" class="h-8 w-auto object-contain" loading="lazy">
             </div>
             <div class="leading-tight">
                 <span class="block text-[10px] uppercase tracking-[0.24em] text-slate-300">Bagong Pilipinas</span>
-                <span class="block text-xs font-semibold text-slate-100">DA-ATI HRIS</span>
+                <span class="block text-xs font-semibold text-slate-100">ATI HRIS Portal</span>
             </div>
         </div>
 

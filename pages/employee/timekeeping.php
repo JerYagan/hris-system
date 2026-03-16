@@ -59,6 +59,8 @@ $statusPill = static function (string $status): array {
     'pending', 'submitted', 'late' => [ucfirst($key), 'bg-amber-50 text-amber-700'],
     'rejected', 'absent' => [ucfirst($key), 'bg-rose-50 text-rose-700'],
     'leave' => ['Leave', 'bg-sky-50 text-sky-700'],
+  'travel' => ['Approved Travel', 'bg-indigo-50 text-indigo-700'],
+  'needs_revision' => ['Needs Revision', 'bg-blue-50 text-blue-700'],
     default => [ucfirst($key !== '' ? $key : 'draft'), 'bg-slate-100 text-slate-700'],
     };
 };
@@ -77,13 +79,24 @@ if (!empty($attendanceTo)) {
 $todayManila = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d');
 $attendanceExportFrom = $attendanceFrom ?? date('Y-m-01');
 $attendanceExportTo = $attendanceTo ?? date('Y-m-t');
+$attendanceExportYear = $attendanceTo !== null ? date('Y', strtotime($attendanceTo)) : date('Y');
+$ctoExpiryBucketRows = $ctoExpiryBucketRows ?? [];
+$displayLeaveBalanceRows = $employeeIsCos
+    ? array_values(array_filter($leaveBalanceRows, static function (array $row): bool {
+        $leaveCode = strtolower(trim((string)($row['leave_code'] ?? '')));
+        $leaveName = strtolower(trim((string)($row['leave_name'] ?? '')));
+        return $leaveCode === 'cto' || str_contains($leaveName, 'cto') || str_contains($leaveName, 'compensatory');
+    }))
+    : $leaveBalanceRows;
 
 $renderLeaveBalanceSection = static function () use (
     $escape,
+    $employeeIsCos,
     $formatDateTime,
+    $ctoExpiryBucketRows,
+    $displayLeaveBalanceRows,
     $leaveBalanceLastUpdatedAt,
     $leaveBalanceRefreshUrl,
-    $leaveBalanceRows,
     $leavePointSummary,
     $pendingLeavePointSummary,
     $postedLeavePointSummary
@@ -92,8 +105,12 @@ $renderLeaveBalanceSection = static function () use (
 <section id="leave-balance" data-refresh-url="<?= $escape($leaveBalanceRefreshUrl ?? 'timekeeping.php?partial=leave-balance') ?>" class="bg-white rounded-xl shadow p-6 mb-6">
   <div class="flex flex-col gap-2 mb-4 md:flex-row md:items-start md:justify-between">
     <div>
-      <h2 class="text-lg font-bold">Accumulated Leave/CTO <span class="text-daGreen">Points</span></h2>
-      <p class="text-xs text-gray-500 mt-1">This section shows only the total accumulated SL, VL, and CTO points based on what Admin inserted for your record.</p>
+      <h2 class="text-lg font-bold"><?= $employeeIsCos ? 'CTO Expiry and Payroll Policy' : 'Accumulated Leave/CTO <span class="text-daGreen">Points</span>' ?></h2>
+      <p class="text-xs text-gray-500 mt-1">
+        <?= $employeeIsCos
+            ? 'COS employees do not maintain leave cards. This section shows compensatory time-off tracking and expiry buckets only.'
+            : 'This section shows only the total accumulated SL, VL, and CTO points based on what Admin inserted for your record.' ?>
+      </p>
     </div>
     <div class="text-xs text-gray-500 md:text-right">
       <p class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700"><span class="h-2 w-2 rounded-full bg-emerald-500"></span>Live sync enabled</p>
@@ -102,20 +119,33 @@ $renderLeaveBalanceSection = static function () use (
     </div>
   </div>
 
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm mb-4">
-    <div class="rounded-lg bg-sky-50 px-4 py-3 border border-sky-100">
-      <p class="text-xs font-semibold uppercase tracking-wide text-sky-700">SL Points</p>
-      <p class="mt-1 text-xl font-bold text-sky-800"><?= $escape(number_format((float)($leavePointSummary['sl'] ?? 0), 2)) ?></p>
+  <?php if ($employeeIsCos): ?>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm mb-4">
+      <div class="rounded-lg bg-amber-50 px-4 py-3 border border-amber-100 sm:col-span-1">
+        <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">CTO Points</p>
+        <p class="mt-1 text-xl font-bold text-amber-800"><?= $escape(number_format((float)($leavePointSummary['cto'] ?? 0), 2)) ?></p>
+      </div>
+      <div class="rounded-lg bg-slate-50 px-4 py-3 border border-slate-200 sm:col-span-2">
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-700">COS Payroll Rule</p>
+        <p class="mt-1 text-sm text-slate-700">Late, absence, and undertime impact is tracked for payroll integration instead of leave-card deduction.</p>
+      </div>
     </div>
-    <div class="rounded-lg bg-emerald-50 px-4 py-3 border border-emerald-100">
-      <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">VL Points</p>
-      <p class="mt-1 text-xl font-bold text-emerald-800"><?= $escape(number_format((float)($leavePointSummary['vl'] ?? 0), 2)) ?></p>
+  <?php else: ?>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm mb-4">
+      <div class="rounded-lg bg-sky-50 px-4 py-3 border border-sky-100">
+        <p class="text-xs font-semibold uppercase tracking-wide text-sky-700">SL Points</p>
+        <p class="mt-1 text-xl font-bold text-sky-800"><?= $escape(number_format((float)($leavePointSummary['sl'] ?? 0), 2)) ?></p>
+      </div>
+      <div class="rounded-lg bg-emerald-50 px-4 py-3 border border-emerald-100">
+        <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">VL Points</p>
+        <p class="mt-1 text-xl font-bold text-emerald-800"><?= $escape(number_format((float)($leavePointSummary['vl'] ?? 0), 2)) ?></p>
+      </div>
+      <div class="rounded-lg bg-amber-50 px-4 py-3 border border-amber-100">
+        <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">CTO Points</p>
+        <p class="mt-1 text-xl font-bold text-amber-800"><?= $escape(number_format((float)($leavePointSummary['cto'] ?? 0), 2)) ?></p>
+      </div>
     </div>
-    <div class="rounded-lg bg-amber-50 px-4 py-3 border border-amber-100">
-      <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">CTO Points</p>
-      <p class="mt-1 text-xl font-bold text-amber-800"><?= $escape(number_format((float)($leavePointSummary['cto'] ?? 0), 2)) ?></p>
-    </div>
-  </div>
+  <?php endif; ?>
 
   <div class="overflow-x-auto">
     <table class="w-full text-sm">
@@ -127,10 +157,10 @@ $renderLeaveBalanceSection = static function () use (
         </tr>
       </thead>
       <tbody>
-        <?php if (empty($leaveBalanceRows)): ?>
+        <?php if (empty($displayLeaveBalanceRows)): ?>
           <tr><td class="py-3 text-gray-500" colspan="3">No accumulated leave point records found yet.</td></tr>
         <?php else: ?>
-          <?php foreach ($leaveBalanceRows as $balance): ?>
+          <?php foreach ($displayLeaveBalanceRows as $balance): ?>
             <tr class="border-b">
               <td class="py-3"><?= $escape((string)($balance['leave_name'] ?? '-')) ?></td>
               <td class="py-3"><?= $escape(number_format((float)($balance['admin_posted_total'] ?? 0), 2)) ?></td>
@@ -140,6 +170,50 @@ $renderLeaveBalanceSection = static function () use (
         <?php endif; ?>
       </tbody>
     </table>
+  </div>
+
+  <div class="mt-6">
+    <div>
+      <h3 class="text-base font-semibold text-slate-800">CTO Expiry Tracking</h3>
+      <p class="mt-1 text-xs text-slate-500">Credits are grouped by earning half-year so expiring CTO can be monitored by <span class="font-medium">JAN-JUN</span> and <span class="font-medium">JULY-DEC</span> buckets.</p>
+    </div>
+
+    <?php if (empty($ctoExpiryBucketRows)): ?>
+      <p class="mt-3 text-sm text-slate-500">No CTO expiry buckets are available yet.</p>
+    <?php else: ?>
+      <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <?php foreach ($ctoExpiryBucketRows as $bucket): ?>
+          <article class="rounded-xl border border-amber-100 bg-amber-50/60 px-4 py-4 text-sm">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-amber-700"><?= $escape((string)($bucket['display_label'] ?? 'CTO Bucket')) ?></p>
+                <p class="mt-1 text-lg font-bold text-slate-800"><?= $escape(number_format((float)($bucket['remaining_points'] ?? 0), 2)) ?></p>
+                <p class="text-xs text-slate-500">Remaining points</p>
+              </div>
+              <span class="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-amber-700 border border-amber-200"><?= $escape((string)($bucket['bucket_label'] ?? 'CTO')) ?></span>
+            </div>
+            <dl class="mt-4 grid grid-cols-2 gap-3 text-xs text-slate-600">
+              <div>
+                <dt class="uppercase tracking-wide text-slate-500">Posted</dt>
+                <dd class="mt-1 font-semibold text-slate-800"><?= $escape(number_format((float)($bucket['posted_points'] ?? 0), 2)) ?></dd>
+              </div>
+              <div>
+                <dt class="uppercase tracking-wide text-slate-500">Used</dt>
+                <dd class="mt-1 font-semibold text-slate-800"><?= $escape(number_format((float)($bucket['used_points'] ?? 0), 2)) ?></dd>
+              </div>
+              <div>
+                <dt class="uppercase tracking-wide text-slate-500">Pending</dt>
+                <dd class="mt-1 font-semibold text-slate-800"><?= $escape(number_format((float)($bucket['pending_points'] ?? 0), 2)) ?></dd>
+              </div>
+              <div>
+                <dt class="uppercase tracking-wide text-slate-500">Projected</dt>
+                <dd class="mt-1 font-semibold text-slate-800"><?= $escape(number_format((float)($bucket['projected_remaining'] ?? 0), 2)) ?></dd>
+              </div>
+            </dl>
+          </article>
+        <?php endforeach; ?>
+      </div>
+    <?php endif; ?>
   </div>
 </section>
 <?php
@@ -155,7 +229,9 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
 
 <div class="mb-6">
   <h1 class="text-2xl font-bold">Timekeeping</h1>
-  <p class="text-sm text-gray-500">Manage your attendance, view the leave card file, and submit official business or record-level time adjustment requests.</p>
+  <p class="text-sm text-gray-500"><?= $employeeIsCos
+      ? 'Manage your attendance, track CTO expiry, and submit official business, COS flexible schedule, travel, or record-level time adjustment requests.'
+      : 'Manage your attendance, view the leave card file, and submit official business, COS flexible schedule, travel, or record-level time adjustment requests.' ?></p>
 </div>
 
 <?php if (!empty($message)): ?>
@@ -175,9 +251,44 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
   <div class="flex items-center justify-between mb-6">
     <h2 class="text-lg font-bold">Attendance <span class="text-daGreen">Overview</span></h2>
     <div class="flex flex-wrap gap-2">
-      <a href="/hris-system/assets/Leave_Card_Template.xlsx" download class="inline-flex items-center gap-2 bg-daGreen text-white px-5 py-2 rounded-lg text-sm font-medium hover:opacity-90"><span class="material-symbols-outlined text-base">visibility</span>View Leave Card</a>
-      <button data-open-ob class="inline-flex items-center gap-2 border px-5 py-2 rounded-lg text-sm font-medium"><span class="material-symbols-outlined text-base">work_history</span>File Official Business</button>
+      <?php if (!$employeeIsCos && $employeeLeaveCardUrl !== ''): ?>
+        <a href="<?= $escape($employeeLeaveCardUrl) ?>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 bg-daGreen text-white px-5 py-2 rounded-lg text-sm font-medium hover:opacity-90"><span class="material-symbols-outlined text-base">visibility</span>View Leave Card</a>
+      <?php endif; ?>
+      <button data-open-special-request data-request-type="official_business" class="inline-flex items-center gap-2 border px-5 py-2 rounded-lg text-sm font-medium"><span class="material-symbols-outlined text-base">work_history</span>File Official Business</button>
+      <?php if ($employeeIsCos): ?>
+        <button data-open-special-request data-request-type="cos_schedule" class="inline-flex items-center gap-2 border px-5 py-2 rounded-lg text-sm font-medium"><span class="material-symbols-outlined text-base">schedule</span>Request COS Schedule</button>
+      <?php endif; ?>
+      <button data-open-special-request data-request-type="travel_order" class="inline-flex items-center gap-2 border px-5 py-2 rounded-lg text-sm font-medium"><span class="material-symbols-outlined text-base">flight_takeoff</span>File Travel Order</button>
+      <button data-open-special-request data-request-type="travel_abroad" class="inline-flex items-center gap-2 border px-5 py-2 rounded-lg text-sm font-medium"><span class="material-symbols-outlined text-base">public</span>File Travel Abroad</button>
     </div>
+  </div>
+
+  <div class="mb-4 grid gap-3 md:grid-cols-2">
+    <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+      <p class="font-semibold text-slate-800">Flexible schedule policy</p>
+      <p class="mt-1 text-xs text-slate-600">Permanent flexi windows remain separate. COS flexible schedule requests are reviewed case by case, and approved COS requests may extend up to 10:00 PM.</p>
+    </div>
+    <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+      <p class="font-semibold text-slate-800"><?= $employeeIsCos ? 'COS attendance and payroll policy' : 'Travel attendance protection' ?></p>
+      <p class="mt-1 text-xs text-slate-600"><?= $employeeIsCos
+          ? 'COS late, absence, and undertime impact are reflected in payroll integration rules. Leave-card actions stay hidden because COS employees do not maintain leave cards.'
+          : 'Approved Travel Order and Travel Abroad requests are surfaced in attendance history so authorized travel does not appear as missing attendance.' ?></p>
+    </div>
+  </div>
+
+  <div class="mb-4 grid gap-3 md:grid-cols-3 text-sm">
+    <a href="<?= $escape($officialBusinessTemplateUrl) ?>" target="_blank" rel="noopener noreferrer" class="rounded-lg border border-slate-200 bg-white px-4 py-3 hover:bg-slate-50">
+      <p class="font-semibold text-slate-800">Official Business Report</p>
+      <p class="mt-1 text-xs text-slate-500">Open the editable template in a new tab for viewing or browser-based editing.</p>
+    </a>
+    <a href="<?= $escape($officialBusinessTemplateUrl) ?>" download class="rounded-lg border border-slate-200 bg-white px-4 py-3 hover:bg-slate-50">
+      <p class="font-semibold text-slate-800">Download OB Template</p>
+      <p class="mt-1 text-xs text-slate-500">Download a blank Official Business Report template.</p>
+    </a>
+    <a href="<?= $escape($applicationForLeaveTemplateUrl) ?>" download class="rounded-lg border border-slate-200 bg-white px-4 py-3 hover:bg-slate-50">
+      <p class="font-semibold text-slate-800">Download Leave Form</p>
+      <p class="mt-1 text-xs text-slate-500">Download the Application for Leave template.</p>
+    </a>
   </div>
 
   <div class="grid md:grid-cols-4 gap-4 text-sm mb-4">
@@ -197,7 +308,7 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
 <section class="bg-white rounded-xl shadow p-6 mb-6">
   <div class="flex items-center justify-between mb-4">
     <h2 class="text-lg font-bold">Attendance <span class="text-daGreen">Records</span></h2>
-    <button type="button" data-open-attendance-export class="inline-flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"><span class="material-symbols-outlined text-base">picture_as_pdf</span>Export PDF</button>
+    <button type="button" data-open-attendance-export class="inline-flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"><span class="material-symbols-outlined text-base">picture_as_pdf</span>View / Export PDF</button>
   </div>
 
   <form method="get" action="timekeeping.php" class="grid md:grid-cols-4 gap-3 mb-4 text-sm">
@@ -213,7 +324,7 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
       <label class="text-gray-500">Status</label>
       <select name="attendance_status" class="w-full mt-1 border rounded-lg p-2">
           <option value="">All</option>
-        <?php foreach (['present', 'late', 'absent', 'leave', 'holiday', 'rest_day'] as $statusOption): ?>
+        <?php foreach (['present', 'late', 'absent', 'leave', 'travel', 'holiday', 'rest_day'] as $statusOption): ?>
           <option value="<?= $escape($statusOption) ?>" <?= $attendanceStatusFilter === $statusOption ? 'selected' : '' ?>><?= $escape(ucwords(str_replace('_', ' ', $statusOption))) ?></option>
         <?php endforeach; ?>
       </select>
@@ -251,6 +362,9 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
                 <span class="inline-flex items-center px-2 py-0.5 text-[11px] rounded-full font-medium <?= $escape($pillClass) ?>"><?= $escape($label) ?></span>
                 <?php if (!empty($row['is_late_by_policy'])): ?>
                   <p class="text-[11px] text-amber-700 mt-1">Late by approved policy (9:01 AM+)</p>
+                <?php endif; ?>
+                <?php if (($row['display_status'] ?? '') === 'travel' && !empty($row['travel_label'])): ?>
+                  <p class="text-[11px] text-indigo-700 mt-1"><?= $escape((string)$row['travel_label']) ?></p>
                 <?php endif; ?>
               </td>
               <td class="py-3">
@@ -322,31 +436,51 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
 </section>
 
 <section class="bg-white rounded-xl shadow p-6">
-  <h2 class="text-lg font-bold mb-4">Official Business <span class="text-daGreen">Requests</span></h2>
+  <div class="mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+    <div>
+      <h2 class="text-lg font-bold">Special <span class="text-daGreen">Timekeeping Requests</span></h2>
+      <p class="text-sm text-gray-500 mt-1">Track Official Business, COS flexible schedule, Travel Order, and Travel Abroad requests with notes and approval timeline.</p>
+    </div>
+  </div>
   <div class="overflow-x-auto">
     <table class="w-full text-sm">
       <thead>
         <tr class="border-b text-gray-500">
+          <th class="text-left py-3">Request Type</th>
           <th class="text-left py-3">Date</th>
-          <th class="text-left py-3">Time Out</th>
-          <th class="text-left py-3">Time In</th>
+          <th class="text-left py-3">Start</th>
+          <th class="text-left py-3">End</th>
           <th class="text-left py-3">Hours</th>
-          <th class="text-left py-3">Reason</th>
+          <th class="text-left py-3">Details</th>
           <th class="text-left py-3">Status</th>
         </tr>
       </thead>
       <tbody>
-        <?php if (empty($overtimeRows)): ?>
-          <tr><td class="py-3 text-gray-500" colspan="6">No official business requests yet.</td></tr>
+        <?php if (empty($specialTimekeepingRows)): ?>
+          <tr><td class="py-3 text-gray-500" colspan="7">No special timekeeping requests yet.</td></tr>
         <?php else: ?>
-          <?php foreach ($overtimeRows as $overtime): ?>
-            <?php [$label, $pillClass] = $statusPill((string)($overtime['status'] ?? 'pending')); ?>
-            <tr class="border-b js-module-filter-row" data-source="ob" data-status="<?= $escape(strtolower((string)($overtime['status'] ?? 'pending'))) ?>" data-date="<?= $escape((string)($overtime['overtime_date'] ?? '')) ?>" data-search="<?= $escape(strtolower(trim(($overtime['overtime_date'] ?? '') . ' ' . ($overtime['reason'] ?? '') . ' ' . ($overtime['status'] ?? '') . ' ' . ($overtime['start_time'] ?? '') . ' ' . ($overtime['end_time'] ?? '')))) ?>">
-              <td class="py-3"><?= $escape($formatDate($overtime['overtime_date'] ?? '')) ?></td>
-              <td class="py-3"><?= $escape((string)($overtime['start_time'] ?? '-')) ?></td>
-              <td class="py-3"><?= $escape((string)($overtime['end_time'] ?? '-')) ?></td>
-              <td class="py-3"><?= $escape(number_format((float)($overtime['hours_requested'] ?? 0), 2)) ?></td>
-              <td class="py-3"><?= $escape((string)($overtime['reason'] ?? '')) ?></td>
+          <?php foreach ($specialTimekeepingRows as $request): ?>
+            <?php [$label, $pillClass] = $statusPill((string)($request['status'] ?? 'pending')); ?>
+            <tr class="border-b js-module-filter-row" data-source="ob" data-status="<?= $escape(strtolower((string)($request['status'] ?? 'pending'))) ?>" data-date="<?= $escape((string)($request['overtime_date'] ?? '')) ?>" data-search="<?= $escape(strtolower(trim(($request['request_label'] ?? '') . ' ' . ($request['overtime_date'] ?? '') . ' ' . ($request['reason'] ?? '') . ' ' . ($request['detail_summary'] ?? '') . ' ' . ($request['timeline_summary'] ?? '') . ' ' . ($request['status'] ?? '') . ' ' . ($request['start_time'] ?? '') . ' ' . ($request['end_time'] ?? '')))) ?>">
+              <td class="py-3 font-medium text-gray-800"><?= $escape((string)($request['request_label'] ?? 'Special Request')) ?></td>
+              <td class="py-3"><?= $escape($formatDate($request['overtime_date'] ?? '')) ?></td>
+              <td class="py-3"><?= $escape((string)($request['start_time'] ?? '-')) ?></td>
+              <td class="py-3"><?= $escape((string)($request['end_time'] ?? '-')) ?></td>
+              <td class="py-3"><?= $escape(number_format((float)($request['hours_requested'] ?? 0), 2)) ?></td>
+              <td class="py-3">
+                <p><?= $escape((string)($request['reason'] ?? '')) ?></p>
+                <?php if (!empty($request['detail_summary'])): ?>
+                  <p class="mt-1 text-[11px] text-slate-500"><?= $escape((string)$request['detail_summary']) ?></p>
+                <?php endif; ?>
+                <?php if (!empty($request['timeline_summary'])): ?>
+                  <p class="mt-1 text-[11px] text-slate-500"><?= $escape((string)$request['timeline_summary']) ?></p>
+                <?php endif; ?>
+                <?php if (!empty($request['attachment_url']) && !empty($request['attachment_name'])): ?>
+                  <a href="<?= $escape((string)$request['attachment_url']) ?>" target="_blank" rel="noopener noreferrer" class="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-daGreen hover:underline">
+                    <span class="material-symbols-outlined text-sm">attach_file</span><?= $escape((string)$request['attachment_name']) ?>
+                  </a>
+                <?php endif; ?>
+              </td>
               <td class="py-3"><span class="inline-flex items-center px-2 py-0.5 text-[11px] rounded-full font-medium <?= $escape($pillClass) ?>"><?= $escape($label) ?></span></td>
             </tr>
           <?php endforeach; ?>
@@ -359,11 +493,18 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
 <div id="attendanceExportModal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden" aria-hidden="true">
   <div class="bg-white w-full max-w-lg rounded-xl shadow-lg max-h-[90vh] flex flex-col">
     <div class="px-6 py-4 border-b flex justify-between items-center shrink-0">
-      <h2 class="text-lg font-semibold">Export Attendance PDF</h2>
+      <h2 class="text-lg font-semibold">Attendance Report PDF</h2>
       <button type="button" data-close-attendance-export><span class="material-icons">close</span></button>
     </div>
 
     <form method="get" action="export/attendance.php" target="_blank" class="px-6 py-5 space-y-4 text-sm overflow-y-auto">
+      <div>
+        <label class="text-gray-500">Report Scope</label>
+        <select name="report_scope" class="w-full mt-1 border rounded-lg p-2">
+          <option value="date_range">Date Range Attendance Report</option>
+          <option value="yearly">Yearly Attendance Report</option>
+        </select>
+      </div>
       <div>
         <label class="text-gray-500">From Date</label>
         <input type="date" name="from" value="<?= $escape((string)$attendanceExportFrom) ?>" class="w-full mt-1 border rounded-lg p-2" required>
@@ -372,11 +513,16 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
         <label class="text-gray-500">To Date</label>
         <input type="date" name="to" value="<?= $escape((string)$attendanceExportTo) ?>" class="w-full mt-1 border rounded-lg p-2" required>
       </div>
-      <p class="text-xs text-gray-500">The PDF will include your name, selected date range, attendance table, and signature/date lines.</p>
+      <div>
+        <label class="text-gray-500">Year</label>
+        <input type="number" name="year" min="2000" max="2100" value="<?= $escape((string)$attendanceExportYear) ?>" class="w-full mt-1 border rounded-lg p-2">
+      </div>
+      <p class="text-xs text-gray-500">Date range mode exports the selected period. Yearly mode generates January to December for the chosen year and adds both employee acknowledgment and HR Head signature areas.</p>
 
       <div class="pt-2 flex justify-end gap-3">
         <button type="button" data-close-attendance-export class="border px-4 py-2 rounded-lg text-sm">Cancel</button>
-        <button type="submit" class="bg-daGreen text-white px-4 py-2 rounded-lg text-sm">Generate PDF</button>
+        <button type="submit" name="disposition" value="inline" class="border border-daGreen text-daGreen px-4 py-2 rounded-lg text-sm">View PDF</button>
+        <button type="submit" name="disposition" value="attachment" class="bg-daGreen text-white px-4 py-2 rounded-lg text-sm">Download PDF</button>
       </div>
     </form>
   </div>
@@ -420,30 +566,65 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
   </div>
 </div>
 
-<div id="obModal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden" aria-hidden="true">
+<div id="specialRequestModal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden" aria-hidden="true">
   <div class="bg-white w-full max-w-lg rounded-xl shadow-lg max-h-[90vh] flex flex-col">
     <div class="px-6 py-4 border-b flex justify-between items-center shrink-0">
-      <h2 class="text-lg font-semibold">Official Business Request</h2>
-      <button type="button" data-close-ob><span class="material-icons">close</span></button>
+      <h2 id="specialRequestModalTitle" class="text-lg font-semibold">Special Timekeeping Request</h2>
+      <button type="button" data-close-special-request><span class="material-icons">close</span></button>
     </div>
 
-    <form method="post" action="timekeeping.php" class="px-6 py-5 space-y-4 text-sm overflow-y-auto">
+    <form method="post" action="timekeeping.php" enctype="multipart/form-data" class="px-6 py-5 space-y-4 text-sm overflow-y-auto">
       <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken ?? '') ?>">
-      <input type="hidden" name="action" value="create_official_business_request">
+      <input type="hidden" id="specialRequestAction" name="action" value="create_official_business_request">
 
       <div>
-        <label class="text-gray-500">Select Official Business Date</label>
-        <input type="date" name="ob_date" min="<?= $escape($todayManila) ?>" class="w-full mt-1 border rounded-lg p-2" required>
+        <label class="text-gray-500">Request Type</label>
+        <select id="specialRequestType" class="w-full mt-1 border rounded-lg p-2 bg-gray-50" disabled>
+          <option value="official_business">Official Business</option>
+          <?php if ($employeeIsCos): ?>
+            <option value="cos_schedule">COS Flexible Schedule</option>
+          <?php endif; ?>
+          <option value="travel_order">Travel Order</option>
+          <option value="travel_abroad">Travel Abroad</option>
+        </select>
+      </div>
+
+      <div>
+        <label id="specialRequestDateLabel" class="text-gray-500">Request Date</label>
+        <input type="date" name="request_date" min="<?= $escape($todayManila) ?>" class="w-full mt-1 border rounded-lg p-2" required>
       </div>
       <div class="grid grid-cols-2 gap-3">
-        <input type="time" name="time_out" class="border rounded-lg p-2" required>
-        <input type="time" name="time_in" class="border rounded-lg p-2" required>
+        <div>
+          <label class="text-gray-500">Start Time</label>
+          <input type="time" name="start_time" class="mt-1 w-full border rounded-lg p-2" required>
+        </div>
+        <div>
+          <label class="text-gray-500">End Time</label>
+          <input type="time" name="end_time" class="mt-1 w-full border rounded-lg p-2" required>
+        </div>
       </div>
-      <input type="number" name="hours_requested" step="0.25" min="0.25" max="24" class="w-full border rounded-lg p-2" placeholder="Official Business Hours" required>
-      <textarea name="reason" class="w-full border rounded-lg p-2" rows="3" placeholder="Reason for official business" required></textarea>
+      <div>
+        <label class="text-gray-500">Hours Requested</label>
+        <input type="number" name="hours_requested" step="0.25" min="0.25" max="24" class="w-full mt-1 border rounded-lg p-2" placeholder="Total hours" required>
+      </div>
+      <div id="specialDestinationField" class="hidden">
+        <label id="specialDestinationLabel" class="text-gray-500">Destination / Coverage</label>
+        <input type="text" name="destination" class="w-full mt-1 border rounded-lg p-2" maxlength="255" placeholder="Destination, office, or coverage area">
+      </div>
+      <div id="specialReferenceField" class="hidden">
+        <label class="text-gray-500">Reference Number</label>
+        <input type="text" name="reference_number" class="w-full mt-1 border rounded-lg p-2" maxlength="120" placeholder="Travel order number or memorandum reference">
+      </div>
+      <div id="specialAttachmentField" class="hidden">
+        <label id="specialAttachmentLabel" class="text-gray-500">Supporting Attachment</label>
+        <input id="specialAttachmentInput" type="file" name="supporting_attachment" class="w-full mt-1 border rounded-lg p-2" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+        <p class="mt-1 text-[11px] text-slate-500">Accepted: PDF, JPG, PNG, DOC, DOCX up to 10MB.</p>
+      </div>
+      <textarea id="specialRequestReason" name="reason" class="w-full border rounded-lg p-2" rows="3" placeholder="Reason / justification" required></textarea>
+      <p id="specialRequestHelpText" class="text-[11px] text-slate-500">Provide a clear justification so staff and admin can review the request quickly.</p>
 
       <div class="pt-2 flex justify-end gap-3">
-        <button type="button" data-close-ob class="border px-4 py-2 rounded-lg text-sm">Cancel</button>
+        <button type="button" data-close-special-request class="border px-4 py-2 rounded-lg text-sm">Cancel</button>
         <button type="submit" class="bg-daGreen text-white px-4 py-2 rounded-lg text-sm">Submit</button>
       </div>
     </form>

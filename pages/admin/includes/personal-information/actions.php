@@ -205,6 +205,10 @@ if ($action === 'create_staff_account' || $action === 'create_user_account') {
 
 if ($action === 'save_profile') {
     $profileAction = strtolower((string)(cleanText($_POST['profile_action'] ?? null) ?? 'edit'));
+    if (in_array($profileAction, ['add', 'edit'], true)) {
+        redirectWithState('error', 'Direct admin editing of employee PDS information has been removed. Review employee-submitted requests instead.');
+    }
+
     $personId = cleanText($_POST['person_id'] ?? null);
     $firstNameInput = trim((string)(cleanText($_POST['first_name'] ?? null) ?? ''));
     $middleNameInput = trim((string)(cleanText($_POST['middle_name'] ?? null) ?? ''));
@@ -1185,7 +1189,7 @@ if ($action === 'review_profile_recommendation') {
         . '/rest/v1/activity_logs?select=id,actor_user_id,entity_id,new_data,created_at'
         . '&module_name=eq.personal_information'
         . '&entity_name=eq.people'
-        . '&action_name=eq.recommend_employee_profile_update'
+        . '&action_name=in.(recommend_employee_profile_update,submit_employee_profile_update_request)'
         . '&id=eq.' . $recommendationLogId
         . '&entity_id=eq.' . $personId
         . '&limit=1',
@@ -1212,6 +1216,9 @@ if ($action === 'review_profile_recommendation') {
     $recommendedProfile = is_array($newData['recommended_profile'] ?? null) ? (array)$newData['recommended_profile'] : [];
     $recommendedAddresses = is_array($newData['recommended_addresses'] ?? null) ? (array)$newData['recommended_addresses'] : [];
     $recommendedGovernmentIds = is_array($newData['recommended_government_ids'] ?? null) ? (array)$newData['recommended_government_ids'] : [];
+    $recommendedFamily = is_array($newData['recommended_family'] ?? null) ? (array)$newData['recommended_family'] : [];
+    $recommendedChildren = is_array($recommendedFamily['children'] ?? null) ? (array)$recommendedFamily['children'] : [];
+    $recommendedEducation = is_array($newData['recommended_educational_backgrounds'] ?? null) ? (array)$newData['recommended_educational_backgrounds'] : [];
 
     if ($decision === 'approve') {
         $profilePayload = [];
@@ -1305,7 +1312,7 @@ if ($action === 'review_profile_recommendation') {
                 'province' => $normalizedAddress['province'] !== '' ? $normalizedAddress['province'] : null,
                 'zip_code' => $normalizedAddress['zip_code'] !== '' ? $normalizedAddress['zip_code'] : null,
                 'country' => 'Philippines',
-                'is_primary' => true,
+                'is_primary' => $addressType === 'residential',
             ];
 
             if ($existingAddressId !== '') {
@@ -1382,6 +1389,189 @@ if ($action === 'review_profile_recommendation') {
                 );
             }
         }
+
+        $currentSpouseResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/person_family_spouses?select=id&person_id=eq.' . $personId . '&order=sequence_no.asc&limit=1',
+            $headers
+        );
+        $currentSpouseId = (string)($currentSpouseResponse['data'][0]['id'] ?? '');
+        $spousePayload = [
+            'person_id' => $personId,
+            'surname' => trim((string)($recommendedFamily['spouse_surname'] ?? '')),
+            'first_name' => trim((string)($recommendedFamily['spouse_first_name'] ?? '')),
+            'middle_name' => trim((string)($recommendedFamily['spouse_middle_name'] ?? '')),
+            'extension_name' => trim((string)($recommendedFamily['spouse_extension_name'] ?? '')),
+            'occupation' => trim((string)($recommendedFamily['spouse_occupation'] ?? '')),
+            'employer_business_name' => trim((string)($recommendedFamily['spouse_employer_business_name'] ?? '')),
+            'business_address' => trim((string)($recommendedFamily['spouse_business_address'] ?? '')),
+            'telephone_no' => trim((string)($recommendedFamily['spouse_telephone_no'] ?? '')),
+            'sequence_no' => 1,
+        ];
+        $hasSpousePayload = false;
+        foreach ($spousePayload as $key => $value) {
+            if ($key === 'person_id' || $key === 'sequence_no') {
+                continue;
+            }
+            if (trim((string)$value) !== '') {
+                $hasSpousePayload = true;
+                break;
+            }
+        }
+        if ($hasSpousePayload) {
+            if ($currentSpouseId !== '') {
+                apiRequest(
+                    'PATCH',
+                    $supabaseUrl . '/rest/v1/person_family_spouses?id=eq.' . $currentSpouseId,
+                    array_merge($headers, ['Prefer: return=minimal']),
+                    array_merge($spousePayload, ['updated_at' => gmdate('c')])
+                );
+            } else {
+                apiRequest(
+                    'POST',
+                    $supabaseUrl . '/rest/v1/person_family_spouses',
+                    array_merge($headers, ['Prefer: return=minimal']),
+                    [$spousePayload]
+                );
+            }
+        } elseif ($currentSpouseId !== '') {
+            apiRequest(
+                'DELETE',
+                $supabaseUrl . '/rest/v1/person_family_spouses?id=eq.' . $currentSpouseId,
+                array_merge($headers, ['Prefer: return=minimal'])
+            );
+        }
+
+        $currentParentsResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/person_parents?select=id,parent_type&person_id=eq.' . $personId . '&limit=5',
+            $headers
+        );
+        $currentParentIdByType = [];
+        if (isSuccessful($currentParentsResponse)) {
+            foreach ((array)($currentParentsResponse['data'] ?? []) as $parentRow) {
+                $parentType = strtolower((string)($parentRow['parent_type'] ?? ''));
+                $parentId = (string)($parentRow['id'] ?? '');
+                if ($parentType !== '' && $parentId !== '') {
+                    $currentParentIdByType[$parentType] = $parentId;
+                }
+            }
+        }
+
+        foreach (['father', 'mother'] as $parentType) {
+            $prefix = $parentType . '_';
+            $parentPayload = [
+                'person_id' => $personId,
+                'parent_type' => $parentType,
+                'surname' => trim((string)($recommendedFamily[$prefix . 'surname'] ?? '')),
+                'first_name' => trim((string)($recommendedFamily[$prefix . 'first_name'] ?? '')),
+                'middle_name' => trim((string)($recommendedFamily[$prefix . 'middle_name'] ?? '')),
+                'extension_name' => trim((string)($recommendedFamily[$prefix . 'extension_name'] ?? '')),
+            ];
+
+            $hasParentPayload = false;
+            foreach (['surname', 'first_name', 'middle_name', 'extension_name'] as $fieldName) {
+                if (trim((string)$parentPayload[$fieldName]) !== '') {
+                    $hasParentPayload = true;
+                    break;
+                }
+            }
+
+            $existingParentId = $currentParentIdByType[$parentType] ?? '';
+            if ($hasParentPayload) {
+                if ($existingParentId !== '') {
+                    apiRequest(
+                        'PATCH',
+                        $supabaseUrl . '/rest/v1/person_parents?id=eq.' . $existingParentId,
+                        array_merge($headers, ['Prefer: return=minimal']),
+                        array_merge($parentPayload, ['updated_at' => gmdate('c')])
+                    );
+                } else {
+                    apiRequest(
+                        'POST',
+                        $supabaseUrl . '/rest/v1/person_parents',
+                        array_merge($headers, ['Prefer: return=minimal']),
+                        [$parentPayload]
+                    );
+                }
+            } elseif ($existingParentId !== '') {
+                apiRequest(
+                    'DELETE',
+                    $supabaseUrl . '/rest/v1/person_parents?id=eq.' . $existingParentId,
+                    array_merge($headers, ['Prefer: return=minimal'])
+                );
+            }
+        }
+
+        apiRequest(
+            'DELETE',
+            $supabaseUrl . '/rest/v1/person_family_children?person_id=eq.' . $personId,
+            array_merge($headers, ['Prefer: return=minimal'])
+        );
+
+        $childPayloadRows = [];
+        foreach ($recommendedChildren as $index => $childRow) {
+            if (!is_array($childRow)) {
+                continue;
+            }
+
+            $fullName = trim((string)($childRow['full_name'] ?? ''));
+            $birthDate = trim((string)($childRow['birth_date'] ?? ''));
+            if ($fullName === '' && $birthDate === '') {
+                continue;
+            }
+
+            $childPayloadRows[] = [
+                'person_id' => $personId,
+                'full_name' => $fullName !== '' ? $fullName : null,
+                'birth_date' => $birthDate !== '' ? $birthDate : null,
+                'sequence_no' => $index + 1,
+            ];
+        }
+
+        if (!empty($childPayloadRows)) {
+            apiRequest(
+                'POST',
+                $supabaseUrl . '/rest/v1/person_family_children',
+                array_merge($headers, ['Prefer: return=minimal']),
+                $childPayloadRows
+            );
+        }
+
+        apiRequest(
+            'DELETE',
+            $supabaseUrl . '/rest/v1/person_educational_backgrounds?person_id=eq.' . $personId,
+            array_merge($headers, ['Prefer: return=minimal'])
+        );
+
+        $educationPayloadRows = [];
+        foreach ($recommendedEducation as $index => $educationRow) {
+            if (!is_array($educationRow)) {
+                continue;
+            }
+
+            $educationPayloadRows[] = [
+                'person_id' => $personId,
+                'education_level' => trim((string)($educationRow['education_level'] ?? '')),
+                'school_name' => ($schoolName = trim((string)($educationRow['school_name'] ?? ''))) !== '' ? $schoolName : null,
+                'degree_course' => ($degreeCourse = trim((string)($educationRow['degree_course'] ?? ''))) !== '' ? $degreeCourse : null,
+                'attendance_from_year' => ($attendanceFrom = trim((string)($educationRow['attendance_from_year'] ?? ''))) !== '' ? $attendanceFrom : null,
+                'attendance_to_year' => ($attendanceTo = trim((string)($educationRow['attendance_to_year'] ?? ''))) !== '' ? $attendanceTo : null,
+                'highest_level_units_earned' => ($highestUnits = trim((string)($educationRow['highest_level_units_earned'] ?? ''))) !== '' ? $highestUnits : null,
+                'year_graduated' => ($yearGraduated = trim((string)($educationRow['year_graduated'] ?? ''))) !== '' ? $yearGraduated : null,
+                'scholarship_honors_received' => ($honors = trim((string)($educationRow['scholarship_honors_received'] ?? ''))) !== '' ? $honors : null,
+                'sequence_no' => $index + 1,
+            ];
+        }
+
+        if (!empty($educationPayloadRows)) {
+            apiRequest(
+                'POST',
+                $supabaseUrl . '/rest/v1/person_educational_backgrounds',
+                array_merge($headers, ['Prefer: return=minimal']),
+                $educationPayloadRows
+            );
+        }
     }
 
     apiRequest(
@@ -1404,6 +1594,8 @@ if ($action === 'review_profile_recommendation') {
                 'recommendation_log_id' => $recommendationLogId,
                 'decision' => $decision,
                 'remarks' => $remarks !== '' ? $remarks : null,
+                'updated_live_record' => $decision === 'approve',
+                'reviewed_at' => gmdate('c'),
             ],
             'ip_address' => clientIp(),
         ]]
