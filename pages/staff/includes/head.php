@@ -14,8 +14,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <link rel="icon" type="image/png" sizes="32x32" href="/hris-system/assets/images/ati-logo/logo.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/hris-system/assets/images/ati-logo/logo.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/hris-system/assets/images/favicon.png">
+  <link rel="icon" type="image/x-icon" href="/hris-system/assets/images/favicon.ico">
+  <link rel="apple-touch-icon" sizes="180x180" href="/hris-system/assets/images/apple-touch-icon.png">
   <link rel="stylesheet" href="/hris-system/global.css">
 
   <style>
