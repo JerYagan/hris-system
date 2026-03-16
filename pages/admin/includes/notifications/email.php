@@ -23,11 +23,11 @@ if (!function_exists('smtpConfigIsReady')) {
         $port = (int)($smtpConfig['port'] ?? 0);
         $username = trim((string)($smtpConfig['username'] ?? ''));
         $password = (string)($smtpConfig['password'] ?? '');
+        $authEnabled = ((string)($smtpConfig['auth'] ?? '1')) !== '0';
 
         return $host !== ''
             && $port > 0
-            && $username !== ''
-            && $password !== ''
+            && (!$authEnabled || ($username !== '' && $password !== ''))
             && trim($fromEmail) !== '';
     }
 }

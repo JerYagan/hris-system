@@ -125,6 +125,8 @@ ob_start();
           $errorMessage = 'No active role is assigned to this account.';
         } elseif ($errorCode === 'config') {
           $errorMessage = 'Authentication is not configured. Check SUPABASE credentials.';
+        } elseif ($errorCode === 'mfa_config_missing') {
+          $errorMessage = 'Your password is correct, but email OTP delivery is not configured yet. Check the SMTP settings and sender email.';
         } elseif ($errorCode === 'mfa_send_failed') {
           $errorMessage = 'Your password is correct, but we could not send the login verification code right now. Please try again.';
         } elseif ($errorCode === 'mfa_missing') {

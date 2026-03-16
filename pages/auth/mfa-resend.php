@@ -56,7 +56,18 @@ $mailFrom = (string)($resolvedMail['from'] ?? $mailFrom);
 $mailFromName = (string)($resolvedMail['from_name'] ?? $mailFromName);
 
 if (!smtpConfigIsReady($smtpConfig, $mailFrom)) {
-    header('Location: ' . $redirectVerify . '&error=cooldown');
+    authLogLoginAuditEvent($supabaseUrl, $supabaseServiceRoleKey, [
+        'user_id' => $pendingMfa['user_id'] ?? null,
+        'email_attempted' => (string)($pendingMfa['email'] ?? ''),
+        'auth_provider' => 'password',
+        'event_type' => 'mfa_otp_issue_failed',
+        'metadata' => [
+            'purpose' => $purpose,
+            'reason' => 'smtp_config_not_ready',
+            'phase' => 'resend',
+        ],
+    ]);
+    header('Location: ' . $redirectVerify . '&error=config');
     exit;
 }
 
@@ -96,7 +107,23 @@ $mailResponse = smtpSendTransactionalEmail(
 );
 
 if (!isSuccessful($mailResponse)) {
-    header('Location: ' . $redirectVerify . '&error=cooldown');
+    $mailFailure = trim((string)($mailResponse['raw'] ?? ''));
+    if ($mailFailure !== '') {
+        error_log('MFA resend failed for ' . $recipientEmail . ': ' . $mailFailure);
+    }
+    authLogLoginAuditEvent($supabaseUrl, $supabaseServiceRoleKey, [
+        'user_id' => $updatedChallenge['user_id'] ?? null,
+        'email_attempted' => $recipientEmail,
+        'auth_provider' => 'password',
+        'event_type' => 'mfa_otp_issue_failed',
+        'metadata' => [
+            'purpose' => $purpose,
+            'reason' => 'smtp_send_failed',
+            'phase' => 'resend',
+            'mail_response' => $mailFailure,
+        ],
+    ]);
+    header('Location: ' . $redirectVerify . '&error=send_failed');
     exit;
 }
 

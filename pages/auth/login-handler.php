@@ -136,6 +136,53 @@ if ($roleKey === '' || !isset($redirectMap[$roleKey])) {
   exit;
 }
 
+if ($roleKey === 'admin') {
+  authHttpJsonRequest(
+    'PATCH',
+    $supabaseUrl . '/rest/v1/user_accounts?id=eq.' . rawurlencode($userId),
+    [
+      'apikey: ' . $supabaseServiceRoleKey,
+      'Authorization: Bearer ' . $supabaseServiceRoleKey,
+      'Prefer: return=minimal',
+    ],
+    ['last_login_at' => gmdate('c')]
+  );
+
+  authLogLoginAuditEvent($supabaseUrl, $supabaseServiceRoleKey, [
+    'user_id' => $userId,
+    'email_attempted' => $email,
+    'auth_provider' => 'password',
+    'event_type' => 'login_success',
+    'metadata' => [
+      'role_key' => $roleKey,
+      'mfa_bypassed' => true,
+    ],
+  ]);
+
+  authFinalizeLoginSession([
+    'remember_me' => $rememberMe,
+    'user' => [
+      'id' => $userId,
+      'email' => $userEmail,
+      'name' => (string)(
+        $authUser['user_metadata']['full_name']
+        ?? $authUser['user_metadata']['name']
+        ?? $userEmail
+      ),
+      'role_key' => $roleKey,
+    ],
+    'tokens' => [
+      'access_token' => (string)$accessToken,
+      'refresh_token' => (string)($authResponse['data']['refresh_token'] ?? ''),
+      'expires_at' => (int)($authResponse['data']['expires_at'] ?? 0),
+    ],
+  ]);
+
+  unset($_SESSION[authPendingMfaSessionKey()]);
+  header('Location: ' . $redirectMap[$roleKey]);
+  exit;
+}
+
 $headers = [
   'Content-Type: application/json',
   'apikey: ' . $supabaseServiceRoleKey,
@@ -159,7 +206,21 @@ $mailFrom = (string)($resolvedMail['from'] ?? $mailFrom);
 $mailFromName = (string)($resolvedMail['from_name'] ?? $mailFromName);
 
 if (!smtpConfigIsReady($smtpConfig, $mailFrom)) {
-  header('Location: login.php?error=mfa_send_failed');
+  authLogLoginAuditEvent($supabaseUrl, $supabaseServiceRoleKey, [
+    'user_id' => $userId,
+    'email_attempted' => $email,
+    'auth_provider' => 'password',
+    'event_type' => 'mfa_otp_issue_failed',
+    'metadata' => [
+      'purpose' => 'login',
+      'reason' => 'smtp_config_not_ready',
+      'smtp_host_present' => trim((string)($smtpConfig['host'] ?? '')) !== '',
+      'smtp_port' => (int)($smtpConfig['port'] ?? 0),
+      'smtp_auth' => (string)($smtpConfig['auth'] ?? '1'),
+      'mail_from_present' => trim($mailFrom) !== '',
+    ],
+  ]);
+  header('Location: login.php?error=mfa_config_missing');
   exit;
 }
 
@@ -208,6 +269,21 @@ $mailResponse = smtpSendTransactionalEmail(
 
 if (!isSuccessful($mailResponse)) {
   unset($_SESSION[authPendingMfaSessionKey()]);
+  $mailFailure = trim((string)($mailResponse['raw'] ?? ''));
+  if ($mailFailure !== '') {
+    error_log('Login MFA email send failed for ' . $userEmail . ': ' . $mailFailure);
+  }
+  authLogLoginAuditEvent($supabaseUrl, $supabaseServiceRoleKey, [
+    'user_id' => $userId,
+    'email_attempted' => $email,
+    'auth_provider' => 'password',
+    'event_type' => 'mfa_otp_issue_failed',
+    'metadata' => [
+      'purpose' => 'login',
+      'reason' => 'smtp_send_failed',
+      'mail_response' => $mailFailure,
+    ],
+  ]);
   header('Location: login.php?error=mfa_send_failed');
   exit;
 }

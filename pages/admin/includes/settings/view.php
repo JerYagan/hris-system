@@ -86,6 +86,12 @@
         <div>
             <label class="text-slate-600">SMTP Password</label>
             <input type="password" name="smtp_password" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="" placeholder="Leave blank to keep existing password">
+            <?php $hasStoredSmtpPassword = settingValue('smtp_password') !== ''; ?>
+            <p class="text-xs mt-1 <?php echo $hasStoredSmtpPassword ? 'text-emerald-600' : 'text-amber-600'; ?>">
+                <?php echo $hasStoredSmtpPassword
+                    ? 'A saved SMTP password is already on file. Leave this blank only if you want to keep it.'
+                    : 'No SMTP password is saved yet. Enter the SMTP password and save settings before login OTP email can work.'; ?>
+            </p>
         </div>
         <div>
             <label class="text-slate-600">Encryption</label>
@@ -130,6 +136,9 @@
             <label class="text-slate-600">SMTP Test Recipient</label>
             <input type="email" name="smtp_test_recipient_email" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="recipient@example.com" required>
             <p class="text-xs text-slate-500 mt-1">Uses currently saved SMTP settings. Save settings first before testing.</p>
+            <?php if (!$hasStoredSmtpPassword && isEnabled('smtp_auth')): ?>
+                <p class="text-xs text-amber-600 mt-1">SMTP auth is enabled, but no saved SMTP password is currently on file.</p>
+            <?php endif; ?>
         </div>
         <div>
             <label class="text-slate-600">SMTP Password (optional for test)</label>

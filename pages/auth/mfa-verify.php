@@ -46,6 +46,12 @@ if ($errorCode === 'invalid_code') {
 } elseif ($errorCode === 'cooldown') {
     $statusState = 'error';
     $statusMessage = 'You requested a code too recently. Wait for the resend timer, then try again.';
+} elseif ($errorCode === 'config') {
+  $statusState = 'error';
+  $statusMessage = 'Email OTP delivery is not configured yet. Check the SMTP settings and sender email.';
+} elseif ($errorCode === 'send_failed') {
+  $statusState = 'error';
+  $statusMessage = 'We could not resend the verification code right now. Please try again in a moment.';
 }
 
 ob_start();
