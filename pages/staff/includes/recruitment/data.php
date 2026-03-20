@@ -2,12 +2,53 @@
 
 $activeRecruitmentRows = [];
 $archivedRecruitmentRows = [];
-$officeOptions = [];
-$positionOptions = [];
-$postingViewById = [];
 $applicationDeadlineRows = [];
-$archivedFilledPositionRows = [];
+$activeRecruitmentStatusOptions = [];
+$recruitmentPostingViewPayload = null;
+$recruitmentApplicantViewPayload = null;
+$recruitmentSummary = [
+    'active_postings' => 0,
+    'published_postings' => 0,
+    'archived_postings' => 0,
+    'pending_applications' => 0,
+    'total_applications' => 0,
+    'upcoming_deadlines' => 0,
+];
+$recruitmentPagination = [
+    'page' => 1,
+    'page_size' => 10,
+    'total_rows' => 0,
+    'total_pages' => 1,
+    'from' => 0,
+    'to' => 0,
+    'search' => '',
+    'status' => '',
+    'has_prev' => false,
+    'has_next' => false,
+    'prev_page' => 1,
+    'next_page' => 1,
+];
 $dataLoadError = null;
+
+$recruitmentDataStage = (string)($recruitmentDataStage ?? 'full');
+$recruitmentLoadSummary = in_array($recruitmentDataStage, ['full', 'summary'], true);
+$recruitmentLoadListings = in_array($recruitmentDataStage, ['full', 'listings'], true);
+$recruitmentLoadSecondary = in_array($recruitmentDataStage, ['full', 'secondary'], true);
+$recruitmentPostingId = cleanText($_GET['posting_id'] ?? null) ?? '';
+$recruitmentApplicationId = cleanText($_GET['application_id'] ?? null) ?? '';
+$recruitmentPageSize = 10;
+$recruitmentPage = max(1, (int)($_GET['recruitment_page'] ?? 1));
+$recruitmentSearch = trim((string)($_GET['recruitment_search'] ?? ''));
+$recruitmentSearchNormalized = strtolower($recruitmentSearch);
+$recruitmentStatusFilter = strtolower(trim((string)($_GET['recruitment_status'] ?? '')));
+
+if (!isValidUuid($recruitmentPostingId)) {
+    $recruitmentPostingId = '';
+}
+
+if (!isValidUuid($recruitmentApplicationId)) {
+    $recruitmentApplicationId = '';
+}
 
 $appendDataError = static function (string $label, array $response) use (&$dataLoadError): void {
     if (isSuccessful($response)) {
@@ -75,240 +116,6 @@ $resolveRecruitmentDocumentUrl = static function (?string $rawUrl) use ($supabas
     return rtrim($supabaseUrl, '/') . '/' . ltrim($value, '/');
 };
 
-$isAdminScope = strtolower((string)($staffRoleKey ?? '')) === 'admin';
-$scopeFilter = (!$isAdminScope && isValidUuid((string)$staffOfficeId))
-    ? '&office_id=eq.' . rawurlencode((string)$staffOfficeId)
-    : '';
-$todayDate = gmdate('Y-m-d');
-$today = strtotime($todayDate);
-
-$postingResponse = apiRequest(
-    'GET',
-    $supabaseUrl
-    . '/rest/v1/job_postings?select=id,title,office_id,position_id,plantilla_item_no,description,qualifications,responsibilities,required_documents,posting_status,open_date,close_date,updated_at,office:offices(office_name),position:job_positions(position_title,employment_classification)'
-    . '&order=updated_at.desc&limit=500',
-    $headers
-);
-$appendDataError('Job postings', $postingResponse);
-$postingRows = isSuccessful($postingResponse) ? (array)($postingResponse['data'] ?? []) : [];
-
-$officeResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/offices?select=id,office_name&is_active=eq.true&order=office_name.asc&limit=500',
-    $headers
-);
-$appendDataError('Divisions', $officeResponse);
-$officeOptions = isSuccessful($officeResponse) ? (array)($officeResponse['data'] ?? []) : [];
-
-$positionResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/job_positions?select=id,position_title,employment_classification&is_active=eq.true&order=position_title.asc&limit=1000',
-    $headers
-);
-$appendDataError('Job positions', $positionResponse);
-$positionOptions = isSuccessful($positionResponse) ? (array)($positionResponse['data'] ?? []) : [];
-
-$postingIds = [];
-foreach ($postingRows as $posting) {
-    $postingId = cleanText($posting['id'] ?? null);
-    if ($postingId === null || !isValidUuid($postingId)) {
-        continue;
-    }
-    $postingIds[] = $postingId;
-}
-
-$applicationCountByPosting = [];
-$applicationsByPosting = [];
-$basisByApplicationId = [];
-$documentsByApplicationId = [];
-if (!empty($postingIds)) {
-    $applicationResponse = apiRequest(
-        'GET',
-        $supabaseUrl
-        . '/rest/v1/applications?select=id,job_posting_id,application_status,updated_at,submitted_at,applicant:applicant_profiles(full_name,email,user_id)'
-        . '&job_posting_id=in.' . rawurlencode('(' . implode(',', $postingIds) . ')')
-        . '&limit=5000',
-        $headers
-    );
-    $appendDataError('Applications', $applicationResponse);
-    $applicationRows = isSuccessful($applicationResponse) ? (array)($applicationResponse['data'] ?? []) : [];
-    $applicationIds = [];
-
-    foreach ($applicationRows as $application) {
-        $applicationId = cleanText($application['id'] ?? null);
-        if ($applicationId !== null && isValidUuid($applicationId)) {
-            $applicationIds[] = $applicationId;
-        }
-
-        $postingId = cleanText($application['job_posting_id'] ?? null);
-        if ($postingId === null || !isValidUuid($postingId)) {
-            continue;
-        }
-
-        if (!isset($applicationCountByPosting[$postingId])) {
-            $applicationCountByPosting[$postingId] = ['total' => 0, 'pending' => 0];
-        }
-
-        $applicationCountByPosting[$postingId]['total']++;
-        $status = strtolower((string)(cleanText($application['application_status'] ?? null) ?? 'submitted'));
-        if (in_array($status, ['submitted', 'screening', 'shortlisted', 'interview', 'offer'], true)) {
-            $applicationCountByPosting[$postingId]['pending']++;
-        }
-
-        if (!isset($applicationsByPosting[$postingId])) {
-            $applicationsByPosting[$postingId] = [];
-        }
-        $applicationsByPosting[$postingId][] = (array)$application;
-    }
-
-    if (!empty($applicationIds)) {
-        $statusHistoryResponse = apiRequest(
-            'GET',
-            $supabaseUrl
-            . '/rest/v1/application_status_history?select=application_id,notes,created_at'
-            . '&application_id=in.' . rawurlencode('(' . implode(',', $applicationIds) . ')')
-            . '&order=created_at.desc&limit=10000',
-            $headers
-        );
-        $appendDataError('Application status history', $statusHistoryResponse);
-        $statusHistoryRows = isSuccessful($statusHistoryResponse) ? (array)($statusHistoryResponse['data'] ?? []) : [];
-
-        foreach ($statusHistoryRows as $statusHistoryRow) {
-            $historyApplicationId = cleanText($statusHistoryRow['application_id'] ?? null) ?? '';
-            if (!isValidUuid($historyApplicationId) || isset($basisByApplicationId[$historyApplicationId])) {
-                continue;
-            }
-
-            $notes = trim((string)($statusHistoryRow['notes'] ?? ''));
-            if ($notes === '') {
-                $basisByApplicationId[$historyApplicationId] = '-';
-                continue;
-            }
-
-            $basisParts = explode('|', $notes, 2);
-            $basisValue = trim((string)($basisParts[0] ?? ''));
-            $basisByApplicationId[$historyApplicationId] = $basisValue !== '' ? $basisValue : '-';
-        }
-
-        $documentResponse = apiRequest(
-            'GET',
-            $supabaseUrl
-            . '/rest/v1/application_documents?select=application_id,document_type,file_url,file_name,mime_type,uploaded_at'
-            . '&application_id=in.' . rawurlencode('(' . implode(',', $applicationIds) . ')')
-            . '&order=uploaded_at.desc&limit=10000',
-            $headers
-        );
-        $appendDataError('Application documents', $documentResponse);
-        $documentRows = isSuccessful($documentResponse) ? (array)($documentResponse['data'] ?? []) : [];
-
-        $documentTypeLabel = static function (string $type): string {
-            return match (strtolower(trim($type))) {
-                'pds' => 'PDS',
-                'transcript' => 'Transcript of Records',
-                'certificate' => 'Eligibility (CSC/PRC)',
-                'resume' => 'WES',
-                'id' => 'ID',
-                default => 'Other Document',
-            };
-        };
-
-        foreach ($documentRows as $documentRow) {
-            $documentApplicationId = cleanText($documentRow['application_id'] ?? null) ?? '';
-            if (!isValidUuid($documentApplicationId)) {
-                continue;
-            }
-
-            if (!isset($documentsByApplicationId[$documentApplicationId])) {
-                $documentsByApplicationId[$documentApplicationId] = [];
-            }
-
-            $resolvedFileUrl = $resolveRecruitmentDocumentUrl(cleanText($documentRow['file_url'] ?? null) ?? '');
-
-            $documentsByApplicationId[$documentApplicationId][] = [
-                'document_type' => cleanText($documentRow['document_type'] ?? null) ?? 'other',
-                'document_label' => $documentTypeLabel((string)(cleanText($documentRow['document_type'] ?? null) ?? 'other')),
-                'file_name' => cleanText($documentRow['file_name'] ?? null) ?? 'document',
-                'file_url' => $resolvedFileUrl,
-                'mime_type' => cleanText($documentRow['mime_type'] ?? null) ?? '',
-                'uploaded_label' => formatDateTimeForPhilippines(cleanText($documentRow['uploaded_at'] ?? null), 'M d, Y'),
-                'is_available' => trim((string)$resolvedFileUrl) !== '',
-            ];
-        }
-    }
-}
-
-$applicantUserIds = [];
-foreach ($applicationsByPosting as $postingApplicationRows) {
-    foreach ($postingApplicationRows as $applicationRow) {
-        $applicantUserId = cleanText($applicationRow['applicant']['user_id'] ?? null) ?? '';
-        if (!isValidUuid($applicantUserId)) {
-            continue;
-        }
-
-        $applicantUserIds[strtolower($applicantUserId)] = $applicantUserId;
-    }
-}
-
-$personByUserId = [];
-$hasCurrentEmploymentByUserId = [];
-if (!empty($applicantUserIds)) {
-    $applicantUserIdFilter = implode(',', array_values($applicantUserIds));
-    $peopleResponse = apiRequest(
-        'GET',
-        $supabaseUrl
-        . '/rest/v1/people?select=id,user_id'
-        . '&user_id=in.' . rawurlencode('(' . $applicantUserIdFilter . ')')
-        . '&limit=5000',
-        $headers
-    );
-    $appendDataError('Applicant people lookup', $peopleResponse);
-    $peopleRows = isSuccessful($peopleResponse) ? (array)($peopleResponse['data'] ?? []) : [];
-
-    $personIds = [];
-    foreach ($peopleRows as $peopleRow) {
-        $userId = cleanText($peopleRow['user_id'] ?? null) ?? '';
-        $personId = cleanText($peopleRow['id'] ?? null) ?? '';
-        if (!isValidUuid($userId) || !isValidUuid($personId)) {
-            continue;
-        }
-
-        $personByUserId[strtolower($userId)] = [
-            'user_id' => $userId,
-            'person_id' => $personId,
-        ];
-        $personIds[] = $personId;
-    }
-
-    if (!empty($personIds)) {
-        $employmentResponse = apiRequest(
-            'GET',
-            $supabaseUrl
-            . '/rest/v1/employment_records?select=person_id,is_current'
-            . '&person_id=in.' . rawurlencode('(' . implode(',', $personIds) . ')')
-            . '&is_current=eq.true&limit=5000',
-            $headers
-        );
-        $appendDataError('Applicant employment lookup', $employmentResponse);
-        $employmentRows = isSuccessful($employmentResponse) ? (array)($employmentResponse['data'] ?? []) : [];
-
-        $personIdWithEmployment = [];
-        foreach ($employmentRows as $employmentRow) {
-            $personId = cleanText($employmentRow['person_id'] ?? null) ?? '';
-            if (!isValidUuid($personId)) {
-                continue;
-            }
-            $personIdWithEmployment[strtolower($personId)] = true;
-        }
-
-        foreach ($personByUserId as $userKey => $personLinkRow) {
-            $personId = strtolower((string)($personLinkRow['person_id'] ?? ''));
-            if ($personId !== '' && isset($personIdWithEmployment[$personId])) {
-                $hasCurrentEmploymentByUserId[$userKey] = true;
-            }
-        }
-    }
-}
-
 $statusPill = static function (string $status): array {
     $key = strtolower(trim($status));
     return match ($key) {
@@ -316,6 +123,20 @@ $statusPill = static function (string $status): array {
         'closed' => ['Closed', 'bg-amber-100 text-amber-800'],
         'archived' => ['Archived', 'bg-slate-200 text-slate-700'],
         default => ['Draft', 'bg-blue-100 text-blue-800'],
+    };
+};
+
+$applicationStatusPill = static function (string $status): array {
+    $key = strtolower(trim($status));
+    return match ($key) {
+        'submitted' => ['Submitted', 'bg-slate-100 text-slate-700'],
+        'screening' => ['Screening', 'bg-amber-100 text-amber-800'],
+        'shortlisted' => ['Shortlisted', 'bg-blue-100 text-blue-800'],
+        'interview' => ['Interview', 'bg-indigo-100 text-indigo-800'],
+        'offer' => ['For Offer', 'bg-emerald-100 text-emerald-800'],
+        'hired' => ['Hired', 'bg-green-100 text-green-800'],
+        'rejected' => ['Rejected', 'bg-rose-100 text-rose-800'],
+        default => ['For Review', 'bg-slate-100 text-slate-700'],
     };
 };
 
@@ -328,280 +149,425 @@ $employmentTypeLabel = static function (?string $classification): string {
     };
 };
 
-$applicationStatusPill = static function (string $status): array {
-    $key = strtolower(trim($status));
+$feedbackDecisionLabel = static function (string $decision): string {
+    $key = strtolower(trim($decision));
     return match ($key) {
-        'submitted' => ['Applied', 'bg-blue-100 text-blue-800'],
-        'screening' => ['Verified', 'bg-indigo-100 text-indigo-800'],
-        'interview' => ['Interview', 'bg-amber-100 text-amber-800'],
-        'shortlisted' => ['Evaluation', 'bg-violet-100 text-violet-800'],
-        'offer' => ['For Approval', 'bg-cyan-100 text-cyan-800'],
-        'hired' => ['Hired', 'bg-emerald-100 text-emerald-800'],
-        'rejected' => ['Rejected', 'bg-rose-100 text-rose-800'],
-        'withdrawn' => ['Rejected', 'bg-rose-100 text-rose-800'],
-        default => ['Applied', 'bg-slate-100 text-slate-700'],
+        'for_next_step' => 'For Next Step',
+        'on_hold' => 'On Hold',
+        'rejected' => 'Rejected',
+        'hired' => 'Hired',
+        default => $key !== '' ? ucwords(str_replace('_', ' ', $key)) : 'Recorded',
     };
 };
 
-$applicationScreeningPill = static function (string $status): array {
-    $key = strtolower(trim($status));
+$documentLabel = static function (string $documentType): string {
+    $key = strtolower(trim($documentType));
     return match ($key) {
-        'submitted' => ['Applied', 'bg-blue-100 text-blue-800'],
-        'screening' => ['Verified', 'bg-indigo-100 text-indigo-800'],
-        'interview' => ['Interview', 'bg-amber-100 text-amber-800'],
-        'shortlisted' => ['Evaluation', 'bg-violet-100 text-violet-800'],
-        'offer' => ['For Approval', 'bg-cyan-100 text-cyan-800'],
-        'hired' => ['Hired', 'bg-emerald-100 text-emerald-800'],
-        'rejected', 'withdrawn' => ['Rejected', 'bg-rose-100 text-rose-800'],
-        default => ['Applied', 'bg-slate-100 text-slate-700'],
+        'pds' => 'Personal Data Sheet',
+        'resume', 'resume_cv', 'updated_resume_cv' => 'Resume/CV',
+        'transcript', 'transcript_of_records' => 'Transcript of Records',
+        'id', 'valid_government_id' => 'Valid Government ID',
+        'application_letter' => 'Application Letter',
+        'certificate' => 'Certificate',
+        default => $key !== '' ? ucwords(str_replace('_', ' ', $key)) : 'Document',
     };
 };
 
-$recommendationScoreForStatus = static function (string $status, string $fullName, string $email): int {
-    $statusKey = strtolower(trim($status));
-    $score = match ($statusKey) {
-        'hired' => 95,
-        'offer' => 85,
-        'shortlisted' => 72,
-        'interview' => 55,
-        'screening' => 40,
-        'submitted' => 30,
-        'rejected', 'withdrawn' => 10,
-        default => 25,
-    };
-
-    if (trim($fullName) !== '') {
-        $score += 3;
-    }
-    if (trim($email) !== '') {
-        $score += 2;
+$normalizeRequiredDocumentLabels = static function ($rawValue): array {
+    $defaultDocuments = ['Application Letter', 'Updated Resume/CV', 'Personal Data Sheet', 'Valid Government ID', 'Transcript of Records'];
+    if (!is_array($rawValue) || empty($rawValue)) {
+        return $defaultDocuments;
     }
 
-    return max(0, min(100, $score));
-};
+    $documentMap = [
+        'application_letter' => 'Application Letter',
+        'updated_resume_cv' => 'Updated Resume/CV',
+        'personal_data_sheet' => 'Personal Data Sheet',
+        'valid_government_id' => 'Valid Government ID',
+        'transcript_of_records' => 'Transcript of Records',
+        'pds' => 'Personal Data Sheet',
+        'wes' => 'Updated Resume/CV',
+        'eligibility_csc_prc' => 'Valid Government ID',
+        'transcript' => 'Transcript of Records',
+        'certificate' => 'Certificate',
+    ];
 
-$recommendationLabel = static function (int $score): array {
-    if ($score >= 80) {
-        return ['High', 'bg-emerald-100 text-emerald-800'];
-    }
-    if ($score >= 55) {
-        return ['Medium', 'bg-amber-100 text-amber-800'];
-    }
-
-    return ['Low', 'bg-slate-200 text-slate-700'];
-};
-
-$isActivePublishedPosting = static function (array $posting) use ($todayDate): bool {
-    $statusRaw = strtolower((string)(cleanText($posting['posting_status'] ?? null) ?? 'draft'));
-    if ($statusRaw !== 'published') {
-        return false;
-    }
-
-    $openDate = cleanText($posting['open_date'] ?? null) ?? '';
-    $closeDate = cleanText($posting['close_date'] ?? null) ?? '';
-
-    if ($openDate !== '' && $openDate > $todayDate) {
-        return false;
-    }
-
-    if ($closeDate !== '' && $closeDate < $todayDate) {
-        return false;
-    }
-
-    return true;
-};
-
-$activeRecruitmentStatusOptions = [];
-
-foreach ($postingRows as $posting) {
-    $postingId = cleanText($posting['id'] ?? null) ?? '';
-    if (!isValidUuid($postingId)) {
-        continue;
-    }
-
-    $postingOfficeId = cleanText($posting['office_id'] ?? null) ?? '';
-    if (!$isAdminScope && isValidUuid((string)$staffOfficeId) && strtolower($postingOfficeId) !== strtolower((string)$staffOfficeId)) {
-        continue;
-    }
-
-    $statusRaw = strtolower((string)(cleanText($posting['posting_status'] ?? null) ?? 'draft'));
-    [$statusLabel, $statusClass] = $statusPill($statusRaw);
-
-    $title = cleanText($posting['title'] ?? null) ?? 'Untitled Posting';
-    $officeName = cleanText($posting['office']['office_name'] ?? null) ?? 'Unassigned Division';
-    $positionTitle = cleanText($posting['position']['position_title'] ?? null) ?? 'Unassigned Position';
-    $employmentType = $employmentTypeLabel(cleanText($posting['position']['employment_classification'] ?? null));
-    $description = cleanText($posting['description'] ?? null) ?? '-';
-    $qualifications = cleanText($posting['qualifications'] ?? null) ?? '-';
-    $responsibilities = cleanText($posting['responsibilities'] ?? null) ?? '-';
-    $requirements = [];
-    $requiredDocuments = $posting['required_documents'] ?? [];
-    if (is_array($requiredDocuments)) {
-        foreach ($requiredDocuments as $requiredDocument) {
-            $label = trim((string)$requiredDocument);
-            if ($label === '') {
-                continue;
-            }
-            $requirements[] = $label;
-        }
-    }
-    if (empty($requirements)) {
-        $requirements = [
-            'PDS',
-            'WES',
-            'Eligibility (CSC/PRC)',
-            'Transcript of Records',
-        ];
-    }
-    $counts = $applicationCountByPosting[$postingId] ?? ['total' => 0, 'pending' => 0];
-
-    $postingApplicantRows = [];
-    foreach ((array)($applicationsByPosting[$postingId] ?? []) as $applicationRow) {
-        $applicationId = cleanText($applicationRow['id'] ?? null) ?? '';
-        if (!isValidUuid($applicationId)) {
+    $labels = [];
+    foreach ($rawValue as $value) {
+        $text = trim((string)$value);
+        if ($text === '') {
             continue;
         }
 
-        $applicationStatusRaw = strtolower((string)(cleanText($applicationRow['application_status'] ?? null) ?? 'submitted'));
-        [$applicationStatusLabel, $applicationStatusClass] = $applicationStatusPill($applicationStatusRaw);
-        [$screeningLabel, $screeningClass] = $applicationScreeningPill($applicationStatusRaw);
-        $applicantName = cleanText($applicationRow['applicant']['full_name'] ?? null) ?? 'Applicant';
-        $applicantEmail = cleanText($applicationRow['applicant']['email'] ?? null) ?? '-';
-        $applicantUserId = cleanText($applicationRow['applicant']['user_id'] ?? null) ?? '';
-        $submittedLabel = formatDateTimeForPhilippines(cleanText($applicationRow['submitted_at'] ?? null), 'M d, Y');
-
-        $score = $recommendationScoreForStatus($applicationStatusRaw, $applicantName, $applicantEmail);
-        [$scoreLabel, $scoreClass] = $recommendationLabel($score);
-        $hasEmployment = isValidUuid($applicantUserId) && !empty($hasCurrentEmploymentByUserId[strtolower($applicantUserId)]);
-
-        $postingApplicantRows[] = [
-            'application_id' => $applicationId,
-            'applicant_name' => $applicantName,
-            'applicant_email' => $applicantEmail,
-            'status_raw' => $applicationStatusRaw,
-            'status_label' => $applicationStatusLabel,
-            'status_class' => $applicationStatusClass,
-            'initial_screening_label' => $screeningLabel,
-            'initial_screening_class' => $screeningClass,
-            'basis' => (string)($basisByApplicationId[$applicationId] ?? '-'),
-            'applied_position' => $positionTitle,
-            'submitted_label' => $submittedLabel,
-            'score' => $score,
-            'score_label' => $scoreLabel,
-            'score_class' => $scoreClass,
-            'documents' => (array)($documentsByApplicationId[$applicationId] ?? []),
-            'can_add_employee' => $applicationStatusRaw === 'hired' && !$hasEmployment,
-            'already_employee' => $hasEmployment,
-        ];
+        $normalizedKey = strtolower(str_replace([' ', '-', '/', '(', ')'], ['_', '_', '_', '', ''], $text));
+        $label = $documentMap[$normalizedKey] ?? $documentMap[strtolower($text)] ?? $text;
+        $labels[$label] = $label;
     }
 
-    usort($postingApplicantRows, static function (array $left, array $right): int {
-        return ((int)($right['score'] ?? 0)) <=> ((int)($left['score'] ?? 0));
-    });
+    return !empty($labels) ? array_values($labels) : $defaultDocuments;
+};
 
-    $row = [
-        'id' => $postingId,
-        'title' => $title,
-        'office_name' => $officeName,
-        'position_title' => $positionTitle,
-        'employment_type' => $employmentType,
-        'open_date_label' => formatDateTimeForPhilippines(cleanText($posting['open_date'] ?? null), 'M d, Y'),
-        'close_date_label' => formatDateTimeForPhilippines(cleanText($posting['close_date'] ?? null), 'M d, Y'),
-        'status_raw' => $statusRaw,
-        'status_label' => $statusLabel,
-        'status_class' => $statusClass,
-        'description' => $description,
-        'qualifications' => $qualifications,
-        'responsibilities' => $responsibilities,
-        'requirements' => $requirements,
-        'applications_total' => (int)($counts['total'] ?? 0),
-        'applications_pending' => (int)($counts['pending'] ?? 0),
-        'search_text' => strtolower(trim($title . ' ' . $officeName . ' ' . $positionTitle . ' ' . $employmentType . ' ' . $statusLabel)),
-    ];
+$isAdminScope = strtolower((string)($staffRoleKey ?? '')) === 'admin';
+$todayDate = gmdate('Y-m-d');
+$today = strtotime($todayDate);
 
-    $postingViewById[$postingId] = [
-        'id' => $postingId,
-        'position_title' => $positionTitle,
-        'posting_title' => $title,
-        'office_name' => $officeName,
-        'employment_type' => $employmentType,
-        'status_label' => $statusLabel,
-        'status_class' => $statusClass,
-        'open_date_label' => formatDateTimeForPhilippines(cleanText($posting['open_date'] ?? null), 'M d, Y'),
-        'close_date_label' => formatDateTimeForPhilippines(cleanText($posting['close_date'] ?? null), 'M d, Y'),
-        'description' => $description,
-        'qualifications' => $qualifications,
-        'responsibilities' => $responsibilities,
-        'requirements' => $requirements,
-        'applicants' => $postingApplicantRows,
-    ];
+if (in_array($recruitmentDataStage, ['full', 'summary', 'listings', 'secondary'], true)) {
+    $postingResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/job_postings?select=id,title,office_id,posting_status,open_date,close_date,updated_at,office:offices(office_name),position:job_positions(position_title,employment_classification)'
+        . '&order=updated_at.desc&limit=400',
+        $headers
+    );
+    $appendDataError('Job postings', $postingResponse);
+    $postingRows = isSuccessful($postingResponse) ? (array)($postingResponse['data'] ?? []) : [];
 
-    if ($statusRaw === 'archived') {
-        $archivedRecruitmentRows[] = $row;
-    } else {
-        $activeRecruitmentRows[] = $row;
-        $activeRecruitmentStatusOptions[$statusRaw] = $statusLabel;
+    $postingIds = [];
+    $scopedPostingRows = [];
+    foreach ($postingRows as $posting) {
+        $postingId = cleanText($posting['id'] ?? null) ?? '';
+        if (!isValidUuid($postingId)) {
+            continue;
+        }
+
+        $postingOfficeId = cleanText($posting['office_id'] ?? null) ?? '';
+        if (!$isAdminScope && isValidUuid((string)$staffOfficeId) && strtolower($postingOfficeId) !== strtolower((string)$staffOfficeId)) {
+            continue;
+        }
+
+        $scopedPostingRows[] = (array)$posting;
+        $postingIds[] = $postingId;
     }
 
-    $closeDateRaw = cleanText($posting['close_date'] ?? null) ?? '';
-    $closeDateTimestamp = $closeDateRaw !== '' ? strtotime($closeDateRaw) : false;
-    if (
-        $statusRaw === 'published'
-        && $closeDateTimestamp !== false
-        && $closeDateTimestamp >= $today
-    ) {
-        $daysRemaining = (int)floor(($closeDateTimestamp - $today) / 86400);
-        $applicationDeadlineRows[] = [
+    $applicationCountByPosting = [];
+    if (($recruitmentLoadSummary || $recruitmentLoadListings) && !empty($postingIds)) {
+        $applicationResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/applications?select=id,job_posting_id,application_status'
+            . '&job_posting_id=in.' . rawurlencode('(' . implode(',', $postingIds) . ')')
+            . '&limit=4000',
+            $headers
+        );
+        $appendDataError('Applications', $applicationResponse);
+        $applicationRows = isSuccessful($applicationResponse) ? (array)($applicationResponse['data'] ?? []) : [];
+
+        foreach ($applicationRows as $application) {
+            $postingId = cleanText($application['job_posting_id'] ?? null) ?? '';
+            if (!isValidUuid($postingId)) {
+                continue;
+            }
+
+            if (!isset($applicationCountByPosting[$postingId])) {
+                $applicationCountByPosting[$postingId] = ['total' => 0, 'pending' => 0];
+            }
+
+            $applicationCountByPosting[$postingId]['total']++;
+            $status = strtolower((string)(cleanText($application['application_status'] ?? null) ?? 'submitted'));
+            if (in_array($status, ['submitted', 'screening', 'shortlisted', 'interview', 'offer'], true)) {
+                $applicationCountByPosting[$postingId]['pending']++;
+            }
+        }
+    }
+
+    $activeRowsUnfiltered = [];
+    foreach ($scopedPostingRows as $posting) {
+        $postingId = cleanText($posting['id'] ?? null) ?? '';
+        if (!isValidUuid($postingId)) {
+            continue;
+        }
+
+        $statusRaw = strtolower((string)(cleanText($posting['posting_status'] ?? null) ?? 'draft'));
+        [$statusLabel, $statusClass] = $statusPill($statusRaw);
+
+        $title = cleanText($posting['title'] ?? null) ?? 'Untitled Posting';
+        $officeName = cleanText($posting['office']['office_name'] ?? null) ?? 'Unassigned Division';
+        $positionTitle = cleanText($posting['position']['position_title'] ?? null) ?? 'Unassigned Position';
+        $employmentType = $employmentTypeLabel(cleanText($posting['position']['employment_classification'] ?? null));
+        $counts = $applicationCountByPosting[$postingId] ?? ['total' => 0, 'pending' => 0];
+
+        $row = [
+            'id' => $postingId,
             'title' => $title,
+            'office_name' => $officeName,
+            'position_title' => $positionTitle,
+            'employment_type' => $employmentType,
+            'open_date_label' => formatDateTimeForPhilippines(cleanText($posting['open_date'] ?? null), 'M d, Y'),
+            'close_date_label' => formatDateTimeForPhilippines(cleanText($posting['close_date'] ?? null), 'M d, Y'),
+            'status_raw' => $statusRaw,
+            'status_label' => $statusLabel,
+            'status_class' => $statusClass,
+            'applications_total' => (int)($counts['total'] ?? 0),
+            'applications_pending' => (int)($counts['pending'] ?? 0),
+            'search_text' => strtolower(trim($title . ' ' . $officeName . ' ' . $positionTitle . ' ' . $employmentType . ' ' . $statusLabel)),
+        ];
+
+        if ($statusRaw === 'archived') {
+            $archivedRecruitmentRows[] = $row;
+        } else {
+            $activeRowsUnfiltered[] = $row;
+            $activeRecruitmentStatusOptions[$statusRaw] = $statusLabel;
+        }
+
+        $closeDateRaw = cleanText($posting['close_date'] ?? null) ?? '';
+        $closeDateTimestamp = $closeDateRaw !== '' ? strtotime($closeDateRaw) : false;
+        if ($statusRaw === 'published' && $closeDateTimestamp !== false && $closeDateTimestamp >= $today) {
+            $daysRemaining = (int)floor(($closeDateTimestamp - $today) / 86400);
+            $applicationDeadlineRows[] = [
+                'title' => $title,
+                'position_title' => $positionTitle,
+                'office_name' => $officeName,
+                'close_date_label' => formatDateTimeForPhilippines($closeDateRaw, 'M d, Y'),
+                'days_remaining' => $daysRemaining,
+                'priority_label' => $daysRemaining <= 3 ? 'Urgent' : ($daysRemaining <= 7 ? 'Upcoming' : 'Scheduled'),
+                'priority_class' => $daysRemaining <= 3
+                    ? 'bg-rose-100 text-rose-800'
+                    : ($daysRemaining <= 7 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'),
+            ];
+        }
+    }
+
+    usort($applicationDeadlineRows, static fn(array $left, array $right): int => ($left['days_remaining'] ?? 0) <=> ($right['days_remaining'] ?? 0));
+    asort($activeRecruitmentStatusOptions);
+
+    $recruitmentSummary = [
+        'active_postings' => count($activeRowsUnfiltered),
+        'published_postings' => count(array_filter($activeRowsUnfiltered, static fn(array $row): bool => (string)($row['status_raw'] ?? '') === 'published')),
+        'archived_postings' => count($archivedRecruitmentRows),
+        'pending_applications' => array_sum(array_map(static fn(array $row): int => (int)($row['applications_pending'] ?? 0), $activeRowsUnfiltered)),
+        'total_applications' => array_sum(array_map(static fn(array $row): int => (int)($row['applications_total'] ?? 0), $activeRowsUnfiltered)),
+        'upcoming_deadlines' => count(array_filter($applicationDeadlineRows, static fn(array $row): bool => (int)($row['days_remaining'] ?? 0) <= 7)),
+    ];
+
+    $activeRecruitmentRows = $activeRowsUnfiltered;
+    if ($recruitmentSearchNormalized !== '') {
+        $activeRecruitmentRows = array_values(array_filter(
+            $activeRecruitmentRows,
+            static fn(array $row): bool => strpos((string)($row['search_text'] ?? ''), $recruitmentSearchNormalized) !== false
+        ));
+    }
+
+    if ($recruitmentStatusFilter !== '') {
+        $activeRecruitmentRows = array_values(array_filter(
+            $activeRecruitmentRows,
+            static fn(array $row): bool => strtolower((string)($row['status_raw'] ?? '')) === $recruitmentStatusFilter
+        ));
+    }
+
+    $recruitmentTotalRows = count($activeRecruitmentRows);
+    $recruitmentTotalPages = max(1, (int)ceil($recruitmentTotalRows / $recruitmentPageSize));
+    if ($recruitmentPage > $recruitmentTotalPages) {
+        $recruitmentPage = $recruitmentTotalPages;
+    }
+
+    $recruitmentOffset = ($recruitmentPage - 1) * $recruitmentPageSize;
+    $activeRecruitmentRows = array_slice($activeRecruitmentRows, $recruitmentOffset, $recruitmentPageSize);
+    $recruitmentPagination = [
+        'page' => $recruitmentPage,
+        'page_size' => $recruitmentPageSize,
+        'total_rows' => $recruitmentTotalRows,
+        'total_pages' => $recruitmentTotalPages,
+        'from' => $recruitmentTotalRows > 0 ? ($recruitmentOffset + 1) : 0,
+        'to' => $recruitmentTotalRows > 0 ? min($recruitmentOffset + $recruitmentPageSize, $recruitmentTotalRows) : 0,
+        'search' => $recruitmentSearch,
+        'status' => $recruitmentStatusFilter,
+        'has_prev' => $recruitmentPage > 1,
+        'has_next' => $recruitmentPage < $recruitmentTotalPages,
+        'prev_page' => max(1, $recruitmentPage - 1),
+        'next_page' => min($recruitmentTotalPages, $recruitmentPage + 1),
+    ];
+}
+
+if ($recruitmentDataStage === 'posting-view' && $recruitmentPostingId !== '') {
+    $postingResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/job_postings?select=id,title,office_id,description,qualifications,responsibilities,required_documents,posting_status,open_date,close_date,office:offices(office_name),position:job_positions(position_title,employment_classification)'
+        . '&id=eq.' . rawurlencode($recruitmentPostingId)
+        . '&limit=1',
+        $headers
+    );
+    $appendDataError('Posting detail', $postingResponse);
+    $posting = isSuccessful($postingResponse) ? (array)($postingResponse['data'][0] ?? []) : [];
+    $postingOfficeId = cleanText($posting['office_id'] ?? null) ?? '';
+
+    if (!empty($posting) && ($isAdminScope || !isValidUuid((string)$staffOfficeId) || strtolower($postingOfficeId) === strtolower((string)$staffOfficeId))) {
+        $statusRaw = strtolower((string)(cleanText($posting['posting_status'] ?? null) ?? 'draft'));
+        [$statusLabel] = $statusPill($statusRaw);
+        $positionTitle = cleanText($posting['position']['position_title'] ?? null) ?? 'Unassigned Position';
+        $officeName = cleanText($posting['office']['office_name'] ?? null) ?? 'Unassigned Division';
+
+        $applicationsResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/applications?select=id,application_status,submitted_at,applicant_profile_id,applicant:applicant_profiles(full_name,email,mobile_no,current_address,person_id)'
+            . '&job_posting_id=eq.' . rawurlencode($recruitmentPostingId)
+            . '&order=submitted_at.desc&limit=200',
+            $headers
+        );
+        $appendDataError('Posting applicants', $applicationsResponse);
+        $applicationRows = isSuccessful($applicationsResponse) ? (array)($applicationsResponse['data'] ?? []) : [];
+
+        $applicants = [];
+        foreach ($applicationRows as $application) {
+            $applicationId = cleanText($application['id'] ?? null) ?? '';
+            if (!isValidUuid($applicationId)) {
+                continue;
+            }
+
+            $applicationStatusRaw = strtolower((string)(cleanText($application['application_status'] ?? null) ?? 'submitted'));
+            [$applicationStatusLabel, $applicationStatusClass] = $applicationStatusPill($applicationStatusRaw);
+            $submittedAt = cleanText($application['submitted_at'] ?? null) ?? '';
+            $applicant = is_array($application['applicant'] ?? null) ? (array)$application['applicant'] : [];
+            $personId = cleanText($applicant['person_id'] ?? null) ?? '';
+
+            $applicants[] = [
+                'application_id' => $applicationId,
+                'applicant_name' => cleanText($applicant['full_name'] ?? null) ?? 'Applicant',
+                'applicant_email' => cleanText($applicant['email'] ?? null) ?? '-',
+                'applied_position' => $positionTitle,
+                'submitted_label' => $submittedAt !== '' ? formatDateTimeForPhilippines($submittedAt, 'M d, Y') : '-',
+                'initial_screening_label' => $applicationStatusLabel,
+                'initial_screening_class' => $applicationStatusClass,
+                'basis' => 'Open profile to load documents and review history.',
+                'already_employee' => isValidUuid($personId),
+            ];
+        }
+
+        $recruitmentPostingViewPayload = [
+            'id' => $recruitmentPostingId,
+            'posting_title' => cleanText($posting['title'] ?? null) ?? 'Untitled Posting',
             'position_title' => $positionTitle,
             'office_name' => $officeName,
-            'close_date_label' => formatDateTimeForPhilippines($closeDateRaw, 'M d, Y'),
-            'days_remaining' => $daysRemaining,
-            'priority_label' => $daysRemaining <= 3 ? 'Urgent' : ($daysRemaining <= 7 ? 'Upcoming' : 'Scheduled'),
-            'priority_class' => $daysRemaining <= 3
-                ? 'bg-rose-100 text-rose-800'
-                : ($daysRemaining <= 7 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'),
+            'employment_type' => $employmentTypeLabel(cleanText($posting['position']['employment_classification'] ?? null)),
+            'status_label' => $statusLabel,
+            'open_date_label' => formatDateTimeForPhilippines(cleanText($posting['open_date'] ?? null), 'M d, Y'),
+            'close_date_label' => formatDateTimeForPhilippines(cleanText($posting['close_date'] ?? null), 'M d, Y'),
+            'description' => cleanText($posting['description'] ?? null) ?? '-',
+            'qualifications' => cleanText($posting['qualifications'] ?? null) ?? '-',
+            'responsibilities' => cleanText($posting['responsibilities'] ?? null) ?? '-',
+            'requirements' => $normalizeRequiredDocumentLabels($posting['required_documents'] ?? []),
+            'applicants' => $applicants,
         ];
     }
 }
 
-usort($applicationDeadlineRows, static function (array $left, array $right): int {
-    return ($left['days_remaining'] ?? 0) <=> ($right['days_remaining'] ?? 0);
-});
+if ($recruitmentDataStage === 'applicant-view' && $recruitmentApplicationId !== '') {
+    $applicationResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/applications?select=id,job_posting_id,application_status,submitted_at,applicant_profile_id,posting:job_postings(id,office_id,title,position:job_positions(position_title)),applicant:applicant_profiles(full_name,email,mobile_no,current_address,resume_url,portfolio_url,person_id)'
+        . '&id=eq.' . rawurlencode($recruitmentApplicationId)
+        . '&limit=1',
+        $headers
+    );
+    $appendDataError('Applicant detail', $applicationResponse);
+    $application = isSuccessful($applicationResponse) ? (array)($applicationResponse['data'][0] ?? []) : [];
 
-asort($activeRecruitmentStatusOptions);
+    $posting = is_array($application['posting'] ?? null) ? (array)$application['posting'] : [];
+    $postingOfficeId = cleanText($posting['office_id'] ?? null) ?? '';
+    if (!empty($application) && ($isAdminScope || !isValidUuid((string)$staffOfficeId) || strtolower($postingOfficeId) === strtolower((string)$staffOfficeId))) {
+        $applicant = is_array($application['applicant'] ?? null) ? (array)$application['applicant'] : [];
+        $applicationStatusRaw = strtolower((string)(cleanText($application['application_status'] ?? null) ?? 'submitted'));
+        [$applicationStatusLabel, $applicationStatusClass] = $applicationStatusPill($applicationStatusRaw);
 
-$hiredApplicationsResponse = apiRequest(
-    'GET',
-    $supabaseUrl
-    . '/rest/v1/applications?select=id,application_status,updated_at,job:job_postings(id,office_id,posting_status,title,position:job_positions(position_title),office:offices(id,office_name)),applicant:applicant_profiles(full_name)'
-    . '&application_status=eq.hired&order=updated_at.desc&limit=3000',
-    $headers
-);
-$appendDataError('Archived filled positions', $hiredApplicationsResponse);
-$hiredRows = isSuccessful($hiredApplicationsResponse) ? (array)($hiredApplicationsResponse['data'] ?? []) : [];
+        $documentsResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/application_documents?select=document_type,file_url,file_name,uploaded_at'
+            . '&application_id=eq.' . rawurlencode($recruitmentApplicationId)
+            . '&order=uploaded_at.asc&limit=200',
+            $headers
+        );
+        $appendDataError('Applicant documents', $documentsResponse);
+        $documentRows = isSuccessful($documentsResponse) ? (array)($documentsResponse['data'] ?? []) : [];
 
-foreach ($hiredRows as $hiredRow) {
-    $jobRow = is_array($hiredRow['job'] ?? null) ? (array)$hiredRow['job'] : [];
-    $jobStatus = strtolower((string)(cleanText($jobRow['posting_status'] ?? null) ?? ''));
-    if (!in_array($jobStatus, ['closed', 'archived'], true)) {
-        continue;
+        $feedbackResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/application_feedback?select=decision,feedback_text,provided_at'
+            . '&application_id=eq.' . rawurlencode($recruitmentApplicationId)
+            . '&order=provided_at.desc&limit=20',
+            $headers
+        );
+        $appendDataError('Applicant feedback', $feedbackResponse);
+        $feedbackRows = isSuccessful($feedbackResponse) ? (array)($feedbackResponse['data'] ?? []) : [];
+
+        $interviewsResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/application_interviews?select=scheduled_at,result'
+            . '&application_id=eq.' . rawurlencode($recruitmentApplicationId)
+            . '&order=scheduled_at.asc&limit=50',
+            $headers
+        );
+        $appendDataError('Applicant interviews', $interviewsResponse);
+        $interviewRows = isSuccessful($interviewsResponse) ? (array)($interviewsResponse['data'] ?? []) : [];
+
+        $documents = [];
+        foreach ($documentRows as $documentRow) {
+            $fileUrl = $resolveRecruitmentDocumentUrl(cleanText($documentRow['file_url'] ?? null));
+            $documents[] = [
+                'document_label' => $documentLabel((string)($documentRow['document_type'] ?? 'document')),
+                'file_name' => cleanText($documentRow['file_name'] ?? null) ?? 'Document',
+                'file_url' => $fileUrl,
+                'uploaded_label' => formatDateTimeForPhilippines(cleanText($documentRow['uploaded_at'] ?? null), 'M d, Y'),
+                'is_available' => $fileUrl !== '',
+            ];
+        }
+
+        $feedbackHistory = [];
+        $basis = '-';
+        foreach ($feedbackRows as $index => $feedbackRow) {
+            $feedbackText = trim((string)($feedbackRow['feedback_text'] ?? ''));
+            $summary = $feedbackText !== '' ? preg_replace('/\s+/', ' ', $feedbackText) : 'No remarks recorded.';
+            if ($index === 0) {
+                $parts = preg_split('/\R/', $summary, 2);
+                $basisCandidate = trim((string)($parts[0] ?? ''));
+                if ($basisCandidate !== '') {
+                    $basis = $basisCandidate;
+                }
+            }
+
+            $feedbackHistory[] = [
+                'decision_label' => $feedbackDecisionLabel((string)($feedbackRow['decision'] ?? '')),
+                'provided_label' => formatDateTimeForPhilippines(cleanText($feedbackRow['provided_at'] ?? null), 'M d, Y g:i A'),
+                'summary' => $summary,
+            ];
+        }
+
+        $interviewHistory = [];
+        foreach ($interviewRows as $interviewRow) {
+            $interviewHistory[] = [
+                'scheduled_label' => formatDateTimeForPhilippines(cleanText($interviewRow['scheduled_at'] ?? null), 'M d, Y g:i A'),
+                'result_label' => trim((string)($interviewRow['result'] ?? '')) !== ''
+                    ? ucwords(str_replace('_', ' ', (string)$interviewRow['result']))
+                    : 'Pending',
+            ];
+        }
+
+        $submittedAt = cleanText($application['submitted_at'] ?? null) ?? '';
+        $positionTitle = cleanText($posting['position']['position_title'] ?? null) ?? 'Unassigned Position';
+        $resumeUrl = $resolveRecruitmentDocumentUrl(cleanText($applicant['resume_url'] ?? null));
+        $portfolioUrl = cleanText($applicant['portfolio_url'] ?? null) ?? '';
+
+        $recruitmentApplicantViewPayload = [
+            'application_id' => $recruitmentApplicationId,
+            'applicant_name' => cleanText($applicant['full_name'] ?? null) ?? 'Applicant',
+            'applicant_email' => cleanText($applicant['email'] ?? null) ?? '-',
+            'applicant_mobile' => cleanText($applicant['mobile_no'] ?? null) ?? '-',
+            'applicant_address' => cleanText($applicant['current_address'] ?? null) ?? '-',
+            'applied_position' => $positionTitle,
+            'submitted_label' => $submittedAt !== '' ? formatDateTimeForPhilippines($submittedAt, 'M d, Y') : '-',
+            'initial_screening_label' => $applicationStatusLabel,
+            'initial_screening_class' => $applicationStatusClass,
+            'basis' => $basis,
+            'already_employee' => isValidUuid((string)(cleanText($applicant['person_id'] ?? null) ?? '')),
+            'documents' => $documents,
+            'feedback_history' => $feedbackHistory,
+            'interview_history' => $interviewHistory,
+            'resume_url' => $resumeUrl,
+            'portfolio_url' => $portfolioUrl,
+        ];
     }
-
-    $jobOfficeId = cleanText($jobRow['office_id'] ?? null) ?? '';
-    if (!$isAdminScope && isValidUuid((string)$staffOfficeId) && strtolower($jobOfficeId) !== strtolower((string)$staffOfficeId)) {
-        continue;
-    }
-
-    $officeRow = is_array($jobRow['office'] ?? null) ? (array)$jobRow['office'] : [];
-    $positionRow = is_array($jobRow['position'] ?? null) ? (array)$jobRow['position'] : [];
-    $applicantRow = is_array($hiredRow['applicant'] ?? null) ? (array)$hiredRow['applicant'] : [];
-
-    $archivedFilledPositionRows[] = [
-        'position_title' => cleanText($positionRow['position_title'] ?? null) ?? (cleanText($jobRow['title'] ?? null) ?? 'Position'),
-        'office_name' => cleanText($officeRow['office_name'] ?? null) ?? 'Unassigned Division',
-        'date_filled_label' => formatDateTimeForPhilippines(cleanText($hiredRow['updated_at'] ?? null), 'M d, Y'),
-        'employee_name' => cleanText($applicantRow['full_name'] ?? null) ?? 'Unknown Employee',
-    ];
 }
-

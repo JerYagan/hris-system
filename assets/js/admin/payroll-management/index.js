@@ -26,6 +26,34 @@ const parseJsonScriptNode = (id) => {
   }
 };
 
+const MIN_SKELETON_MS = 250;
+
+const escapeText = (value) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+const emitQaPerfSectionMetric = ({ section, status = 'success', fetchMs = null, displayMs = null, detail = '', url = '' }) => {
+  if (typeof document === 'undefined' || typeof window.CustomEvent !== 'function') {
+    return;
+  }
+
+  document.dispatchEvent(new CustomEvent('hris:qa-perf-section', {
+    detail: {
+      page: window.location.pathname,
+      section,
+      status,
+      fetch_ms: fetchMs,
+      display_ms: displayMs,
+      detail,
+      url,
+      source: 'admin-payroll',
+    },
+  }));
+};
+
 const initPayrollSalarySetup = () => {
   const employeeSearch = document.getElementById('payrollEmployeeSearch');
   const employeeOptions = document.getElementById('payrollEmployeeOptions');
@@ -125,6 +153,7 @@ const initPayrollSalarySetup = () => {
 };
 
 const initPayrollBatchReviewModal = () => {
+  const reviewForm = document.getElementById('reviewPayrollBatchForm');
   const runIdInput = document.getElementById('payrollRunId');
   const periodInput = document.getElementById('payrollBatchPeriod');
   const statusInput = document.getElementById('payrollBatchStatus');
@@ -147,12 +176,23 @@ const initPayrollBatchReviewModal = () => {
   const decisionSelect = document.getElementById('payrollBatchDecision');
 
   const batchBreakdownByRun = parseJsonScriptNode('payrollBatchBreakdownByRunData');
-  const escapeText = (value) => String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+  const syncReviewConfirmation = () => {
+    if (!(reviewForm instanceof HTMLFormElement)) {
+      return;
+    }
+
+    const decision = String(decisionSelect?.value || 'approved').trim().toLowerCase();
+    const cutoffPeriod = String(periodInput?.value || '').trim();
+    const decisionLabel = decision === 'approved' ? 'approve' : 'cancel';
+    reviewForm.dataset.confirmTitle = decision === 'approved'
+      ? 'Approve this payroll batch?'
+      : 'Cancel this payroll batch?';
+    reviewForm.dataset.confirmText = cutoffPeriod !== ''
+      ? `This will ${decisionLabel} the payroll batch for ${cutoffPeriod} and save the admin decision notes.`
+      : `This will ${decisionLabel} the selected payroll batch and save the admin decision notes.`;
+    reviewForm.dataset.confirmButtonText = decision === 'approved' ? 'Approve batch' : 'Cancel batch';
+    reviewForm.dataset.confirmButtonColor = decision === 'approved' ? '#0f172a' : '#dc2626';
+  };
 
   const renderBreakdown = (runId) => {
     const payload = runId && batchBreakdownByRun[runId] ? batchBreakdownByRun[runId] : null;
@@ -263,7 +303,11 @@ const initPayrollBatchReviewModal = () => {
     if (adjustmentWarning) {
       adjustmentWarning.classList.toggle('hidden', pendingCount === 0);
     }
+
+    syncReviewConfirmation();
   };
+
+  decisionSelect?.addEventListener('change', syncReviewConfirmation);
 
   document.querySelectorAll('[data-payroll-review]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -281,6 +325,8 @@ const initPayrollBatchReviewModal = () => {
       openModal('reviewPayrollBatchModal');
     });
   });
+
+  syncReviewConfirmation();
 };
 
 const initPayrollGenerationSummary = () => {
@@ -446,7 +492,7 @@ const initReleaseBatchMeta = () => {
   render();
 };
 
-const initAdminPayslipBreakdownModal = () => {
+const initAdminPayslipBreakdownModal = (detailUrl = '') => {
   const employeeField = document.getElementById('adminPayslipBreakdownEmployee');
   const periodField = document.getElementById('adminPayslipBreakdownPeriod');
   const noField = document.getElementById('adminPayslipBreakdownNo');
@@ -461,13 +507,6 @@ const initAdminPayslipBreakdownModal = () => {
   if (!employeeField || !periodField || !noField || !statusField || !earningsContainer || !deductionsContainer || !grossField || !totalDeductionsField || !netField || !attendanceField) {
     return;
   }
-
-  const escapeText = (value) => String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 
   const renderRows = (container, rows) => {
     if (!Array.isArray(rows) || rows.length === 0) {
@@ -488,48 +527,150 @@ const initAdminPayslipBreakdownModal = () => {
     }).join('');
   };
 
+  const renderPayload = (payload) => {
+    const basicPay = Number(payload.basic_pay) || 0;
+    const ctoPay = Number(payload.cto_pay) || 0;
+    const allowancesTotal = Number(payload.allowances_total) || 0;
+    const adjustmentEarnings = Number(payload.adjustment_earnings) || 0;
+
+    const statutoryDeductions = Number(payload.statutory_deductions) || 0;
+    const timekeepingDeductions = Number(payload.timekeeping_deductions) || 0;
+    const adjustmentDeductions = Number(payload.adjustment_deductions) || 0;
+
+    employeeField.textContent = String(payload.employee_name || '-');
+    periodField.textContent = String(payload.period_label || '-');
+    noField.textContent = String(payload.payslip_no || '-');
+    statusField.textContent = String(payload.status_label || '-');
+
+    renderRows(earningsContainer, [
+      { label: 'Basic Pay', amount: basicPay },
+      { label: 'CTO Leave UT w/ Pay', amount: ctoPay },
+      { label: 'Allowances', amount: allowancesTotal },
+      { label: 'Approved Adjustment Earnings', amount: adjustmentEarnings },
+    ]);
+
+    renderRows(deductionsContainer, [
+      { label: 'Statutory / Government Contributions (SSS/Pag-IBIG/PhilHealth)', amount: statutoryDeductions },
+      { label: 'Timekeeping Deductions', amount: timekeepingDeductions },
+      { label: 'Approved Adjustment Deductions', amount: adjustmentDeductions },
+    ]);
+
+    grossField.textContent = formatCurrency(Number(payload.gross_pay) || 0);
+    totalDeductionsField.textContent = formatCurrency(Number(payload.deductions_total) || 0);
+    netField.textContent = formatCurrency(Number(payload.net_pay) || 0);
+    attendanceField.textContent = `Attendance impact: Absent ${Number(payload.absent_days) || 0} day(s), Late ${Number(payload.late_minutes) || 0} minute(s), Undertime ${(Number(payload.undertime_hours) || 0).toFixed(2)} hour(s)`;
+  };
+
+  const renderLoadingPayload = () => {
+    employeeField.textContent = 'Loading...';
+    periodField.textContent = 'Loading...';
+    noField.textContent = 'Loading...';
+    statusField.textContent = 'Loading...';
+    renderRows(earningsContainer, []);
+    renderRows(deductionsContainer, []);
+    grossField.textContent = formatCurrency(0);
+    totalDeductionsField.textContent = formatCurrency(0);
+    netField.textContent = formatCurrency(0);
+    attendanceField.textContent = 'Loading payslip breakdown...';
+  };
+
   document.querySelectorAll('[data-open-admin-payslip-breakdown]').forEach((button) => {
-    button.addEventListener('click', () => {
+    if (button.dataset.payrollBreakdownBound === '1') {
+      return;
+    }
+
+    button.dataset.payrollBreakdownBound = '1';
+    button.addEventListener('click', async () => {
       let payload = {};
-      try {
-        payload = JSON.parse(button.getAttribute('data-payload') || '{}');
-      } catch (_error) {
-        payload = {};
+
+      const payrollItemId = button.getAttribute('data-payroll-item-id') || '';
+      if (detailUrl !== '' && payrollItemId !== '') {
+        try {
+          const requestUrl = new URL(detailUrl, window.location.href);
+          requestUrl.searchParams.set('item_id', payrollItemId);
+          renderLoadingPayload();
+          openModal('adminPayslipBreakdownModal');
+
+          const response = await fetch(requestUrl.toString(), {
+            credentials: 'same-origin',
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+              Accept: 'application/json',
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error(`Payslip detail request failed with status ${response.status}`);
+          }
+
+          payload = await response.json();
+        } catch (error) {
+          console.error(error);
+          payload = {
+            employee_name: 'Unavailable',
+            period_label: '-',
+            payslip_no: '-',
+            status_label: 'Unavailable',
+            absent_days: 0,
+            late_minutes: 0,
+            undertime_hours: 0,
+          };
+          attendanceField.textContent = error instanceof Error ? error.message : 'Payslip breakdown could not be loaded.';
+        }
+      } else {
+        try {
+          payload = JSON.parse(button.getAttribute('data-payload') || '{}');
+        } catch (_error) {
+          payload = {};
+        }
+        openModal('adminPayslipBreakdownModal');
       }
 
-      const basicPay = Number(payload.basic_pay) || 0;
-      const ctoPay = Number(payload.cto_pay) || 0;
-      const allowancesTotal = Number(payload.allowances_total) || 0;
-      const adjustmentEarnings = Number(payload.adjustment_earnings) || 0;
+      renderPayload(payload);
+    });
+  });
+};
 
-      const statutoryDeductions = Number(payload.statutory_deductions) || 0;
-      const timekeepingDeductions = Number(payload.timekeeping_deductions) || 0;
-      const adjustmentDeductions = Number(payload.adjustment_deductions) || 0;
+const initPayrollBatchFilters = ({ reloadBatches }) => {
+  const filtersForm = document.getElementById('payrollBatchesFilters');
+  const pageInput = document.getElementById('payrollBatchesPage');
+  const searchInput = document.getElementById('payrollBatchesSearch');
+  const statusFilter = document.getElementById('payrollBatchesStatusFilter');
+  const prevButton = document.getElementById('payrollBatchesPrev');
+  const nextButton = document.getElementById('payrollBatchesNext');
 
-      employeeField.textContent = String(payload.employee_name || '-');
-      periodField.textContent = String(payload.period_label || '-');
-      noField.textContent = String(payload.payslip_no || '-');
-      statusField.textContent = String(payload.status_label || '-');
+  if (!filtersForm || !pageInput || !searchInput || !statusFilter) {
+    return;
+  }
 
-      renderRows(earningsContainer, [
-        { label: 'Basic Pay', amount: basicPay },
-        { label: 'CTO Leave UT w/ Pay', amount: ctoPay },
-        { label: 'Allowances', amount: allowancesTotal },
-        { label: 'Approved Adjustment Earnings', amount: adjustmentEarnings },
-      ]);
+  let searchTimer = 0;
 
-      renderRows(deductionsContainer, [
-        { label: 'Statutory / Government Contributions (SSS/Pag-IBIG/PhilHealth)', amount: statutoryDeductions },
-        { label: 'Timekeeping Deductions', amount: timekeepingDeductions },
-        { label: 'Approved Adjustment Deductions', amount: adjustmentDeductions },
-      ]);
+  const submitCurrentState = () => {
+    reloadBatches(new FormData(filtersForm));
+  };
 
-      grossField.textContent = formatCurrency(Number(payload.gross_pay) || 0);
-      totalDeductionsField.textContent = formatCurrency(Number(payload.deductions_total) || 0);
-      netField.textContent = formatCurrency(Number(payload.net_pay) || 0);
-      attendanceField.textContent = `Attendance impact: Absent ${Number(payload.absent_days) || 0} day(s), Late ${Number(payload.late_minutes) || 0} minute(s), Undertime ${(Number(payload.undertime_hours) || 0).toFixed(2)} hour(s)`;
+  searchInput.addEventListener('input', () => {
+    pageInput.value = '1';
+    window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(() => {
+      submitCurrentState();
+    }, 250);
+  });
 
-      openModal('adminPayslipBreakdownModal');
+  statusFilter.addEventListener('change', () => {
+    pageInput.value = '1';
+    submitCurrentState();
+  });
+
+  [prevButton, nextButton].forEach((button) => {
+    button?.addEventListener('click', () => {
+      const targetPage = button.getAttribute('data-payroll-batches-page') || '';
+      if (targetPage === '') {
+        return;
+      }
+
+      pageInput.value = targetPage;
+      submitCurrentState();
     });
   });
 };
@@ -552,6 +693,11 @@ const initPaginatedFilterTable = ({
   if (!table) {
     return;
   }
+
+  if (table.dataset.payrollTableInitialized === '1') {
+    return;
+  }
+  table.dataset.payrollTableInitialized = '1';
 
   const tbody = table.querySelector('tbody');
   const rows = Array.from(table.querySelectorAll(`tbody ${rowSelector}`));
@@ -618,7 +764,9 @@ const initPaginatedFilterTable = ({
       row.classList.toggle('hidden', !visibleRows.has(row));
     });
 
-    emptyRow.classList.toggle('hidden', totalRows !== 0);
+    if (emptyRow) {
+      emptyRow.classList.toggle('hidden', totalRows !== 0);
+    }
 
     pageInfo.textContent = totalRows === 0
       ? 'Showing 0 to 0 of 0 entries'
@@ -698,6 +846,11 @@ const initBulkSelectionGroup = ({ selectAllId, rowSelector, buttonId }) => {
   if (!checkboxes.length || !bulkDeleteButton) {
     return;
   }
+
+  if (bulkDeleteButton.dataset.payrollBulkSelectionInitialized === '1') {
+    return;
+  }
+  bulkDeleteButton.dataset.payrollBulkSelectionInitialized = '1';
 
   const refresh = () => {
     const selected = checkboxes.filter((checkbox) => checkbox.checked).length;
@@ -829,20 +982,6 @@ const initPayrollTables = () => {
   });
 
   initPaginatedFilterTable({
-    tableId: 'payrollBatchesTable',
-    rowSelector: 'tr[data-payroll-batch-search]',
-    searchInputId: 'payrollBatchesSearch',
-    searchAttr: 'data-payroll-batch-search',
-    filterConfig: [
-      { elementId: 'payrollBatchesStatusFilter', rowAttr: 'data-payroll-batch-status' },
-    ],
-    pageInfoId: 'payrollBatchesPageInfo',
-    pageLabelId: 'payrollBatchesPageLabel',
-    prevButtonId: 'payrollBatchesPrev',
-    nextButtonId: 'payrollBatchesNext',
-  });
-
-  initPaginatedFilterTable({
     tableId: 'payrollPayslipsTable',
     rowSelector: 'tr[data-payroll-payslip-search]',
     searchInputId: 'payrollPayslipsSearch',
@@ -857,10 +996,361 @@ const initPayrollTables = () => {
   });
 };
 
+const initAdminPayrollAsync = () => {
+  const region = document.getElementById('adminPayrollAsyncRegion');
+  const summaryUrl = region?.getAttribute('data-payroll-summary-url') || '';
+  const setupUrl = region?.getAttribute('data-payroll-setup-url') || '';
+  const batchesUrl = region?.getAttribute('data-payroll-batches-url') || '';
+  const payslipDetailUrl = region?.getAttribute('data-payroll-payslip-detail-url') || '';
+  const tabButtons = Array.from(document.querySelectorAll('[data-payroll-tab]'));
+  const tabPanels = Array.from(document.querySelectorAll('[data-payroll-tab-panel]'));
+
+  const summarySkeleton = document.getElementById('adminPayrollSummarySkeleton');
+  const summaryContent = document.getElementById('adminPayrollSummaryContent');
+  const summaryError = document.getElementById('adminPayrollSummaryError');
+  const summaryRetry = document.getElementById('adminPayrollSummaryRetry');
+
+  const setupSkeleton = document.getElementById('adminPayrollSetupSkeleton');
+  const setupContent = document.getElementById('adminPayrollSetupContent');
+  const setupError = document.getElementById('adminPayrollSetupError');
+  const setupRetry = document.getElementById('adminPayrollSetupRetry');
+
+  const batchesSkeleton = document.getElementById('adminPayrollBatchesSkeleton');
+  const batchesContent = document.getElementById('adminPayrollBatchesContent');
+  const batchesError = document.getElementById('adminPayrollBatchesError');
+  const batchesRetry = document.getElementById('adminPayrollBatchesRetry');
+
+  const summaryState = { requestId: 0 };
+  const setupState = { requestId: 0 };
+  const batchState = { requestId: 0 };
+  const loadedSections = {
+    summary: false,
+    setup: false,
+    batches: false,
+  };
+  const pendingSections = {
+    summary: false,
+    setup: false,
+    batches: false,
+  };
+
+  if (!region || summaryUrl === '' || setupUrl === '' || batchesUrl === '' || !summarySkeleton || !summaryContent || !summaryError || !summaryRetry || !setupSkeleton || !setupContent || !setupError || !setupRetry || !batchesSkeleton || !batchesContent || !batchesError || !batchesRetry || !tabButtons.length || !tabPanels.length) {
+    return false;
+  }
+
+  const buildSectionUrl = (baseUrl, params) => {
+    const url = new URL(baseUrl, window.location.href);
+
+    if (!(params instanceof FormData)) {
+      return url.toString();
+    }
+
+    Array.from(params.entries()).forEach(([key, value]) => {
+      url.searchParams.set(key, String(value));
+    });
+
+    return url.toString();
+  };
+
+  const fetchPartialHtml = async (url) => {
+    const response = await fetch(url, {
+      credentials: 'same-origin',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    });
+
+    if (response.redirected) {
+      window.location.href = response.url;
+      return '';
+    }
+
+    if (!response.ok) {
+      throw new Error(`Payroll partial request failed with status ${response.status}`);
+    }
+
+    const html = await response.text();
+    if (html.trim() === '') {
+      throw new Error('Payroll partial returned an empty response.');
+    }
+
+    return html;
+  };
+
+  const setLoadingState = ({ skeleton, content, errorBox, retryButton }, isLoading) => {
+    skeleton.classList.toggle('hidden', !isLoading);
+    content.classList.toggle('hidden', isLoading);
+    if (isLoading) {
+      errorBox.classList.add('hidden');
+    }
+    retryButton.disabled = isLoading;
+  };
+
+  const showErrorState = ({ skeleton, content, errorBox, retryButton }) => {
+    skeleton.classList.add('hidden');
+    content.classList.add('hidden');
+    errorBox.classList.remove('hidden');
+    retryButton.disabled = false;
+  };
+
+  const loadSection = async ({ sectionName, url, params, skeleton, content, errorBox, retryButton, onSuccess, state }) => {
+    setLoadingState({ skeleton, content, errorBox, retryButton }, true);
+    state.requestId += 1;
+    const requestId = state.requestId;
+    const startedAt = window.performance?.now?.() ?? Date.now();
+    const requestUrl = buildSectionUrl(url, params);
+    if (sectionName === 'Summary') {
+      pendingSections.summary = true;
+    } else if (sectionName === 'Salary Setup') {
+      pendingSections.setup = true;
+    } else if (sectionName === 'Approval Batches') {
+      pendingSections.batches = true;
+    }
+
+    try {
+      const html = await fetchPartialHtml(requestUrl);
+      const fetchElapsed = (window.performance?.now?.() ?? Date.now()) - startedAt;
+      const remaining = Math.max(0, MIN_SKELETON_MS - fetchElapsed);
+
+      return await new Promise((resolve) => {
+        window.setTimeout(() => {
+          if (requestId !== state.requestId) {
+            resolve(false);
+            return;
+          }
+
+          content.innerHTML = html;
+          content.classList.remove('hidden');
+          skeleton.classList.add('hidden');
+          errorBox.classList.add('hidden');
+          retryButton.disabled = false;
+          if (typeof onSuccess === 'function') {
+            onSuccess();
+          }
+
+          const displayElapsed = (window.performance?.now?.() ?? Date.now()) - startedAt;
+          if (sectionName === 'Summary') {
+            pendingSections.summary = false;
+          } else if (sectionName === 'Salary Setup') {
+            pendingSections.setup = false;
+          } else if (sectionName === 'Approval Batches') {
+            pendingSections.batches = false;
+          }
+          emitQaPerfSectionMetric({
+            section: sectionName,
+            status: 'success',
+            fetchMs: fetchElapsed,
+            displayMs: displayElapsed,
+            url: requestUrl,
+          });
+          resolve(true);
+        }, remaining);
+      });
+    } catch (error) {
+      console.error(error);
+      showErrorState({ skeleton, content, errorBox, retryButton });
+      if (sectionName === 'Summary') {
+        pendingSections.summary = false;
+      } else if (sectionName === 'Salary Setup') {
+        pendingSections.setup = false;
+      } else if (sectionName === 'Approval Batches') {
+        pendingSections.batches = false;
+      }
+      const elapsed = (window.performance?.now?.() ?? Date.now()) - startedAt;
+      emitQaPerfSectionMetric({
+        section: sectionName,
+        status: 'error',
+        fetchMs: elapsed,
+        displayMs: elapsed,
+        detail: error instanceof Error ? error.message : 'Section load failed.',
+        url: requestUrl,
+      });
+      return false;
+    }
+  };
+
+  const initPayrollRefreshButtons = () => {
+    if (region.dataset.payrollRefreshBound === '1') {
+      return;
+    }
+
+    region.dataset.payrollRefreshBound = '1';
+    region.addEventListener('click', (event) => {
+      const trigger = event.target instanceof Element
+        ? event.target.closest('[data-payroll-refresh-tab]')
+        : null;
+      if (!trigger) {
+        return;
+      }
+
+      const tabName = trigger.getAttribute('data-payroll-refresh-tab') || 'summary';
+      if (tabName === 'setup') {
+        loadSetup().catch(console.error);
+        return;
+      }
+
+      if (tabName === 'batches') {
+        loadBatches().catch(console.error);
+        return;
+      }
+
+      loadSummary().catch(console.error);
+    });
+  };
+
+  const afterBatchesSuccess = () => {
+    initModalSystem();
+    initStatusChangeConfirmations();
+    initPayrollBulkSelections();
+    initPayrollBatchReviewModal();
+    initPayrollBatchFilters({ reloadBatches: loadBatches });
+  };
+
+  const afterSummarySuccess = () => {
+    initModalSystem();
+    initStatusChangeConfirmations();
+    initPayrollTables();
+    initPayrollSalarySetup();
+    initPayrollBulkSelections();
+    initPayrollBatchReviewModal();
+    initPayrollGenerationSummary();
+    initReleaseBatchMeta();
+    initAdminPayslipBreakdownModal(payslipDetailUrl);
+    initPayrollDatePickers().catch(console.error);
+  };
+
+  const afterSetupSuccess = () => {
+    initModalSystem();
+    initStatusChangeConfirmations();
+    initPayrollTables();
+    initPayrollSalarySetup();
+    initPayrollBulkSelections();
+    initPayrollDatePickers().catch(console.error);
+  };
+
+  const loadSummary = () => loadSection({
+    sectionName: 'Summary',
+    url: summaryUrl,
+    skeleton: summarySkeleton,
+    content: summaryContent,
+    errorBox: summaryError,
+    retryButton: summaryRetry,
+    state: summaryState,
+    onSuccess: () => {
+      loadedSections.summary = true;
+      afterSummarySuccess();
+    },
+  });
+
+  const loadSetup = () => loadSection({
+    sectionName: 'Salary Setup',
+    url: setupUrl,
+    skeleton: setupSkeleton,
+    content: setupContent,
+    errorBox: setupError,
+    retryButton: setupRetry,
+    state: setupState,
+    onSuccess: () => {
+      loadedSections.setup = true;
+      afterSetupSuccess();
+    },
+  });
+
+  function loadBatches(params) {
+    return loadSection({
+      sectionName: 'Approval Batches',
+      url: batchesUrl,
+      params,
+      skeleton: batchesSkeleton,
+      content: batchesContent,
+      errorBox: batchesError,
+      retryButton: batchesRetry,
+      state: batchState,
+      onSuccess: () => {
+        loadedSections.batches = true;
+        afterBatchesSuccess();
+      },
+    });
+  }
+  const activateTab = (tabName) => {
+    tabButtons.forEach((button) => {
+      const isActive = button.getAttribute('data-payroll-tab') === tabName;
+      button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      button.classList.toggle('border-slate-900', isActive);
+      button.classList.toggle('bg-slate-900', isActive);
+      button.classList.toggle('text-white', isActive);
+      button.classList.toggle('border-slate-300', !isActive);
+      button.classList.toggle('bg-white', !isActive);
+      button.classList.toggle('text-slate-700', !isActive);
+    });
+
+    tabPanels.forEach((panel) => {
+      panel.classList.toggle('hidden', panel.getAttribute('data-payroll-tab-panel') !== tabName);
+    });
+  };
+
+  const ensureTabLoaded = (tabName) => {
+    if (tabName === 'summary') {
+      if (loadedSections.summary || pendingSections.summary) {
+        return;
+      }
+      loadSummary().catch(console.error);
+      return;
+    }
+
+    if (tabName === 'batches') {
+      if (loadedSections.batches || pendingSections.batches) {
+        return;
+      }
+      loadBatches().catch(console.error);
+      return;
+    }
+
+    if (tabName === 'setup') {
+      if (loadedSections.setup || pendingSections.setup) {
+        return;
+      }
+      loadSetup().catch(console.error);
+      return;
+    }
+
+  };
+
+  tabButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const tabName = button.getAttribute('data-payroll-tab') || 'summary';
+      activateTab(tabName);
+      ensureTabLoaded(tabName);
+    });
+  });
+
+  summaryRetry.addEventListener('click', () => {
+    loadSummary().catch(console.error);
+  });
+
+  setupRetry.addEventListener('click', () => {
+    loadSetup().catch(console.error);
+  });
+
+  batchesRetry.addEventListener('click', () => {
+    loadBatches().catch(console.error);
+  });
+  initPayrollRefreshButtons();
+  activateTab('summary');
+  ensureTabLoaded('summary');
+
+  return true;
+};
+
 export default function initAdminPayrollManagementPage() {
   initAdminShellInteractions();
   initModalSystem();
   initStatusChangeConfirmations();
+
+  if (initAdminPayrollAsync()) {
+    return;
+  }
+
   initPayrollTables();
   initPayrollSalarySetup();
   initPayrollBulkSelections();
@@ -869,4 +1359,15 @@ export default function initAdminPayrollManagementPage() {
   initReleaseBatchMeta();
   initAdminPayslipBreakdownModal();
   initPayrollDatePickers().catch(console.error);
+
+  document.querySelectorAll('[data-payroll-refresh-tab]').forEach((button) => {
+    if (button.dataset.payrollRefreshFallbackBound === '1') {
+      return;
+    }
+
+    button.dataset.payrollRefreshFallbackBound = '1';
+    button.addEventListener('click', () => {
+      window.location.reload();
+    });
+  });
 }

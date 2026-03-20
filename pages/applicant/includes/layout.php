@@ -2,6 +2,17 @@
 // pages/applicant/includes/layout.php
 include __DIR__ . '/auth-guard.php';
 
+$shellContext = systemShellContext(
+    $pageTitle ?? null,
+    'Applicant | DA HRIS',
+    $activePage ?? basename((string)($_SERVER['PHP_SELF'] ?? '')),
+    $breadcrumbs ?? [],
+    ['Dashboard']
+);
+$pageTitle = $shellContext['page_title'];
+$activePage = $shellContext['active_page'];
+$breadcrumbs = $shellContext['breadcrumbs'];
+
 $uxSkeletonPages = [
     'dashboard.php',
     'job-list.php',
@@ -13,7 +24,7 @@ $uxSkeletonPages = [
     'profile.php',
 ];
 
-$currentActivePage = (string)($activePage ?? basename((string)($_SERVER['PHP_SELF'] ?? '')));
+$currentActivePage = $activePage;
 $enableUxSkeleton = in_array($currentActivePage, $uxSkeletonPages, true);
 ?>
 
@@ -73,8 +84,8 @@ $enableUxSkeleton = in_array($currentActivePage, $uxSkeletonPages, true);
     </main>
 </div>
 
-<script src="/hris-system/assets/js/script.js"></script>
-<script src="/hris-system/assets/js/alert.js"></script>
+<script src="<?= htmlspecialchars(systemAppPath('/assets/js/script.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="<?= htmlspecialchars(systemAppPath('/assets/js/alert.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <?php if ($enableUxSkeleton): ?>
 <script>
     (function () {
@@ -100,5 +111,6 @@ $enableUxSkeleton = in_array($currentActivePage, $uxSkeletonPages, true);
     })();
 </script>
 <?php endif; ?>
+<?= systemRenderQaPerfConsoleScript() ?>
 </body>
 </html>

@@ -274,6 +274,38 @@ $parseDate = static function (?string $value): ?DateTimeImmutable {
     }
 };
 
+$deleteWorkExperiences = static function (string $personId) use ($supabaseUrl, $headers): array {
+    $workLookupResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/person_work_experiences?select=id&person_id=eq.' . rawurlencode($personId) . '&limit=500',
+        $headers
+    );
+
+    if (!isSuccessful($workLookupResponse)) {
+        return $workLookupResponse;
+    }
+
+    $workIds = [];
+    foreach ((array)($workLookupResponse['data'] ?? []) as $workRow) {
+        $workId = cleanText($workRow['id'] ?? null) ?? '';
+        if (isValidUuid($workId)) {
+            $workIds[] = $workId;
+        }
+    }
+
+    if ($workIds === []) {
+        return ['status' => 204, 'data' => []];
+    }
+
+    return apiRequest(
+        'DELETE',
+        $supabaseUrl
+        . '/rest/v1/person_work_experiences?id=in.' . rawurlencode('(' . implode(',', $workIds) . ')')
+        . '&person_id=eq.' . rawurlencode($personId),
+        array_merge($headers, ['Prefer: return=minimal'])
+    );
+};
+
 $personResponse = apiRequest(
     'GET',
     $supabaseUrl . '/rest/v1/people?select=id&user_id=eq.' . rawurlencode($applicantUserId) . '&limit=1',
@@ -389,11 +421,7 @@ if (!isSuccessful($educationInsertResponse)) {
     redirectWithState('error', 'Failed to save education entries from apply form.', $returnPath);
 }
 
-$workDeleteResponse = apiRequest(
-    'DELETE',
-    $supabaseUrl . '/rest/v1/person_work_experiences?person_id=eq.' . rawurlencode($personId),
-    $headers
-);
+$workDeleteResponse = $deleteWorkExperiences($personId);
 
 if (!isSuccessful($workDeleteResponse)) {
     redirectWithState('error', 'Failed to refresh work experience entries from apply form.', $returnPath);

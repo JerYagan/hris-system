@@ -1,5 +1,13 @@
 <?php
 
+$dashboardDataStage = (string)($dashboardDataStage ?? 'full');
+$dashboardLoadSummary = in_array($dashboardDataStage, ['full', 'summary'], true);
+$dashboardLoadSecondary = in_array($dashboardDataStage, ['full', 'secondary'], true);
+$dashboardDepartmentPageSize = 10;
+$dashboardDepartmentPage = max(1, (int)($_GET['department_page'] ?? 1));
+$dashboardDepartmentSearch = trim((string)($_GET['department_search'] ?? ''));
+$dashboardDepartmentSearchNormalized = strtolower($dashboardDepartmentSearch);
+
 $todayDate = gmdate('Y-m-d');
 $weekStartDate = gmdate('Y-m-d', strtotime('-6 days'));
 
@@ -75,66 +83,70 @@ if (isSuccessful($chartSettingsResponse)) {
 $dashboardChartSchedule['attendance_time_label'] = $formatDashboardChartTimeLabel($dashboardChartSchedule['attendance_time_input']);
 $dashboardChartSchedule['recruitment_time_label'] = $formatDashboardChartTimeLabel($dashboardChartSchedule['recruitment_time_input']);
 
-$attendanceResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/attendance_logs?select=id,attendance_status&attendance_date=eq.' . $todayDate . '&limit=2000',
-    $headers
-);
+$attendanceResponse = ['status' => 200, 'data' => [], 'raw' => ''];
+$attendanceWeekResponse = ['status' => 200, 'data' => [], 'raw' => ''];
+$leaveRequestsResponse = ['status' => 200, 'data' => [], 'raw' => ''];
+$jobPositionsResponse = ['status' => 200, 'data' => [], 'raw' => ''];
+$employmentResponse = ['status' => 200, 'data' => [], 'raw' => ''];
+$applicationsResponse = ['status' => 200, 'data' => [], 'raw' => ''];
+$timeAdjustmentsResponse = ['status' => 200, 'data' => [], 'raw' => ''];
+$documentsPendingResponse = ['status' => 200, 'data' => [], 'raw' => ''];
+$announcementLogsResponse = ['status' => 200, 'data' => [], 'raw' => ''];
 
-$attendanceWeekResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/attendance_logs?select=id,attendance_status,attendance_date&attendance_date=gte.' . $weekStartDate . '&attendance_date=lte.' . $todayDate . '&limit=12000',
-    $headers
-);
+if ($dashboardLoadSummary || $dashboardLoadSecondary) {
+    $attendanceResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/attendance_logs?select=id,attendance_status&attendance_date=eq.' . $todayDate . '&limit=1200',
+        $headers
+    );
 
-$leaveRequestsResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/leave_requests?select=id,date_from,date_to,days_count,status,reason,created_at,person:people(first_name,surname),leave_type:leave_types(leave_name)&status=eq.pending&order=created_at.desc&limit=500',
-    $headers
-);
+    $attendanceWeekResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/attendance_logs?select=id,attendance_status,attendance_date&attendance_date=gte.' . $weekStartDate . '&attendance_date=lte.' . $todayDate . '&limit=5000',
+        $headers
+    );
 
-$notificationsResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/notifications?select=id,category,title,body,link_url,is_read,created_at&recipient_user_id=eq.' . $adminUserId . '&category=neq.announcement&order=created_at.desc&limit=500',
-    $headers
-);
+    $leaveRequestsResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/leave_requests?select=id&status=eq.pending&limit=120',
+        $headers
+    );
 
-$jobPositionsResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/job_positions?select=id,is_active&is_active=eq.true&limit=5000',
-    $headers
-);
+    $jobPositionsResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/job_positions?select=id,is_active&is_active=eq.true&limit=2500',
+        $headers
+    );
 
-$employmentResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/employment_records?select=id,is_current,employment_status,office:office_id(office_name)&is_current=eq.true&employment_status=eq.active&limit=5000',
-    $headers
-);
+    $employmentResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/employment_records?select=id,is_current,employment_status,office:office_id(office_name)&is_current=eq.true&employment_status=eq.active&limit=2500',
+        $headers
+    );
 
-$applicationsResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/applications?select=id,application_status&limit=5000',
-    $headers
-);
+    $applicationsResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/applications?select=id,application_status&limit=2500',
+        $headers
+    );
 
-$timeAdjustmentsResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/time_adjustment_requests?select=id&status=eq.pending&limit=5000',
-    $headers
-);
+    $timeAdjustmentsResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/time_adjustment_requests?select=id&status=eq.pending&limit=1200',
+        $headers
+    );
 
-$documentsPendingResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/documents?select=id&document_status=eq.submitted&limit=5000',
-    $headers
-);
+    $documentsPendingResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/documents?select=id&document_status=eq.submitted&limit=1200',
+        $headers
+    );
 
-$announcementLogsResponse = fetchPublishedAnnouncementLogs($supabaseUrl, $headers, 100);
-
+    $announcementLogsResponse = fetchPublishedAnnouncementLogs($supabaseUrl, $headers, 60);
+}
 $attendanceRows = isSuccessful($attendanceResponse) ? (array)($attendanceResponse['data'] ?? []) : [];
 $attendanceWeekRows = isSuccessful($attendanceWeekResponse) ? (array)($attendanceWeekResponse['data'] ?? []) : [];
 $leaveRequestRowsRaw = isSuccessful($leaveRequestsResponse) ? (array)($leaveRequestsResponse['data'] ?? []) : [];
-$notificationRowsRaw = isSuccessful($notificationsResponse) ? (array)($notificationsResponse['data'] ?? []) : [];
 $jobPositionRows = isSuccessful($jobPositionsResponse) ? (array)($jobPositionsResponse['data'] ?? []) : [];
 $employmentRows = isSuccessful($employmentResponse) ? (array)($employmentResponse['data'] ?? []) : [];
 $applicationRows = isSuccessful($applicationsResponse) ? (array)($applicationsResponse['data'] ?? []) : [];
@@ -148,7 +160,6 @@ $responses = [
     ['label' => 'Attendance', 'response' => $attendanceResponse],
     ['label' => 'Attendance week', 'response' => $attendanceWeekResponse],
     ['label' => 'Pending leave', 'response' => $leaveRequestsResponse],
-    ['label' => 'Notifications', 'response' => $notificationsResponse],
     ['label' => 'Job positions', 'response' => $jobPositionsResponse],
     ['label' => 'Employment records', 'response' => $employmentResponse],
     ['label' => 'Applications', 'response' => $applicationsResponse],
@@ -212,98 +223,9 @@ $absenceRateWeek = $weeklyAbsenceSample > 0
     ? round(($weeklyAbsentCount / $weeklyAbsenceSample) * 100, 2)
     : 0.0;
 
-$pendingLeaveRows = [];
-foreach ($leaveRequestRowsRaw as $entry) {
-    $person = (array)($entry['person'] ?? []);
-    $leaveType = (array)($entry['leave_type'] ?? []);
-
-    $employeeName = trim(((string)($person['first_name'] ?? '')) . ' ' . ((string)($person['surname'] ?? '')));
-    if ($employeeName === '') {
-        $employeeName = 'Unknown employee';
-    }
-
-    $leaveTypeName = (string)($leaveType['leave_name'] ?? 'Leave');
-    $daysCount = (float)($entry['days_count'] ?? 0);
-    $daysLabel = rtrim(rtrim(number_format($daysCount, 2, '.', ''), '0'), '.');
-    if ($daysLabel === '') {
-        $daysLabel = '0';
-    }
-
-    $dateFromRaw = (string)($entry['date_from'] ?? '');
-    $dateToRaw = (string)($entry['date_to'] ?? '');
-    $dateRange = '-';
-    if ($dateFromRaw !== '' && $dateToRaw !== '') {
-        $dateRange = date('M d, Y', strtotime($dateFromRaw)) . ' - ' . date('M d, Y', strtotime($dateToRaw));
-    }
-
-    $statusRaw = strtolower((string)($entry['status'] ?? 'pending'));
-    $statusLabel = ucfirst($statusRaw);
-    $statusClass = 'bg-amber-100 text-amber-800';
-    if ($statusRaw === 'approved') {
-        $statusClass = 'bg-emerald-100 text-emerald-800';
-    } elseif ($statusRaw === 'rejected') {
-        $statusClass = 'bg-rose-100 text-rose-800';
-    }
-
-    $pendingLeaveRows[] = [
-        'id' => (string)($entry['id'] ?? ''),
-        'employee_name' => $employeeName,
-        'leave_type' => $leaveTypeName,
-        'days_label' => $daysLabel,
-        'date_range' => $dateRange,
-        'reason' => (string)($entry['reason'] ?? ''),
-        'status_key' => $statusRaw,
-        'status_label' => $statusLabel,
-        'status_class' => $statusClass,
-        'search_text' => strtolower(trim($employeeName . ' ' . $leaveTypeName . ' ' . $dateRange . ' ' . ((string)($entry['reason'] ?? '')))),
-    ];
-}
-
-$notificationsRows = [];
-$notificationCategoryOptions = [];
+$pendingLeaveRequestCount = count($leaveRequestRowsRaw);
 $unreadNotifications = 0;
-$readNotifications = 0;
 $highPriorityNotifications = 0;
-
-foreach ($notificationRowsRaw as $entry) {
-    $category = strtolower((string)($entry['category'] ?? 'general'));
-    $isRead = (bool)($entry['is_read'] ?? false);
-
-    if (!$isRead) {
-        $unreadNotifications++;
-        if (in_array($category, ['system', 'hr', 'payroll'], true)) {
-            $highPriorityNotifications++;
-        }
-    }
-
-    $statusLabel = $isRead ? 'Read' : 'Unread';
-    $statusClass = $isRead ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
-
-    $createdAtRaw = (string)($entry['created_at'] ?? '');
-    $createdAtDisplay = $createdAtRaw !== '' ? date('M d, Y h:i A', strtotime($createdAtRaw)) : '-';
-
-    $title = (string)($entry['title'] ?? 'Notification');
-    $body = (string)($entry['body'] ?? '');
-
-    $notificationsRows[] = [
-        'id' => (string)($entry['id'] ?? ''),
-        'category' => $category !== '' ? $category : 'general',
-        'title' => $title,
-        'body' => $body,
-        'is_read' => $isRead,
-        'status_label' => $statusLabel,
-        'status_key' => strtolower($statusLabel),
-        'status_class' => $statusClass,
-        'created_at' => $createdAtDisplay,
-        'search_text' => strtolower(trim($title . ' ' . $body . ' ' . $category . ' ' . $statusLabel)),
-    ];
-
-    if ($category !== '') {
-        $notificationCategoryOptions[$category] = ucfirst($category);
-    }
-}
-
-ksort($notificationCategoryOptions);
 
 $approvedPositions = count($jobPositionRows);
 $filledPositions = count($employmentRows);
@@ -329,6 +251,35 @@ foreach ($departmentCounts as $departmentName => $headcount) {
         'search_text' => strtolower((string)$departmentName),
     ];
 }
+
+if ($dashboardDepartmentSearchNormalized !== '') {
+    $departmentRows = array_values(array_filter(
+        $departmentRows,
+        static fn(array $row): bool => strpos((string)($row['search_text'] ?? ''), $dashboardDepartmentSearchNormalized) !== false
+    ));
+}
+
+$dashboardDepartmentTotalRows = count($departmentRows);
+$dashboardDepartmentTotalPages = max(1, (int)ceil($dashboardDepartmentTotalRows / $dashboardDepartmentPageSize));
+if ($dashboardDepartmentPage > $dashboardDepartmentTotalPages) {
+    $dashboardDepartmentPage = $dashboardDepartmentTotalPages;
+}
+
+$dashboardDepartmentOffset = ($dashboardDepartmentPage - 1) * $dashboardDepartmentPageSize;
+$departmentRows = array_slice($departmentRows, $dashboardDepartmentOffset, $dashboardDepartmentPageSize);
+$dashboardDepartmentPagination = [
+    'page' => $dashboardDepartmentPage,
+    'page_size' => $dashboardDepartmentPageSize,
+    'total_rows' => $dashboardDepartmentTotalRows,
+    'total_pages' => $dashboardDepartmentTotalPages,
+    'from' => $dashboardDepartmentTotalRows > 0 ? ($dashboardDepartmentOffset + 1) : 0,
+    'to' => $dashboardDepartmentTotalRows > 0 ? min($dashboardDepartmentOffset + $dashboardDepartmentPageSize, $dashboardDepartmentTotalRows) : 0,
+    'search' => $dashboardDepartmentSearch,
+    'has_prev' => $dashboardDepartmentPage > 1,
+    'has_next' => $dashboardDepartmentPage < $dashboardDepartmentTotalPages,
+    'prev_page' => max(1, $dashboardDepartmentPage - 1),
+    'next_page' => min($dashboardDepartmentTotalPages, $dashboardDepartmentPage + 1),
+];
 
 $pipelineCounts = [
     'registered' => 0,
@@ -371,7 +322,7 @@ foreach ($applicationRows as $entry) {
 $dashboardSummary = [
     'attendance_alerts' => $attendanceAlerts,
     'pending_time_adjustments' => count($pendingTimeAdjustmentRows),
-    'pending_leave_requests' => count($pendingLeaveRows),
+    'pending_leave_requests' => $pendingLeaveRequestCount,
     'pending_recruitment_decisions' => $pendingRecruitmentDecisionCount,
     'pending_documents' => count($pendingDocumentRows),
     'unread_notifications' => $unreadNotifications,

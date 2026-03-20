@@ -1,14 +1,13 @@
 <?php
 
 require_once dirname(__DIR__) . '/pages/auth/includes/auth-support.php';
+require_once dirname(__DIR__) . '/pages/shared/lib/system-helpers.php';
 
 header('Content-Type: application/json; charset=UTF-8');
 
-$rootDir = dirname(__DIR__);
-authLoadEnvFileIfPresent($rootDir . DIRECTORY_SEPARATOR . '.env');
-
-$supabaseUrl = rtrim((string)(authEnvValue('SUPABASE_URL') ?? ''), '/');
-$serviceRoleKey = authEnvValue('SUPABASE_SERVICE_ROLE_KEY');
+$supabase = systemPrivilegedSupabaseConfig();
+$supabaseUrl = rtrim((string)($supabase['url'] ?? ''), '/');
+$serviceRoleKey = trim((string)($supabase['service_role_key'] ?? ''));
 
 if ($supabaseUrl === '' || !$serviceRoleKey) {
     http_response_code(500);
@@ -21,11 +20,7 @@ if ($supabaseUrl === '' || !$serviceRoleKey) {
 }
 
 $today = date('Y-m-d');
-$headers = [
-    'Content-Type: application/json',
-    'apikey: ' . $serviceRoleKey,
-    'Authorization: Bearer ' . $serviceRoleKey,
-];
+$headers = (array)($supabase['headers'] ?? []);
 
 $select = 'id,title,description,open_date,close_date,plantilla_item_no';
 $response = authHttpJsonRequest(

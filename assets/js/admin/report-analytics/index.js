@@ -1,5 +1,7 @@
 import { initAdminShellInteractions, initStatusChangeConfirmations } from '/hris-system/assets/js/shared/admin-core.js';
 
+const MIN_SKELETON_MS = 250;
+
 const initDateInputs = () => {
   if (typeof window.flatpickr !== 'function') {
     return;
@@ -428,17 +430,7 @@ const initReportCharts = () => {
   });
 };
 
-export default function initAdminReportAnalyticsPage() {
-  if (document.body?.dataset?.adminReportAnalyticsInitialized === 'true') {
-    return;
-  }
-
-  if (document.body) {
-    document.body.dataset.adminReportAnalyticsInitialized = 'true';
-  }
-
-  initAdminShellInteractions();
-  initStatusChangeConfirmations();
+const initReportSecondaryFeatures = () => {
   initDateInputs();
   initReportCoverageToggle();
   initReportCharts();
@@ -494,4 +486,272 @@ export default function initAdminReportAnalyticsPage() {
     pageLabelId: 'reportActivitiesPageLabel',
     paginationInfoId: 'reportActivitiesPaginationInfo',
   });
+};
+
+const setReportAnalyticsTabActiveState = (buttons, activeTab) => {
+  buttons.forEach((button) => {
+    const isActive = button.dataset.reportAnalyticsTab === activeTab;
+    button.classList.toggle('bg-slate-900', isActive);
+    button.classList.toggle('text-white', isActive);
+    button.classList.toggle('bg-white', !isActive);
+    button.classList.toggle('text-slate-700', !isActive);
+    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+  });
+};
+
+const initAdminReportAnalyticsAsync = () => {
+  const region = document.getElementById('adminReportAnalyticsAsyncRegion');
+  const summaryUrl = region?.getAttribute('data-report-summary-url') || '';
+  const workforceUrl = region?.getAttribute('data-report-workforce-url') || '';
+
+  const summarySkeleton = document.getElementById('adminReportAnalyticsSummarySkeleton');
+  const summaryContent = document.getElementById('adminReportAnalyticsSummaryContent');
+  const summaryError = document.getElementById('adminReportAnalyticsSummaryError');
+  const summaryRetry = document.getElementById('adminReportAnalyticsSummaryRetry');
+
+  const secondarySkeleton = document.getElementById('adminReportAnalyticsSecondarySkeleton');
+  const secondaryContent = document.getElementById('adminReportAnalyticsSecondaryContent');
+  const secondaryError = document.getElementById('adminReportAnalyticsSecondaryError');
+  const secondaryRetry = document.getElementById('adminReportAnalyticsSecondaryRetry');
+
+  const tabContent = document.getElementById('adminReportAnalyticsTabContent');
+  const tabLoading = document.getElementById('adminReportAnalyticsTabLoading');
+  const tabError = document.getElementById('adminReportAnalyticsTabError');
+  const tabRetry = document.getElementById('adminReportAnalyticsTabRetry');
+  const tabButtons = Array.from(document.querySelectorAll('#adminReportAnalyticsTabs .report-analytics-tab'));
+
+  const summaryState = { requestId: 0 };
+  const tabState = { requestId: 0, activeTab: 'workforce', activeUrl: workforceUrl };
+  let secondaryStarted = false;
+
+  if (!region || summaryUrl === '' || workforceUrl === '' || !summarySkeleton || !summaryContent || !summaryError || !summaryRetry || !secondarySkeleton || !secondaryContent || !secondaryError || !secondaryRetry || !tabContent || !tabLoading || !tabError || !tabRetry || tabButtons.length === 0) {
+    return false;
+  }
+
+  const fetchPartialHtml = async (url) => {
+    const response = await fetch(url, {
+      credentials: 'same-origin',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    });
+
+    if (response.redirected) {
+      window.location.href = response.url;
+      return '';
+    }
+
+    if (!response.ok) {
+      throw new Error(`Report analytics partial request failed with status ${response.status}`);
+    }
+
+    const html = await response.text();
+    if (html.trim() === '') {
+      throw new Error('Report analytics partial returned an empty response.');
+    }
+
+    return html;
+  };
+
+  const setLoadingState = ({ skeleton, content, errorBox, retryButton }, isLoading) => {
+    skeleton.classList.toggle('hidden', !isLoading);
+    content.classList.toggle('hidden', isLoading);
+    if (isLoading) {
+      errorBox.classList.add('hidden');
+    }
+    retryButton.disabled = isLoading;
+  };
+
+  const showErrorState = ({ skeleton, content, errorBox, retryButton }) => {
+    skeleton.classList.add('hidden');
+    content.classList.add('hidden');
+    errorBox.classList.remove('hidden');
+    retryButton.disabled = false;
+  };
+
+  const setTabLoadingState = (isLoading) => {
+    tabLoading.classList.toggle('hidden', !isLoading);
+    tabContent.classList.toggle('hidden', isLoading);
+    if (isLoading) {
+      tabError.classList.add('hidden');
+    }
+    tabRetry.disabled = isLoading;
+    tabButtons.forEach((button) => {
+      button.disabled = isLoading;
+    });
+  };
+
+  const showTabErrorState = () => {
+    tabLoading.classList.add('hidden');
+    tabContent.classList.add('hidden');
+    tabError.classList.remove('hidden');
+    tabRetry.disabled = false;
+    tabButtons.forEach((button) => {
+      button.disabled = false;
+    });
+  };
+
+  const loadSection = async ({ url, skeleton, content, errorBox, retryButton, onSuccess, state }) => {
+    setLoadingState({ skeleton, content, errorBox, retryButton }, true);
+    state.requestId += 1;
+    const requestId = state.requestId;
+    const startedAt = window.performance?.now?.() ?? Date.now();
+
+    try {
+      const html = await fetchPartialHtml(url);
+      const elapsed = (window.performance?.now?.() ?? Date.now()) - startedAt;
+      const remaining = Math.max(0, MIN_SKELETON_MS - elapsed);
+
+      window.setTimeout(() => {
+        if (requestId !== state.requestId) {
+          return;
+        }
+
+        content.innerHTML = html;
+        content.classList.remove('hidden');
+        skeleton.classList.add('hidden');
+        errorBox.classList.add('hidden');
+        retryButton.disabled = false;
+
+        if (typeof onSuccess === 'function') {
+          onSuccess();
+        }
+      }, remaining);
+    } catch (error) {
+      console.error(error);
+      showErrorState({ skeleton, content, errorBox, retryButton });
+    }
+  };
+
+  const loadTab = async (button, { initial = false } = {}) => {
+    const requestedUrl = button?.dataset?.reportAnalyticsUrl || '';
+    const requestedTab = button?.dataset?.reportAnalyticsTab || '';
+    if (requestedUrl === '' || requestedTab === '') {
+      return;
+    }
+
+    tabState.requestId += 1;
+    tabState.activeTab = requestedTab;
+    tabState.activeUrl = requestedUrl;
+    const requestId = tabState.requestId;
+    const startedAt = window.performance?.now?.() ?? Date.now();
+
+    if (initial) {
+      setLoadingState({ skeleton: secondarySkeleton, content: secondaryContent, errorBox: secondaryError, retryButton: secondaryRetry }, true);
+    } else {
+      secondaryError.classList.add('hidden');
+      secondaryContent.classList.remove('hidden');
+      setTabLoadingState(true);
+    }
+
+    setReportAnalyticsTabActiveState(tabButtons, requestedTab);
+
+    try {
+      const html = await fetchPartialHtml(requestedUrl);
+      const elapsed = (window.performance?.now?.() ?? Date.now()) - startedAt;
+      const remaining = Math.max(0, MIN_SKELETON_MS - elapsed);
+
+      window.setTimeout(() => {
+        if (requestId !== tabState.requestId) {
+          return;
+        }
+
+        tabContent.innerHTML = html;
+        tabContent.classList.remove('hidden');
+        tabLoading.classList.add('hidden');
+        tabError.classList.add('hidden');
+        tabRetry.disabled = false;
+        tabButtons.forEach((tabButton) => {
+          tabButton.disabled = false;
+        });
+
+        if (initial) {
+          secondaryContent.classList.remove('hidden');
+          secondarySkeleton.classList.add('hidden');
+          secondaryError.classList.add('hidden');
+          secondaryRetry.disabled = false;
+        }
+
+        initReportSecondaryFeatures();
+      }, remaining);
+    } catch (error) {
+      console.error(error);
+      if (initial) {
+        showErrorState({ skeleton: secondarySkeleton, content: secondaryContent, errorBox: secondaryError, retryButton: secondaryRetry });
+      } else {
+        showTabErrorState();
+      }
+    }
+  };
+
+  tabButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      if (button.dataset.reportAnalyticsTab === tabState.activeTab) {
+        return;
+      }
+
+      loadTab(button).catch(console.error);
+    });
+  });
+
+  summaryRetry.addEventListener('click', () => {
+    loadSection({
+      url: summaryUrl,
+      skeleton: summarySkeleton,
+      content: summaryContent,
+      errorBox: summaryError,
+      retryButton: summaryRetry,
+      state: summaryState,
+      onSuccess: () => {
+        if (!secondaryStarted) {
+          secondaryStarted = true;
+          loadTab(tabButtons[0], { initial: true }).catch(console.error);
+        }
+      },
+    }).catch(console.error);
+  });
+
+  secondaryRetry.addEventListener('click', () => {
+    const activeButton = tabButtons.find((button) => button.dataset.reportAnalyticsTab === tabState.activeTab) || tabButtons[0];
+    loadTab(activeButton, { initial: true }).catch(console.error);
+  });
+
+  tabRetry.addEventListener('click', () => {
+    const activeButton = tabButtons.find((button) => button.dataset.reportAnalyticsTab === tabState.activeTab) || tabButtons[0];
+    loadTab(activeButton).catch(console.error);
+  });
+
+  loadSection({
+    url: summaryUrl,
+    skeleton: summarySkeleton,
+    content: summaryContent,
+    errorBox: summaryError,
+    retryButton: summaryRetry,
+    state: summaryState,
+    onSuccess: () => {
+      if (!secondaryStarted) {
+        secondaryStarted = true;
+        loadTab(tabButtons[0], { initial: true }).catch(console.error);
+      }
+    },
+  }).catch(console.error);
+
+  return true;
+};
+
+export default function initAdminReportAnalyticsPage() {
+  if (document.body?.dataset?.adminReportAnalyticsInitialized === 'true') {
+    return;
+  }
+
+  if (document.body) {
+    document.body.dataset.adminReportAnalyticsInitialized = 'true';
+  }
+
+  initAdminShellInteractions();
+  initStatusChangeConfirmations();
+
+  if (!initAdminReportAnalyticsAsync()) {
+    initReportSecondaryFeatures();
+  }
 }

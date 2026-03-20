@@ -159,6 +159,8 @@ if (!function_exists('redirectWithState')) {
 if (!function_exists('logApiRequestPerformance')) {
     function logApiRequestPerformance(string $method, string $url, int $statusCode, int $durationMs, mixed $data, ?string $error = null): void
     {
+        systemQaPerfTrackApiRequest('admin', $method, $url, $statusCode, $durationMs, $data, $error);
+
         $enabledRaw = strtolower(trim((string)($_ENV['HRIS_PERF_LOGGING'] ?? $_SERVER['HRIS_PERF_LOGGING'] ?? '1')));
         if (in_array($enabledRaw, ['0', 'false', 'off', 'no'], true)) {
             return;

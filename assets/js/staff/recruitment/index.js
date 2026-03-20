@@ -1,4 +1,5 @@
 (() => {
+    const MIN_SKELETON_MS = 250;
     const normalize = (value) => (value || '').toString().trim().toLowerCase();
 
     const parseJsonScriptNode = (id) => {
@@ -23,6 +24,44 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
+    };
+
+    const fetchJsonResponse = async (url) => {
+        const response = await fetch(url, {
+            credentials: 'same-origin',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+
+        if (response.redirected) {
+            window.location.href = response.url;
+            return null;
+        }
+
+        let payload = null;
+        try {
+            payload = await response.json();
+        } catch (_error) {
+            payload = null;
+        }
+
+        if (!response.ok) {
+            const message = payload && typeof payload.error === 'string' && payload.error.trim() !== ''
+                ? payload.error.trim()
+                : `Recruitment JSON request failed with status ${response.status}`;
+            throw new Error(message);
+        }
+
+        if (!payload || typeof payload !== 'object') {
+            throw new Error('Recruitment detail request returned an invalid payload.');
+        }
+
+        if (typeof payload.error === 'string' && payload.error.trim() !== '') {
+            throw new Error(payload.error.trim());
+        }
+
+        return payload;
     };
 
     const showConfirmation = async (message, title = 'Please confirm') => {
@@ -81,94 +120,274 @@
         });
     };
 
-    const setupTableFilters = () => {
+    const setupTableFilters = ({ reloadListings } = {}) => {
+        const filtersForm = document.getElementById('recruitmentListingsFilters');
+        const pageInput = document.getElementById('recruitmentPageInput');
         const searchInput = document.getElementById('recruitmentSearchInput');
         const statusFilter = document.getElementById('recruitmentStatusFilter');
-        const tableRows = Array.from(document.querySelectorAll('[data-recruitment-row]'));
-        const filterEmptyRow = document.getElementById('recruitmentFilterEmptyRow');
-        const paginationInfo = document.getElementById('recruitmentPaginationInfo');
-        const pageLabel = document.getElementById('recruitmentPageLabel');
         const prevButton = document.getElementById('recruitmentPrevPage');
         const nextButton = document.getElementById('recruitmentNextPage');
-        const perPage = 10;
-        let currentPage = 1;
 
-        if (!searchInput || !statusFilter) {
+        if (!filtersForm || !pageInput || !searchInput || !statusFilter || typeof reloadListings !== 'function') {
             return;
         }
 
-        const applyFilters = () => {
-            const query = normalize(searchInput.value);
-            const status = normalize(statusFilter.value);
-            const filteredRows = tableRows.filter((row) => {
-                const haystack = normalize(row.getAttribute('data-recruitment-search'));
-                const rowStatus = normalize(row.getAttribute('data-recruitment-status'));
-                return (query === '' || haystack.includes(query)) && (status === '' || rowStatus === status);
-            });
-
-            const totalEntries = filteredRows.length;
-            const totalPages = Math.max(1, Math.ceil(totalEntries / perPage));
-            currentPage = Math.min(currentPage, totalPages);
-
-            const startIndex = totalEntries === 0 ? 0 : (currentPage - 1) * perPage;
-            const endIndex = Math.min(startIndex + perPage, totalEntries);
-            const currentRows = filteredRows.slice(startIndex, endIndex);
-
-            tableRows.forEach((row) => {
-                row.classList.add('hidden');
-            });
-
-            currentRows.forEach((row) => {
-                row.classList.remove('hidden');
-            });
-
-            if (filterEmptyRow) {
-                filterEmptyRow.classList.toggle('hidden', totalEntries > 0);
-            }
-
-            if (paginationInfo) {
-                const startLabel = totalEntries === 0 ? 0 : startIndex + 1;
-                paginationInfo.textContent = `Showing ${startLabel} to ${endIndex} of ${totalEntries} entries`;
-            }
-
-            if (pageLabel) {
-                pageLabel.textContent = `Page ${totalEntries === 0 ? 0 : currentPage} of ${totalEntries === 0 ? 0 : totalPages}`;
-            }
-
-            if (prevButton) {
-                prevButton.disabled = currentPage <= 1 || totalEntries === 0;
-            }
-
-            if (nextButton) {
-                nextButton.disabled = currentPage >= totalPages || totalEntries === 0;
-            }
+        let debounceTimer = 0;
+        const submitCurrentState = () => {
+            reloadListings(new FormData(filtersForm));
         };
 
-        let debounceTimer = null;
         searchInput.addEventListener('input', () => {
-            currentPage = 1;
-            if (debounceTimer) {
-                window.clearTimeout(debounceTimer);
-            }
-            debounceTimer = window.setTimeout(applyFilters, 150);
+            pageInput.value = '1';
+            window.clearTimeout(debounceTimer);
+            debounceTimer = window.setTimeout(() => {
+                submitCurrentState();
+            }, 200);
         });
+
         statusFilter.addEventListener('change', () => {
-            currentPage = 1;
-            applyFilters();
+            pageInput.value = '1';
+            submitCurrentState();
         });
+
         prevButton?.addEventListener('click', () => {
-            if (currentPage <= 1) {
+            const page = prevButton.getAttribute('data-recruitment-page') || '';
+            if (page === '') {
                 return;
             }
 
-            currentPage -= 1;
-            applyFilters();
+            pageInput.value = page;
+            submitCurrentState();
         });
+
         nextButton?.addEventListener('click', () => {
-            currentPage += 1;
-            applyFilters();
+            const page = nextButton.getAttribute('data-recruitment-page') || '';
+            if (page === '') {
+                return;
+            }
+
+            pageInput.value = page;
+            submitCurrentState();
         });
-        applyFilters();
+    };
+
+    const initAsyncRecruitmentPage = () => {
+        const region = document.getElementById('staffRecruitmentAsyncRegion');
+        if (!region) {
+            return false;
+        }
+
+        const summaryUrl = region.getAttribute('data-recruitment-summary-url') || '';
+        const listingsUrl = region.getAttribute('data-recruitment-listings-url') || '';
+        const secondaryUrl = region.getAttribute('data-recruitment-secondary-url') || '';
+
+        const summarySkeleton = document.getElementById('staffRecruitmentSummarySkeleton');
+        const summaryContent = document.getElementById('staffRecruitmentSummaryContent');
+        const summaryError = document.getElementById('staffRecruitmentSummaryError');
+        const summaryRetry = document.getElementById('staffRecruitmentSummaryRetry');
+
+        const listingsSkeleton = document.getElementById('staffRecruitmentListingsSkeleton');
+        const listingsContent = document.getElementById('staffRecruitmentListingsContent');
+        const listingsError = document.getElementById('staffRecruitmentListingsError');
+        const listingsRetry = document.getElementById('staffRecruitmentListingsRetry');
+
+        const secondarySkeleton = document.getElementById('staffRecruitmentSecondarySkeleton');
+        const secondaryContent = document.getElementById('staffRecruitmentSecondaryContent');
+        const secondaryError = document.getElementById('staffRecruitmentSecondaryError');
+        const secondaryRetry = document.getElementById('staffRecruitmentSecondaryRetry');
+
+        if (!summaryUrl || !listingsUrl || !secondaryUrl || !summarySkeleton || !summaryContent || !summaryError || !summaryRetry || !listingsSkeleton || !listingsContent || !listingsError || !listingsRetry || !secondarySkeleton || !secondaryContent || !secondaryError || !secondaryRetry) {
+            return false;
+        }
+
+        const summaryState = { requestId: 0 };
+        const listingsState = { requestId: 0 };
+        const secondaryState = { requestId: 0 };
+
+        const buildSectionUrl = (baseUrl, params) => {
+            const url = new URL(baseUrl, window.location.href);
+            if (!(params instanceof FormData)) {
+                return url.toString();
+            }
+
+            Array.from(params.entries()).forEach(([key, value]) => {
+                url.searchParams.set(key, String(value));
+            });
+
+            return url.toString();
+        };
+
+        const setLoadingState = ({ skeleton, content, errorBox, retryButton }, isLoading) => {
+            skeleton.classList.toggle('hidden', !isLoading);
+            content.classList.toggle('hidden', isLoading);
+            if (isLoading) {
+                errorBox.classList.add('hidden');
+            }
+            retryButton.disabled = isLoading;
+        };
+
+        const showErrorState = ({ skeleton, content, errorBox, retryButton }) => {
+            skeleton.classList.add('hidden');
+            content.classList.add('hidden');
+            errorBox.classList.remove('hidden');
+            retryButton.disabled = false;
+        };
+
+        const fetchPartialHtml = async (url) => {
+            const response = await fetch(url, {
+                credentials: 'same-origin',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            if (response.redirected) {
+                window.location.href = response.url;
+                return '';
+            }
+
+            if (!response.ok) {
+                throw new Error(`Recruitment partial request failed with status ${response.status}`);
+            }
+
+            const html = await response.text();
+            if (html.trim() === '') {
+                throw new Error('Recruitment partial returned an empty response.');
+            }
+
+            return html;
+        };
+
+        const loadSection = async ({ url, params, skeleton, content, errorBox, retryButton, onSuccess, state }) => {
+            setLoadingState({ skeleton, content, errorBox, retryButton }, true);
+            state.requestId += 1;
+            const requestId = state.requestId;
+            const startedAt = window.performance?.now?.() ?? Date.now();
+
+            try {
+                const html = await fetchPartialHtml(buildSectionUrl(url, params));
+                const elapsed = (window.performance?.now?.() ?? Date.now()) - startedAt;
+                const remaining = Math.max(0, MIN_SKELETON_MS - elapsed);
+
+                window.setTimeout(() => {
+                    if (requestId !== state.requestId) {
+                        return;
+                    }
+
+                    content.innerHTML = html;
+                    content.classList.remove('hidden');
+                    skeleton.classList.add('hidden');
+                    errorBox.classList.add('hidden');
+                    retryButton.disabled = false;
+                    if (typeof onSuccess === 'function') {
+                        onSuccess();
+                    }
+                }, remaining);
+            } catch (error) {
+                console.error(error);
+                showErrorState({ skeleton, content, errorBox, retryButton });
+            }
+        };
+
+        const loadListings = (params) => loadSection({
+            url: listingsUrl,
+            params,
+            skeleton: listingsSkeleton,
+            content: listingsContent,
+            errorBox: listingsError,
+            retryButton: listingsRetry,
+            state: listingsState,
+            onSuccess: () => {
+                setupTableFilters({ reloadListings: loadListings });
+            },
+        });
+
+        summaryRetry.addEventListener('click', () => {
+            loadSection({
+                url: summaryUrl,
+                skeleton: summarySkeleton,
+                content: summaryContent,
+                errorBox: summaryError,
+                retryButton: summaryRetry,
+                state: summaryState,
+            }).catch(console.error);
+        });
+
+        listingsRetry.addEventListener('click', () => {
+            loadListings().catch(console.error);
+        });
+
+        secondaryRetry.addEventListener('click', () => {
+            loadSection({
+                url: secondaryUrl,
+                skeleton: secondarySkeleton,
+                content: secondaryContent,
+                errorBox: secondaryError,
+                retryButton: secondaryRetry,
+                state: secondaryState,
+                onSuccess: () => {
+                    setupUnarchiveForms();
+                },
+            }).catch(console.error);
+        });
+
+        region.addEventListener('click', (event) => {
+            const target = event.target;
+            if (!(target instanceof Element)) {
+                return;
+            }
+
+            const refreshButton = target.closest('[data-recruitment-refresh]');
+            if (!(refreshButton instanceof HTMLElement)) {
+                return;
+            }
+
+            const refreshTarget = (refreshButton.getAttribute('data-recruitment-refresh') || '').trim().toLowerCase();
+            if (refreshTarget === 'listings') {
+                const filtersForm = document.getElementById('recruitmentListingsFilters');
+                loadListings(filtersForm instanceof HTMLFormElement ? new FormData(filtersForm) : undefined).catch(console.error);
+                return;
+            }
+
+            if (refreshTarget === 'secondary') {
+                loadSection({
+                    url: secondaryUrl,
+                    skeleton: secondarySkeleton,
+                    content: secondaryContent,
+                    errorBox: secondaryError,
+                    retryButton: secondaryRetry,
+                    state: secondaryState,
+                    onSuccess: () => {
+                        setupUnarchiveForms();
+                    },
+                }).catch(console.error);
+            }
+        });
+
+        loadSection({
+            url: summaryUrl,
+            skeleton: summarySkeleton,
+            content: summaryContent,
+            errorBox: summaryError,
+            retryButton: summaryRetry,
+            state: summaryState,
+        }).catch(console.error);
+
+        loadListings().catch(console.error);
+
+        loadSection({
+            url: secondaryUrl,
+            skeleton: secondarySkeleton,
+            content: secondaryContent,
+            errorBox: secondaryError,
+            retryButton: secondaryRetry,
+            state: secondaryState,
+            onSuccess: () => {
+                setupUnarchiveForms();
+            },
+        }).catch(console.error);
+
+        return true;
     };
 
     const setupPostingStatusModal = () => {
@@ -351,11 +570,11 @@
     };
 
     const setupPostingViewModal = () => {
-        const postingViewData = parseJsonScriptNode('recruitmentPostingViewData');
+        const region = document.getElementById('staffRecruitmentAsyncRegion');
         const modal = document.getElementById('postingViewModal');
-        const openButtons = Array.from(document.querySelectorAll('[data-open-posting-view-modal]'));
         const closeButton = document.getElementById('postingViewModalClose');
         const cancelButton = document.getElementById('postingViewModalCancel');
+        const feedbackBox = document.getElementById('postingViewFeedback');
         const applicantModal = document.getElementById('staffApplicantDecisionModal');
         const applicantModalCloseButtons = Array.from(document.querySelectorAll('[data-staff-applicant-modal-close="staffApplicantDecisionModal"]'));
         const applicantDecisionForm = document.getElementById('staffApplicantDecisionForm');
@@ -364,8 +583,17 @@
         const applicantProfileMeta = document.getElementById('staffApplicantProfileMeta');
         const applicantEmployeeActionEl = document.getElementById('staffApplicantEmployeeAction');
         const applicantDocumentsBody = document.getElementById('staffApplicantDocumentsBody');
+        const applicantStatusBox = document.getElementById('staffApplicantProfileStatus');
+        const applicantFeedbackList = document.getElementById('staffApplicantFeedbackList');
+        const applicantInterviewList = document.getElementById('staffApplicantInterviewList');
 
-        if (!modal || openButtons.length === 0) {
+        if (!region || !modal) {
+            return;
+        }
+
+        const postingViewBaseUrl = region.getAttribute('data-recruitment-posting-view-url') || '';
+        const applicantViewBaseUrl = region.getAttribute('data-recruitment-applicant-view-url') || '';
+        if (!postingViewBaseUrl || !applicantViewBaseUrl) {
             return;
         }
 
@@ -380,41 +608,82 @@
         const responsibilitiesEl = document.getElementById('postingViewResponsibilities');
         const requirementsEl = document.getElementById('postingViewRequirements');
         const applicantsBodyEl = document.getElementById('postingViewApplicantsBody');
-        let currentApplicants = [];
 
-        const closeModal = () => {
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-            if (requirementsEl) {
-                requirementsEl.innerHTML = '';
-            }
-            if (applicantsBodyEl) {
-                applicantsBodyEl.innerHTML = '';
-            }
-            currentApplicants = [];
-        };
-
-        const closeApplicantModal = () => {
-            if (!applicantModal) {
-                return;
-            }
-
-            applicantModal.classList.add('hidden');
-            if (applicantDocumentsBody) {
-                applicantDocumentsBody.innerHTML = '<tr><td class="px-3 py-3 text-slate-500" colspan="4">No document selected.</td></tr>';
-            }
-            if (applicantEmployeeActionEl) {
-                applicantEmployeeActionEl.innerHTML = '';
-            }
-            if (applicantDecisionForm) {
-                applicantDecisionForm.dataset.confirmed = '0';
-            }
-        };
+        const postingCache = new Map();
+        const applicantCache = new Map();
+        let postingRequestId = 0;
+        let applicantRequestId = 0;
 
         const setText = (element, text) => {
             if (element) {
                 element.textContent = text || '-';
             }
+        };
+
+        const setStatusMessage = (element, message, isVisible = true) => {
+            if (!element) {
+                return;
+            }
+
+            element.textContent = message || '';
+            element.classList.toggle('hidden', !isVisible || !message);
+        };
+
+        const buildDetailUrl = (baseUrl, paramKey, paramValue) => {
+            const url = new URL(baseUrl, window.location.href);
+            url.searchParams.set(paramKey, paramValue);
+            return url.toString();
+        };
+
+        const renderRequirements = (requirements) => {
+            if (!requirementsEl) {
+                return;
+            }
+
+            const items = Array.isArray(requirements) ? requirements : [];
+            requirementsEl.innerHTML = items.length > 0
+                ? items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')
+                : '<li>-</li>';
+        };
+
+        const renderApplicants = (applicants) => {
+            if (!applicantsBodyEl) {
+                return;
+            }
+
+            if (!Array.isArray(applicants) || applicants.length === 0) {
+                applicantsBodyEl.innerHTML = '<tr><td colspan="6" class="px-3 py-3 text-gray-500">No applicants yet.</td></tr>';
+                return;
+            }
+
+            applicantsBodyEl.innerHTML = applicants.map((applicant) => {
+                const applicantName = escapeHtml(applicant && applicant.applicant_name ? applicant.applicant_name : 'Applicant');
+                const applicantEmail = escapeHtml(applicant && applicant.applicant_email ? applicant.applicant_email : '-');
+                const appliedPosition = escapeHtml(applicant && applicant.applied_position ? applicant.applied_position : '-');
+                const submittedLabel = escapeHtml(applicant && applicant.submitted_label ? applicant.submitted_label : '-');
+                const screeningLabel = escapeHtml(applicant && applicant.initial_screening_label ? applicant.initial_screening_label : 'For Review');
+                const screeningClass = applicant && applicant.initial_screening_class ? applicant.initial_screening_class : 'bg-slate-100 text-slate-700';
+                const basis = escapeHtml(applicant && applicant.basis ? applicant.basis : '-');
+                const applicationId = escapeHtml(applicant && applicant.application_id ? applicant.application_id : '');
+
+                return `
+                    <tr>
+                        <td class="px-3 py-2">
+                            <div class="font-medium text-slate-800">${applicantName}</div>
+                            <div class="text-xs text-slate-500">${applicantEmail}</div>
+                        </td>
+                        <td class="px-3 py-2 text-slate-700">${appliedPosition}</td>
+                        <td class="px-3 py-2 text-slate-700">${submittedLabel}</td>
+                        <td class="px-3 py-2">
+                            <span class="inline-flex px-2 py-1 text-xs rounded-full ${screeningClass}">${screeningLabel}</span>
+                        </td>
+                        <td class="px-3 py-2 text-slate-700">${basis}</td>
+                        <td class="px-3 py-2">
+                            <button type="button" data-staff-applicant-open data-application-id="${applicationId}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm"><span class="material-symbols-outlined text-[16px]">person_search</span>View Profile</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         };
 
         const renderDocuments = (documents) => {
@@ -455,139 +724,219 @@
             }).join('');
         };
 
-        const openApplicantModal = (applicant) => {
-            if (!applicantModal || !applicant || typeof applicant !== 'object') {
+        const renderFeedbackHistory = (items) => {
+            if (!applicantFeedbackList) {
                 return;
             }
 
-            const applicationId = applicant.application_id ? applicant.application_id.toString() : '';
+            if (!Array.isArray(items) || items.length === 0) {
+                applicantFeedbackList.innerHTML = '<p class="text-slate-500">No feedback history recorded.</p>';
+                return;
+            }
+
+            applicantFeedbackList.innerHTML = items.map((item) => `
+                <article class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <p class="font-medium text-slate-800">${escapeHtml(item && item.decision_label ? item.decision_label : 'Recorded')}</p>
+                        <p class="text-xs text-slate-500">${escapeHtml(item && item.provided_label ? item.provided_label : '-')}</p>
+                    </div>
+                    <p class="mt-2 text-slate-700">${escapeHtml(item && item.summary ? item.summary : 'No remarks recorded.')}</p>
+                </article>
+            `).join('');
+        };
+
+        const renderInterviewHistory = (items) => {
+            if (!applicantInterviewList) {
+                return;
+            }
+
+            if (!Array.isArray(items) || items.length === 0) {
+                applicantInterviewList.innerHTML = '<p class="text-slate-500">No interview history recorded.</p>';
+                return;
+            }
+
+            applicantInterviewList.innerHTML = items.map((item) => `
+                <article class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p class="font-medium text-slate-800">${escapeHtml(item && item.result_label ? item.result_label : 'Pending')}</p>
+                    <p class="mt-1 text-slate-600">${escapeHtml(item && item.scheduled_label ? item.scheduled_label : '-')}</p>
+                </article>
+            `).join('');
+        };
+
+        const resetPostingModal = () => {
+            setText(positionEl, '-');
+            setText(officeEl, '-');
+            setText(employmentTypeEl, '-');
+            setText(statusEl, '-');
+            setText(openDateEl, '-');
+            setText(closeDateEl, '-');
+            setText(descriptionEl, '-');
+            setText(qualificationsEl, '-');
+            setText(responsibilitiesEl, '-');
+            renderRequirements([]);
+            if (applicantsBodyEl) {
+                applicantsBodyEl.innerHTML = '<tr><td colspan="6" class="px-3 py-3 text-gray-500">Select a posting to load applicants.</td></tr>';
+            }
+            setStatusMessage(feedbackBox, '', false);
+        };
+
+        const resetApplicantModal = () => {
             if (staffDecisionApplicationId) {
-                staffDecisionApplicationId.value = applicationId;
+                staffDecisionApplicationId.value = '';
             }
-
-            const applicantName = applicant.applicant_name ? applicant.applicant_name.toString() : 'Applicant';
-            const applicantEmail = applicant.applicant_email ? applicant.applicant_email.toString() : '-';
-            const appliedPosition = applicant.applied_position ? applicant.applied_position.toString() : '-';
-            const submittedLabel = applicant.submitted_label ? applicant.submitted_label.toString() : '-';
-            const screening = applicant.initial_screening_label ? applicant.initial_screening_label.toString() : '-';
-            const alreadyEmployee = Boolean(applicant.already_employee);
-
-            setText(applicantProfileName, applicantName);
-            setText(applicantProfileMeta, `${appliedPosition} • ${applicantEmail} • Submitted ${submittedLabel} • ${screening}`);
+            setText(applicantProfileName, '-');
+            setText(applicantProfileMeta, '-');
             if (applicantEmployeeActionEl) {
-                if (alreadyEmployee) {
-                    applicantEmployeeActionEl.innerHTML = '<span class="px-2 py-1 text-xs rounded-full bg-slate-200 text-slate-700">Already Employee</span>';
-                } else {
-                    applicantEmployeeActionEl.innerHTML = '<span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">Read-only review</span>';
+                applicantEmployeeActionEl.innerHTML = '';
+            }
+            if (applicantDocumentsBody) {
+                applicantDocumentsBody.innerHTML = '<tr><td class="px-3 py-3 text-slate-500" colspan="4">No document selected.</td></tr>';
+            }
+            renderFeedbackHistory([]);
+            renderInterviewHistory([]);
+            setStatusMessage(applicantStatusBox, '', false);
+            if (applicantDecisionForm) {
+                applicantDecisionForm.dataset.confirmed = '0';
+            }
+        };
+
+        const closeModal = () => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            resetPostingModal();
+        };
+
+        const closeApplicantModal = () => {
+            if (!applicantModal) {
+                return;
+            }
+
+            applicantModal.classList.add('hidden');
+            resetApplicantModal();
+        };
+
+        const openPostingModal = async (postingId) => {
+            if (!postingId) {
+                return;
+            }
+
+            postingRequestId += 1;
+            const requestId = postingRequestId;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            resetPostingModal();
+            setStatusMessage(feedbackBox, 'Loading posting details and applicant list...');
+
+            try {
+                const payload = postingCache.has(postingId)
+                    ? postingCache.get(postingId)
+                    : await fetchJsonResponse(buildDetailUrl(postingViewBaseUrl, 'posting_id', postingId));
+                if (!postingCache.has(postingId) && payload) {
+                    postingCache.set(postingId, payload);
+                }
+
+                if (requestId !== postingRequestId || !payload) {
+                    return;
+                }
+
+                setText(positionEl, payload.position_title || payload.posting_title || '-');
+                setText(officeEl, payload.office_name || '-');
+                setText(employmentTypeEl, payload.employment_type || '-');
+                setText(statusEl, payload.status_label || '-');
+                setText(openDateEl, payload.open_date_label || '-');
+                setText(closeDateEl, payload.close_date_label || '-');
+                setText(descriptionEl, payload.description || '-');
+                setText(qualificationsEl, payload.qualifications || '-');
+                setText(responsibilitiesEl, payload.responsibilities || '-');
+                renderRequirements(payload.requirements || []);
+                renderApplicants(payload.applicants || []);
+                setStatusMessage(feedbackBox, '', false);
+            } catch (error) {
+                console.error(error);
+                if (requestId !== postingRequestId) {
+                    return;
+                }
+                setStatusMessage(feedbackBox, error instanceof Error ? error.message : 'Posting details could not be loaded.');
+                if (applicantsBodyEl) {
+                    applicantsBodyEl.innerHTML = '<tr><td colspan="6" class="px-3 py-3 text-rose-700">Posting details could not be loaded.</td></tr>';
                 }
             }
-            renderDocuments(Array.isArray(applicant.documents) ? applicant.documents : []);
+        };
 
+        const openApplicantModal = async (applicationId) => {
+            if (!applicantModal || !applicationId) {
+                return;
+            }
+
+            applicantRequestId += 1;
+            const requestId = applicantRequestId;
             applicantModal.classList.remove('hidden');
-        };
+            resetApplicantModal();
+            setStatusMessage(applicantStatusBox, 'Loading applicant profile, documents, feedback, and interview history...');
 
-        const renderApplicants = (applicants) => {
-            if (!applicantsBodyEl) {
-                return;
-            }
+            try {
+                const payload = applicantCache.has(applicationId)
+                    ? applicantCache.get(applicationId)
+                    : await fetchJsonResponse(buildDetailUrl(applicantViewBaseUrl, 'application_id', applicationId));
+                if (!applicantCache.has(applicationId) && payload) {
+                    applicantCache.set(applicationId, payload);
+                }
 
-            if (!Array.isArray(applicants) || applicants.length === 0) {
-                applicantsBodyEl.innerHTML = '<tr><td colspan="6" class="px-3 py-3 text-gray-500">No applicants yet.</td></tr>';
-                return;
-            }
-
-            currentApplicants = applicants;
-
-            applicantsBodyEl.innerHTML = applicants.map((applicant, index) => {
-                const applicantName = escapeHtml(applicant && applicant.applicant_name ? applicant.applicant_name : 'Applicant');
-                const applicantEmail = escapeHtml(applicant && applicant.applicant_email ? applicant.applicant_email : '-');
-                const appliedPosition = escapeHtml(applicant && applicant.applied_position ? applicant.applied_position : '-');
-                const submittedLabel = escapeHtml(applicant && applicant.submitted_label ? applicant.submitted_label : '-');
-                const screeningLabel = escapeHtml(applicant && applicant.initial_screening_label ? applicant.initial_screening_label : 'For Review');
-                const screeningClass = applicant && applicant.initial_screening_class ? applicant.initial_screening_class : 'bg-slate-100 text-slate-700';
-                const basis = escapeHtml(applicant && applicant.basis ? applicant.basis : '-');
-
-                return `
-                    <tr>
-                        <td class="px-3 py-2">
-                            <div class="font-medium text-slate-800">${applicantName}</div>
-                            <div class="text-xs text-slate-500">${applicantEmail}</div>
-                        </td>
-                        <td class="px-3 py-2 text-slate-700">${appliedPosition}</td>
-                        <td class="px-3 py-2 text-slate-700">${submittedLabel}</td>
-                        <td class="px-3 py-2">
-                            <span class="inline-flex px-2 py-1 text-xs rounded-full ${screeningClass}">${screeningLabel}</span>
-                        </td>
-                        <td class="px-3 py-2 text-slate-700">${basis}</td>
-                        <td class="px-3 py-2">
-                            <button type="button" data-staff-applicant-open data-applicant-index="${index}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm"><span class="material-symbols-outlined text-[16px]">person_search</span>View Profile</button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        };
-
-        const renderRequirements = (requirements) => {
-            if (!requirementsEl) {
-                return;
-            }
-
-            const items = Array.isArray(requirements) ? requirements : [];
-            if (items.length === 0) {
-                requirementsEl.innerHTML = '<li>-</li>';
-                return;
-            }
-
-            requirementsEl.innerHTML = items
-                .map((item) => `<li>${item}</li>`)
-                .join('');
-        };
-
-        openButtons.forEach((button) => {
-            button.addEventListener('click', () => {
-                const postingId = (button.getAttribute('data-posting-id') || '').trim();
-                const posting = postingViewData && typeof postingViewData === 'object' ? postingViewData[postingId] : null;
-                if (!posting || typeof posting !== 'object') {
+                if (requestId !== applicantRequestId || !payload) {
                     return;
                 }
 
-                setText(positionEl, posting.position_title || posting.posting_title || '-');
-                setText(officeEl, posting.office_name || '-');
-                setText(employmentTypeEl, posting.employment_type || '-');
-                setText(statusEl, posting.status_label || '-');
-                setText(openDateEl, posting.open_date_label || '-');
-                setText(closeDateEl, posting.close_date_label || '-');
-                setText(descriptionEl, posting.description || '-');
-                setText(qualificationsEl, posting.qualifications || '-');
-                setText(responsibilitiesEl, posting.responsibilities || '-');
-                renderRequirements(posting.requirements || []);
-                renderApplicants(posting.applicants || []);
+                if (staffDecisionApplicationId) {
+                    staffDecisionApplicationId.value = payload.application_id || applicationId;
+                }
 
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
-            });
+                const applicantName = payload.applicant_name || 'Applicant';
+                const applicantEmail = payload.applicant_email || '-';
+                const appliedPosition = payload.applied_position || '-';
+                const submittedLabel = payload.submitted_label || '-';
+                const screening = payload.initial_screening_label || '-';
+                const basis = payload.basis || '-';
+                setText(applicantProfileName, applicantName);
+                setText(applicantProfileMeta, `${appliedPosition} • ${applicantEmail} • Submitted ${submittedLabel} • ${screening}`);
+
+                if (applicantEmployeeActionEl) {
+                    if (payload.already_employee) {
+                        applicantEmployeeActionEl.innerHTML = '<span class="px-2 py-1 text-xs rounded-full bg-slate-200 text-slate-700">Already Employee</span>';
+                    } else {
+                        applicantEmployeeActionEl.innerHTML = `<span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">Read-only review</span><p class="mt-2 text-xs text-slate-600">Screening basis: ${escapeHtml(basis)}</p>`;
+                    }
+                }
+
+                renderDocuments(payload.documents || []);
+                renderFeedbackHistory(payload.feedback_history || []);
+                renderInterviewHistory(payload.interview_history || []);
+                setStatusMessage(applicantStatusBox, '', false);
+            } catch (error) {
+                console.error(error);
+                if (requestId !== applicantRequestId) {
+                    return;
+                }
+                setStatusMessage(applicantStatusBox, error instanceof Error ? error.message : 'Applicant details could not be loaded.');
+            }
+        };
+
+        document.addEventListener('click', (event) => {
+            const target = event.target;
+            if (!(target instanceof Element)) {
+                return;
+            }
+
+            const postingButton = target.closest('[data-open-posting-view-modal]');
+            if (postingButton instanceof HTMLElement) {
+                openPostingModal((postingButton.getAttribute('data-posting-id') || '').trim()).catch(console.error);
+                return;
+            }
+
+            const applicantButton = target.closest('[data-staff-applicant-open]');
+            if (applicantButton instanceof HTMLElement) {
+                openApplicantModal((applicantButton.getAttribute('data-application-id') || '').trim()).catch(console.error);
+            }
         });
-
-        if (applicantsBodyEl) {
-            applicantsBodyEl.addEventListener('click', (event) => {
-                const target = event.target;
-                if (!(target instanceof Element)) {
-                    return;
-                }
-
-                const button = target.closest('[data-staff-applicant-open]');
-                if (!(button instanceof HTMLElement)) {
-                    return;
-                }
-
-                const index = Number(button.getAttribute('data-applicant-index') || '-1');
-                if (!Number.isInteger(index) || index < 0 || index >= currentApplicants.length) {
-                    return;
-                }
-
-                openApplicantModal(currentApplicants[index]);
-            });
-        }
 
         if (closeButton) {
             closeButton.addEventListener('click', closeModal);
@@ -612,7 +961,6 @@
                 }
             });
         }
-
     };
 
     const setupAddEmployeeForms = () => {
@@ -679,10 +1027,12 @@
 
     showFlashMessage();
     initDatePickers();
-    setupTableFilters();
     setupPostingStatusModal();
     setupCreatePostingModal();
     setupPostingViewModal();
-    setupUnarchiveForms();
     setupAddEmployeeForms();
+
+    if (!initAsyncRecruitmentPage()) {
+        setupUnarchiveForms();
+    }
 })();

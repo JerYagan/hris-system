@@ -1,8 +1,19 @@
 <?php
 
 $registrationRows = [];
-$registrationViewById = [];
+$registrationDetailPayload = null;
 $dataLoadError = null;
+$registrationPageSize = 10;
+$registrationCurrentPage = max(1, (int)($_GET['page'] ?? 1));
+$registrationHasNextPage = false;
+$registrationHasPreviousPage = $registrationCurrentPage > 1;
+$registrationPaginationLabel = 'Page ' . $registrationCurrentPage;
+$registrationFilters = [
+    'search' => trim((string)($_GET['search'] ?? '')),
+    'status' => strtolower(trim((string)($_GET['status'] ?? ''))),
+];
+$applicantRegistrationDataStage = trim((string)($applicantRegistrationDataStage ?? 'shell'));
+$registrationDetailApplicationId = trim((string)($registrationDetailApplicationId ?? ($_GET['application_id'] ?? '')));
 
 $appendDataError = static function (string $label, array $response) use (&$dataLoadError): void {
     if (isSuccessful($response)) {
@@ -73,66 +84,43 @@ $resolveApplicantDocumentUrl = static function (?string $rawUrl) use ($supabaseU
     return '/hris-system/storage/document/' . rawurlencode($value);
 };
 
-$postingResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/job_postings?select=id,title&limit=2000',
-    $headers
-);
-$appendDataError('Job postings scope', $postingResponse);
-$postingRows = isSuccessful($postingResponse) ? (array)($postingResponse['data'] ?? []) : [];
+$documentTypeLabel = static function (string $type): string {
+    return match (strtolower(trim($type))) {
+        'pds' => 'PDS',
+        'transcript' => 'Transcript of Records',
+        'certificate' => 'Eligibility (CSC/PRC)',
+        'resume' => 'WES',
+        'id' => 'ID',
+        default => 'Other Document',
+    };
+};
 
-$postingIds = [];
-$postingTitleById = [];
-foreach ($postingRows as $posting) {
-    $postingId = cleanText($posting['id'] ?? null);
-    if ($postingId === null || !isValidUuid($postingId)) {
-        continue;
+$screeningPill = static function (string $status): array {
+    $key = strtolower(trim($status));
+    return match ($key) {
+        'submitted' => ['Applied', 'bg-blue-100 text-blue-800'],
+        'screening' => ['Verified', 'bg-indigo-100 text-indigo-800'],
+        'interview' => ['Interview', 'bg-amber-100 text-amber-800'],
+        'shortlisted' => ['Evaluation', 'bg-violet-100 text-violet-800'],
+        'offer' => ['For Approval', 'bg-cyan-100 text-cyan-800'],
+        'hired' => ['Hired', 'bg-emerald-100 text-emerald-800'],
+        'rejected', 'withdrawn' => ['Rejected', 'bg-rose-100 text-rose-800'],
+        default => ['Applied', 'bg-slate-100 text-slate-700'],
+    };
+};
+
+$buildApplicationBasisMap = static function (array $applicationIds) use ($supabaseUrl, $headers, $appendDataError): array {
+    $basisByApplication = [];
+    if (empty($applicationIds)) {
+        return $basisByApplication;
     }
 
-    $postingIds[] = $postingId;
-    $postingTitleById[$postingId] = cleanText($posting['title'] ?? null) ?? 'Job Posting';
-}
-
-$applicationRows = [];
-if (!empty($postingIds)) {
-    $applicationResponse = apiRequest(
-        'GET',
-        $supabaseUrl
-        . '/rest/v1/applications?select=id,application_ref_no,application_status,submitted_at,updated_at,job_posting_id,applicant:applicant_profiles(user_id,full_name,email,mobile_no,current_address)'
-        . '&job_posting_id=in.' . rawurlencode('(' . implode(',', $postingIds) . ')')
-        . '&order=submitted_at.desc&limit=2000',
-        $headers
-    );
-    $appendDataError('Applications queue', $applicationResponse);
-    $applicationRows = isSuccessful($applicationResponse) ? (array)($applicationResponse['data'] ?? []) : [];
-}
-
-$applicationIds = [];
-$applicantUserIds = [];
-foreach ($applicationRows as $row) {
-    $id = cleanText($row['id'] ?? null);
-    if ($id === null || !isValidUuid($id)) {
-        continue;
-    }
-    $applicationIds[] = $id;
-
-    $applicantUserId = cleanText($row['applicant']['user_id'] ?? null) ?? '';
-    if (isValidUuid($applicantUserId)) {
-        $applicantUserIds[strtolower($applicantUserId)] = $applicantUserId;
-    }
-}
-
-
-
-$basisByApplication = [];
-$documentsByApplication = [];
-if (!empty($applicationIds)) {
     $statusHistoryResponse = apiRequest(
         'GET',
         $supabaseUrl
         . '/rest/v1/application_status_history?select=application_id,notes,created_at'
         . '&application_id=in.' . rawurlencode('(' . implode(',', $applicationIds) . ')')
-        . '&order=created_at.desc&limit=10000',
+        . '&order=created_at.desc&limit=200',
         $headers
     );
     $appendDataError('Application history', $statusHistoryResponse);
@@ -155,100 +143,28 @@ if (!empty($applicationIds)) {
         $basisByApplication[$applicationId] = $basis !== '' ? $basis : '-';
     }
 
-    $documentResponse = apiRequest(
-        'GET',
-        $supabaseUrl
-        . '/rest/v1/application_documents?select=id,application_id,document_type,file_url,file_name,mime_type,uploaded_at'
-        . '&application_id=in.' . rawurlencode('(' . implode(',', $applicationIds) . ')')
-        . '&order=uploaded_at.desc&limit=10000',
-        $headers
-    );
-    $appendDataError('Application documents', $documentResponse);
-    $documentRows = isSuccessful($documentResponse) ? (array)($documentResponse['data'] ?? []) : [];
-
-    $documentTypeLabel = static function (string $type): string {
-        return match (strtolower(trim($type))) {
-            'pds' => 'PDS',
-            'transcript' => 'Transcript of Records',
-            'certificate' => 'Eligibility (CSC/PRC)',
-            'resume' => 'WES',
-            'id' => 'ID',
-            default => 'Other Document',
-        };
-    };
-
-    foreach ($documentRows as $document) {
-        $documentId = cleanText($document['id'] ?? null) ?? '';
-        $applicationId = cleanText($document['application_id'] ?? null);
-        if ($applicationId === null || !isValidUuid($applicationId)) {
-            continue;
-        }
-
-        if (!isset($documentsByApplication[$applicationId])) {
-            $documentsByApplication[$applicationId] = [];
-        }
-
-        $fileUrl = $resolveApplicantDocumentUrl(cleanText($document['file_url'] ?? null) ?? '');
-        $previewUrl = $fileUrl;
-        $downloadUrl = $fileUrl;
-        if (isValidUuid($documentId)) {
-            $previewUrl = '/hris-system/pages/staff/document-preview.php?source=applicant&document_id=' . rawurlencode($documentId) . '&return_to=' . rawurlencode('/hris-system/pages/staff/applicant-registration.php');
-            $downloadUrl = '/hris-system/pages/staff/applicant-document.php?document_id=' . rawurlencode($documentId) . '&download=1';
-        }
-
-        $documentsByApplication[$applicationId][] = [
-            'id' => $documentId,
-            'document_type' => cleanText($document['document_type'] ?? null) ?? 'other',
-            'document_label' => $documentTypeLabel((string)(cleanText($document['document_type'] ?? null) ?? 'other')),
-            'file_name' => cleanText($document['file_name'] ?? null) ?? 'document',
-            'file_url' => $previewUrl,
-            'preview_url' => $previewUrl,
-            'download_url' => $downloadUrl,
-            'mime_type' => cleanText($document['mime_type'] ?? null) ?? '',
-            'uploaded_label' => formatDateTimeForPhilippines(cleanText($document['uploaded_at'] ?? null), 'M d, Y'),
-            'is_available' => $previewUrl !== '',
-        ];
-    }
-}
-
-$screeningPill = static function (string $status): array {
-    $key = strtolower(trim($status));
-    return match ($key) {
-        'submitted' => ['Applied', 'bg-blue-100 text-blue-800'],
-        'screening' => ['Verified', 'bg-indigo-100 text-indigo-800'],
-        'interview' => ['Interview', 'bg-amber-100 text-amber-800'],
-        'shortlisted' => ['Evaluation', 'bg-violet-100 text-violet-800'],
-        'offer' => ['For Approval', 'bg-cyan-100 text-cyan-800'],
-        'hired' => ['Hired', 'bg-emerald-100 text-emerald-800'],
-        'rejected', 'withdrawn' => ['Rejected', 'bg-rose-100 text-rose-800'],
-        default => ['Applied', 'bg-slate-100 text-slate-700'],
-    };
+    return $basisByApplication;
 };
 
-foreach ($applicationRows as $application) {
+$mapRegistrationRow = static function (array $application, array $basisByApplication) use ($screeningPill): ?array {
     $applicationId = cleanText($application['id'] ?? null) ?? '';
     if (!isValidUuid($applicationId)) {
-        continue;
+        return null;
     }
 
-    $postingId = cleanText($application['job_posting_id'] ?? null) ?? '';
-    $statusRaw = strtolower((string)(cleanText($application['application_status'] ?? null) ?? 'submitted'));
-    [$screeningLabel, $screeningClass] = $screeningPill($statusRaw);
-
-    $applicantName = cleanText($application['applicant']['full_name'] ?? null) ?? 'Applicant';
-    $applicantEmail = cleanText($application['applicant']['email'] ?? null) ?? '-';
     $applicantUserId = cleanText($application['applicant']['user_id'] ?? null) ?? '';
     if (!isValidUuid($applicantUserId)) {
-        continue;
+        return null;
     }
-    $applicantMobile = cleanText($application['applicant']['mobile_no'] ?? null) ?? '-';
-    $applicantAddress = cleanText($application['applicant']['current_address'] ?? null) ?? '-';
-    $submittedLabel = formatDateTimeForPhilippines(cleanText($application['submitted_at'] ?? null), 'M d, Y');
-    $postingTitle = $postingTitleById[$postingId] ?? 'Job Posting';
-    $basis = (string)($basisByApplication[$applicationId] ?? 'Application submitted by applicant.');
-    $documents = (array)($documentsByApplication[$applicationId] ?? []);
 
-    $registrationRows[] = [
+    $statusRaw = strtolower((string)(cleanText($application['application_status'] ?? null) ?? 'submitted'));
+    [$screeningLabel, $screeningClass] = $screeningPill($statusRaw);
+    $applicantName = cleanText($application['applicant']['full_name'] ?? null) ?? 'Applicant';
+    $applicantEmail = cleanText($application['applicant']['email'] ?? null) ?? '-';
+    $postingTitle = cleanText($application['job_posting']['title'] ?? null) ?? 'Job Posting';
+    $basis = (string)($basisByApplication[$applicationId] ?? 'Application submitted by applicant.');
+
+    return [
         'id' => $applicationId,
         'application_ref_no' => cleanText($application['application_ref_no'] ?? null) ?? '-',
         'applicant_name' => $applicantName,
@@ -257,22 +173,163 @@ foreach ($applicationRows as $application) {
         'status_raw' => $statusRaw === 'withdrawn' ? 'rejected' : $statusRaw,
         'status_label' => $screeningLabel,
         'status_class' => $screeningClass,
-        'submitted_label' => $submittedLabel,
+        'submitted_label' => formatDateTimeForPhilippines(cleanText($application['submitted_at'] ?? null), 'M d, Y'),
         'basis' => $basis,
         'search_text' => strtolower(trim($applicantName . ' ' . $applicantEmail . ' ' . $postingTitle . ' ' . $screeningLabel . ' ' . $basis)),
     ];
+};
 
-    $registrationViewById[$applicationId] = [
-        'application_id' => $applicationId,
-        'application_ref_no' => cleanText($application['application_ref_no'] ?? null) ?? '-',
-        'applicant_name' => $applicantName,
-        'applicant_email' => $applicantEmail,
-        'applicant_mobile' => $applicantMobile,
-        'applicant_address' => $applicantAddress,
-        'posting_title' => $postingTitle,
-        'submitted_label' => $submittedLabel,
-        'screening_label' => $screeningLabel,
-        'basis' => $basis,
-        'documents' => $documents,
-    ];
+$applyStatusFilterToUrl = static function (string $url, string $status): string {
+    if ($status === '') {
+        return $url;
+    }
+
+    if ($status === 'rejected') {
+        return $url . '&application_status=in.' . rawurlencode('(rejected,withdrawn)');
+    }
+
+    return $url . '&application_status=eq.' . rawurlencode($status);
+};
+
+if ($applicantRegistrationDataStage === 'list') {
+    $offset = ($registrationCurrentPage - 1) * $registrationPageSize;
+    $listBaseUrl = $supabaseUrl
+        . '/rest/v1/applications?select=id,application_ref_no,application_status,submitted_at,job_posting:job_postings(title),applicant:applicant_profiles(user_id,full_name,email)'
+        . '&order=submitted_at.desc';
+    $listBaseUrl = $applyStatusFilterToUrl($listBaseUrl, $registrationFilters['status']);
+
+    if ($registrationFilters['search'] === '') {
+        $applicationResponse = apiRequest(
+            'GET',
+            $listBaseUrl . '&limit=' . ($registrationPageSize + 1) . '&offset=' . $offset,
+            $headers
+        );
+        $appendDataError('Applications queue', $applicationResponse);
+        $applicationRows = isSuccessful($applicationResponse) ? (array)($applicationResponse['data'] ?? []) : [];
+        $registrationHasNextPage = count($applicationRows) > $registrationPageSize;
+        $applicationRows = array_slice($applicationRows, 0, $registrationPageSize);
+    } else {
+        $applicationResponse = apiRequest(
+            'GET',
+            $listBaseUrl . '&limit=250',
+            $headers
+        );
+        $appendDataError('Applications queue', $applicationResponse);
+        $allApplicationRows = isSuccessful($applicationResponse) ? (array)($applicationResponse['data'] ?? []) : [];
+
+        $normalizedSearch = strtolower(trim($registrationFilters['search']));
+        $filteredApplications = [];
+        foreach ($allApplicationRows as $applicationRow) {
+            $statusRaw = strtolower((string)(cleanText($applicationRow['application_status'] ?? null) ?? 'submitted'));
+            [$screeningLabel] = $screeningPill($statusRaw);
+            $searchText = strtolower(trim(
+                (string)(cleanText($applicationRow['applicant']['full_name'] ?? null) ?? '') . ' '
+                . (string)(cleanText($applicationRow['applicant']['email'] ?? null) ?? '') . ' '
+                . (string)(cleanText($applicationRow['job_posting']['title'] ?? null) ?? '') . ' '
+                . $screeningLabel
+            ));
+
+            if ($normalizedSearch === '' || str_contains($searchText, $normalizedSearch)) {
+                $filteredApplications[] = $applicationRow;
+            }
+        }
+
+        $registrationHasNextPage = count($filteredApplications) > ($offset + $registrationPageSize);
+        $applicationRows = array_slice($filteredApplications, $offset, $registrationPageSize);
+    }
+
+    $applicationIds = [];
+    foreach ($applicationRows as $applicationRow) {
+        $applicationId = cleanText($applicationRow['id'] ?? null) ?? '';
+        if (isValidUuid($applicationId)) {
+            $applicationIds[] = $applicationId;
+        }
+    }
+
+    $basisByApplication = $buildApplicationBasisMap($applicationIds);
+    foreach ($applicationRows as $applicationRow) {
+        $mappedRow = $mapRegistrationRow($applicationRow, $basisByApplication);
+        if (is_array($mappedRow)) {
+            $registrationRows[] = $mappedRow;
+        }
+    }
+
+    $registrationHasPreviousPage = $registrationCurrentPage > 1;
+    $registrationPaginationLabel = empty($registrationRows)
+        ? 'No results'
+        : 'Page ' . $registrationCurrentPage;
+}
+
+if ($applicantRegistrationDataStage === 'detail') {
+    if (!isValidUuid($registrationDetailApplicationId)) {
+        $dataLoadError = 'Invalid applicant registration record selected.';
+    } else {
+        $applicationResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/applications?select=id,application_ref_no,application_status,submitted_at,job_posting:job_postings(title),applicant:applicant_profiles(user_id,full_name,email,mobile_no,current_address)'
+            . '&id=eq.' . rawurlencode($registrationDetailApplicationId)
+            . '&limit=1',
+            $headers
+        );
+        $appendDataError('Applicant registration detail', $applicationResponse);
+        $applicationRow = isSuccessful($applicationResponse) ? (array)($applicationResponse['data'][0] ?? []) : [];
+
+        if (!is_array($applicationRow) || empty($applicationRow)) {
+            $dataLoadError = $dataLoadError ?: 'Applicant registration detail was not found.';
+        } else {
+            $basisByApplication = $buildApplicationBasisMap([$registrationDetailApplicationId]);
+            $documents = [];
+            $documentResponse = apiRequest(
+                'GET',
+                $supabaseUrl
+                . '/rest/v1/application_documents?select=id,application_id,document_type,file_url,file_name,mime_type,uploaded_at'
+                . '&application_id=eq.' . rawurlencode($registrationDetailApplicationId)
+                . '&order=uploaded_at.desc&limit=50',
+                $headers
+            );
+            $appendDataError('Application documents', $documentResponse);
+            $documentRows = isSuccessful($documentResponse) ? (array)($documentResponse['data'] ?? []) : [];
+
+            foreach ($documentRows as $document) {
+                $documentId = cleanText($document['id'] ?? null) ?? '';
+                $fileUrl = $resolveApplicantDocumentUrl(cleanText($document['file_url'] ?? null) ?? '');
+                $previewUrl = $fileUrl;
+                $downloadUrl = $fileUrl;
+                if (isValidUuid($documentId)) {
+                    $previewUrl = '/hris-system/pages/staff/document-preview.php?source=applicant&document_id=' . rawurlencode($documentId) . '&return_to=' . rawurlencode('/hris-system/pages/staff/applicant-registration.php');
+                    $downloadUrl = '/hris-system/pages/staff/applicant-document.php?document_id=' . rawurlencode($documentId) . '&download=1';
+                }
+
+                $documents[] = [
+                    'id' => $documentId,
+                    'document_type' => cleanText($document['document_type'] ?? null) ?? 'other',
+                    'document_label' => $documentTypeLabel((string)(cleanText($document['document_type'] ?? null) ?? 'other')),
+                    'file_name' => cleanText($document['file_name'] ?? null) ?? 'document',
+                    'file_url' => $previewUrl,
+                    'preview_url' => $previewUrl,
+                    'download_url' => $downloadUrl,
+                    'mime_type' => cleanText($document['mime_type'] ?? null) ?? '',
+                    'uploaded_label' => formatDateTimeForPhilippines(cleanText($document['uploaded_at'] ?? null), 'M d, Y'),
+                    'is_available' => $previewUrl !== '',
+                ];
+            }
+
+            $statusRaw = strtolower((string)(cleanText($applicationRow['application_status'] ?? null) ?? 'submitted'));
+            [$screeningLabel] = $screeningPill($statusRaw);
+            $registrationDetailPayload = [
+                'application_id' => $registrationDetailApplicationId,
+                'application_ref_no' => cleanText($applicationRow['application_ref_no'] ?? null) ?? '-',
+                'applicant_name' => cleanText($applicationRow['applicant']['full_name'] ?? null) ?? 'Applicant',
+                'applicant_email' => cleanText($applicationRow['applicant']['email'] ?? null) ?? '-',
+                'applicant_mobile' => cleanText($applicationRow['applicant']['mobile_no'] ?? null) ?? '-',
+                'applicant_address' => cleanText($applicationRow['applicant']['current_address'] ?? null) ?? '-',
+                'posting_title' => cleanText($applicationRow['job_posting']['title'] ?? null) ?? 'Job Posting',
+                'submitted_label' => formatDateTimeForPhilippines(cleanText($applicationRow['submitted_at'] ?? null), 'M d, Y'),
+                'screening_label' => $screeningLabel,
+                'basis' => (string)($basisByApplication[$registrationDetailApplicationId] ?? 'Application submitted by applicant.'),
+                'documents' => $documents,
+            ];
+        }
+    }
 }

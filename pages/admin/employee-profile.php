@@ -1,15 +1,23 @@
 <?php
 require_once __DIR__ . '/includes/personal-information/bootstrap.php';
 require_once __DIR__ . '/includes/personal-information/actions.php';
+
+$personId = trim((string)(cleanText($_GET['person_id'] ?? null) ?? ''));
+$source = strtolower(trim((string)(cleanText($_GET['source'] ?? null) ?? 'personal-information')));
+$backLink = $source === 'personal-information-profiles' ? 'personal-information-profiles.php' : 'personal-information.php';
+$employeeProfilePartial = strtolower(trim((string)(cleanText($_GET['partial'] ?? null) ?? '')));
+$employeeProfileTab = strtolower(trim((string)(cleanText($_GET['tab'] ?? null) ?? 'personal')));
+$employeeProfileTab = in_array($employeeProfileTab, ['personal', 'family', 'education'], true) ? $employeeProfileTab : 'personal';
+
+$personalInfoSelectedPersonId = $personId;
+$personalInfoProfileRequestedTab = $employeeProfileTab;
+$personalInfoDataStage = $employeeProfilePartial === 'tab' ? 'employee-profile-tab' : 'employee-profile-shell';
+
 require_once __DIR__ . '/includes/personal-information/data.php';
 
 $pageTitle = 'Employee Profile | Admin';
 $activePage = 'personal-information.php';
 $breadcrumbs = ['Personal Information', 'Employee Profile'];
-
-$personId = trim((string)(cleanText($_GET['person_id'] ?? null) ?? ''));
-$source = strtolower(trim((string)(cleanText($_GET['source'] ?? null) ?? 'personal-information')));
-$backLink = $source === 'personal-information' ? 'personal-information.php' : 'personal-information.php';
 
 $state = cleanText($_GET['state'] ?? null);
 $message = cleanText($_GET['message'] ?? null);
@@ -42,26 +50,7 @@ if (is_array($selectedEmployee['educational_backgrounds'] ?? null)) {
     }
 }
 
-if (empty($educationRecords)) {
-    $educationRecords[] = [
-        'education_level' => 'elementary',
-        'school_name' => '',
-        'degree_course' => '',
-        'attendance_from_year' => '',
-        'attendance_to_year' => '',
-        'highest_level_units_earned' => '',
-        'year_graduated' => '',
-        'scholarship_honors_received' => '',
-    ];
-}
-
 $childrenRows = (array)($selectedEmployee['children'] ?? []);
-if (empty($childrenRows)) {
-    $childrenRows[] = [
-        'full_name' => '',
-        'birth_date' => '',
-    ];
-}
 
 $workExperienceRows = array_values(array_filter((array)($selectedEmployee['work_experiences'] ?? []), static function ($row): bool {
     return is_array($row);
@@ -133,6 +122,122 @@ $summaryItems = [
     ['label' => 'Address', 'value' => trim((string)($selectedEmployee['residential_barangay'] ?? '') . ', ' . (string)($selectedEmployee['residential_city_municipality'] ?? '') . ', ' . (string)($selectedEmployee['residential_province'] ?? ''))],
 ];
 
+$renderEmployeeProfileFamilySection = static function (array $employeeRow, array $childRows): string {
+    ob_start();
+    ?>
+    <section class="space-y-6">
+        <section class="space-y-3">
+            <h4 class="text-sm font-semibold text-slate-700">Spouse Information</h4>
+            <dl class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+                <?php foreach ([
+                    'Spouse Surname' => (string)($employeeRow['spouse_surname'] ?? ''),
+                    'Spouse First Name' => (string)($employeeRow['spouse_first_name'] ?? ''),
+                    'Spouse Middle Name' => (string)($employeeRow['spouse_middle_name'] ?? ''),
+                    'Extension Name' => (string)($employeeRow['spouse_extension_name'] ?? ''),
+                    'Occupation' => (string)($employeeRow['spouse_occupation'] ?? ''),
+                    'Employer/Business Name' => (string)($employeeRow['spouse_employer_business_name'] ?? ''),
+                    'Business Address' => (string)($employeeRow['spouse_business_address'] ?? ''),
+                    'Telephone No.' => (string)($employeeRow['spouse_telephone_no'] ?? ''),
+                ] as $label => $value): ?>
+                    <div class="rounded-lg border border-slate-200 bg-white p-3">
+                        <dt class="text-xs uppercase tracking-wide text-slate-500"><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></dt>
+                        <dd class="mt-1 text-slate-700"><?= htmlspecialchars(trim($value) !== '' ? $value : 'Not provided', ENT_QUOTES, 'UTF-8') ?></dd>
+                    </div>
+                <?php endforeach; ?>
+            </dl>
+        </section>
+
+        <section class="space-y-3 border-t border-slate-200 pt-4">
+            <h4 class="text-sm font-semibold text-slate-700">Parents</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div class="rounded-lg border border-slate-200 bg-white p-4">
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Father</p>
+                    <p class="mt-2 text-slate-700"><?= htmlspecialchars(trim(implode(' ', array_filter([
+                        (string)($employeeRow['father_first_name'] ?? ''),
+                        (string)($employeeRow['father_middle_name'] ?? ''),
+                        (string)($employeeRow['father_surname'] ?? ''),
+                        (string)($employeeRow['father_extension_name'] ?? ''),
+                    ], static fn ($part): bool => trim((string)$part) !== ''))) ?: 'Not provided', ENT_QUOTES, 'UTF-8') ?></p>
+                </div>
+                <div class="rounded-lg border border-slate-200 bg-white p-4">
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Mother</p>
+                    <p class="mt-2 text-slate-700"><?= htmlspecialchars(trim(implode(' ', array_filter([
+                        (string)($employeeRow['mother_first_name'] ?? ''),
+                        (string)($employeeRow['mother_middle_name'] ?? ''),
+                        (string)($employeeRow['mother_surname'] ?? ''),
+                        (string)($employeeRow['mother_extension_name'] ?? ''),
+                    ], static fn ($part): bool => trim((string)$part) !== ''))) ?: 'Not provided', ENT_QUOTES, 'UTF-8') ?></p>
+                </div>
+            </div>
+        </section>
+
+        <section class="space-y-3 border-t border-slate-200 pt-4">
+            <h4 class="text-sm font-semibold text-slate-700">Children</h4>
+            <?php if (empty($childRows)): ?>
+                <div class="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">No child records provided.</div>
+            <?php else: ?>
+                <div class="space-y-3">
+                    <?php foreach ($childRows as $childRow): ?>
+                        <div class="rounded-lg border border-slate-200 bg-white p-4">
+                            <p class="font-medium text-slate-800"><?= htmlspecialchars((string)($childRow['full_name'] ?? 'Unnamed Child'), ENT_QUOTES, 'UTF-8') ?></p>
+                            <p class="mt-1 text-xs text-slate-500"><?= htmlspecialchars(trim((string)($childRow['birth_date'] ?? '')) !== '' ? (string)$childRow['birth_date'] : 'Birth date not provided', ENT_QUOTES, 'UTF-8') ?></p>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </section>
+    </section>
+    <?php
+    return (string)ob_get_clean();
+};
+
+$renderEmployeeProfileEducationSection = static function (array $educationRows, callable $formatEducationLevelLabel, callable $formatRangeLabel): string {
+    ob_start();
+    ?>
+    <section class="space-y-3">
+        <h4 class="text-sm font-semibold text-slate-700">Educational Background</h4>
+        <?php if (empty($educationRows)): ?>
+            <div class="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">No educational background records provided.</div>
+        <?php else: ?>
+            <div class="space-y-3">
+                <?php foreach ($educationRows as $educationRow): ?>
+                    <div class="rounded-lg border border-slate-200 bg-white p-4">
+                        <p class="font-medium text-slate-800"><?= htmlspecialchars($formatEducationLevelLabel((string)($educationRow['education_level'] ?? '')), ENT_QUOTES, 'UTF-8') ?></p>
+                        <p class="mt-1 text-sm text-slate-700"><?= htmlspecialchars((string)($educationRow['school_name'] ?? 'School not provided'), ENT_QUOTES, 'UTF-8') ?></p>
+                        <p class="mt-1 text-xs text-slate-500"><?= htmlspecialchars($formatRangeLabel((string)($educationRow['attendance_from_year'] ?? ''), (string)($educationRow['attendance_to_year'] ?? '')), ENT_QUOTES, 'UTF-8') ?></p>
+                        <p class="mt-1 text-xs text-slate-500"><?= htmlspecialchars(trim((string)($educationRow['degree_course'] ?? '')) !== '' ? (string)$educationRow['degree_course'] : 'Degree/Course not provided', ENT_QUOTES, 'UTF-8') ?></p>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    </section>
+    <?php
+    return (string)ob_get_clean();
+};
+
+if ($employeeProfilePartial === 'tab') {
+    header('Content-Type: text/html; charset=UTF-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+
+    if ($selectedEmployee === null) {
+        echo '<div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">Employee profile tab content could not be loaded.</div>';
+        exit;
+    }
+
+    if ($employeeProfileTab === 'family') {
+        echo $renderEmployeeProfileFamilySection((array)$selectedEmployee, $childrenRows);
+        exit;
+    }
+
+    if ($employeeProfileTab === 'education') {
+        echo $renderEmployeeProfileEducationSection($educationRecords, $formatEducationLevelLabel, $formatRangeLabel);
+        exit;
+    }
+
+    echo '';
+    exit;
+}
+
 ob_start();
 ?>
 <?php if ($state && $message): ?>
@@ -162,17 +267,10 @@ ob_start();
         <div class="px-6 py-4 flex items-center justify-between gap-3 border-b border-slate-200">
             <div>
                 <h2 class="text-lg font-semibold text-slate-800">Employee Profile</h2>
-                <p class="text-sm text-slate-500 mt-1">Review profile information first, then click Edit Profile to modify fields.</p>
+                <p class="text-sm text-slate-500 mt-1">Review employee profile information and request changes through the tracked approval workflow instead of editing records directly.</p>
             </div>
             <div class="flex items-center gap-2">
-                <button type="button" id="adminEmployeeEnableEdit" class="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800 text-sm">
-                    <span class="material-symbols-outlined text-[18px]">edit</span>
-                    Edit Profile
-                </button>
-                <button type="button" id="adminEmployeeCancelEdit" class="hidden inline-flex items-center gap-2 px-3 py-2 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 text-sm">
-                    <span class="material-symbols-outlined text-[18px]">close</span>
-                    Cancel Edit
-                </button>
+                <span class="inline-flex items-center rounded-full bg-amber-100 px-3 py-2 text-xs font-medium text-amber-800">Read-only review</span>
                 <a href="<?= htmlspecialchars($backLink, ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 text-sm">
                     <span class="material-symbols-outlined text-[18px]">arrow_back</span>
                     Back
@@ -237,25 +335,14 @@ ob_start();
                 </div>
 
                 <div class="rounded-lg border border-slate-200 bg-white p-4">
-                    <h3 class="text-sm font-semibold text-slate-700 mb-3">Educational Background</h3>
-                    <?php if (empty($educationRecords)): ?>
-                        <p class="text-sm text-slate-500">No educational background records yet.</p>
-                    <?php else: ?>
-                        <div class="space-y-3 max-h-56 overflow-auto pr-1">
-                            <?php foreach ($educationRecords as $educationRow): ?>
-                                <div class="border border-slate-200 rounded-lg p-3">
-                                    <p class="text-sm font-medium text-slate-800"><?= htmlspecialchars($formatEducationLevelLabel((string)($educationRow['education_level'] ?? '')), ENT_QUOTES, 'UTF-8') ?></p>
-                                    <p class="text-xs text-slate-600 mt-1"><?= htmlspecialchars((string)($educationRow['school_name'] ?? 'School not provided'), ENT_QUOTES, 'UTF-8') ?></p>
-                                    <p class="text-xs text-slate-500 mt-1"><?= htmlspecialchars($formatRangeLabel((string)($educationRow['attendance_from_year'] ?? ''), (string)($educationRow['attendance_to_year'] ?? '')), ENT_QUOTES, 'UTF-8') ?></p>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
+                    <h3 class="text-sm font-semibold text-slate-700 mb-3">Deferred Profile Tabs</h3>
+                    <p class="text-sm text-slate-600">Family Background and Educational Background are loaded only when their tabs are opened.</p>
+                    <p class="mt-2 text-xs text-slate-500">This keeps the initial employee profile shell focused on the visible personal section first.</p>
                 </div>
             </div>
         </div>
 
-        <form action="employee-profile.php?person_id=<?= rawurlencode((string)$selectedEmployee['person_id']) ?>&source=personal-information" method="POST" id="adminEmployeeProfileForm" class="min-h-0 flex flex-col">
+        <form action="employee-profile.php?person_id=<?= rawurlencode((string)$selectedEmployee['person_id']) ?>&source=<?= rawurlencode($source) ?>" method="POST" id="adminEmployeeProfileForm" class="min-h-0 flex flex-col">
             <input type="hidden" name="form_action" value="save_profile">
             <input type="hidden" name="profile_action" value="edit">
             <input type="hidden" name="person_id" value="<?= htmlspecialchars((string)$selectedEmployee['person_id'], ENT_QUOTES, 'UTF-8') ?>">
@@ -362,90 +449,23 @@ ob_start();
                 </section>
 
                 <section data-profile-section="family" class="space-y-6 hidden">
-                    <section class="space-y-3">
-                        <h4 class="text-sm font-semibold text-slate-700">Spouse Information</h4>
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div><label class="text-slate-600">Spouse Surname</label><input name="spouse_surname" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?= htmlspecialchars((string)$selectedEmployee['spouse_surname'], ENT_QUOTES, 'UTF-8') ?>"></div>
-                            <div><label class="text-slate-600">Spouse First Name</label><input name="spouse_first_name" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?= htmlspecialchars((string)$selectedEmployee['spouse_first_name'], ENT_QUOTES, 'UTF-8') ?>"></div>
-                            <div><label class="text-slate-600">Spouse Middle Name</label><input name="spouse_middle_name" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?= htmlspecialchars((string)$selectedEmployee['spouse_middle_name'], ENT_QUOTES, 'UTF-8') ?>"></div>
-                            <div><label class="text-slate-600">Extension Name</label><input name="spouse_extension_name" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?= htmlspecialchars((string)$selectedEmployee['spouse_extension_name'], ENT_QUOTES, 'UTF-8') ?>"></div>
-                            <div><label class="text-slate-600">Occupation</label><input name="spouse_occupation" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?= htmlspecialchars((string)$selectedEmployee['spouse_occupation'], ENT_QUOTES, 'UTF-8') ?>"></div>
-                            <div><label class="text-slate-600">Employer/Business Name</label><input name="spouse_employer_business_name" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?= htmlspecialchars((string)$selectedEmployee['spouse_employer_business_name'], ENT_QUOTES, 'UTF-8') ?>"></div>
-                            <div class="md:col-span-2"><label class="text-slate-600">Business Address</label><input name="spouse_business_address" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?= htmlspecialchars((string)$selectedEmployee['spouse_business_address'], ENT_QUOTES, 'UTF-8') ?>"></div>
-                            <div><label class="text-slate-600">Telephone No.</label><input name="spouse_telephone_no" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?= htmlspecialchars((string)$selectedEmployee['spouse_telephone_no'], ENT_QUOTES, 'UTF-8') ?>"></div>
-                        </div>
-                    </section>
-
-                    <section class="space-y-3 border-t border-slate-200 pt-4">
-                        <h4 class="text-sm font-semibold text-slate-700">Father Information</h4>
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div><label class="text-slate-600">Surname</label><input name="father_surname" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?= htmlspecialchars((string)$selectedEmployee['father_surname'], ENT_QUOTES, 'UTF-8') ?>"></div>
-                            <div><label class="text-slate-600">First Name</label><input name="father_first_name" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?= htmlspecialchars((string)$selectedEmployee['father_first_name'], ENT_QUOTES, 'UTF-8') ?>"></div>
-                            <div><label class="text-slate-600">Middle Name</label><input name="father_middle_name" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?= htmlspecialchars((string)$selectedEmployee['father_middle_name'], ENT_QUOTES, 'UTF-8') ?>"></div>
-                            <div><label class="text-slate-600">Extension Name</label><input name="father_extension_name" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?= htmlspecialchars((string)$selectedEmployee['father_extension_name'], ENT_QUOTES, 'UTF-8') ?>"></div>
-                        </div>
-                    </section>
-
-                    <section class="space-y-3 border-t border-slate-200 pt-4">
-                        <h4 class="text-sm font-semibold text-slate-700">Mother Information</h4>
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div><label class="text-slate-600">Maiden Surname</label><input name="mother_surname" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?= htmlspecialchars((string)$selectedEmployee['mother_surname'], ENT_QUOTES, 'UTF-8') ?>"></div>
-                            <div><label class="text-slate-600">First Name</label><input name="mother_first_name" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?= htmlspecialchars((string)$selectedEmployee['mother_first_name'], ENT_QUOTES, 'UTF-8') ?>"></div>
-                            <div><label class="text-slate-600">Middle Name</label><input name="mother_middle_name" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?= htmlspecialchars((string)$selectedEmployee['mother_middle_name'], ENT_QUOTES, 'UTF-8') ?>"></div>
-                            <div><label class="text-slate-600">Extension Name</label><input name="mother_extension_name" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" value="<?= htmlspecialchars((string)$selectedEmployee['mother_extension_name'], ENT_QUOTES, 'UTF-8') ?>"></div>
-                        </div>
-                    </section>
-
-                    <section class="space-y-3 border-t border-slate-200 pt-4">
-                        <div class="flex items-center justify-between">
-                            <h4 class="text-sm font-semibold text-slate-700">Children</h4>
-                            <button type="button" id="addChildRowButton" class="border px-3 py-1 rounded-lg text-sm">Add Child</button>
-                        </div>
-                        <div id="childrenRows" class="space-y-2">
-                            <?php foreach ($childrenRows as $childRow): ?>
-                                <div class="grid grid-cols-1 md:grid-cols-12 gap-2 child-row">
-                                    <div class="md:col-span-8"><input name="children_full_name[]" placeholder="Child Full Name" class="border rounded-lg p-2 w-full" value="<?= htmlspecialchars((string)($childRow['full_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></div>
-                                    <div class="md:col-span-3"><input type="date" name="children_birth_date[]" class="border rounded-lg p-2 w-full" value="<?= htmlspecialchars((string)($childRow['birth_date'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></div>
-                                    <div class="md:col-span-1"><button type="button" data-remove-child-row class="border rounded-lg px-2 py-2 w-full">×</button></div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </section>
+                    <div
+                        data-profile-lazy-panel="family"
+                        data-profile-tab-url="employee-profile.php?person_id=<?= rawurlencode((string)$selectedEmployee['person_id']) ?>&source=<?= rawurlencode($source) ?>&partial=tab&tab=family"
+                        class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500"
+                    >
+                        Family background will load when this tab is opened.
+                    </div>
                 </section>
 
                 <section data-profile-section="education" class="space-y-6 hidden">
-                    <section class="space-y-3">
-                        <div class="flex items-center justify-between">
-                            <h4 class="text-sm font-semibold text-slate-700">Educational Background</h4>
-                            <button type="button" id="addEducationRowButton" class="border px-3 py-1 rounded-lg text-sm">Add Education Row</button>
-                        </div>
-                        <div id="educationRows" class="space-y-3">
-                            <?php foreach ($educationRecords as $educationRow): ?>
-                                <div class="border rounded-lg p-3 education-row">
-                                    <div class="grid grid-cols-1 md:grid-cols-12 gap-2">
-                                        <div class="md:col-span-2">
-                                            <select name="education_level[]" class="border rounded-lg p-2 w-full" data-education-field="education_level">
-                                                <?php $level = strtolower(trim((string)($educationRow['education_level'] ?? 'elementary'))); ?>
-                                                <option value="elementary" <?= $level === 'elementary' ? 'selected' : '' ?>>Elementary</option>
-                                                <option value="secondary" <?= $level === 'secondary' ? 'selected' : '' ?>>Secondary</option>
-                                                <option value="vocational_trade_course" <?= $level === 'vocational_trade_course' ? 'selected' : '' ?>>Vocational / Trade Course</option>
-                                                <option value="college" <?= $level === 'college' ? 'selected' : '' ?>>College</option>
-                                                <option value="graduate_studies" <?= $level === 'graduate_studies' ? 'selected' : '' ?>>Graduate Studies</option>
-                                            </select>
-                                        </div>
-                                        <div class="md:col-span-4"><input name="education_school_name[]" data-education-field="school_name" placeholder="Name of School" class="border rounded-lg p-2 w-full" value="<?= htmlspecialchars((string)($educationRow['school_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></div>
-                                        <div class="md:col-span-3"><input name="education_course_degree[]" data-education-field="degree_course" placeholder="Basic Education / Degree / Course" class="border rounded-lg p-2 w-full" value="<?= htmlspecialchars((string)($educationRow['degree_course'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></div>
-                                        <div class="md:col-span-1"><input name="education_period_from[]" data-education-field="attendance_from_year" placeholder="From" pattern="^\d{4}$" class="border rounded-lg p-2 w-full" value="<?= htmlspecialchars((string)($educationRow['attendance_from_year'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></div>
-                                        <div class="md:col-span-1"><input name="education_period_to[]" data-education-field="attendance_to_year" placeholder="To" pattern="^\d{4}$" class="border rounded-lg p-2 w-full" value="<?= htmlspecialchars((string)($educationRow['attendance_to_year'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></div>
-                                        <div class="md:col-span-1"><button type="button" data-remove-education-row class="border rounded-lg px-2 py-2 w-full">×</button></div>
-                                        <div class="md:col-span-4"><input name="education_highest_level_units[]" data-education-field="highest_level_units_earned" placeholder="Highest Level / Units Earned" class="border rounded-lg p-2 w-full" value="<?= htmlspecialchars((string)($educationRow['highest_level_units_earned'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></div>
-                                        <div class="md:col-span-3"><input name="education_year_graduated[]" data-education-field="year_graduated" placeholder="Year Graduated" pattern="^\d{4}$" class="border rounded-lg p-2 w-full" value="<?= htmlspecialchars((string)($educationRow['year_graduated'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></div>
-                                        <div class="md:col-span-5"><input name="education_honors_received[]" data-education-field="scholarship_honors_received" placeholder="Scholarship / Academic Honors Received" class="border rounded-lg p-2 w-full" value="<?= htmlspecialchars((string)($educationRow['scholarship_honors_received'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></div>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </section>
+                    <div
+                        data-profile-lazy-panel="education"
+                        data-profile-tab-url="employee-profile.php?person_id=<?= rawurlencode((string)$selectedEmployee['person_id']) ?>&source=<?= rawurlencode($source) ?>&partial=tab&tab=education"
+                        class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500"
+                    >
+                        Educational background will load when this tab is opened.
+                    </div>
                 </section>
             </div>
 
@@ -454,49 +474,14 @@ ob_start();
                     <button type="button" data-profile-prev class="border px-4 py-2 rounded-lg text-sm">Previous</button>
                     <button type="button" data-profile-next class="border px-4 py-2 rounded-lg text-sm">Next</button>
                 </div>
-                <button id="adminEmployeeProfileSubmit" type="submit" class="hidden px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Save Profile</button>
+                <span class="text-xs text-slate-500">Direct edits are disabled to preserve the approval audit trail.</span>
             </div>
         </form>
     </section>
 
-    <template id="childRowTemplate">
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-2 child-row">
-            <div class="md:col-span-8"><input name="children_full_name[]" placeholder="Child Full Name" class="border rounded-lg p-2 w-full"></div>
-            <div class="md:col-span-3"><input type="date" name="children_birth_date[]" class="border rounded-lg p-2 w-full"></div>
-            <div class="md:col-span-1"><button type="button" data-remove-child-row class="border rounded-lg px-2 py-2 w-full">×</button></div>
-        </div>
-    </template>
-
-    <template id="educationRowTemplate">
-        <div class="border rounded-lg p-3 education-row">
-            <div class="grid grid-cols-1 md:grid-cols-12 gap-2">
-                <div class="md:col-span-2">
-                    <select name="education_level[]" class="border rounded-lg p-2 w-full" data-education-field="education_level">
-                        <option value="elementary">Elementary</option>
-                        <option value="secondary">Secondary</option>
-                        <option value="vocational_trade_course">Vocational / Trade Course</option>
-                        <option value="college">College</option>
-                        <option value="graduate_studies">Graduate Studies</option>
-                    </select>
-                </div>
-                <div class="md:col-span-4"><input name="education_school_name[]" data-education-field="school_name" placeholder="Name of School" class="border rounded-lg p-2 w-full"></div>
-                <div class="md:col-span-3"><input name="education_course_degree[]" data-education-field="degree_course" placeholder="Basic Education / Degree / Course" class="border rounded-lg p-2 w-full"></div>
-                <div class="md:col-span-1"><input name="education_period_from[]" data-education-field="attendance_from_year" placeholder="From" pattern="^\d{4}$" class="border rounded-lg p-2 w-full"></div>
-                <div class="md:col-span-1"><input name="education_period_to[]" data-education-field="attendance_to_year" placeholder="To" pattern="^\d{4}$" class="border rounded-lg p-2 w-full"></div>
-                <div class="md:col-span-1"><button type="button" data-remove-education-row class="border rounded-lg px-2 py-2 w-full">×</button></div>
-                <div class="md:col-span-4"><input name="education_highest_level_units[]" data-education-field="highest_level_units_earned" placeholder="Highest Level / Units Earned" class="border rounded-lg p-2 w-full"></div>
-                <div class="md:col-span-3"><input name="education_year_graduated[]" data-education-field="year_graduated" placeholder="Year Graduated" pattern="^\d{4}$" class="border rounded-lg p-2 w-full"></div>
-                <div class="md:col-span-5"><input name="education_honors_received[]" data-education-field="scholarship_honors_received" placeholder="Scholarship / Academic Honors Received" class="border rounded-lg p-2 w-full"></div>
-            </div>
-        </div>
-    </template>
-
     <script>
         (function () {
             const profileForm = document.getElementById('adminEmployeeProfileForm');
-            const enableEditButton = document.getElementById('adminEmployeeEnableEdit');
-            const cancelEditButton = document.getElementById('adminEmployeeCancelEdit');
-            const submitButton = document.getElementById('adminEmployeeProfileSubmit');
             const tabButtons = Array.from(document.querySelectorAll('[data-profile-tab-target]'));
             const sections = {
                 personal: document.querySelector('[data-profile-section="personal"]'),
@@ -504,22 +489,16 @@ ob_start();
                 education: document.querySelector('[data-profile-section="education"]')
             };
             const tabOrder = ['personal', 'family', 'education'];
+            const loadedProfileTabs = new Set(['personal']);
 
             const applyEditMode = (enabled) => {
                 if (!profileForm) return;
 
                 profileForm.dataset.editMode = enabled ? 'edit' : 'view';
-                submitButton?.classList.toggle('hidden', !enabled);
-                enableEditButton?.classList.toggle('hidden', enabled);
-                cancelEditButton?.classList.toggle('hidden', !enabled);
 
                 const controls = Array.from(profileForm.querySelectorAll('input, select, textarea, button'));
                 controls.forEach((control) => {
                     if (!(control instanceof HTMLElement)) {
-                        return;
-                    }
-
-                    if (control === submitButton || control === enableEditButton || control === cancelEditButton) {
                         return;
                     }
 
@@ -546,7 +525,44 @@ ob_start();
                 });
             };
 
-            const setActiveTab = (key) => {
+            const loadProfileTab = async (key) => {
+                if (key === 'personal' || loadedProfileTabs.has(key)) {
+                    return;
+                }
+
+                const panel = document.querySelector(`[data-profile-lazy-panel="${key}"]`);
+                if (!(panel instanceof HTMLElement)) {
+                    return;
+                }
+
+                const url = panel.getAttribute('data-profile-tab-url') || '';
+                if (url === '') {
+                    return;
+                }
+
+                panel.innerHTML = 'Loading section...';
+
+                try {
+                    const response = await fetch(url, {
+                        credentials: 'same-origin',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Profile tab request failed with status ${response.status}`);
+                    }
+
+                    panel.innerHTML = await response.text();
+                    loadedProfileTabs.add(key);
+                } catch (error) {
+                    console.error(error);
+                    panel.innerHTML = '<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">This section could not be loaded. Try opening the tab again.</div>';
+                }
+            };
+
+            const setActiveTab = async (key) => {
                 tabButtons.forEach((button) => {
                     const isActive = button.getAttribute('data-profile-tab-target') === key;
                     button.classList.toggle('bg-slate-50', isActive);
@@ -562,12 +578,14 @@ ob_start();
                     if (!sectionNode) return;
                     sectionNode.classList.toggle('hidden', sectionKey !== key);
                 });
+
+                await loadProfileTab(key);
             };
 
             tabButtons.forEach((button) => {
                 button.addEventListener('click', () => {
                     const key = button.getAttribute('data-profile-tab-target') || 'personal';
-                    setActiveTab(key);
+                    setActiveTab(key).catch(console.error);
                 });
             });
 
@@ -583,7 +601,7 @@ ob_start();
                 const current = getActiveTab();
                 const index = tabOrder.indexOf(current);
                 if (index > 0) {
-                    setActiveTab(tabOrder[index - 1]);
+                    setActiveTab(tabOrder[index - 1]).catch(console.error);
                 }
             });
 
@@ -591,62 +609,8 @@ ob_start();
                 const current = getActiveTab();
                 const index = tabOrder.indexOf(current);
                 if (index >= 0 && index < tabOrder.length - 1) {
-                    setActiveTab(tabOrder[index + 1]);
+                    setActiveTab(tabOrder[index + 1]).catch(console.error);
                 }
-            });
-
-            const childrenRows = document.getElementById('childrenRows');
-            const childRowTemplate = document.getElementById('childRowTemplate');
-            const addChildRowButton = document.getElementById('addChildRowButton');
-
-            const ensureAtLeastOneChildRow = () => {
-                if (!childrenRows) return;
-                const rows = childrenRows.querySelectorAll('.child-row');
-                if (rows.length === 0 && childRowTemplate) {
-                    childrenRows.appendChild(childRowTemplate.content.firstElementChild.cloneNode(true));
-                }
-            };
-
-            addChildRowButton?.addEventListener('click', () => {
-                if (!childrenRows || !childRowTemplate) return;
-                childrenRows.appendChild(childRowTemplate.content.firstElementChild.cloneNode(true));
-            });
-
-            childrenRows?.addEventListener('click', (event) => {
-                const target = event.target;
-                if (!(target instanceof Element)) return;
-                const removeButton = target.closest('[data-remove-child-row]');
-                if (!removeButton) return;
-                const row = removeButton.closest('.child-row');
-                row?.remove();
-                ensureAtLeastOneChildRow();
-            });
-
-            const educationRows = document.getElementById('educationRows');
-            const educationRowTemplate = document.getElementById('educationRowTemplate');
-            const addEducationRowButton = document.getElementById('addEducationRowButton');
-
-            const ensureAtLeastOneEducationRow = () => {
-                if (!educationRows) return;
-                const rows = educationRows.querySelectorAll('.education-row');
-                if (rows.length === 0 && educationRowTemplate) {
-                    educationRows.appendChild(educationRowTemplate.content.firstElementChild.cloneNode(true));
-                }
-            };
-
-            addEducationRowButton?.addEventListener('click', () => {
-                if (!educationRows || !educationRowTemplate) return;
-                educationRows.appendChild(educationRowTemplate.content.firstElementChild.cloneNode(true));
-            });
-
-            educationRows?.addEventListener('click', (event) => {
-                const target = event.target;
-                if (!(target instanceof Element)) return;
-                const removeButton = target.closest('[data-remove-education-row]');
-                if (!removeButton) return;
-                const row = removeButton.closest('.education-row');
-                row?.remove();
-                ensureAtLeastOneEducationRow();
             });
 
             const copyResidentialAddress = document.getElementById('copyResidentialAddress');
@@ -673,14 +637,6 @@ ob_start();
                 });
             });
 
-            enableEditButton?.addEventListener('click', () => {
-                applyEditMode(true);
-            });
-
-            cancelEditButton?.addEventListener('click', () => {
-                window.location.reload();
-            });
-
             profileForm?.addEventListener('submit', (event) => {
                 if (profileForm.dataset.editMode === 'edit') {
                     return;
@@ -689,9 +645,7 @@ ob_start();
                 event.preventDefault();
             });
 
-            setActiveTab('personal');
-            ensureAtLeastOneChildRow();
-            ensureAtLeastOneEducationRow();
+            setActiveTab('personal').catch(console.error);
             applyEditMode(false);
         })();
     </script>

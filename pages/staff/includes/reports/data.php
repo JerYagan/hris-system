@@ -1,5 +1,576 @@
 <?php
 
+if (!function_exists('staffReportsAppendPagination')) {
+    function staffReportsAppendPagination(string $url, int $limit, int $offset): string
+    {
+        $separator = str_contains($url, '?') ? '&' : '?';
+        return $url . $separator . 'limit=' . max(1, $limit) . '&offset=' . max(0, $offset);
+    }
+}
+
+if (!function_exists('staffReportsApiRequestWithHeaders')) {
+    function staffReportsApiRequestWithHeaders(string $method, string $url, array $headers, ?array $body = null, bool $noBody = false): array
+    {
+        $responseHeaders = [];
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, strtoupper($method));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt(
+            $ch,
+            CURLOPT_HEADERFUNCTION,
+            static function ($curlHandle, string $headerLine) use (&$responseHeaders): int {
+                $length = strlen($headerLine);
+                $normalized = trim($headerLine);
+                if ($normalized === '' || !str_contains($normalized, ':')) {
+                    return $length;
+                }
+
+                [$name, $value] = explode(':', $normalized, 2);
+                $responseHeaders[strtolower(trim($name))] = trim($value);
+
+                return $length;
+            }
+        );
+
+        if ($body !== null) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+        }
+
+        if ($noBody) {
+            curl_setopt($ch, CURLOPT_NOBODY, true);
+        }
+
+        $responseBody = curl_exec($ch);
+        $statusCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        $decoded = is_string($responseBody) ? json_decode($responseBody, true) : null;
+        if (!is_array($decoded)) {
+            $decoded = [];
+        }
+
+        return [
+            'status' => $statusCode,
+            'data' => $decoded,
+            'raw' => (string)$responseBody,
+            'error' => $error !== '' ? $error : null,
+            'response_headers' => $responseHeaders,
+        ];
+    }
+}
+
+if (!function_exists('staffReportsCountFromResponse')) {
+    function staffReportsCountFromResponse(array $response): ?int
+    {
+        $headers = (array)($response['response_headers'] ?? []);
+        $contentRange = trim((string)($headers['content-range'] ?? ''));
+        if ($contentRange !== '' && preg_match('#/(\d+)$#', $contentRange, $matches) === 1) {
+            return (int)$matches[1];
+        }
+
+        if (isset($response['count']) && is_numeric($response['count'])) {
+            return (int)$response['count'];
+        }
+
+        $rows = is_array($response['data'] ?? null) ? (array)$response['data'] : [];
+        return $rows === [] ? 0 : count($rows);
+    }
+}
+
+if (!function_exists('staffReportsFetchCount')) {
+    function staffReportsFetchCount(string $url, array $headers): array
+    {
+        $countHeaders = array_merge($headers, ['Prefer: count=exact', 'Range: 0-0']);
+        $headResponse = staffReportsApiRequestWithHeaders('HEAD', $url, $countHeaders, null, true);
+        $headResponse['count'] = staffReportsCountFromResponse($headResponse);
+        if (isSuccessful($headResponse) && $headResponse['count'] !== null) {
+            return $headResponse;
+        }
+
+        $getResponse = staffReportsApiRequestWithHeaders(
+            'GET',
+            staffReportsAppendPagination($url, 1, 0),
+            array_merge($headers, ['Prefer: count=exact'])
+        );
+        $getResponse['count'] = staffReportsCountFromResponse($getResponse);
+
+        return $getResponse;
+    }
+}
+
+if (!function_exists('staffReportsAppendError')) {
+    function staffReportsAppendError(?string &$dataLoadError, string $label, array $response): void
+    {
+        if (isSuccessful($response)) {
+            return;
+        }
+
+        $message = $label . ' query failed (HTTP ' . (int)($response['status'] ?? 0) . ').';
+        $raw = trim((string)($response['raw'] ?? ''));
+        if ($raw !== '') {
+            $message .= ' ' . $raw;
+        }
+
+        $dataLoadError = $dataLoadError ? ($dataLoadError . ' ' . $message) : $message;
+    }
+}
+
+if (!function_exists('staffReportsFormatStatusLabel')) {
+    function staffReportsFormatStatusLabel(?string $status): string
+    {
+        $normalized = strtolower(trim((string)$status));
+        if ($normalized === '') {
+            return 'Unspecified';
+        }
+
+        return ucwords(str_replace('_', ' ', $normalized));
+    }
+}
+
+if (!function_exists('staffReportsToDateKey')) {
+    function staffReportsToDateKey(?string $value): string
+    {
+        $raw = trim((string)$value);
+        if ($raw === '') {
+            return '';
+        }
+
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw)) {
+            return $raw;
+        }
+
+        $timestamp = strtotime($raw);
+        if ($timestamp === false) {
+            return '';
+        }
+
+        return gmdate('Y-m-d', $timestamp);
+    }
+}
+
+if (!function_exists('staffReportsFetchOffices')) {
+    function staffReportsFetchOffices(string $supabaseUrl, array $headers): array
+    {
+        return apiRequest('GET', $supabaseUrl . '/rest/v1/offices?select=id,office_name&limit=1000', $headers);
+    }
+}
+
+if (!function_exists('staffReportsBuildOfficeMap')) {
+    function staffReportsBuildOfficeMap(array $offices): array
+    {
+        $officeNameById = [];
+        foreach ($offices as $office) {
+            $officeId = cleanText($office['id'] ?? null) ?? '';
+            if (!isValidUuid($officeId)) {
+                continue;
+            }
+
+            $officeNameById[$officeId] = cleanText($office['office_name'] ?? null) ?? 'Unassigned Division';
+        }
+
+        return $officeNameById;
+    }
+}
+
+if (!function_exists('staffReportsDivisionFilterOptions')) {
+    function staffReportsDivisionFilterOptions(array $officeNameById): array
+    {
+        $divisionFilterOptions = array_values(array_unique(array_filter(
+            array_values($officeNameById),
+            static fn (mixed $officeName): bool => trim((string)$officeName) !== ''
+        )));
+        sort($divisionFilterOptions);
+
+        return $divisionFilterOptions;
+    }
+}
+
+if (!function_exists('staffReportsFetchCurrentEmployment')) {
+    function staffReportsFetchCurrentEmployment(string $supabaseUrl, array $headers, bool $includePerson = false): array
+    {
+        $select = $includePerson
+            ? 'id,person_id,office_id,employment_status,hire_date,is_current,person:people!employment_records_person_id_fkey(first_name,surname,middle_name)'
+            : 'id,person_id,office_id,employment_status,hire_date,is_current';
+
+        return apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/employment_records?select=' . $select . '&is_current=eq.true&limit=5000',
+            $headers
+        );
+    }
+}
+
+if (!function_exists('staffReportsBuildCurrentEmploymentByPerson')) {
+    function staffReportsBuildCurrentEmploymentByPerson(array $employmentRecords): array
+    {
+        $currentEmploymentByPerson = [];
+        foreach ($employmentRecords as $record) {
+            $personId = cleanText($record['person_id'] ?? null) ?? '';
+            if (!isValidUuid($personId) || isset($currentEmploymentByPerson[$personId])) {
+                continue;
+            }
+
+            $currentEmploymentByPerson[$personId] = $record;
+        }
+
+        return $currentEmploymentByPerson;
+    }
+}
+
+$staffReportsDataStage = (string)($staffReportsDataStage ?? 'legacy-full');
+
+if ($staffReportsDataStage !== 'legacy-full') {
+    $dataLoadError = null;
+
+    if ($staffReportsDataStage === 'export-form') {
+        $officesResponse = staffReportsFetchOffices($supabaseUrl, $headers);
+        staffReportsAppendError($dataLoadError, 'Offices', $officesResponse);
+        $offices = isSuccessful($officesResponse) ? (array)($officesResponse['data'] ?? []) : [];
+        $officeNameById = staffReportsBuildOfficeMap($offices);
+        $divisionFilterOptions = staffReportsDivisionFilterOptions($officeNameById);
+        return;
+    }
+
+    if ($staffReportsDataStage === 'summary') {
+        $thirtyDaysAgoDate = gmdate('Y-m-d', strtotime('-30 days'));
+        $officesResponse = staffReportsFetchOffices($supabaseUrl, $headers);
+        $employmentResponse = staffReportsFetchCurrentEmployment($supabaseUrl, $headers, false);
+        $attendancePresentResponse = staffReportsFetchCount(
+            $supabaseUrl . '/rest/v1/attendance_logs?select=id&attendance_date=gte.' . rawurlencode($thirtyDaysAgoDate) . '&attendance_status=eq.present',
+            $headers
+        );
+        $payrollProcessedResponse = staffReportsFetchCount(
+            $supabaseUrl . '/rest/v1/payroll_items?select=id&created_at=gte.' . rawurlencode($thirtyDaysAgoDate . 'T00:00:00Z'),
+            $headers
+        );
+        $recruitmentSubmittedResponse = staffReportsFetchCount(
+            $supabaseUrl . '/rest/v1/applications?select=id&application_status=eq.submitted',
+            $headers
+        );
+        $recruitmentHiredResponse = staffReportsFetchCount(
+            $supabaseUrl . '/rest/v1/applications?select=id&application_status=eq.hired',
+            $headers
+        );
+
+        staffReportsAppendError($dataLoadError, 'Offices', $officesResponse);
+        staffReportsAppendError($dataLoadError, 'Current employment', $employmentResponse);
+        staffReportsAppendError($dataLoadError, 'Attendance present count', $attendancePresentResponse);
+        staffReportsAppendError($dataLoadError, 'Payroll processed count', $payrollProcessedResponse);
+        staffReportsAppendError($dataLoadError, 'Recruitment submitted count', $recruitmentSubmittedResponse);
+        staffReportsAppendError($dataLoadError, 'Recruitment hired count', $recruitmentHiredResponse);
+
+        $offices = isSuccessful($officesResponse) ? (array)($officesResponse['data'] ?? []) : [];
+        $employmentRecords = isSuccessful($employmentResponse) ? (array)($employmentResponse['data'] ?? []) : [];
+        $officeNameById = staffReportsBuildOfficeMap($offices);
+        $currentEmploymentByPerson = staffReportsBuildCurrentEmploymentByPerson($employmentRecords);
+
+        $totalEmployees = count($currentEmploymentByPerson);
+        $activeCount = 0;
+        $onLeaveCount = 0;
+        $inactiveCount = 0;
+        $newHiresLast30Days = 0;
+        $departmentCounts = [];
+
+        foreach ($currentEmploymentByPerson as $record) {
+            $statusRaw = strtolower((string)(cleanText($record['employment_status'] ?? null) ?? 'inactive'));
+            if ($statusRaw === 'active') {
+                $activeCount += 1;
+            } elseif ($statusRaw === 'on_leave') {
+                $onLeaveCount += 1;
+            } else {
+                $inactiveCount += 1;
+            }
+
+            $officeId = cleanText($record['office_id'] ?? null) ?? '';
+            if ($officeId !== '') {
+                $departmentCounts[$officeId] = (int)($departmentCounts[$officeId] ?? 0) + 1;
+            }
+
+            $hireDateRaw = cleanText($record['hire_date'] ?? null) ?? '';
+            if ($hireDateRaw !== '' && $hireDateRaw >= $thirtyDaysAgoDate) {
+                $newHiresLast30Days += 1;
+            }
+        }
+
+        $topDepartmentLabel = 'No division data available.';
+        if ($departmentCounts !== []) {
+            arsort($departmentCounts);
+            $topOfficeId = (string)array_key_first($departmentCounts);
+            $topDepartmentCount = (int)($departmentCounts[$topOfficeId] ?? 0);
+            $topDepartmentName = (string)($officeNameById[$topOfficeId] ?? 'Unassigned Division');
+            $topDepartmentLabel = $topDepartmentName . ' - ' . $topDepartmentCount . ' Employee' . ($topDepartmentCount === 1 ? '' : 's');
+        }
+
+        $attendancePresentCount = staffReportsCountFromResponse($attendancePresentResponse) ?? 0;
+        $payrollProcessedCount = staffReportsCountFromResponse($payrollProcessedResponse) ?? 0;
+        $recruitmentSubmittedCount = staffReportsCountFromResponse($recruitmentSubmittedResponse) ?? 0;
+        $recruitmentHiredCount = staffReportsCountFromResponse($recruitmentHiredResponse) ?? 0;
+        return;
+    }
+
+    if ($staffReportsDataStage === 'workforce') {
+        $officesResponse = staffReportsFetchOffices($supabaseUrl, $headers);
+        $employmentResponse = staffReportsFetchCurrentEmployment($supabaseUrl, $headers, true);
+        staffReportsAppendError($dataLoadError, 'Offices', $officesResponse);
+        staffReportsAppendError($dataLoadError, 'Current employment', $employmentResponse);
+        $offices = isSuccessful($officesResponse) ? (array)($officesResponse['data'] ?? []) : [];
+        $employmentRecords = isSuccessful($employmentResponse) ? (array)($employmentResponse['data'] ?? []) : [];
+        $officeNameById = staffReportsBuildOfficeMap($offices);
+        $divisionFilterOptions = staffReportsDivisionFilterOptions($officeNameById);
+        $currentEmploymentByPerson = staffReportsBuildCurrentEmploymentByPerson($employmentRecords);
+        $employeeRows = [];
+        $employeeStatusFilters = [];
+
+        foreach (array_values($currentEmploymentByPerson) as $record) {
+            $personId = cleanText($record['person_id'] ?? null) ?? '';
+            if (!isValidUuid($personId)) {
+                continue;
+            }
+
+            $person = (array)($record['person'] ?? []);
+            $firstName = cleanText($person['first_name'] ?? null) ?? '';
+            $middleName = cleanText($person['middle_name'] ?? null) ?? '';
+            $surname = cleanText($person['surname'] ?? null) ?? '';
+            $employeeName = trim($firstName . ' ' . $middleName . ' ' . $surname);
+            if ($employeeName === '') {
+                $employeeName = 'Unknown Employee';
+            }
+
+            $officeId = cleanText($record['office_id'] ?? null) ?? '';
+            $departmentName = $officeNameById[$officeId] ?? 'Unassigned Division';
+            $statusLabel = staffReportsFormatStatusLabel(cleanText($record['employment_status'] ?? null) ?? 'inactive');
+            $hireDateRaw = cleanText($record['hire_date'] ?? null) ?? '';
+            $hireDateLabel = $hireDateRaw !== '' ? formatDateTimeForPhilippines($hireDateRaw, 'M d, Y') : '-';
+
+            $employeeRows[] = [
+                'person_id' => $personId,
+                'name' => $employeeName,
+                'department' => $departmentName,
+                'status_label' => $statusLabel,
+                'hire_date' => $hireDateLabel,
+                'search_text' => strtolower(trim($employeeName . ' ' . $departmentName . ' ' . $statusLabel . ' ' . $hireDateLabel . ' ' . $personId)),
+            ];
+            $employeeStatusFilters[$statusLabel] = true;
+        }
+
+        usort($employeeRows, static function (array $left, array $right): int {
+            return strcmp((string)($left['name'] ?? ''), (string)($right['name'] ?? ''));
+        });
+        $employeeStatusFilters = array_keys($employeeStatusFilters);
+        sort($employeeStatusFilters);
+        return;
+    }
+
+    if ($staffReportsDataStage === 'timekeeping') {
+        $officesResponse = staffReportsFetchOffices($supabaseUrl, $headers);
+        $employmentResponse = staffReportsFetchCurrentEmployment($supabaseUrl, $headers, false);
+        staffReportsAppendError($dataLoadError, 'Offices', $officesResponse);
+        staffReportsAppendError($dataLoadError, 'Current employment', $employmentResponse);
+        $offices = isSuccessful($officesResponse) ? (array)($officesResponse['data'] ?? []) : [];
+        $employmentRecords = isSuccessful($employmentResponse) ? (array)($employmentResponse['data'] ?? []) : [];
+        $officeNameById = staffReportsBuildOfficeMap($offices);
+        $divisionFilterOptions = staffReportsDivisionFilterOptions($officeNameById);
+        $currentEmploymentByPerson = staffReportsBuildCurrentEmploymentByPerson($employmentRecords);
+        $personIds = array_keys($currentEmploymentByPerson);
+        $timekeepingRows = [];
+        $timekeepingStatusFilters = [];
+
+        if ($personIds !== []) {
+            $attendanceResponse = apiRequest(
+                'GET',
+                $supabaseUrl
+                . '/rest/v1/attendance_logs?select=person_id,attendance_date,attendance_status,late_minutes,hours_worked,source,person:people(first_name,surname)'
+                . '&person_id=in.' . rawurlencode('(' . implode(',', $personIds) . ')')
+                . '&order=attendance_date.desc&limit=5000',
+                $headers
+            );
+            staffReportsAppendError($dataLoadError, 'Attendance logs', $attendanceResponse);
+            $attendanceLogs = isSuccessful($attendanceResponse) ? (array)($attendanceResponse['data'] ?? []) : [];
+
+            foreach ($attendanceLogs as $row) {
+                $personId = cleanText($row['person_id'] ?? null) ?? '';
+                if (!isValidUuid($personId)) {
+                    continue;
+                }
+
+                $person = is_array($row['person'] ?? null) ? (array)$row['person'] : [];
+                $employeeName = trim((string)(cleanText($person['first_name'] ?? null) ?? '') . ' ' . (string)(cleanText($person['surname'] ?? null) ?? ''));
+                if ($employeeName === '') {
+                    $employeeName = 'Unknown Employee';
+                }
+
+                $employment = (array)($currentEmploymentByPerson[$personId] ?? []);
+                $officeId = cleanText($employment['office_id'] ?? null) ?? '';
+                $departmentName = (string)($officeNameById[$officeId] ?? 'Unassigned Division');
+                $statusLabel = staffReportsFormatStatusLabel(cleanText($row['attendance_status'] ?? null) ?? '');
+                $dateKey = staffReportsToDateKey(cleanText($row['attendance_date'] ?? null) ?? '');
+
+                $timekeepingRows[] = [
+                    'date_key' => $dateKey,
+                    'date_label' => $dateKey !== '' ? formatDateTimeForPhilippines($dateKey, 'M d, Y') : '-',
+                    'employee_name' => $employeeName,
+                    'department' => $departmentName,
+                    'status_label' => $statusLabel,
+                    'late_minutes' => (string)((int)($row['late_minutes'] ?? 0)),
+                    'hours_worked' => number_format((float)($row['hours_worked'] ?? 0), 2),
+                    'source_label' => cleanText($row['source'] ?? null) ?? '-',
+                    'search_text' => strtolower(trim($employeeName . ' ' . $departmentName . ' ' . $statusLabel . ' ' . $dateKey)),
+                ];
+                $timekeepingStatusFilters[$statusLabel] = true;
+            }
+        }
+
+        usort($timekeepingRows, static function (array $left, array $right): int {
+            return strcmp((string)($right['date_key'] ?? ''), (string)($left['date_key'] ?? ''));
+        });
+        $timekeepingStatusFilters = array_keys($timekeepingStatusFilters);
+        sort($timekeepingStatusFilters);
+        return;
+    }
+
+    if ($staffReportsDataStage === 'payroll') {
+        $officesResponse = staffReportsFetchOffices($supabaseUrl, $headers);
+        $employmentResponse = staffReportsFetchCurrentEmployment($supabaseUrl, $headers, false);
+        staffReportsAppendError($dataLoadError, 'Offices', $officesResponse);
+        staffReportsAppendError($dataLoadError, 'Current employment', $employmentResponse);
+        $offices = isSuccessful($officesResponse) ? (array)($officesResponse['data'] ?? []) : [];
+        $employmentRecords = isSuccessful($employmentResponse) ? (array)($employmentResponse['data'] ?? []) : [];
+        $officeNameById = staffReportsBuildOfficeMap($offices);
+        $divisionFilterOptions = staffReportsDivisionFilterOptions($officeNameById);
+        $currentEmploymentByPerson = staffReportsBuildCurrentEmploymentByPerson($employmentRecords);
+        $personIds = array_keys($currentEmploymentByPerson);
+        $payrollSummaryRows = [];
+        $payrollStatusFilters = [];
+
+        if ($personIds !== []) {
+            $payrollResponse = apiRequest(
+                'GET',
+                $supabaseUrl
+                . '/rest/v1/payroll_items?select=person_id,gross_pay,net_pay,created_at,payroll_run:payroll_runs(run_status,office_id,payroll_period:payroll_periods(period_start,period_end,period_code)),person:people(first_name,middle_name,surname)'
+                . '&person_id=in.' . rawurlencode('(' . implode(',', $personIds) . ')')
+                . '&order=created_at.desc&limit=5000',
+                $headers
+            );
+            staffReportsAppendError($dataLoadError, 'Payroll items', $payrollResponse);
+            $payrollItems = isSuccessful($payrollResponse) ? (array)($payrollResponse['data'] ?? []) : [];
+
+            foreach ($payrollItems as $item) {
+                $personId = cleanText($item['person_id'] ?? null) ?? '';
+                if (!isValidUuid($personId)) {
+                    continue;
+                }
+
+                $person = is_array($item['person'] ?? null) ? (array)$item['person'] : [];
+                $employeeName = trim(
+                    (string)(cleanText($person['first_name'] ?? null) ?? '')
+                    . ' '
+                    . (string)(cleanText($person['middle_name'] ?? null) ?? '')
+                    . ' '
+                    . (string)(cleanText($person['surname'] ?? null) ?? '')
+                );
+                if ($employeeName === '') {
+                    $employeeName = 'Unknown Employee';
+                }
+
+                $run = is_array($item['payroll_run'] ?? null) ? (array)$item['payroll_run'] : [];
+                $period = is_array($run['payroll_period'] ?? null) ? (array)$run['payroll_period'] : [];
+                $runStatusLabel = staffReportsFormatStatusLabel(cleanText($run['run_status'] ?? null) ?? 'draft');
+                $periodStartKey = staffReportsToDateKey(cleanText($period['period_start'] ?? null) ?? '');
+                $periodEndKey = staffReportsToDateKey(cleanText($period['period_end'] ?? null) ?? '');
+                $periodCode = cleanText($period['period_code'] ?? null) ?? 'Uncoded Period';
+                $periodLabel = ($periodStartKey !== '' && $periodEndKey !== '')
+                    ? (formatDateTimeForPhilippines($periodStartKey, 'M d, Y') . ' - ' . formatDateTimeForPhilippines($periodEndKey, 'M d, Y'))
+                    : $periodCode;
+
+                $employment = (array)($currentEmploymentByPerson[$personId] ?? []);
+                $employmentOfficeId = cleanText($employment['office_id'] ?? null) ?? '';
+                $runOfficeId = cleanText($run['office_id'] ?? null) ?? '';
+                $departmentName = (string)($officeNameById[$employmentOfficeId] ?? ($officeNameById[$runOfficeId] ?? 'Unassigned Division'));
+                $grossPay = (float)($item['gross_pay'] ?? 0);
+                $netPay = (float)($item['net_pay'] ?? 0);
+
+                $payrollSummaryRows[] = [
+                    'date_key' => $periodEndKey !== '' ? $periodEndKey : $periodStartKey,
+                    'period_label' => $periodLabel,
+                    'employee_name' => $employeeName,
+                    'department' => $departmentName,
+                    'run_status' => $runStatusLabel,
+                    'gross_label' => '₱' . number_format($grossPay, 2),
+                    'net_label' => '₱' . number_format($netPay, 2),
+                    'search_text' => strtolower(trim($employeeName . ' ' . $departmentName . ' ' . $periodCode . ' ' . $periodLabel . ' ' . $runStatusLabel)),
+                ];
+                $payrollStatusFilters[$runStatusLabel] = true;
+            }
+        }
+
+        usort($payrollSummaryRows, static function (array $left, array $right): int {
+            return strcmp((string)($right['date_key'] ?? ''), (string)($left['date_key'] ?? ''));
+        });
+        $payrollStatusFilters = array_keys($payrollStatusFilters);
+        sort($payrollStatusFilters);
+        return;
+    }
+
+    if ($staffReportsDataStage === 'recruitment') {
+        $officesResponse = staffReportsFetchOffices($supabaseUrl, $headers);
+        $applicationsResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/applications?select=application_ref_no,application_status,submitted_at,job:job_postings(title,office_id),applicant:applicant_profiles(full_name,email)'
+            . '&order=submitted_at.desc&limit=5000',
+            $headers
+        );
+        staffReportsAppendError($dataLoadError, 'Offices', $officesResponse);
+        staffReportsAppendError($dataLoadError, 'Applications', $applicationsResponse);
+        $offices = isSuccessful($officesResponse) ? (array)($officesResponse['data'] ?? []) : [];
+        $officeNameById = staffReportsBuildOfficeMap($offices);
+        $divisionFilterOptions = staffReportsDivisionFilterOptions($officeNameById);
+        $applicationRows = isSuccessful($applicationsResponse) ? (array)($applicationsResponse['data'] ?? []) : [];
+        $recruitmentMetricRows = [];
+        $recruitmentStatusFilters = [];
+
+        foreach ($applicationRows as $item) {
+            $job = is_array($item['job'] ?? null) ? (array)$item['job'] : [];
+            $applicant = is_array($item['applicant'] ?? null) ? (array)$item['applicant'] : [];
+            $jobOfficeId = cleanText($job['office_id'] ?? null) ?? '';
+            $departmentName = (string)($officeNameById[$jobOfficeId] ?? 'Unassigned Division');
+            $statusLabel = staffReportsFormatStatusLabel(cleanText($item['application_status'] ?? null) ?? '');
+            $submittedDateKey = staffReportsToDateKey(cleanText($item['submitted_at'] ?? null) ?? '');
+            $positionTitle = cleanText($job['title'] ?? null) ?? '-';
+
+            $recruitmentMetricRows[] = [
+                'date_key' => $submittedDateKey,
+                'submitted_label' => $submittedDateKey !== '' ? formatDateTimeForPhilippines($submittedDateKey, 'M d, Y') : '-',
+                'reference_no' => cleanText($item['application_ref_no'] ?? null) ?? '-',
+                'applicant_name' => cleanText($applicant['full_name'] ?? null) ?? '-',
+                'position_title' => $positionTitle,
+                'department' => $departmentName,
+                'status_label' => $statusLabel,
+                'search_text' => strtolower(trim(
+                    (string)(cleanText($item['application_ref_no'] ?? null) ?? '')
+                    . ' ' . (string)(cleanText($applicant['full_name'] ?? null) ?? '')
+                    . ' ' . $positionTitle
+                    . ' ' . $departmentName
+                    . ' ' . $statusLabel
+                    . ' ' . $submittedDateKey
+                )),
+            ];
+            $recruitmentStatusFilters[$statusLabel] = true;
+        }
+
+        usort($recruitmentMetricRows, static function (array $left, array $right): int {
+            return strcmp((string)($right['date_key'] ?? ''), (string)($left['date_key'] ?? ''));
+        });
+        $recruitmentStatusFilters = array_keys($recruitmentStatusFilters);
+        sort($recruitmentStatusFilters);
+        return;
+    }
+}
+
 $reportDataLoadError = null;
 
 $appendReportDataError = static function (string $label, array $response) use (&$reportDataLoadError): void {

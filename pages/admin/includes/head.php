@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../../shared/lib/system-helpers.php';
+
 $adminActivePage = $activePage ?? '';
 $adminChartPages = ['dashboard.php', 'report-analytics.php'];
 $adminDataTablePages = [
@@ -18,14 +20,16 @@ $adminDataTablePages = [
 
 $loadAdminCharts = in_array($adminActivePage, $adminChartPages, true);
 $loadAdminDataTables = in_array($adminActivePage, $adminDataTablePages, true);
-?>
-<meta charset="UTF-8" />
-<title><?= $pageTitle ?? 'Admin | ATI HRIS Portal' ?></title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+echo systemRenderHeadAssets([
+  'title' => $pageTitle ?? 'Admin | DA HRIS',
+  'sweetalert' => true,
+  'flatpickr' => true,
+  'chart_js' => $loadAdminCharts,
+  'material_icons' => false,
+  'material_symbols' => true,
+]);
+?>
   <?php if ($loadAdminDataTables): ?>
   <link rel="stylesheet" href="https://cdn.datatables.net/2.1.8/css/dataTables.dataTables.min.css">
   <link rel="stylesheet" href="https://cdn.datatables.net/buttons/3.1.2/css/buttons.dataTables.min.css">
@@ -34,22 +38,8 @@ $loadAdminDataTables = in_array($adminActivePage, $adminDataTablePages, true);
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script defer src="https://cdn.datatables.net/buttons/3.1.2/js/buttons.html5.min.js"></script>
   <?php endif; ?>
-  <?php if ($loadAdminCharts): ?>
-  <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <?php endif; ?>
-  <script defer src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
-  <link rel="icon" type="image/png" sizes="32x32" href="/hris-system/assets/images/favicon.png">
-  <link rel="icon" type="image/x-icon" href="/hris-system/assets/images/favicon.ico">
-  <link rel="apple-touch-icon" sizes="180x180" href="/hris-system/assets/images/apple-touch-icon.png">
-  <link rel="stylesheet" href="/hris-system/global.css">
 
 <style>
-  .material-symbols-outlined {
-    font-variation-settings: 'wght' 400;
-  }
-
   .admin-shell {
     background: #c8d2d8;
   }

@@ -100,6 +100,22 @@ if (!function_exists('authCleanText')) {
     }
 }
 
+if (!function_exists('authIsValidEmailAddress')) {
+    function authIsValidEmailAddress(?string $value): bool
+    {
+        $email = strtolower(trim((string)$value));
+        if ($email === '' || strlen($email) > 254) {
+            return false;
+        }
+
+        if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return true;
+        }
+
+        return preg_match('/^[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}$/i', $email) === 1;
+    }
+}
+
 if (!function_exists('authUserAgent')) {
     function authUserAgent(): ?string
     {
@@ -415,6 +431,81 @@ if (!function_exists('authDeleteAuthUser')) {
     }
 }
 
+if (!function_exists('authRoleRedirectMap')) {
+    function authRoleRedirectMap(): array
+    {
+        return [
+            'admin' => '../admin/dashboard.php',
+            'hr_officer' => '../staff/dashboard.php',
+            'supervisor' => '../staff/dashboard.php',
+            'staff' => '../staff/dashboard.php',
+            'employee' => '../employee/dashboard.php',
+            'applicant' => '../applicant/dashboard.php',
+        ];
+    }
+}
+
+if (!function_exists('authRoleRedirectPath')) {
+    function authRoleRedirectPath(string $roleKey): ?string
+    {
+        $normalizedRoleKey = strtolower(trim($roleKey));
+        if ($normalizedRoleKey === '') {
+            return null;
+        }
+
+        $redirectMap = authRoleRedirectMap();
+        return $redirectMap[$normalizedRoleKey] ?? null;
+    }
+}
+
+if (!function_exists('authResolveLoginContext')) {
+    function authResolveLoginContext(string $supabaseUrl, string $serviceRoleKey, string $userId): array
+    {
+        $headers = [
+            'apikey: ' . $serviceRoleKey,
+            'Authorization: Bearer ' . $serviceRoleKey,
+        ];
+
+        $accountResponse = authHttpJsonRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/user_accounts?select=account_status&id=eq.' . rawurlencode($userId) . '&limit=1',
+            $headers
+        );
+
+        $accountStatus = $accountResponse['data'][0]['account_status'] ?? null;
+        if ($accountStatus !== null && $accountStatus !== 'active') {
+            return [
+                'ok' => false,
+                'code' => 'inactive',
+                'account_status' => $accountStatus,
+            ];
+        }
+
+        $roleResponse = authHttpJsonRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/user_role_assignments?select=is_primary,role:roles(role_key)&user_id=eq.' . rawurlencode($userId) . '&expires_at=is.null&order=is_primary.desc&limit=1',
+            $headers
+        );
+
+        $roleKey = strtolower((string)($roleResponse['data'][0]['role']['role_key'] ?? ''));
+        $redirectTo = authRoleRedirectPath($roleKey);
+        if ($roleKey === '' || $redirectTo === null) {
+            return [
+                'ok' => false,
+                'code' => 'role',
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'code' => null,
+            'account_status' => $accountStatus,
+            'role_key' => $roleKey,
+            'redirect_to' => $redirectTo,
+        ];
+    }
+}
+
 if (!function_exists('authCreateApplicantAccount')) {
     function authCreateApplicantAccount(array $registration): array
     {
@@ -594,6 +685,10 @@ if (!function_exists('authFinalizeLoginSession')) {
 
         session_regenerate_id(true);
         authSyncRememberMeCookie((bool)($pendingMfa['remember_me'] ?? false));
+        authSyncPersistentLoginCookie((bool)($pendingMfa['remember_me'] ?? false), [
+            'user' => $_SESSION['user'],
+            'tokens' => $_SESSION['supabase'],
+        ]);
     }
 }
 
@@ -621,6 +716,117 @@ if (!function_exists('authRememberMeLifetime')) {
     }
 }
 
+if (!function_exists('authPersistentLoginCookieName')) {
+    function authPersistentLoginCookieName(): string
+    {
+        return 'hris_persistent_auth';
+    }
+}
+
+if (!function_exists('authPersistentLoginLifetime')) {
+    function authPersistentLoginLifetime(): int
+    {
+        return 60 * 60 * 24 * 365;
+    }
+}
+
+if (!function_exists('authBase64UrlEncode')) {
+    function authBase64UrlEncode(string $value): string
+    {
+        return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
+    }
+}
+
+if (!function_exists('authBase64UrlDecode')) {
+    function authBase64UrlDecode(string $value): ?string
+    {
+        $paddingLength = (4 - (strlen($value) % 4)) % 4;
+        $decoded = base64_decode(strtr($value . str_repeat('=', $paddingLength), '-_', '+/'), true);
+        return is_string($decoded) ? $decoded : null;
+    }
+}
+
+if (!function_exists('authPersistentLoginSecret')) {
+    function authPersistentLoginSecret(): string
+    {
+        authLoadProjectEnv();
+
+        $secretSeed = (string)(
+            authEnvValue('AUTH_PERSISTENT_LOGIN_SECRET')
+            ?? authEnvValue('APP_KEY')
+            ?? authEnvValue('SUPABASE_SERVICE_ROLE_KEY')
+            ?? authProjectRoot()
+        );
+
+        return hash('sha256', $secretSeed . '|' . authProjectRoot(), true);
+    }
+}
+
+if (!function_exists('authEncodePersistentLoginPayload')) {
+    function authEncodePersistentLoginPayload(array $payload): ?string
+    {
+        $json = json_encode($payload, JSON_UNESCAPED_SLASHES);
+        if (!is_string($json) || $json === '') {
+            return null;
+        }
+
+        $encodedPayload = authBase64UrlEncode($json);
+        $signature = authBase64UrlEncode(hash_hmac('sha256', $encodedPayload, authPersistentLoginSecret(), true));
+
+        return $encodedPayload . '.' . $signature;
+    }
+}
+
+if (!function_exists('authDecodePersistentLoginPayload')) {
+    function authDecodePersistentLoginPayload(?string $cookieValue): ?array
+    {
+        $value = trim((string)$cookieValue);
+        if ($value === '' || !str_contains($value, '.')) {
+            return null;
+        }
+
+        [$encodedPayload, $signature] = explode('.', $value, 2);
+        if ($encodedPayload === '' || $signature === '') {
+            return null;
+        }
+
+        $expectedSignature = authBase64UrlEncode(hash_hmac('sha256', $encodedPayload, authPersistentLoginSecret(), true));
+        if (!hash_equals($expectedSignature, $signature)) {
+            return null;
+        }
+
+        $decodedPayload = authBase64UrlDecode($encodedPayload);
+        if ($decodedPayload === null) {
+            return null;
+        }
+
+        $payload = json_decode($decodedPayload, true);
+        return is_array($payload) ? $payload : null;
+    }
+}
+
+if (!function_exists('authBuildPersistentLoginPayload')) {
+    function authBuildPersistentLoginPayload(array $sessionState): ?array
+    {
+        $refreshToken = trim((string)($sessionState['tokens']['refresh_token'] ?? $sessionState['refresh_token'] ?? ''));
+        $userId = trim((string)($sessionState['user']['id'] ?? ''));
+        if ($refreshToken === '' || $userId === '') {
+            return null;
+        }
+
+        return [
+            'refresh_token' => $refreshToken,
+            'user' => [
+                'id' => $userId,
+                'email' => (string)($sessionState['user']['email'] ?? ''),
+                'name' => (string)($sessionState['user']['name'] ?? ''),
+                'role_key' => (string)($sessionState['user']['role_key'] ?? ''),
+            ],
+            'issued_at' => time(),
+        ];
+    }
+}
+
 if (!function_exists('authShouldRememberSession')) {
     function authShouldRememberSession(?bool $explicitValue = null): bool
     {
@@ -633,7 +839,11 @@ if (!function_exists('authShouldRememberSession')) {
             return in_array(strtolower(trim((string)$postValue)), ['1', 'true', 'on', 'yes'], true);
         }
 
-        return (string)($_COOKIE[authRememberMeCookieName()] ?? '') === '1';
+        if ((string)($_COOKIE[authRememberMeCookieName()] ?? '') === '1') {
+            return true;
+        }
+
+        return trim((string)($_COOKIE[authPersistentLoginCookieName()] ?? '')) !== '';
     }
 }
 
@@ -673,20 +883,136 @@ if (!function_exists('authStartSession')) {
         }
 
         $remember = authShouldRememberSession($rememberMe);
-        $lifetime = $remember ? authRememberMeLifetime() : 0;
+        $lifetime = $remember ? authPersistentLoginLifetime() : 0;
+        if ($lifetime > 0) {
+            ini_set('session.gc_maxlifetime', (string)$lifetime);
+        }
+
         session_set_cookie_params(authSessionCookieParams($lifetime));
         session_start();
+
+        if (!isset($_SESSION['user']) || !isset($_SESSION['supabase']['access_token'])) {
+            authRestorePersistentLoginSession();
+        }
     }
 }
 
 if (!function_exists('authSyncRememberMeCookie')) {
     function authSyncRememberMeCookie(bool $enabled): void
     {
-        $options = authCookieOptions($enabled ? authRememberMeLifetime() : 0);
+        $options = authCookieOptions($enabled ? authPersistentLoginLifetime() : 0);
         if (!$enabled) {
             $options['expires'] = time() - 3600;
         }
 
         setcookie(authRememberMeCookieName(), $enabled ? '1' : '', $options);
+    }
+}
+
+if (!function_exists('authSyncPersistentLoginCookie')) {
+    function authSyncPersistentLoginCookie(bool $enabled, ?array $sessionState = null): void
+    {
+        $options = authCookieOptions($enabled ? authPersistentLoginLifetime() : 0);
+        if (!$enabled) {
+            $options['expires'] = time() - 3600;
+            setcookie(authPersistentLoginCookieName(), '', $options);
+            return;
+        }
+
+        $payload = authBuildPersistentLoginPayload($sessionState ?? []);
+        $encodedPayload = $payload === null ? null : authEncodePersistentLoginPayload($payload);
+        if ($encodedPayload === null || $encodedPayload === '') {
+            $options['expires'] = time() - 3600;
+            setcookie(authPersistentLoginCookieName(), '', $options);
+            return;
+        }
+
+        setcookie(authPersistentLoginCookieName(), $encodedPayload, $options);
+    }
+}
+
+if (!function_exists('authRestorePersistentLoginSession')) {
+    function authRestorePersistentLoginSession(): bool
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            return false;
+        }
+
+        if (isset($_SESSION['user']) && isset($_SESSION['supabase']['access_token'])) {
+            return true;
+        }
+
+        $persistentPayload = authDecodePersistentLoginPayload($_COOKIE[authPersistentLoginCookieName()] ?? null);
+        if ($persistentPayload === null) {
+            return false;
+        }
+
+        $refreshToken = trim((string)($persistentPayload['refresh_token'] ?? ''));
+        if ($refreshToken === '') {
+            authSyncRememberMeCookie(false);
+            authSyncPersistentLoginCookie(false);
+            return false;
+        }
+
+        authLoadProjectEnv();
+        $supabaseUrl = rtrim((string)(authEnvValue('SUPABASE_URL') ?? ''), '/');
+        $supabaseAnonKey = authEnvValue('SUPABASE_ANON_KEY');
+        $supabaseServiceRoleKey = authEnvValue('SUPABASE_SERVICE_ROLE_KEY');
+        if ($supabaseUrl === '' || !$supabaseAnonKey || !$supabaseServiceRoleKey) {
+            authSyncRememberMeCookie(false);
+            authSyncPersistentLoginCookie(false);
+            return false;
+        }
+
+        $refreshResponse = authHttpJsonRequest(
+            'POST',
+            $supabaseUrl . '/auth/v1/token?grant_type=refresh_token',
+            [
+                'apikey: ' . $supabaseAnonKey,
+                'Content-Type: application/json',
+            ],
+            ['refresh_token' => $refreshToken]
+        );
+
+        $refreshedUser = $refreshResponse['data']['user'] ?? null;
+        $accessToken = $refreshResponse['data']['access_token'] ?? null;
+        $nextRefreshToken = trim((string)($refreshResponse['data']['refresh_token'] ?? ''));
+        if ((int)($refreshResponse['status'] ?? 0) !== 200 || !is_array($refreshedUser) || !is_string($accessToken) || $accessToken === '' || $nextRefreshToken === '') {
+            authSyncRememberMeCookie(false);
+            authSyncPersistentLoginCookie(false);
+            return false;
+        }
+
+        $userId = (string)($refreshedUser['id'] ?? ($persistentPayload['user']['id'] ?? ''));
+        $loginContext = authResolveLoginContext($supabaseUrl, $supabaseServiceRoleKey, $userId);
+        if (!($loginContext['ok'] ?? false)) {
+            authSyncRememberMeCookie(false);
+            authSyncPersistentLoginCookie(false);
+            return false;
+        }
+
+        $userEmail = (string)($refreshedUser['email'] ?? ($persistentPayload['user']['email'] ?? ''));
+        $displayName = (string)(
+            $refreshedUser['user_metadata']['full_name']
+            ?? $refreshedUser['user_metadata']['name']
+            ?? ($persistentPayload['user']['name'] ?? $userEmail)
+        );
+
+        authFinalizeLoginSession([
+            'remember_me' => true,
+            'user' => [
+                'id' => $userId,
+                'email' => $userEmail,
+                'name' => $displayName,
+                'role_key' => (string)($loginContext['role_key'] ?? ''),
+            ],
+            'tokens' => [
+                'access_token' => $accessToken,
+                'refresh_token' => $nextRefreshToken,
+                'expires_at' => (int)($refreshResponse['data']['expires_at'] ?? 0),
+            ],
+        ]);
+
+        return true;
     }
 }

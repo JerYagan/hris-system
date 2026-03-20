@@ -1,4 +1,15 @@
 <?php
+require_once __DIR__ . '/includes/auth-support.php';
+
+authStartSession();
+
+$currentRole = strtolower((string)($_SESSION['user']['role_key'] ?? $_SESSION['user']['role'] ?? ''));
+$redirectPath = authRoleRedirectPath($currentRole);
+if (isset($_SESSION['user']) && $redirectPath !== null) {
+  header('Location: ' . $redirectPath);
+  exit;
+}
+
 $pageTitle = 'Login | ATI HRIS Portal';
 
 ob_start();
@@ -73,6 +84,7 @@ ob_start();
   <div class="p-10">
 
     <a href="../../index.html"
+      <a href="<?= htmlspecialchars(authAppPath('/index.html'), ENT_QUOTES, 'UTF-8') ?>"
        class="inline-flex items-center gap-2 mb-6 text-sm text-gray-600
               hover:text-daGreen transition font-medium">
       <span class="material-icons text-base">arrow_back</span>
@@ -125,14 +137,6 @@ ob_start();
           $errorMessage = 'No active role is assigned to this account.';
         } elseif ($errorCode === 'config') {
           $errorMessage = 'Authentication is not configured. Check SUPABASE credentials.';
-        } elseif ($errorCode === 'mfa_config_missing') {
-          $errorMessage = 'Your password is correct, but email OTP delivery is not configured yet. Check the SMTP settings and sender email.';
-        } elseif ($errorCode === 'mfa_send_failed') {
-          $errorMessage = 'Your password is correct, but we could not send the login verification code right now. Please try again.';
-        } elseif ($errorCode === 'mfa_missing') {
-          $errorMessage = 'Your verification step expired or is missing. Sign in again to request a new code.';
-        } elseif ($errorCode === 'mfa_locked') {
-          $errorMessage = 'Too many invalid verification attempts. Sign in again to request a new code.';
         }
       ?>
       <div class="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3
@@ -196,11 +200,7 @@ ob_start();
 
       <!-- OPTIONS -->
       <div class="flex items-center justify-between text-sm">
-        <label class="flex items-center gap-2">
-          <input type="checkbox" name="remember_me" value="1" class="rounded border-gray-300">
-          Remember me
-        </label>
-
+        <span class="text-gray-500">Your session stays active until you log out.</span>
         <a href="forgot-password.php"
            class="text-daGreen hover:underline">
           Forgot password?

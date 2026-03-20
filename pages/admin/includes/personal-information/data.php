@@ -1,237 +1,327 @@
 <?php
 
-$peopleResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/people?select=id,user_id,first_name,middle_name,surname,name_extension,date_of_birth,place_of_birth,sex_at_birth,civil_status,height_m,weight_kg,blood_type,citizenship,dual_citizenship,dual_citizenship_country,telephone_no,mobile_no,personal_email,agency_employee_no,profile_photo_url,created_at&order=created_at.desc&limit=1500',
-    $headers
-);
+$filterKeyword = strtolower(trim((string)(cleanText($_GET['keyword'] ?? null) ?? '')));
+$filterDepartment = trim((string)(cleanText($_GET['department'] ?? null) ?? ''));
+$filterStatusRaw = strtolower(trim((string)(cleanText($_GET['status'] ?? null) ?? '')));
+$filterStatus = in_array($filterStatusRaw, ['active', 'inactive'], true) ? $filterStatusRaw : '';
 
-$employmentResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/employment_records?select=id,person_id,office_id,position_id,employment_status,is_current,hire_date,separation_reason,created_at&order=created_at.desc&limit=2500',
-    $headers
-);
-
-$officesResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/offices?select=id,office_name,is_active&order=office_name.asc&limit=500',
-    $headers
-);
-
-$positionsResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/job_positions?select=id,position_title,is_active&is_active=eq.true&order=position_title.asc&limit=500',
-    $headers
-);
-
-$accountsResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/user_accounts?select=id,email,account_status&limit=2000',
-    $headers
-);
-
-$roleAssignmentsResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/user_role_assignments?select=id,user_id,role_id,is_primary,assigned_at&limit=5000',
-    $headers
-);
-
-$rolesResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/roles?select=id,role_key,role_name&limit=200',
-    $headers
-);
-
-$addressesResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/person_addresses?select=id,person_id,address_type,house_no,street,subdivision,barangay,city_municipality,province,zip_code,country,is_primary&limit=6000',
-    $headers
-);
-
-$governmentIdsResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/person_government_ids?select=id,person_id,id_type,id_value_encrypted,last4&limit=6000',
-    $headers
-);
-
-$spousesResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/person_family_spouses?select=id,person_id,surname,first_name,middle_name,extension_name,occupation,employer_business_name,business_address,telephone_no,sequence_no&order=sequence_no.asc&limit=4000',
-    $headers
-);
-
-$childrenResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/person_family_children?select=id,person_id,full_name,birth_date,sequence_no&order=sequence_no.asc&limit=8000',
-    $headers
-);
-
-$parentsResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/person_parents?select=id,person_id,parent_type,surname,first_name,middle_name,extension_name&limit=4000',
-    $headers
-);
-
-$civilServiceResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/person_civil_service_eligibilities?select=id,person_id,eligibility_name,rating,exam_date,exam_place,license_no,license_validity,sequence_no&order=sequence_no.asc&limit=5000',
-    $headers
-);
-
-$workExperienceResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/person_work_experiences?select=id,person_id,inclusive_date_from,inclusive_date_to,position_title,office_company,monthly_salary,salary_grade_step,appointment_status,is_government_service,separation_reason,achievements,sequence_no&order=sequence_no.asc&limit=7000',
-    $headers
-);
-
-$educationalBackgroundResponse = apiRequest(
-    'GET',
-    $supabaseUrl . '/rest/v1/person_educational_backgrounds?select=id,person_id,education_level,school_name,degree_course,attendance_from_year,attendance_to_year,highest_level_units_earned,year_graduated,scholarship_honors_received,sequence_no&order=sequence_no.asc&limit=9000',
-    $headers
-);
-
-$peopleRows = isSuccessful($peopleResponse) ? (array)$peopleResponse['data'] : [];
-$employmentRows = isSuccessful($employmentResponse) ? (array)$employmentResponse['data'] : [];
-$officeRows = isSuccessful($officesResponse) ? (array)$officesResponse['data'] : [];
-$positionRows = isSuccessful($positionsResponse) ? (array)$positionsResponse['data'] : [];
-$accountRows = isSuccessful($accountsResponse) ? (array)$accountsResponse['data'] : [];
-$roleAssignmentRows = isSuccessful($roleAssignmentsResponse) ? (array)$roleAssignmentsResponse['data'] : [];
-$roleRows = isSuccessful($rolesResponse) ? (array)$rolesResponse['data'] : [];
-$addressRows = isSuccessful($addressesResponse) ? (array)$addressesResponse['data'] : [];
-$governmentIdRows = isSuccessful($governmentIdsResponse) ? (array)$governmentIdsResponse['data'] : [];
-$spouseRows = isSuccessful($spousesResponse) ? (array)$spousesResponse['data'] : [];
-$childrenRows = isSuccessful($childrenResponse) ? (array)$childrenResponse['data'] : [];
-$parentRows = isSuccessful($parentsResponse) ? (array)$parentsResponse['data'] : [];
-$civilServiceRows = isSuccessful($civilServiceResponse) ? (array)$civilServiceResponse['data'] : [];
-$workExperienceRows = isSuccessful($workExperienceResponse) ? (array)$workExperienceResponse['data'] : [];
-$educationalBackgroundRows = isSuccessful($educationalBackgroundResponse) ? (array)$educationalBackgroundResponse['data'] : [];
-
-$filterKeywordInput = (string)(cleanText($_GET['keyword'] ?? null) ?? '');
-$filterDepartment = (string)(cleanText($_GET['department'] ?? null) ?? '');
-$filterStatusInput = strtolower((string)(cleanText($_GET['status'] ?? null) ?? ''));
-
-$filterKeyword = strtolower(trim($filterKeywordInput));
-$filterStatus = in_array($filterStatusInput, ['active', 'inactive'], true) ? $filterStatusInput : '';
+$personalInfoDataStage = strtolower(trim((string)($personalInfoDataStage ?? 'full')));
+$personalInfoSelectedPersonId = trim((string)($personalInfoSelectedPersonId ?? ''));
+$personalInfoProfileRequestedTab = strtolower(trim((string)($personalInfoProfileRequestedTab ?? 'personal')));
+$isPersonalInfoSelectedPerson = isValidUuid($personalInfoSelectedPersonId);
+$isEmployeeProfileShellStage = $personalInfoDataStage === 'employee-profile-shell';
+$isEmployeeProfileTabStage = $personalInfoDataStage === 'employee-profile-tab';
+$loadShellQueues = in_array($personalInfoDataStage, ['full', 'shell'], true);
+$loadEmployeeRegionData = in_array($personalInfoDataStage, ['full', 'employee-region', 'employee-profile-shell', 'employee-profile-tab'], true);
+$loadAuditLogData = in_array($personalInfoDataStage, ['full', 'audit'], true);
+$loadAssignmentLookupData = in_array($personalInfoDataStage, ['full', 'employee-region'], true);
+$loadAddressGovernmentData = $loadEmployeeRegionData;
+$loadWorkExperienceData = in_array($personalInfoDataStage, ['full', 'employee-region', 'employee-profile-shell', 'employee-profile-tab'], true);
+$loadFamilyData = in_array($personalInfoDataStage, ['full', 'employee-region'], true)
+    || ($isEmployeeProfileTabStage && $personalInfoProfileRequestedTab === 'family');
+$loadEducationData = in_array($personalInfoDataStage, ['full', 'employee-region'], true)
+    || ($isEmployeeProfileTabStage && $personalInfoProfileRequestedTab === 'education');
+$loadEligibilityData = in_array($personalInfoDataStage, ['full', 'employee-region'], true);
 
 $dataLoadError = null;
-$responseChecks = [
-    ['people', $peopleResponse],
-    ['employment records', $employmentResponse],
-    ['offices', $officesResponse],
-    ['job positions', $positionsResponse],
-    ['user accounts', $accountsResponse],
-    ['user role assignments', $roleAssignmentsResponse],
-    ['roles', $rolesResponse],
-    ['person addresses', $addressesResponse],
-    ['government ids', $governmentIdsResponse],
-    ['spouses', $spousesResponse],
-    ['children', $childrenResponse],
-    ['parents', $parentsResponse],
-    ['civil service eligibilities', $civilServiceResponse],
-    ['work experiences', $workExperienceResponse],
-    ['educational backgrounds', $educationalBackgroundResponse],
+
+$adminPersonalInfoLimits = [
+    'employment_records' => 1500,
+    'related_records' => 3000,
+    'actors' => 400,
+    'logs' => 500,
+    'offices' => 250,
+    'positions' => 250,
+    'role_assignments' => 3000,
 ];
 
-foreach ($responseChecks as [$label, $response]) {
+$appendDataError = static function (string $label, array $response) use (&$dataLoadError): void {
     if (isSuccessful($response)) {
-        continue;
+        return;
     }
 
-    $message = ucfirst((string)$label) . ' query failed (HTTP ' . (int)($response['status'] ?? 0) . ').';
+    $message = $label . ' query failed (HTTP ' . (int)($response['status'] ?? 0) . ').';
     $raw = trim((string)($response['raw'] ?? ''));
     if ($raw !== '') {
         $message .= ' ' . $raw;
     }
-    $dataLoadError = $dataLoadError ? ($dataLoadError . ' ' . $message) : $message;
-}
 
-$officeNameById = [];
-foreach ($officeRows as $office) {
-    $officeId = (string)($office['id'] ?? '');
-    if ($officeId === '') {
-        continue;
-    }
-    $officeNameById[$officeId] = (string)($office['office_name'] ?? 'Unassigned Division');
-}
+    $dataLoadError = $dataLoadError === null ? $message : ($dataLoadError . ' ' . $message);
+};
 
-$positionNameById = [];
-foreach ($positionRows as $position) {
-    $positionId = (string)($position['id'] ?? '');
-    if ($positionId === '') {
-        continue;
-    }
-    $positionNameById[$positionId] = (string)($position['position_title'] ?? 'Unassigned Position');
-}
+$formatAdminPersonalInfoTimestamp = static function (?string $value, string $format = 'M d, Y h:i A'): string {
+    return function_exists('formatDateTimeForPhilippines')
+        ? formatDateTimeForPhilippines($value, $format)
+        : (($value !== null && $value !== '' && strtotime($value) !== false) ? date($format, strtotime($value)) : '-');
+};
 
-$accountByUserId = [];
-foreach ($accountRows as $account) {
-    $userId = (string)($account['id'] ?? '');
-    if ($userId === '') {
-        continue;
-    }
-    $accountByUserId[$userId] = [
-        'email' => (string)($account['email'] ?? ''),
-        'account_status' => (string)($account['account_status'] ?? 'pending'),
-    ];
-}
+if (!function_exists('sanitizeUuidListForInFilter')) {
+    function sanitizeUuidListForInFilter(array $values): string
+    {
+        $filtered = [];
+        foreach ($values as $value) {
+            $uuid = trim((string)$value);
+            if ($uuid !== '' && isValidUuid($uuid)) {
+                $filtered[$uuid] = true;
+            }
+        }
 
-$currentEmploymentByPerson = [];
-foreach ($employmentRows as $employment) {
-    $personId = (string)($employment['person_id'] ?? '');
-    if ($personId === '') {
-        continue;
-    }
-
-    $isCurrent = (bool)($employment['is_current'] ?? false);
-    if ($isCurrent || !isset($currentEmploymentByPerson[$personId])) {
-        $currentEmploymentByPerson[$personId] = $employment;
+        return implode(',', array_map('rawurlencode', array_keys($filtered)));
     }
 }
 
-$roleById = [];
-foreach ($roleRows as $roleRow) {
-    $roleId = (string)($roleRow['id'] ?? '');
-    if ($roleId === '') {
-        continue;
-    }
+if (!function_exists('normalizeZipLookupPart')) {
+    function normalizeZipLookupPart(?string $value): string
+    {
+        $text = strtolower(trim((string)$value));
+        if ($text === '') {
+            return '';
+        }
 
-    $roleById[$roleId] = [
-        'role_key' => strtolower(trim((string)($roleRow['role_key'] ?? ''))),
-        'role_name' => trim((string)($roleRow['role_name'] ?? '')),
-    ];
+        $text = str_replace(['.', ',', "'"], ' ', $text);
+        $text = preg_replace('/\s+/', ' ', $text) ?? $text;
+        return trim($text);
+    }
 }
 
-$primaryRoleByUserId = [];
-foreach ($roleAssignmentRows as $assignmentRow) {
-    $userId = (string)($assignmentRow['user_id'] ?? '');
-    $roleId = (string)($assignmentRow['role_id'] ?? '');
-    if ($userId === '' || $roleId === '' || !isset($roleById[$roleId])) {
-        continue;
+$supportsCivilServiceEligibility = personalInfoTableExists($supabaseUrl, $headers, 'person_civil_service_eligibilities');
+$supportsWorkExperience = personalInfoTableExists($supabaseUrl, $headers, 'person_work_experiences');
+
+$schemaSupportNotes = [];
+if (!$supportsCivilServiceEligibility) {
+    $schemaSupportNotes[] = 'Civil service eligibility records are unavailable because the required Supabase table has not been deployed.';
+}
+if (!$supportsWorkExperience) {
+    $schemaSupportNotes[] = 'Work experience records are unavailable because the required Supabase table has not been deployed.';
+}
+$schemaSupportNotice = !empty($schemaSupportNotes) ? implode(' ', $schemaSupportNotes) : null;
+
+$employmentPersonFilter = $isPersonalInfoSelectedPerson
+    ? '&person_id=eq.' . rawurlencode($personalInfoSelectedPersonId)
+    : '';
+$employmentLimit = $isPersonalInfoSelectedPerson ? 1 : $adminPersonalInfoLimits['employment_records'];
+
+$employmentResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/employment_records?select=id,person_id,office_id,position_id,employment_status,is_current,updated_at,person:people!employment_records_person_id_fkey(id,user_id,first_name,middle_name,surname,name_extension,date_of_birth,place_of_birth,sex_at_birth,civil_status,height_m,weight_kg,blood_type,citizenship,dual_citizenship,dual_citizenship_country,telephone_no,mobile_no,personal_email,agency_employee_no,profile_photo_url),office:offices(office_name),position:job_positions(position_title)'
+    . '&is_current=eq.true'
+    . $employmentPersonFilter
+    . '&order=updated_at.desc&limit=' . $employmentLimit,
+    $headers
+);
+$appendDataError('Employment records', $employmentResponse);
+$employmentRows = isSuccessful($employmentResponse) ? (array)($employmentResponse['data'] ?? []) : [];
+
+$personIds = [];
+$userIds = [];
+$employmentIds = [];
+$personNameById = [];
+foreach ($employmentRows as $employmentRow) {
+    $person = (array)($employmentRow['person'] ?? []);
+    $personId = cleanText($employmentRow['person_id'] ?? null) ?? cleanText($person['id'] ?? null) ?? '';
+    $userId = cleanText($person['user_id'] ?? null) ?? '';
+    $employmentId = cleanText($employmentRow['id'] ?? null) ?? '';
+
+    if (isValidUuid($personId)) {
+        $personIds[] = $personId;
+        $fullName = trim(implode(' ', array_filter([
+            trim((string)(cleanText($person['first_name'] ?? null) ?? '')),
+            trim((string)(cleanText($person['middle_name'] ?? null) ?? '')),
+            trim((string)(cleanText($person['surname'] ?? null) ?? '')),
+            trim((string)(cleanText($person['name_extension'] ?? null) ?? '')),
+        ], static fn ($part): bool => $part !== '')));
+        $personNameById[$personId] = $fullName !== '' ? $fullName : 'Unknown Employee';
     }
 
-    $currentPriority = isset($primaryRoleByUserId[$userId])
-        ? (int)($primaryRoleByUserId[$userId]['priority'] ?? 99)
-        : 99;
-    $isPrimary = (bool)($assignmentRow['is_primary'] ?? false);
-    $nextPriority = $isPrimary ? 1 : 2;
-
-    if ($nextPriority > $currentPriority) {
-        continue;
+    if (isValidUuid($userId)) {
+        $userIds[] = $userId;
     }
 
-    $primaryRoleByUserId[$userId] = [
-        'priority' => $nextPriority,
-        'role_key' => (string)$roleById[$roleId]['role_key'],
-        'role_name' => (string)$roleById[$roleId]['role_name'],
-    ];
+    if (isValidUuid($employmentId)) {
+        $employmentIds[] = $employmentId;
+    }
+}
+
+$personIdFilter = sanitizeUuidListForInFilter($personIds);
+$userIdFilter = sanitizeUuidListForInFilter($userIds);
+$employmentIdFilter = sanitizeUuidListForInFilter($employmentIds);
+
+$roleKeyByUserId = [];
+if ($loadEmployeeRegionData && $userIdFilter !== '') {
+    $roleAssignmentsResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/user_role_assignments?select=user_id,is_primary,role:roles(role_key)'
+        . '&user_id=in.(' . $userIdFilter . ')'
+        . '&expires_at=is.null&limit=' . $adminPersonalInfoLimits['role_assignments'],
+        $headers
+    );
+    $appendDataError('Role assignments', $roleAssignmentsResponse);
+
+    if (isSuccessful($roleAssignmentsResponse)) {
+        $fallbackRoleKeyByUserId = [];
+        foreach ((array)($roleAssignmentsResponse['data'] ?? []) as $assignmentRow) {
+            $userId = cleanText($assignmentRow['user_id'] ?? null) ?? '';
+            $roleKey = strtolower(trim((string)(cleanText($assignmentRow['role']['role_key'] ?? null) ?? '')));
+            if (!isValidUuid($userId) || $roleKey === '') {
+                continue;
+            }
+
+            if (!isset($fallbackRoleKeyByUserId[$userId])) {
+                $fallbackRoleKeyByUserId[$userId] = $roleKey;
+            }
+
+            if ((bool)($assignmentRow['is_primary'] ?? false)) {
+                $roleKeyByUserId[$userId] = $roleKey;
+            }
+        }
+
+        foreach ($fallbackRoleKeyByUserId as $userId => $roleKey) {
+            if (!isset($roleKeyByUserId[$userId])) {
+                $roleKeyByUserId[$userId] = $roleKey;
+            }
+        }
+    }
+}
+
+$addressRows = [];
+$governmentIdRows = [];
+$spouseRows = [];
+$parentRows = [];
+$childrenRows = [];
+$educationRows = [];
+$eligibilityRows = [];
+$workExperienceRows = [];
+$recommendationHistoryRows = [];
+$spouseRequestRows = [];
+$personalInfoAuditRows = [];
+
+if ($loadEmployeeRegionData && $personIdFilter !== '') {
+    if ($loadAddressGovernmentData) {
+    $addressesResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/person_addresses?select=id,person_id,address_type,house_no,street,subdivision,barangay,city_municipality,province,zip_code,is_primary'
+        . '&person_id=in.(' . $personIdFilter . ')'
+        . '&address_type=in.(residential,permanent)&limit=' . $adminPersonalInfoLimits['related_records'],
+        $headers
+    );
+    $appendDataError('Person addresses', $addressesResponse);
+    $addressRows = isSuccessful($addressesResponse) ? (array)($addressesResponse['data'] ?? []) : [];
+
+    $governmentIdsResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/person_government_ids?select=id,person_id,id_type,id_value_encrypted'
+        . '&person_id=in.(' . $personIdFilter . ')'
+        . '&id_type=in.(umid,pagibig,philhealth,psn,tin)&limit=' . $adminPersonalInfoLimits['related_records'],
+        $headers
+    );
+    $appendDataError('Government IDs', $governmentIdsResponse);
+    $governmentIdRows = isSuccessful($governmentIdsResponse) ? (array)($governmentIdsResponse['data'] ?? []) : [];
+    }
+
+    if ($loadFamilyData) {
+    $spouseResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/person_family_spouses?select=id,person_id,surname,first_name,middle_name,extension_name,occupation,employer_business_name,business_address,telephone_no,sequence_no'
+        . '&person_id=in.(' . $personIdFilter . ')'
+        . '&order=sequence_no.asc&limit=' . $adminPersonalInfoLimits['related_records'],
+        $headers
+    );
+    $appendDataError('Spouse data', $spouseResponse);
+    $spouseRows = isSuccessful($spouseResponse) ? (array)($spouseResponse['data'] ?? []) : [];
+
+    $parentsResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/person_parents?select=id,person_id,parent_type,surname,first_name,middle_name,extension_name'
+        . '&person_id=in.(' . $personIdFilter . ')'
+        . '&parent_type=in.(father,mother)&limit=' . $adminPersonalInfoLimits['related_records'],
+        $headers
+    );
+    $appendDataError('Parent data', $parentsResponse);
+    $parentRows = isSuccessful($parentsResponse) ? (array)($parentsResponse['data'] ?? []) : [];
+
+    $childrenResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/person_family_children?select=id,person_id,full_name,birth_date,sequence_no'
+        . '&person_id=in.(' . $personIdFilter . ')'
+        . '&order=sequence_no.asc&limit=' . $adminPersonalInfoLimits['related_records'],
+        $headers
+    );
+    $appendDataError('Children data', $childrenResponse);
+    $childrenRows = isSuccessful($childrenResponse) ? (array)($childrenResponse['data'] ?? []) : [];
+    }
+
+    if ($loadEducationData) {
+    $educationResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/person_educations?select=id,person_id,education_level,school_name,course_degree,period_from,period_to,highest_level_units,year_graduated,honors_received,sequence_no'
+        . '&person_id=in.(' . $personIdFilter . ')'
+        . '&order=sequence_no.asc&limit=' . $adminPersonalInfoLimits['related_records'],
+        $headers
+    );
+    $appendDataError('Educational background data', $educationResponse);
+    $educationRows = isSuccessful($educationResponse) ? (array)($educationResponse['data'] ?? []) : [];
+    }
+
+    if ($supportsCivilServiceEligibility && $loadEligibilityData) {
+        $eligibilityResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/person_civil_service_eligibilities?select=id,person_id,eligibility_name,rating,exam_date,exam_place,license_no,license_validity,sequence_no'
+            . '&person_id=in.(' . $personIdFilter . ')'
+            . '&order=sequence_no.asc&limit=' . $adminPersonalInfoLimits['related_records'],
+            $headers
+        );
+        $appendDataError('Civil service eligibility data', $eligibilityResponse);
+        $eligibilityRows = isSuccessful($eligibilityResponse) ? (array)($eligibilityResponse['data'] ?? []) : [];
+    }
+
+    if ($supportsWorkExperience && $loadWorkExperienceData) {
+        $workExperienceResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/person_work_experiences?select=id,person_id,inclusive_date_from,inclusive_date_to,position_title,office_company,monthly_salary,salary_grade_step,appointment_status,is_government_service,separation_reason,achievements,sequence_no'
+            . '&person_id=in.(' . $personIdFilter . ')'
+            . '&order=sequence_no.asc&limit=' . $adminPersonalInfoLimits['related_records'],
+            $headers
+        );
+        $appendDataError('Work experience data', $workExperienceResponse);
+        $workExperienceRows = isSuccessful($workExperienceResponse) ? (array)($workExperienceResponse['data'] ?? []) : [];
+    }
+}
+
+$officeRows = [];
+$positionRows = [];
+if ($loadAssignmentLookupData) {
+    $officesResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/offices?select=id,office_name,is_active&order=office_name.asc&limit=' . $adminPersonalInfoLimits['offices'],
+        $headers
+    );
+    $appendDataError('Offices', $officesResponse);
+    $officeRows = isSuccessful($officesResponse) ? (array)($officesResponse['data'] ?? []) : [];
+
+    $positionsResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/job_positions?select=id,position_title,is_active&order=position_title.asc&limit=' . $adminPersonalInfoLimits['positions'],
+        $headers
+    );
+    $appendDataError('Job positions', $positionsResponse);
+    $positionRows = isSuccessful($positionsResponse) ? (array)($positionsResponse['data'] ?? []) : [];
 }
 
 $addressesByPerson = [];
-foreach ($addressRows as $address) {
-    $personId = (string)($address['person_id'] ?? '');
-    $addressType = strtolower((string)($address['address_type'] ?? ''));
-
-    if ($personId === '' || !in_array($addressType, ['residential', 'permanent'], true)) {
+foreach ($addressRows as $addressRow) {
+    $personId = cleanText($addressRow['person_id'] ?? null) ?? '';
+    $addressType = strtolower(trim((string)(cleanText($addressRow['address_type'] ?? null) ?? '')));
+    if (!isValidUuid($personId) || !in_array($addressType, ['residential', 'permanent'], true)) {
         continue;
     }
 
@@ -239,27 +329,25 @@ foreach ($addressRows as $address) {
         $addressesByPerson[$personId] = [];
     }
 
-    $isPrimary = (bool)($address['is_primary'] ?? false);
+    $isPrimary = (bool)($addressRow['is_primary'] ?? false);
     if (!isset($addressesByPerson[$personId][$addressType]) || $isPrimary) {
         $addressesByPerson[$personId][$addressType] = [
-            'id' => (string)($address['id'] ?? ''),
-            'house_no' => (string)($address['house_no'] ?? ''),
-            'street' => (string)($address['street'] ?? ''),
-            'subdivision' => (string)($address['subdivision'] ?? ''),
-            'barangay' => (string)($address['barangay'] ?? ''),
-            'city_municipality' => (string)($address['city_municipality'] ?? ''),
-            'province' => (string)($address['province'] ?? ''),
-            'zip_code' => (string)($address['zip_code'] ?? ''),
-            'country' => (string)($address['country'] ?? 'Philippines'),
+            'house_no' => cleanText($addressRow['house_no'] ?? null) ?? '',
+            'street' => cleanText($addressRow['street'] ?? null) ?? '',
+            'subdivision' => cleanText($addressRow['subdivision'] ?? null) ?? '',
+            'barangay' => cleanText($addressRow['barangay'] ?? null) ?? '',
+            'city_municipality' => cleanText($addressRow['city_municipality'] ?? null) ?? '',
+            'province' => cleanText($addressRow['province'] ?? null) ?? '',
+            'zip_code' => cleanText($addressRow['zip_code'] ?? null) ?? '',
         ];
     }
 }
 
 $governmentIdsByPerson = [];
-foreach ($governmentIdRows as $governmentId) {
-    $personId = (string)($governmentId['person_id'] ?? '');
-    $idType = strtolower((string)($governmentId['id_type'] ?? ''));
-    if ($personId === '' || $idType === '') {
+foreach ($governmentIdRows as $governmentIdRow) {
+    $personId = cleanText($governmentIdRow['person_id'] ?? null) ?? '';
+    $idType = strtolower(trim((string)(cleanText($governmentIdRow['id_type'] ?? null) ?? '')));
+    if (!isValidUuid($personId) || $idType === '') {
         continue;
     }
 
@@ -267,53 +355,33 @@ foreach ($governmentIdRows as $governmentId) {
         $governmentIdsByPerson[$personId] = [];
     }
 
-    $governmentIdsByPerson[$personId][$idType] = (string)($governmentId['id_value_encrypted'] ?? '');
+    $governmentIdsByPerson[$personId][$idType] = cleanText($governmentIdRow['id_value_encrypted'] ?? null) ?? '';
 }
 
 $spouseByPerson = [];
-foreach ($spouseRows as $spouse) {
-    $personId = (string)($spouse['person_id'] ?? '');
-    if ($personId === '') {
+foreach ($spouseRows as $spouseRow) {
+    $personId = cleanText($spouseRow['person_id'] ?? null) ?? '';
+    if (!isValidUuid($personId) || isset($spouseByPerson[$personId])) {
         continue;
     }
 
-    if (!isset($spouseByPerson[$personId])) {
-        $spouseByPerson[$personId] = [
-            'surname' => (string)($spouse['surname'] ?? ''),
-            'first_name' => (string)($spouse['first_name'] ?? ''),
-            'middle_name' => (string)($spouse['middle_name'] ?? ''),
-            'extension_name' => (string)($spouse['extension_name'] ?? ''),
-            'occupation' => (string)($spouse['occupation'] ?? ''),
-            'employer_business_name' => (string)($spouse['employer_business_name'] ?? ''),
-            'business_address' => (string)($spouse['business_address'] ?? ''),
-            'telephone_no' => (string)($spouse['telephone_no'] ?? ''),
-        ];
-    }
-}
-
-$childrenByPerson = [];
-foreach ($childrenRows as $child) {
-    $personId = (string)($child['person_id'] ?? '');
-    if ($personId === '') {
-        continue;
-    }
-    if (!isset($childrenByPerson[$personId])) {
-        $childrenByPerson[$personId] = [];
-    }
-
-    $childrenByPerson[$personId][] = [
-        'full_name' => (string)($child['full_name'] ?? ''),
-        'birth_date' => (string)($child['birth_date'] ?? ''),
-        'sequence_no' => (int)($child['sequence_no'] ?? 1),
+    $spouseByPerson[$personId] = [
+        'surname' => cleanText($spouseRow['surname'] ?? null) ?? '',
+        'first_name' => cleanText($spouseRow['first_name'] ?? null) ?? '',
+        'middle_name' => cleanText($spouseRow['middle_name'] ?? null) ?? '',
+        'extension_name' => cleanText($spouseRow['extension_name'] ?? null) ?? '',
+        'occupation' => cleanText($spouseRow['occupation'] ?? null) ?? '',
+        'employer_business_name' => cleanText($spouseRow['employer_business_name'] ?? null) ?? '',
+        'business_address' => cleanText($spouseRow['business_address'] ?? null) ?? '',
+        'telephone_no' => cleanText($spouseRow['telephone_no'] ?? null) ?? '',
     ];
 }
 
 $parentsByPerson = [];
-foreach ($parentRows as $parent) {
-    $personId = (string)($parent['person_id'] ?? '');
-    $parentType = strtolower((string)($parent['parent_type'] ?? ''));
-
-    if ($personId === '' || !in_array($parentType, ['father', 'mother'], true)) {
+foreach ($parentRows as $parentRow) {
+    $personId = cleanText($parentRow['person_id'] ?? null) ?? '';
+    $parentType = strtolower(trim((string)(cleanText($parentRow['parent_type'] ?? null) ?? '')));
+    if (!isValidUuid($personId) || !in_array($parentType, ['father', 'mother'], true)) {
         continue;
     }
 
@@ -322,706 +390,772 @@ foreach ($parentRows as $parent) {
     }
 
     $parentsByPerson[$personId][$parentType] = [
-        'surname' => (string)($parent['surname'] ?? ''),
-        'first_name' => (string)($parent['first_name'] ?? ''),
-        'middle_name' => (string)($parent['middle_name'] ?? ''),
-        'extension_name' => (string)($parent['extension_name'] ?? ''),
+        'surname' => cleanText($parentRow['surname'] ?? null) ?? '',
+        'first_name' => cleanText($parentRow['first_name'] ?? null) ?? '',
+        'middle_name' => cleanText($parentRow['middle_name'] ?? null) ?? '',
+        'extension_name' => cleanText($parentRow['extension_name'] ?? null) ?? '',
     ];
 }
 
-$civilServiceByPerson = [];
-foreach ($civilServiceRows as $eligibility) {
-    $personId = (string)($eligibility['person_id'] ?? '');
-    if ($personId === '') {
+$childrenByPerson = [];
+foreach ($childrenRows as $childRow) {
+    $personId = cleanText($childRow['person_id'] ?? null) ?? '';
+    if (!isValidUuid($personId)) {
         continue;
     }
 
-    if (!isset($civilServiceByPerson[$personId])) {
-        $civilServiceByPerson[$personId] = [];
+    if (!isset($childrenByPerson[$personId])) {
+        $childrenByPerson[$personId] = [];
     }
 
-    $civilServiceByPerson[$personId][] = [
-        'id' => (string)($eligibility['id'] ?? ''),
-        'eligibility_name' => (string)($eligibility['eligibility_name'] ?? ''),
-        'rating' => (string)($eligibility['rating'] ?? ''),
-        'exam_date' => (string)($eligibility['exam_date'] ?? ''),
-        'exam_place' => (string)($eligibility['exam_place'] ?? ''),
-        'license_no' => (string)($eligibility['license_no'] ?? ''),
-        'license_validity' => (string)($eligibility['license_validity'] ?? ''),
-        'sequence_no' => (int)($eligibility['sequence_no'] ?? 1),
+    $childrenByPerson[$personId][] = [
+        'full_name' => cleanText($childRow['full_name'] ?? null) ?? '',
+        'birth_date' => cleanText($childRow['birth_date'] ?? null) ?? '',
+        'sequence_no' => (int)($childRow['sequence_no'] ?? 0),
     ];
 }
 
-$workExperienceByPerson = [];
-foreach ($workExperienceRows as $experience) {
-    $personId = (string)($experience['person_id'] ?? '');
-    if ($personId === '') {
+$educationByPerson = [];
+foreach ($educationRows as $educationRow) {
+    $personId = cleanText($educationRow['person_id'] ?? null) ?? '';
+    if (!isValidUuid($personId)) {
         continue;
     }
 
-    if (!isset($workExperienceByPerson[$personId])) {
-        $workExperienceByPerson[$personId] = [];
-    }
-
-    $workExperienceByPerson[$personId][] = [
-        'id' => (string)($experience['id'] ?? ''),
-        'inclusive_date_from' => (string)($experience['inclusive_date_from'] ?? ''),
-        'inclusive_date_to' => (string)($experience['inclusive_date_to'] ?? ''),
-        'position_title' => (string)($experience['position_title'] ?? ''),
-        'office_company' => (string)($experience['office_company'] ?? ''),
-        'monthly_salary' => isset($experience['monthly_salary']) ? (string)$experience['monthly_salary'] : '',
-        'salary_grade_step' => (string)($experience['salary_grade_step'] ?? ''),
-        'appointment_status' => (string)($experience['appointment_status'] ?? ''),
-        'is_government_service' => isset($experience['is_government_service']) ? (bool)$experience['is_government_service'] : null,
-        'separation_reason' => (string)($experience['separation_reason'] ?? ''),
-        'achievements' => (string)($experience['achievements'] ?? ''),
-        'sequence_no' => (int)($experience['sequence_no'] ?? 1),
-    ];
-}
-
-$educationalBackgroundByPerson = [];
-foreach ($educationalBackgroundRows as $educationRow) {
-    $personId = (string)($educationRow['person_id'] ?? '');
-    $educationLevel = strtolower((string)($educationRow['education_level'] ?? ''));
-    if ($personId === '' || $educationLevel === '') {
+    $mappedEducationRow = mapPersonEducationRowToAdmin((array)$educationRow);
+    if (!is_array($mappedEducationRow)) {
         continue;
     }
 
-    if (!isset($educationalBackgroundByPerson[$personId])) {
-        $educationalBackgroundByPerson[$personId] = [];
+    if (!isset($educationByPerson[$personId])) {
+        $educationByPerson[$personId] = [];
     }
 
-    $educationalBackgroundByPerson[$personId][$educationLevel] = [
-        'id' => (string)($educationRow['id'] ?? ''),
-        'education_level' => $educationLevel,
-        'school_name' => (string)($educationRow['school_name'] ?? ''),
-        'degree_course' => (string)($educationRow['degree_course'] ?? ''),
-        'attendance_from_year' => isset($educationRow['attendance_from_year']) ? (string)$educationRow['attendance_from_year'] : '',
-        'attendance_to_year' => isset($educationRow['attendance_to_year']) ? (string)$educationRow['attendance_to_year'] : '',
-        'highest_level_units_earned' => (string)($educationRow['highest_level_units_earned'] ?? ''),
-        'year_graduated' => isset($educationRow['year_graduated']) ? (string)$educationRow['year_graduated'] : '',
-        'scholarship_honors_received' => (string)($educationRow['scholarship_honors_received'] ?? ''),
-        'sequence_no' => (int)($educationRow['sequence_no'] ?? 1),
+    $educationByPerson[$personId][] = $mappedEducationRow;
+}
+
+$eligibilityByPerson = [];
+foreach ($eligibilityRows as $eligibilityRow) {
+    $personId = cleanText($eligibilityRow['person_id'] ?? null) ?? '';
+    if (!isValidUuid($personId)) {
+        continue;
+    }
+
+    if (!isset($eligibilityByPerson[$personId])) {
+        $eligibilityByPerson[$personId] = [];
+    }
+
+    $eligibilityByPerson[$personId][] = [
+        'id' => cleanText($eligibilityRow['id'] ?? null) ?? '',
+        'eligibility_name' => cleanText($eligibilityRow['eligibility_name'] ?? null) ?? '',
+        'rating' => cleanText($eligibilityRow['rating'] ?? null) ?? '',
+        'exam_date' => cleanText($eligibilityRow['exam_date'] ?? null) ?? '',
+        'exam_place' => cleanText($eligibilityRow['exam_place'] ?? null) ?? '',
+        'license_no' => cleanText($eligibilityRow['license_no'] ?? null) ?? '',
+        'license_validity' => cleanText($eligibilityRow['license_validity'] ?? null) ?? '',
+        'sequence_no' => (int)($eligibilityRow['sequence_no'] ?? 0),
     ];
 }
 
-$resolveProfilePhotoUrl = static function (?string $rawPath): string {
-    $path = trim((string)$rawPath);
-    if ($path === '') {
+$workExperiencesByPerson = [];
+foreach ($workExperienceRows as $workExperienceRow) {
+    $personId = cleanText($workExperienceRow['person_id'] ?? null) ?? '';
+    if (!isValidUuid($personId)) {
+        continue;
+    }
+
+    if (!isset($workExperiencesByPerson[$personId])) {
+        $workExperiencesByPerson[$personId] = [];
+    }
+
+    $workExperiencesByPerson[$personId][] = [
+        'id' => cleanText($workExperienceRow['id'] ?? null) ?? '',
+        'inclusive_date_from' => cleanText($workExperienceRow['inclusive_date_from'] ?? null) ?? '',
+        'inclusive_date_to' => cleanText($workExperienceRow['inclusive_date_to'] ?? null) ?? '',
+        'position_title' => cleanText($workExperienceRow['position_title'] ?? null) ?? '',
+        'office_company' => cleanText($workExperienceRow['office_company'] ?? null) ?? '',
+        'monthly_salary' => isset($workExperienceRow['monthly_salary']) ? (string)$workExperienceRow['monthly_salary'] : '',
+        'salary_grade_step' => cleanText($workExperienceRow['salary_grade_step'] ?? null) ?? '',
+        'appointment_status' => cleanText($workExperienceRow['appointment_status'] ?? null) ?? '',
+        'is_government_service' => $workExperienceRow['is_government_service'] ?? null,
+        'separation_reason' => cleanText($workExperienceRow['separation_reason'] ?? null) ?? '',
+        'achievements' => cleanText($workExperienceRow['achievements'] ?? null) ?? '',
+        'sequence_no' => (int)($workExperienceRow['sequence_no'] ?? 0),
+    ];
+}
+
+$actorLabelById = [];
+$pendingRecommendationRequestIds = [];
+$allActorIds = [];
+$auditLogRows = [];
+
+if ($loadShellQueues && $personIdFilter !== '') {
+    $recommendationLogsResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/activity_logs?select=id,entity_id,actor_user_id,created_at,new_data,action_name,entity_name'
+        . '&module_name=eq.personal_information'
+        . '&entity_name=eq.people'
+        . '&action_name=in.(recommend_employee_profile_update,submit_employee_profile_update_request)'
+        . '&entity_id=in.(' . $personIdFilter . ')'
+        . '&order=created_at.desc&limit=' . $adminPersonalInfoLimits['logs'],
+        $headers
+    );
+    $appendDataError('Pending profile requests', $recommendationLogsResponse);
+    $recommendationLogs = isSuccessful($recommendationLogsResponse) ? (array)($recommendationLogsResponse['data'] ?? []) : [];
+
+    $reviewedLogsResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/activity_logs?select=id,new_data'
+        . '&module_name=eq.personal_information'
+        . '&entity_name=eq.people'
+        . '&action_name=in.(approve_employee_profile_recommendation,reject_employee_profile_recommendation)'
+        . '&entity_id=in.(' . $personIdFilter . ')'
+        . '&order=created_at.desc&limit=' . $adminPersonalInfoLimits['logs'],
+        $headers
+    );
+    $appendDataError('Reviewed profile requests', $reviewedLogsResponse);
+
+    $reviewedRequestIds = [];
+    if (isSuccessful($reviewedLogsResponse)) {
+        foreach ((array)($reviewedLogsResponse['data'] ?? []) as $reviewLog) {
+            $newData = is_array($reviewLog['new_data'] ?? null) ? (array)$reviewLog['new_data'] : [];
+            $requestId = trim((string)($newData['recommendation_log_id'] ?? ''));
+            if ($requestId !== '') {
+                $reviewedRequestIds[$requestId] = true;
+            }
+        }
+    }
+
+    foreach ($recommendationLogs as $recommendationLog) {
+        $requestId = cleanText($recommendationLog['id'] ?? null) ?? '';
+        $personId = cleanText($recommendationLog['entity_id'] ?? null) ?? '';
+        if (!isValidUuid($requestId) || !isValidUuid($personId) || isset($reviewedRequestIds[$requestId])) {
+            continue;
+        }
+
+        $pendingRecommendationRequestIds[] = $requestId;
+
+        $actorUserId = cleanText($recommendationLog['actor_user_id'] ?? null) ?? '';
+        if (isValidUuid($actorUserId)) {
+            $allActorIds[$actorUserId] = true;
+        }
+
+        $newData = is_array($recommendationLog['new_data'] ?? null) ? (array)$recommendationLog['new_data'] : [];
+        $recommendedProfile = is_array($newData['recommended_profile'] ?? null) ? (array)$newData['recommended_profile'] : [];
+        $recommendedAddresses = is_array($newData['recommended_addresses'] ?? null) ? (array)$newData['recommended_addresses'] : [];
+        $recommendedGovernmentIds = is_array($newData['recommended_government_ids'] ?? null) ? (array)$newData['recommended_government_ids'] : [];
+        $recommendedFamily = is_array($newData['recommended_family'] ?? null) ? (array)$newData['recommended_family'] : [];
+        $recommendedEducation = is_array($newData['recommended_educational_backgrounds'] ?? null) ? (array)$newData['recommended_educational_backgrounds'] : [];
+
+        $proposedChanges = [];
+        foreach ($recommendedProfile as $field => $value) {
+            $label = ucwords(str_replace('_', ' ', (string)$field));
+            $renderedValue = is_array($value) ? (json_encode($value, JSON_UNESCAPED_UNICODE) ?: '') : trim((string)$value);
+            if ($renderedValue !== '') {
+                $proposedChanges[] = ['label' => $label, 'value' => $renderedValue];
+            }
+        }
+
+        foreach (['residential' => 'Residential Address', 'permanent' => 'Permanent Address'] as $addressType => $addressLabel) {
+            $addressRow = is_array($recommendedAddresses[$addressType] ?? null) ? (array)$recommendedAddresses[$addressType] : [];
+            $parts = [];
+            foreach (['house_no', 'street', 'subdivision', 'barangay', 'city_municipality', 'province', 'zip_code'] as $fieldName) {
+                $fieldValue = trim((string)($addressRow[$fieldName] ?? ''));
+                if ($fieldValue !== '') {
+                    $parts[] = $fieldValue;
+                }
+            }
+            if (!empty($parts)) {
+                $proposedChanges[] = ['label' => $addressLabel, 'value' => implode(', ', $parts)];
+            }
+        }
+
+        foreach ($recommendedGovernmentIds as $field => $value) {
+            $renderedValue = trim((string)$value);
+            if ($renderedValue !== '') {
+                $proposedChanges[] = ['label' => strtoupper((string)$field) . ' No.', 'value' => $renderedValue];
+            }
+        }
+
+        foreach ($recommendedFamily as $field => $value) {
+            if ($field === 'children' && is_array($value)) {
+                $childLabels = [];
+                foreach ($value as $childRow) {
+                    if (!is_array($childRow)) {
+                        continue;
+                    }
+                    $childName = trim((string)($childRow['full_name'] ?? ''));
+                    $childBirthDate = trim((string)($childRow['birth_date'] ?? ''));
+                    if ($childName !== '' || $childBirthDate !== '') {
+                        $childLabels[] = trim($childName . ($childBirthDate !== '' ? (' (' . $childBirthDate . ')') : ''));
+                    }
+                }
+                if (!empty($childLabels)) {
+                    $proposedChanges[] = ['label' => 'Children', 'value' => implode('; ', $childLabels)];
+                }
+                continue;
+            }
+
+            $renderedValue = trim((string)$value);
+            if ($renderedValue !== '') {
+                $proposedChanges[] = ['label' => ucwords(str_replace('_', ' ', (string)$field)), 'value' => $renderedValue];
+            }
+        }
+
+        foreach ($recommendedEducation as $educationRow) {
+            if (!is_array($educationRow)) {
+                continue;
+            }
+
+            $levelLabel = ucwords(str_replace('_', ' ', (string)($educationRow['education_level'] ?? 'Education')));
+            $school = trim((string)($educationRow['school_name'] ?? ''));
+            $degree = trim((string)($educationRow['degree_course'] ?? ''));
+            $years = trim((string)($educationRow['attendance_from_year'] ?? ''));
+            $yearTo = trim((string)($educationRow['attendance_to_year'] ?? ''));
+            $valueParts = array_values(array_filter([$school, $degree, trim($years . ($yearTo !== '' ? ('-' . $yearTo) : ''))], static fn ($part): bool => $part !== ''));
+            if (!empty($valueParts)) {
+                $proposedChanges[] = ['label' => $levelLabel, 'value' => implode(' | ', $valueParts)];
+            }
+        }
+
+        $summary = !empty($proposedChanges)
+            ? count($proposedChanges) . ' change(s) pending review'
+            : 'Personal information request pending review';
+
+        $submittedAtRaw = cleanText($recommendationLog['created_at'] ?? null) ?? '';
+        $dueAtRaw = cleanText($newData['request_due_at'] ?? null) ?? '';
+        $dueAtLabel = '-';
+        $statusLabel = 'Pending';
+        $statusClass = 'bg-amber-100 text-amber-800';
+        if ($dueAtRaw !== '' && strtotime($dueAtRaw) !== false) {
+            $dueAtLabel = $formatAdminPersonalInfoTimestamp($dueAtRaw) . ' PST';
+            $now = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
+            $dueAtDate = new DateTimeImmutable($dueAtRaw);
+            if ($dueAtDate < $now) {
+                $statusLabel = 'Overdue';
+                $statusClass = 'bg-rose-100 text-rose-800';
+            }
+        }
+
+        $recommendationHistoryRows[] = [
+            'recommendation_log_id' => $requestId,
+            'person_id' => $personId,
+            'employee_name' => (string)($personNameById[$personId] ?? 'Unknown Employee'),
+            'submitted_by' => $actorUserId,
+            'submitted_at_label' => $formatAdminPersonalInfoTimestamp($submittedAtRaw),
+            'submitted_at_date' => $submittedAtRaw !== '' && strtotime($submittedAtRaw) !== false ? date('Y-m-d', strtotime($submittedAtRaw)) : '',
+            'due_at_label' => $dueAtLabel,
+            'status_label' => $statusLabel,
+            'status_class' => $statusClass,
+            'summary' => $summary,
+            'proposed_changes' => $proposedChanges,
+            'search_text' => strtolower(trim(((string)($personNameById[$personId] ?? '')) . ' ' . $summary)),
+        ];
+    }
+
+    $spouseRequestResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/activity_logs?select=id,entity_id,actor_user_id,created_at,new_data'
+        . '&module_name=eq.employee'
+        . '&entity_name=eq.person_family_spouses_request'
+        . '&action_name=eq.submit_spouse_addition_request'
+        . '&entity_id=in.(' . $personIdFilter . ')'
+        . '&order=created_at.desc&limit=' . $adminPersonalInfoLimits['logs'],
+        $headers
+    );
+    $appendDataError('Spouse entry requests', $spouseRequestResponse);
+    $spouseRequestLogs = isSuccessful($spouseRequestResponse) ? (array)($spouseRequestResponse['data'] ?? []) : [];
+
+    $spouseDecisionResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/activity_logs?select=id,new_data'
+        . '&module_name=eq.personal_information'
+        . '&entity_name=eq.person_family_spouses_request'
+        . '&action_name=in.(approve_spouse_addition_request,reject_spouse_addition_request)'
+        . '&entity_id=in.(' . $personIdFilter . ')'
+        . '&order=created_at.desc&limit=' . $adminPersonalInfoLimits['logs'],
+        $headers
+    );
+    $appendDataError('Reviewed spouse requests', $spouseDecisionResponse);
+
+    $reviewedSpouseRequestIds = [];
+    if (isSuccessful($spouseDecisionResponse)) {
+        foreach ((array)($spouseDecisionResponse['data'] ?? []) as $decisionRow) {
+            $newData = is_array($decisionRow['new_data'] ?? null) ? (array)$decisionRow['new_data'] : [];
+            $requestId = trim((string)($newData['request_log_id'] ?? ''));
+            if ($requestId !== '') {
+                $reviewedSpouseRequestIds[$requestId] = true;
+            }
+        }
+    }
+
+    foreach ($spouseRequestLogs as $requestLog) {
+        $requestId = cleanText($requestLog['id'] ?? null) ?? '';
+        $personId = cleanText($requestLog['entity_id'] ?? null) ?? '';
+        if (!isValidUuid($requestId) || !isValidUuid($personId) || isset($reviewedSpouseRequestIds[$requestId])) {
+            continue;
+        }
+
+        $actorUserId = cleanText($requestLog['actor_user_id'] ?? null) ?? '';
+        if (isValidUuid($actorUserId)) {
+            $allActorIds[$actorUserId] = true;
+        }
+
+        $requestData = is_array($requestLog['new_data'] ?? null) ? (array)$requestLog['new_data'] : [];
+        $spouseName = trim(implode(' ', array_filter([
+            trim((string)($requestData['spouse_first_name'] ?? '')),
+            trim((string)($requestData['spouse_middle_name'] ?? '')),
+            trim((string)($requestData['spouse_surname'] ?? '')),
+            trim((string)($requestData['spouse_name_extension'] ?? '')),
+        ], static fn ($part): bool => $part !== '')));
+
+        $spouseRequestRows[] = [
+            'request_log_id' => $requestId,
+            'person_id' => $personId,
+            'employee_name' => (string)($personNameById[$personId] ?? 'Unknown Employee'),
+            'spouse_name' => $spouseName !== '' ? $spouseName : 'Spouse Entry Request',
+            'request_notes' => trim((string)($requestData['request_notes'] ?? '')),
+            'attachment_url' => trim((string)($requestData['attachment_url'] ?? '')),
+            'attachment_name' => trim((string)($requestData['attachment_name'] ?? '')),
+            'submitted_by' => $actorUserId,
+            'submitted_at_label' => $formatAdminPersonalInfoTimestamp(cleanText($requestLog['created_at'] ?? null) ?? ''),
+        ];
+    }
+}
+
+if ($loadAuditLogData) {
+    $auditLogsResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/activity_logs?select=id,entity_id,actor_user_id,created_at,module_name,entity_name,action_name,old_data,new_data'
+        . '&module_name=eq.personal_information'
+        . '&order=created_at.desc&limit=' . $adminPersonalInfoLimits['logs'],
+        $headers
+    );
+    $appendDataError('Personal information audit logs', $auditLogsResponse);
+    $auditLogRows = isSuccessful($auditLogsResponse) ? (array)($auditLogsResponse['data'] ?? []) : [];
+
+    foreach ($auditLogRows as $auditLogRow) {
+        $actorUserId = cleanText($auditLogRow['actor_user_id'] ?? null) ?? '';
+        if (isValidUuid($actorUserId)) {
+            $allActorIds[$actorUserId] = true;
+        }
+    }
+}
+
+if (!empty($allActorIds)) {
+    $actorFilter = sanitizeUuidListForInFilter(array_keys($allActorIds));
+    if ($actorFilter !== '') {
+        $actorResponse = apiRequest(
+            'GET',
+            $supabaseUrl . '/rest/v1/user_accounts?select=id,username,email&id=in.(' . $actorFilter . ')&limit=' . $adminPersonalInfoLimits['actors'],
+            $headers
+        );
+        $appendDataError('Request actors', $actorResponse);
+        if (isSuccessful($actorResponse)) {
+            foreach ((array)($actorResponse['data'] ?? []) as $actorRow) {
+                $actorId = cleanText($actorRow['id'] ?? null) ?? '';
+                if (!isValidUuid($actorId)) {
+                    continue;
+                }
+
+                $actorLabelById[$actorId] = (string)(cleanText($actorRow['username'] ?? null) ?? cleanText($actorRow['email'] ?? null) ?? 'User');
+            }
+        }
+    }
+}
+
+foreach ($recommendationHistoryRows as &$recommendationRow) {
+    $submittedById = (string)($recommendationRow['submitted_by'] ?? '');
+    $recommendationRow['submitted_by'] = $submittedById !== ''
+        ? (string)($actorLabelById[$submittedById] ?? 'Employee')
+        : 'Employee';
+    $recommendationRow['search_text'] = strtolower(trim(
+        (string)($recommendationRow['employee_name'] ?? '')
+        . ' ' . (string)($recommendationRow['submitted_by'] ?? '')
+        . ' ' . (string)($recommendationRow['summary'] ?? '')
+    ));
+}
+unset($recommendationRow);
+
+foreach ($spouseRequestRows as &$spouseRequestRow) {
+    $submittedById = (string)($spouseRequestRow['submitted_by'] ?? '');
+    $spouseRequestRow['submitted_by'] = $submittedById !== ''
+        ? (string)($actorLabelById[$submittedById] ?? 'Employee')
+        : 'Employee';
+}
+unset($spouseRequestRow);
+
+if ($loadAuditLogData) {
+    $resolveAuditPersonId = static function (array $auditLogRow): string {
+        $entityName = strtolower(trim((string)(cleanText($auditLogRow['entity_name'] ?? null) ?? '')));
+        $entityId = cleanText($auditLogRow['entity_id'] ?? null) ?? '';
+        if ($entityName === 'people' && isValidUuid($entityId)) {
+            return $entityId;
+        }
+
+        $newData = is_array($auditLogRow['new_data'] ?? null) ? (array)$auditLogRow['new_data'] : [];
+        $oldData = is_array($auditLogRow['old_data'] ?? null) ? (array)$auditLogRow['old_data'] : [];
+        foreach ([$newData, $oldData] as $candidate) {
+            $personId = cleanText($candidate['person_id'] ?? null) ?? cleanText($candidate['source_person_id'] ?? null) ?? '';
+            if (isValidUuid($personId)) {
+                return $personId;
+            }
+        }
+
         return '';
+    };
+
+    $describeAuditAction = static function (string $actionName): array {
+        $normalized = strtolower(trim($actionName));
+
+        return match ($normalized) {
+            'recommend_employee_profile_update', 'submit_employee_profile_update_request' => ['Profile Change Request', 'bg-amber-100 text-amber-800'],
+            'approve_employee_profile_recommendation', 'approve_spouse_addition_request' => ['Approved', 'bg-emerald-100 text-emerald-800'],
+            'reject_employee_profile_recommendation', 'reject_spouse_addition_request' => ['Rejected', 'bg-rose-100 text-rose-800'],
+            'save_family_background', 'save_educational_background', 'add_civil_service_eligibility', 'edit_civil_service_eligibility', 'delete_civil_service_eligibility', 'add_work_experience', 'edit_work_experience', 'delete_work_experience' => ['Historical Direct Update', 'bg-slate-100 text-slate-700'],
+            default => [ucwords(str_replace('_', ' ', $normalized !== '' ? $normalized : 'activity logged')), 'bg-slate-100 text-slate-700'],
+        };
+    };
+
+    foreach ($auditLogRows as $auditLogRow) {
+        $actionName = cleanText($auditLogRow['action_name'] ?? null) ?? '';
+        $personId = $resolveAuditPersonId((array)$auditLogRow);
+        [$actionLabel, $actionClass] = $describeAuditAction($actionName);
+
+        $newData = is_array($auditLogRow['new_data'] ?? null) ? (array)$auditLogRow['new_data'] : [];
+        $notes = trim((string)(cleanText($newData['remarks'] ?? null) ?? cleanText($newData['recommendation_notes'] ?? null) ?? cleanText($newData['request_notes'] ?? null) ?? ''));
+        $employeeName = $personId !== ''
+            ? (string)($personNameById[$personId] ?? 'Unknown Employee')
+            : 'System Record';
+        $actorUserId = cleanText($auditLogRow['actor_user_id'] ?? null) ?? '';
+
+        $personalInfoAuditRows[] = [
+            'log_id' => cleanText($auditLogRow['id'] ?? null) ?? '',
+            'created_at_label' => $formatAdminPersonalInfoTimestamp(cleanText($auditLogRow['created_at'] ?? null) ?? ''),
+            'created_at_raw' => cleanText($auditLogRow['created_at'] ?? null) ?? '',
+            'actor_label' => $actorUserId !== '' ? (string)($actorLabelById[$actorUserId] ?? 'System User') : 'System User',
+            'employee_name' => $employeeName,
+            'entity_name' => cleanText($auditLogRow['entity_name'] ?? null) ?? '',
+            'action_name' => $actionName,
+            'action_label' => $actionLabel,
+            'action_class' => $actionClass,
+            'notes' => $notes,
+        ];
+    }
+}
+
+$psgcMunicipalitiesPath = __DIR__ . '/../../../../psgc/municipalities.json';
+$psgcBarangaysPath = __DIR__ . '/../../../../psgc/barangays.json';
+
+$psgcMunicipalityRows = [];
+$psgcBarangayRows = [];
+$municipalityNameByCode = [];
+$addressCityDisplayByKey = [];
+$provinceOptionsMap = [];
+
+if ($loadAssignmentLookupData && is_file($psgcMunicipalitiesPath)) {
+    $decodedMunicipalities = json_decode((string)file_get_contents($psgcMunicipalitiesPath), true);
+    if (is_array($decodedMunicipalities)) {
+        $psgcMunicipalityRows = $decodedMunicipalities;
+    }
+}
+
+if ($loadAssignmentLookupData && is_file($psgcBarangaysPath)) {
+    $decodedBarangays = json_decode((string)file_get_contents($psgcBarangaysPath), true);
+    if (is_array($decodedBarangays)) {
+        $psgcBarangayRows = $decodedBarangays;
+    }
+}
+
+foreach ($psgcMunicipalityRows as $municipalityRow) {
+    if (!is_array($municipalityRow)) {
+        continue;
     }
 
-    if (preg_match('#^https?://#i', $path) === 1 || str_starts_with($path, '/')) {
-        return $path;
+    $cityCode = trim((string)($municipalityRow['code'] ?? $municipalityRow['citymun'] ?? $municipalityRow['city_code'] ?? ''));
+    $cityDisplay = trim((string)($municipalityRow['name'] ?? $municipalityRow['citymun_name'] ?? $municipalityRow['city_municipality_name'] ?? ''));
+    $provinceDisplay = trim((string)($municipalityRow['province'] ?? ''));
+    if ($cityCode !== '' && $cityDisplay !== '') {
+        $municipalityNameByCode[$cityCode] = $cityDisplay;
     }
 
-    return '/hris-system/storage/document/' . ltrim($path, '/');
+    $cityKey = normalizeZipLookupPart($cityDisplay);
+    if ($cityKey !== '') {
+        $addressCityDisplayByKey[$cityKey] = $cityDisplay;
+    }
+    if ($provinceDisplay !== '') {
+        $provinceOptionsMap[$provinceDisplay] = true;
+    }
+}
+
+$addressBarangayDisplayByCityKey = [];
+foreach ($psgcBarangayRows as $barangayRow) {
+    if (!is_array($barangayRow)) {
+        continue;
+    }
+
+    $cityRef = trim((string)($barangayRow['citymun'] ?? $barangayRow['city_code'] ?? $barangayRow['city_municipality_name'] ?? ''));
+    $cityDisplay = trim((string)($municipalityNameByCode[$cityRef] ?? $cityRef));
+    $barangayDisplay = trim((string)($barangayRow['name'] ?? ''));
+    $cityKey = normalizeZipLookupPart($cityDisplay);
+    $barangayKey = normalizeZipLookupPart($barangayDisplay);
+    if ($cityKey === '' || $barangayKey === '') {
+        continue;
+    }
+
+    if (!isset($addressCityDisplayByKey[$cityKey])) {
+        $addressCityDisplayByKey[$cityKey] = $cityDisplay;
+    }
+
+    if (!isset($addressBarangayDisplayByCityKey[$cityKey])) {
+        $addressBarangayDisplayByCityKey[$cityKey] = [];
+    }
+
+    if (!isset($addressBarangayDisplayByCityKey[$cityKey][$barangayKey])) {
+        $addressBarangayDisplayByCityKey[$cityKey][$barangayKey] = $barangayDisplay;
+    }
+}
+
+foreach ($addressRows as $addressRow) {
+    $cityDisplay = trim((string)(cleanText($addressRow['city_municipality'] ?? null) ?? ''));
+    $barangayDisplay = trim((string)(cleanText($addressRow['barangay'] ?? null) ?? ''));
+    $provinceDisplay = trim((string)(cleanText($addressRow['province'] ?? null) ?? ''));
+    $cityKey = normalizeZipLookupPart($cityDisplay);
+    $barangayKey = normalizeZipLookupPart($barangayDisplay);
+
+    if ($cityKey !== '') {
+        $addressCityDisplayByKey[$cityKey] = $addressCityDisplayByKey[$cityKey] ?? $cityDisplay;
+    }
+    if ($cityKey !== '' && $barangayKey !== '') {
+        if (!isset($addressBarangayDisplayByCityKey[$cityKey])) {
+            $addressBarangayDisplayByCityKey[$cityKey] = [];
+        }
+        $addressBarangayDisplayByCityKey[$cityKey][$barangayKey] = $addressBarangayDisplayByCityKey[$cityKey][$barangayKey] ?? $barangayDisplay;
+    }
+    if ($provinceDisplay !== '') {
+        $provinceOptionsMap[$provinceDisplay] = true;
+    }
+}
+
+$addressCityOptions = array_values($addressCityDisplayByKey);
+sort($addressCityOptions, SORT_NATURAL | SORT_FLAG_CASE);
+
+$addressBarangayOptionsMap = [];
+foreach ($addressBarangayDisplayByCityKey as $barangaysByKey) {
+    foreach ($barangaysByKey as $barangayDisplay) {
+        $barangayOptionsKey = trim((string)$barangayDisplay);
+        if ($barangayOptionsKey !== '') {
+            $addressBarangayOptionsMap[$barangayOptionsKey] = true;
+        }
+    }
+}
+
+$addressBarangayOptions = array_keys($addressBarangayOptionsMap);
+sort($addressBarangayOptions, SORT_NATURAL | SORT_FLAG_CASE);
+
+$addressProvinceOptions = array_keys($provinceOptionsMap);
+sort($addressProvinceOptions, SORT_NATURAL | SORT_FLAG_CASE);
+
+$statusPill = static function (string $status): array {
+    $normalized = strtolower(trim($status));
+    if ($normalized === 'active') {
+        return ['Active', 'bg-emerald-100 text-emerald-800', 'active'];
+    }
+
+    return ['Inactive', 'bg-amber-100 text-amber-800', 'inactive'];
 };
 
 $employeeTableRows = [];
-$employeesForSelect = [];
-$staffAccountCandidates = [];
 $departmentFilters = [];
-$personNameByIdAll = [];
-
-$totalProfiles = count($peopleRows);
+$totalProfiles = 0;
 $completeRecords = 0;
 $activeEmployees = 0;
 $inactiveEmployees = 0;
 
-foreach ($peopleRows as $person) {
-    $personId = (string)($person['id'] ?? '');
-    if ($personId === '') {
+foreach ($officeRows as $officeRow) {
+    $officeName = cleanText($officeRow['office_name'] ?? null) ?? '';
+    if ($officeName !== '') {
+        $departmentFilters[$officeName] = true;
+    }
+}
+
+foreach ($employmentRows as $employmentRow) {
+    $employmentId = cleanText($employmentRow['id'] ?? null) ?? '';
+    $person = (array)($employmentRow['person'] ?? []);
+    $personId = cleanText($employmentRow['person_id'] ?? null) ?? cleanText($person['id'] ?? null) ?? '';
+    if (!isValidUuid($employmentId) || !isValidUuid($personId)) {
         continue;
     }
 
-    $firstName = trim((string)($person['first_name'] ?? ''));
-    $middleName = trim((string)($person['middle_name'] ?? ''));
-    $surname = trim((string)($person['surname'] ?? ''));
-    $nameExtension = trim((string)($person['name_extension'] ?? ''));
-    $fullName = trim($firstName . ' ' . $middleName . ' ' . $surname . ' ' . $nameExtension);
+    $totalProfiles++;
+
+    $firstName = trim((string)(cleanText($person['first_name'] ?? null) ?? ''));
+    $middleName = trim((string)(cleanText($person['middle_name'] ?? null) ?? ''));
+    $surname = trim((string)(cleanText($person['surname'] ?? null) ?? ''));
+    $nameExtension = trim((string)(cleanText($person['name_extension'] ?? null) ?? ''));
+    $fullName = trim(implode(' ', array_filter([$firstName, $middleName, $surname, $nameExtension], static fn ($part): bool => $part !== '')));
     if ($fullName === '') {
         $fullName = 'Unknown Employee';
     }
-    $personNameByIdAll[$personId] = $fullName;
 
-    $employment = $currentEmploymentByPerson[$personId] ?? null;
-    $officeId = (string)($employment['office_id'] ?? '');
-    $positionId = (string)($employment['position_id'] ?? '');
-    $employmentStatus = strtolower((string)($employment['employment_status'] ?? 'inactive'));
-    $departmentName = (string)($officeNameById[$officeId] ?? 'Unassigned Division');
-    $positionName = (string)($positionNameById[$positionId] ?? 'Unassigned Position');
+    $officeName = cleanText($employmentRow['office']['office_name'] ?? null) ?? 'Unassigned Division';
+    $positionName = cleanText($employmentRow['position']['position_title'] ?? null) ?? 'Unassigned Position';
+    if ($officeName !== 'Unassigned Division') {
+        $departmentFilters[$officeName] = true;
+    }
 
-    $statusLabel = $employmentStatus === 'active' ? 'Active' : 'Inactive';
-    if ($employmentStatus === 'active') {
+    $statusRaw = strtolower(trim((string)(cleanText($employmentRow['employment_status'] ?? null) ?? 'inactive')));
+    [$statusLabel, $statusClass, $statusBucket] = $statusPill($statusRaw);
+    if ($statusBucket === 'active') {
         $activeEmployees++;
     } else {
         $inactiveEmployees++;
     }
 
-    $email = (string)($accountByUserId[(string)($person['user_id'] ?? '')]['email'] ?? ($person['personal_email'] ?? ''));
-    $mobile = (string)($person['mobile_no'] ?? '');
-    $telephoneNo = (string)($person['telephone_no'] ?? '');
-    $dateOfBirth = (string)($person['date_of_birth'] ?? '');
-    $placeOfBirth = (string)($person['place_of_birth'] ?? '');
-    $sexAtBirth = (string)($person['sex_at_birth'] ?? '');
-    $civilStatus = (string)($person['civil_status'] ?? '');
-    $heightM = isset($person['height_m']) ? (string)$person['height_m'] : '';
-    $weightKg = isset($person['weight_kg']) ? (string)$person['weight_kg'] : '';
-    $bloodType = (string)($person['blood_type'] ?? '');
-    $citizenship = (string)($person['citizenship'] ?? '');
-    $dualCitizenship = isset($person['dual_citizenship']) ? (bool)$person['dual_citizenship'] : false;
-    $dualCitizenshipCountry = (string)($person['dual_citizenship_country'] ?? '');
-
-    $residentialAddress = $addressesByPerson[$personId]['residential'] ?? [];
-    $permanentAddress = $addressesByPerson[$personId]['permanent'] ?? [];
-    $personGovernmentIds = $governmentIdsByPerson[$personId] ?? [];
-    $spouse = $spouseByPerson[$personId] ?? [];
-    $children = $childrenByPerson[$personId] ?? [];
-    $parents = $parentsByPerson[$personId] ?? [];
-    $father = $parents['father'] ?? [];
-    $mother = $parents['mother'] ?? [];
-    $educationalBackground = $educationalBackgroundByPerson[$personId] ?? [];
-    $employeeCode = (string)($person['agency_employee_no'] ?? '');
-    $profilePhotoUrl = $resolveProfilePhotoUrl((string)($person['profile_photo_url'] ?? ''));
-    if ($employeeCode === '') {
-        $employeeCode = 'EMP-' . strtoupper(substr(str_replace('-', '', $personId), 0, 6));
-    }
-
-    $personUserIdRaw = trim((string)($person['user_id'] ?? ''));
-    $roleMeta = $personUserIdRaw !== '' ? ($primaryRoleByUserId[$personUserIdRaw] ?? null) : null;
-    $roleKey = strtolower(trim((string)($roleMeta['role_key'] ?? '')));
-    $roleName = trim((string)($roleMeta['role_name'] ?? ''));
-    if ($roleName === '') {
-        if ($roleKey === 'staff') {
-            $roleName = 'Staff';
-        } elseif ($roleKey === 'employee') {
-            $roleName = 'Employee';
-        } else {
-            $roleName = 'Employee';
-        }
-    }
-
-    $isComplete = $email !== '' && $mobile !== '' && !empty($employment);
-    if ($isComplete) {
+    $email = cleanText($person['personal_email'] ?? null) ?? '';
+    $mobile = cleanText($person['mobile_no'] ?? null) ?? '';
+    if ($officeName !== 'Unassigned Division' && $positionName !== 'Unassigned Position' && ($email !== '' || $mobile !== '')) {
         $completeRecords++;
     }
 
-    $departmentFilters[$departmentName] = true;
+    $telephone = cleanText($person['telephone_no'] ?? null) ?? '';
+    $agencyEmployeeNo = cleanText($person['agency_employee_no'] ?? null) ?? '';
+    $employeeCode = $agencyEmployeeNo !== '' ? $agencyEmployeeNo : ('EMP-' . strtoupper(substr(str_replace('-', '', $personId), 0, 6)));
 
-    $searchText = strtolower(trim($employeeCode . ' ' . $fullName . ' ' . $departmentName . ' ' . $positionName . ' ' . $statusLabel . ' ' . $email . ' ' . $mobile));
+    $roleKey = strtolower(trim((string)($roleKeyByUserId[(string)(cleanText($person['user_id'] ?? null) ?? '')] ?? 'employee')));
+
+    $searchText = strtolower(trim(implode(' ', array_filter([
+        $employeeCode,
+        $fullName,
+        $email,
+        $mobile,
+        $telephone,
+        $officeName,
+        $positionName,
+        $statusLabel,
+        $roleKey,
+    ], static fn ($part): bool => $part !== ''))));
+
+    if (!$loadEmployeeRegionData) {
+        continue;
+    }
+
+    if ($filterDepartment !== '' && strcasecmp($officeName, $filterDepartment) !== 0) {
+        continue;
+    }
+    if ($filterStatus !== '' && $statusBucket !== $filterStatus) {
+        continue;
+    }
+
+    $resolvedProfilePhotoUrl = systemTopnavResolveProfilePhotoUrl(cleanText($person['profile_photo_url'] ?? null));
+    if ($filterKeyword !== '' && !str_contains($searchText, $filterKeyword)) {
+        continue;
+    }
+
+    $residential = (array)($addressesByPerson[$personId]['residential'] ?? []);
+    $permanent = (array)($addressesByPerson[$personId]['permanent'] ?? []);
+    $governmentIds = (array)($governmentIdsByPerson[$personId] ?? []);
 
     $employeeTableRows[] = [
+        'employment_id' => $employmentId,
         'person_id' => $personId,
+        'office_id' => cleanText($employmentRow['office_id'] ?? null) ?? '',
+        'position_id' => cleanText($employmentRow['position_id'] ?? null) ?? '',
         'employee_code' => $employeeCode,
         'full_name' => $fullName,
         'first_name' => $firstName,
         'middle_name' => $middleName,
         'surname' => $surname,
         'name_extension' => $nameExtension,
-        'date_of_birth' => $dateOfBirth,
-        'place_of_birth' => $placeOfBirth,
-        'sex_at_birth' => $sexAtBirth,
-        'civil_status' => $civilStatus,
-        'height_m' => $heightM,
-        'weight_kg' => $weightKg,
-        'blood_type' => $bloodType,
-        'citizenship' => $citizenship,
-        'dual_citizenship' => $dualCitizenship,
-        'dual_citizenship_country' => $dualCitizenshipCountry,
-        'telephone_no' => $telephoneNo,
-        'residential_house_no' => (string)($residentialAddress['house_no'] ?? ''),
-        'residential_street' => (string)($residentialAddress['street'] ?? ''),
-        'residential_subdivision' => (string)($residentialAddress['subdivision'] ?? ''),
-        'residential_barangay' => (string)($residentialAddress['barangay'] ?? ''),
-        'residential_city_municipality' => (string)($residentialAddress['city_municipality'] ?? ''),
-        'residential_province' => (string)($residentialAddress['province'] ?? ''),
-        'residential_zip_code' => (string)($residentialAddress['zip_code'] ?? ''),
-        'permanent_house_no' => (string)($permanentAddress['house_no'] ?? ''),
-        'permanent_street' => (string)($permanentAddress['street'] ?? ''),
-        'permanent_subdivision' => (string)($permanentAddress['subdivision'] ?? ''),
-        'permanent_barangay' => (string)($permanentAddress['barangay'] ?? ''),
-        'permanent_city_municipality' => (string)($permanentAddress['city_municipality'] ?? ''),
-        'permanent_province' => (string)($permanentAddress['province'] ?? ''),
-        'permanent_zip_code' => (string)($permanentAddress['zip_code'] ?? ''),
-        'umid_no' => (string)($personGovernmentIds['umid'] ?? ''),
-        'pagibig_no' => (string)($personGovernmentIds['pagibig'] ?? ''),
-        'philhealth_no' => (string)($personGovernmentIds['philhealth'] ?? ''),
-        'psn_no' => (string)($personGovernmentIds['psn'] ?? ''),
-        'tin_no' => (string)($personGovernmentIds['tin'] ?? ''),
-        'spouse_surname' => (string)($spouse['surname'] ?? ''),
-        'spouse_first_name' => (string)($spouse['first_name'] ?? ''),
-        'spouse_middle_name' => (string)($spouse['middle_name'] ?? ''),
-        'spouse_extension_name' => (string)($spouse['extension_name'] ?? ''),
-        'spouse_occupation' => (string)($spouse['occupation'] ?? ''),
-        'spouse_employer_business_name' => (string)($spouse['employer_business_name'] ?? ''),
-        'spouse_business_address' => (string)($spouse['business_address'] ?? ''),
-        'spouse_telephone_no' => (string)($spouse['telephone_no'] ?? ''),
-        'father_surname' => (string)($father['surname'] ?? ''),
-        'father_first_name' => (string)($father['first_name'] ?? ''),
-        'father_middle_name' => (string)($father['middle_name'] ?? ''),
-        'father_extension_name' => (string)($father['extension_name'] ?? ''),
-        'mother_surname' => (string)($mother['surname'] ?? ''),
-        'mother_first_name' => (string)($mother['first_name'] ?? ''),
-        'mother_middle_name' => (string)($mother['middle_name'] ?? ''),
-        'mother_extension_name' => (string)($mother['extension_name'] ?? ''),
-        'children' => $children,
-        'department' => $departmentName,
-        'position' => $positionName,
-        'status_label' => $statusLabel,
-        'status_raw' => $employmentStatus,
         'email' => $email,
         'mobile' => $mobile,
-        'profile_photo_url' => $profilePhotoUrl,
+        'department' => $officeName,
+        'position' => $positionName,
+        'status_raw' => $statusBucket,
+        'status_label' => $statusLabel,
+        'status_class' => $statusClass,
         'role_key' => $roleKey,
-        'role_name' => $roleName,
-        'agency_employee_no' => $employeeCode,
+        'profile_photo_url' => $resolvedProfilePhotoUrl ?? '',
         'search_text' => $searchText,
-        'civil_service_eligibilities' => $civilServiceByPerson[$personId] ?? [],
-        'work_experiences' => $workExperienceByPerson[$personId] ?? [],
-        'educational_backgrounds' => $educationalBackground,
+        'date_of_birth' => cleanText($person['date_of_birth'] ?? null) ?? '',
+        'place_of_birth' => cleanText($person['place_of_birth'] ?? null) ?? '',
+        'sex_at_birth' => cleanText($person['sex_at_birth'] ?? null) ?? '',
+        'civil_status' => cleanText($person['civil_status'] ?? null) ?? '',
+        'height_m' => isset($person['height_m']) ? (string)$person['height_m'] : '',
+        'weight_kg' => isset($person['weight_kg']) ? (string)$person['weight_kg'] : '',
+        'blood_type' => cleanText($person['blood_type'] ?? null) ?? '',
+        'citizenship' => cleanText($person['citizenship'] ?? null) ?? '',
+        'dual_citizenship_country' => cleanText($person['dual_citizenship_country'] ?? null) ?? '',
+        'telephone_no' => $telephone,
+        'agency_employee_no' => $agencyEmployeeNo,
+        'residential_house_no' => cleanText($residential['house_no'] ?? null) ?? '',
+        'residential_street' => cleanText($residential['street'] ?? null) ?? '',
+        'residential_subdivision' => cleanText($residential['subdivision'] ?? null) ?? '',
+        'residential_barangay' => cleanText($residential['barangay'] ?? null) ?? '',
+        'residential_city_municipality' => cleanText($residential['city_municipality'] ?? null) ?? '',
+        'residential_province' => cleanText($residential['province'] ?? null) ?? '',
+        'residential_zip_code' => cleanText($residential['zip_code'] ?? null) ?? '',
+        'permanent_house_no' => cleanText($permanent['house_no'] ?? null) ?? '',
+        'permanent_street' => cleanText($permanent['street'] ?? null) ?? '',
+        'permanent_subdivision' => cleanText($permanent['subdivision'] ?? null) ?? '',
+        'permanent_barangay' => cleanText($permanent['barangay'] ?? null) ?? '',
+        'permanent_city_municipality' => cleanText($permanent['city_municipality'] ?? null) ?? '',
+        'permanent_province' => cleanText($permanent['province'] ?? null) ?? '',
+        'permanent_zip_code' => cleanText($permanent['zip_code'] ?? null) ?? '',
+        'umid_no' => cleanText($governmentIds['umid'] ?? null) ?? '',
+        'pagibig_no' => cleanText($governmentIds['pagibig'] ?? null) ?? '',
+        'philhealth_no' => cleanText($governmentIds['philhealth'] ?? null) ?? '',
+        'psn_no' => cleanText($governmentIds['psn'] ?? null) ?? '',
+        'tin_no' => cleanText($governmentIds['tin'] ?? null) ?? '',
+        'spouse_surname' => cleanText($spouseByPerson[$personId]['surname'] ?? null) ?? '',
+        'spouse_first_name' => cleanText($spouseByPerson[$personId]['first_name'] ?? null) ?? '',
+        'spouse_middle_name' => cleanText($spouseByPerson[$personId]['middle_name'] ?? null) ?? '',
+        'spouse_extension_name' => cleanText($spouseByPerson[$personId]['extension_name'] ?? null) ?? '',
+        'spouse_occupation' => cleanText($spouseByPerson[$personId]['occupation'] ?? null) ?? '',
+        'spouse_employer_business_name' => cleanText($spouseByPerson[$personId]['employer_business_name'] ?? null) ?? '',
+        'spouse_business_address' => cleanText($spouseByPerson[$personId]['business_address'] ?? null) ?? '',
+        'spouse_telephone_no' => cleanText($spouseByPerson[$personId]['telephone_no'] ?? null) ?? '',
+        'father_surname' => cleanText($parentsByPerson[$personId]['father']['surname'] ?? null) ?? '',
+        'father_first_name' => cleanText($parentsByPerson[$personId]['father']['first_name'] ?? null) ?? '',
+        'father_middle_name' => cleanText($parentsByPerson[$personId]['father']['middle_name'] ?? null) ?? '',
+        'father_extension_name' => cleanText($parentsByPerson[$personId]['father']['extension_name'] ?? null) ?? '',
+        'mother_surname' => cleanText($parentsByPerson[$personId]['mother']['surname'] ?? null) ?? '',
+        'mother_first_name' => cleanText($parentsByPerson[$personId]['mother']['first_name'] ?? null) ?? '',
+        'mother_middle_name' => cleanText($parentsByPerson[$personId]['mother']['middle_name'] ?? null) ?? '',
+        'mother_extension_name' => cleanText($parentsByPerson[$personId]['mother']['extension_name'] ?? null) ?? '',
+        'children' => array_values((array)($childrenByPerson[$personId] ?? [])),
+        'educational_backgrounds' => array_values((array)($educationByPerson[$personId] ?? [])),
+        'civil_service_eligibilities' => array_values((array)($eligibilityByPerson[$personId] ?? [])),
+        'work_experiences' => array_values((array)($workExperiencesByPerson[$personId] ?? [])),
     ];
-
-    $employeesForSelect[] = [
-        'person_id' => $personId,
-        'name' => $fullName,
-        'employee_code' => $employeeCode,
-    ];
-
-    $personUserId = cleanText($person['user_id'] ?? null);
-    if ($personUserId === null || !preg_match('/^[a-f0-9-]{36}$/i', $personUserId)) {
-        $staffAccountCandidates[] = [
-            'person_id' => $personId,
-            'name' => $fullName,
-            'employee_code' => $employeeCode,
-            'email' => $email,
-            'office_id' => $officeId,
-            'office_name' => $departmentName,
-        ];
-    }
 }
-
-$needsUpdateCount = max(0, $totalProfiles - $completeRecords);
 
 $departmentFilterOptions = array_keys($departmentFilters);
-sort($departmentFilterOptions);
-
-usort($employeesForSelect, static function (array $left, array $right): int {
-    return strcmp((string)$left['name'], (string)$right['name']);
-});
-
-usort($staffAccountCandidates, static function (array $left, array $right): int {
-    return strcmp((string)$left['name'], (string)$right['name']);
-});
-
-if ($filterKeyword !== '' || $filterDepartment !== '' || $filterStatus !== '') {
-    $employeeTableRows = array_values(array_filter($employeeTableRows, static function (array $row) use ($filterKeyword, $filterDepartment, $filterStatus): bool {
-        $matchesKeyword = true;
-        $matchesDepartment = true;
-        $matchesStatus = true;
-
-        if ($filterKeyword !== '') {
-            $haystack = strtolower((string)($row['search_text'] ?? ''));
-            $matchesKeyword = str_contains($haystack, $filterKeyword);
-        }
-
-        if ($filterDepartment !== '') {
-            $matchesDepartment = strcasecmp((string)($row['department'] ?? ''), $filterDepartment) === 0;
-        }
-
-        if ($filterStatus !== '') {
-            $matchesStatus = strtolower((string)($row['status_raw'] ?? '')) === $filterStatus;
-        }
-
-        return $matchesKeyword && $matchesDepartment && $matchesStatus;
-    }));
-}
-
-$filteredProfileCount = count($employeeTableRows);
-
-$spouseRequestRows = [];
-if (!empty($personNameByIdAll)) {
-    $spouseRequestResponse = apiRequest(
-        'GET',
-        $supabaseUrl
-        . '/rest/v1/activity_logs?select=id,actor_user_id,entity_id,created_at,new_data'
-        . '&module_name=eq.employee'
-        . '&entity_name=eq.person_family_spouses_request'
-        . '&action_name=eq.submit_spouse_addition_request'
-        . '&order=created_at.desc&limit=300',
-        $headers
-    );
-
-    if (isSuccessful($spouseRequestResponse)) {
-        $requestRows = (array)($spouseRequestResponse['data'] ?? []);
-        $requestIdSet = [];
-        $actorIdSet = [];
-
-        foreach ($requestRows as $requestRowRaw) {
-            $requestRow = (array)$requestRowRaw;
-            $requestId = (string)($requestRow['id'] ?? '');
-            if ($requestId !== '') {
-                $requestIdSet[$requestId] = true;
-            }
-
-            $actorId = (string)($requestRow['actor_user_id'] ?? '');
-            if ($actorId !== '' && preg_match('/^[a-f0-9-]{36}$/i', $actorId)) {
-                $actorIdSet[$actorId] = true;
-            }
-        }
-
-        $decisionByRequestId = [];
-        $decisionResponse = apiRequest(
-            'GET',
-            $supabaseUrl
-            . '/rest/v1/activity_logs?select=id,created_at,new_data,action_name'
-            . '&module_name=eq.personal_information'
-            . '&entity_name=eq.person_family_spouses_request'
-            . '&action_name=in.(approve_spouse_addition_request,reject_spouse_addition_request)'
-            . '&order=created_at.desc&limit=600',
-            $headers
-        );
-
-        if (isSuccessful($decisionResponse)) {
-            foreach ((array)($decisionResponse['data'] ?? []) as $decisionRaw) {
-                $decisionRow = (array)$decisionRaw;
-                $decisionData = is_array($decisionRow['new_data'] ?? null) ? (array)$decisionRow['new_data'] : [];
-                $sourceRequestId = (string)($decisionData['request_log_id'] ?? '');
-                if ($sourceRequestId === '' || !isset($requestIdSet[$sourceRequestId]) || isset($decisionByRequestId[$sourceRequestId])) {
-                    continue;
-                }
-
-                $decisionByRequestId[$sourceRequestId] = [
-                    'status' => strtolower((string)($decisionData['status'] ?? '')),
-                    'remarks' => (string)($decisionData['remarks'] ?? ''),
-                    'reviewed_at' => (string)($decisionRow['created_at'] ?? ''),
-                ];
-            }
-        }
-
-        $actorEmailById = [];
-        if (!empty($actorIdSet)) {
-            $actorFilter = implode(',', array_map('rawurlencode', array_keys($actorIdSet)));
-            $actorResponse = apiRequest(
-                'GET',
-                $supabaseUrl . '/rest/v1/user_accounts?select=id,email&id=in.(' . $actorFilter . ')&limit=500',
-                $headers
-            );
-
-            if (isSuccessful($actorResponse)) {
-                foreach ((array)($actorResponse['data'] ?? []) as $actorRaw) {
-                    $actorRow = (array)$actorRaw;
-                    $actorId = (string)($actorRow['id'] ?? '');
-                    if ($actorId === '') {
-                        continue;
-                    }
-                    $actorEmailById[$actorId] = (string)($actorRow['email'] ?? 'Employee');
-                }
-            }
-        }
-
-        foreach ($requestRows as $requestRowRaw) {
-            $requestRow = (array)$requestRowRaw;
-            $requestId = (string)($requestRow['id'] ?? '');
-            $personId = (string)($requestRow['entity_id'] ?? '');
-
-            if ($requestId === '' || $personId === '' || !isset($personNameByIdAll[$personId]) || isset($decisionByRequestId[$requestId])) {
-                continue;
-            }
-
-            $newData = is_array($requestRow['new_data'] ?? null) ? (array)$requestRow['new_data'] : [];
-            $submittedAtRaw = (string)($requestRow['created_at'] ?? '');
-            $submittedAt = $submittedAtRaw !== '' ? strtotime($submittedAtRaw) : false;
-            $actorId = (string)($requestRow['actor_user_id'] ?? '');
-            $submittedBy = $actorEmailById[$actorId] ?? 'Employee';
-            $supportingDocumentPath = trim((string)($newData['supporting_document_path'] ?? ''));
-            $supportingDocumentUrl = $supportingDocumentPath !== ''
-                ? '/hris-system/storage/document/' . ltrim($supportingDocumentPath, '/')
-                : '';
-
-            $spouseRequestRows[] = [
-                'request_log_id' => $requestId,
-                'person_id' => $personId,
-                'employee_name' => (string)$personNameByIdAll[$personId],
-                'submitted_by' => $submittedBy,
-                'submitted_at_label' => $submittedAt ? date('M d, Y h:i A', $submittedAt) : '-',
-                'submitted_at_date' => $submittedAt ? date('Y-m-d', $submittedAt) : '',
-                'spouse_name' => trim((string)($newData['spouse_first_name'] ?? '') . ' ' . (string)($newData['spouse_surname'] ?? '')),
-                'request_notes' => (string)($newData['request_notes'] ?? ''),
-                'attachment_name' => (string)($newData['supporting_document_name'] ?? ''),
-                'attachment_url' => $supportingDocumentUrl,
-            ];
-        }
-    }
-}
-
-$personNameById = [];
-foreach ($employeeTableRows as $row) {
-    $personId = (string)($row['person_id'] ?? '');
-    if ($personId === '') {
-        continue;
-    }
-
-    $personNameById[$personId] = (string)($row['full_name'] ?? 'Unknown Employee');
-}
-
-$recommendationHistoryRows = [];
-if (!empty($personNameById)) {
-    $personIdFilter = implode(',', array_map(static fn(string $id): string => rawurlencode($id), array_keys($personNameById)));
-    $recommendationResponse = apiRequest(
-        'GET',
-        $supabaseUrl
-        . '/rest/v1/activity_logs?select=id,entity_id,actor_user_id,created_at,new_data,module_name,action_name,entity_name'
-        . '&module_name=eq.personal_information'
-        . '&entity_name=eq.people'
-        . '&action_name=eq.submit_employee_profile_update_request'
-        . '&entity_id=in.(' . $personIdFilter . ')'
-        . '&order=created_at.desc&limit=200',
-        $headers
-    );
-
-    if (isSuccessful($recommendationResponse)) {
-        $recommendationRows = (array)($recommendationResponse['data'] ?? []);
-
-        $decisionResponse = apiRequest(
-            'GET',
-            $supabaseUrl
-            . '/rest/v1/activity_logs?select=id,action_name,new_data,created_at'
-            . '&module_name=eq.personal_information'
-            . '&entity_name=eq.people'
-            . '&action_name=in.(approve_employee_profile_recommendation,reject_employee_profile_recommendation)'
-            . '&entity_id=in.(' . $personIdFilter . ')'
-            . '&order=created_at.desc&limit=500',
-            $headers
-        );
-
-        $reviewDecisionByRecommendationId = [];
-        if (isSuccessful($decisionResponse)) {
-            foreach ((array)($decisionResponse['data'] ?? []) as $decisionRow) {
-                $decisionData = is_array($decisionRow['new_data'] ?? null) ? (array)$decisionRow['new_data'] : [];
-                $sourceRecommendationId = (string)($decisionData['recommendation_log_id'] ?? '');
-                if ($sourceRecommendationId === '' || isset($reviewDecisionByRecommendationId[$sourceRecommendationId])) {
-                    continue;
-                }
-                $reviewDecisionByRecommendationId[$sourceRecommendationId] = [
-                    'decision' => (string)($decisionData['decision'] ?? ''),
-                    'reviewed_at' => (string)($decisionRow['created_at'] ?? ''),
-                ];
-            }
-        }
-
-        $actorIds = [];
-        foreach ($recommendationRows as $recommendationRow) {
-            $actorId = (string)($recommendationRow['actor_user_id'] ?? '');
-            if ($actorId !== '' && preg_match('/^[a-f0-9-]{36}$/i', $actorId)) {
-                $actorIds[$actorId] = true;
-            }
-        }
-
-        $actorEmailById = [];
-        if (!empty($actorIds)) {
-            $actorFilter = implode(',', array_map('rawurlencode', array_keys($actorIds)));
-            $actorResponse = apiRequest(
-                'GET',
-                $supabaseUrl . '/rest/v1/user_accounts?select=id,username,email&id=in.(' . $actorFilter . ')&limit=500',
-                $headers
-            );
-
-            if (isSuccessful($actorResponse)) {
-                foreach ((array)($actorResponse['data'] ?? []) as $actorRow) {
-                    $actorId = (string)($actorRow['id'] ?? '');
-                    if ($actorId === '') {
-                        continue;
-                    }
-                    $actorEmailById[$actorId] = (string)(cleanText($actorRow['username'] ?? null) ?? cleanText($actorRow['email'] ?? null) ?? 'Employee');
-                }
-            }
-        }
-
-        foreach ($recommendationRows as $recommendationRow) {
-            $recommendationLogId = (string)($recommendationRow['id'] ?? '');
-            if ($recommendationLogId === '' || isset($reviewDecisionByRecommendationId[$recommendationLogId])) {
-                continue;
-            }
-
-            $entityId = (string)($recommendationRow['entity_id'] ?? '');
-            if ($entityId === '' || !isset($personNameById[$entityId])) {
-                continue;
-            }
-
-            $newData = is_array($recommendationRow['new_data'] ?? null) ? (array)$recommendationRow['new_data'] : [];
-            $recommendedProfile = is_array($newData['recommended_profile'] ?? null) ? (array)$newData['recommended_profile'] : [];
-            $recommendedAddresses = is_array($newData['recommended_addresses'] ?? null) ? (array)$newData['recommended_addresses'] : [];
-            $recommendedGovernmentIds = is_array($newData['recommended_government_ids'] ?? null) ? (array)$newData['recommended_government_ids'] : [];
-            $recommendedFamily = is_array($newData['recommended_family'] ?? null) ? (array)$newData['recommended_family'] : [];
-            $recommendedEducation = is_array($newData['recommended_educational_backgrounds'] ?? null) ? (array)$newData['recommended_educational_backgrounds'] : [];
-            $requestDueAt = (string)($newData['request_due_at'] ?? '');
-            $profileFieldCount = count($recommendedProfile);
-            $addressFieldCount = 0;
-            foreach ($recommendedAddresses as $addressRow) {
-                if (!is_array($addressRow)) {
-                    continue;
-                }
-                foreach ($addressRow as $value) {
-                    if (trim((string)$value) !== '') {
-                        $addressFieldCount++;
-                    }
-                }
-            }
-            $governmentFieldCount = 0;
-            foreach ($recommendedGovernmentIds as $value) {
-                if (trim((string)$value) !== '') {
-                    $governmentFieldCount++;
-                }
-            }
-            $familyFieldCount = 0;
-            foreach ($recommendedFamily as $value) {
-                if (is_array($value)) {
-                    $familyFieldCount += count($value);
-                    continue;
-                }
-                if (trim((string)$value) !== '') {
-                    $familyFieldCount++;
-                }
-            }
-            $educationCount = count($recommendedEducation);
-            $summaryFragments = [];
-            if ($profileFieldCount > 0) {
-                $summaryFragments[] = $profileFieldCount . ' profile field(s)';
-            }
-            if ($addressFieldCount > 0) {
-                $summaryFragments[] = $addressFieldCount . ' address detail(s)';
-            }
-            if ($governmentFieldCount > 0) {
-                $summaryFragments[] = $governmentFieldCount . ' government ID detail(s)';
-            }
-            if ($familyFieldCount > 0) {
-                $summaryFragments[] = $familyFieldCount . ' family detail(s)';
-            }
-            if ($educationCount > 0) {
-                $summaryFragments[] = $educationCount . ' educational entry(ies)';
-            }
-
-            $actorId = (string)($recommendationRow['actor_user_id'] ?? '');
-            $submittedBy = $actorEmailById[$actorId] ?? 'Employee';
-            $submittedAtRaw = (string)($recommendationRow['created_at'] ?? '');
-            $submittedAt = $submittedAtRaw !== '' ? strtotime($submittedAtRaw) : false;
-            $submittedAtDate = $submittedAt ? date('Y-m-d', $submittedAt) : '';
-            $dueAtTs = $requestDueAt !== '' ? strtotime($requestDueAt) : false;
-            $statusLabel = 'Pending Admin Action';
-            $statusClass = 'bg-amber-100 text-amber-800';
-            if ($dueAtTs !== false) {
-                $nowTs = time();
-                if ($dueAtTs < $nowTs) {
-                    $statusLabel = 'Overdue';
-                    $statusClass = 'bg-rose-100 text-rose-800';
-                } elseif ($dueAtTs <= strtotime('+2 days', $nowTs)) {
-                    $statusLabel = 'Reminder Window';
-                    $statusClass = 'bg-orange-100 text-orange-800';
-                }
-            }
-            $summaryText = !empty($summaryFragments)
-                ? implode(', ', $summaryFragments) . ' requested for review'
-                : 'Profile details requested for update';
-            $searchText = strtolower(trim(implode(' ', [
-                $personNameById[$entityId],
-                $submittedBy,
-                $summaryText,
-                $requestDueAt,
-            ])));
-
-            $recommendationHistoryRows[] = [
-                'recommendation_log_id' => $recommendationLogId,
-                'person_id' => $entityId,
-                'employee_name' => $personNameById[$entityId],
-                'submitted_by' => $submittedBy,
-                'submitted_at_label' => $submittedAt ? formatDateTimeForPhilippines(date(DATE_ATOM, $submittedAt), 'M d, Y h:i A') : '-',
-                'submitted_at_date' => $submittedAtDate,
-                'status_label' => $statusLabel,
-                'status_class' => $statusClass,
-                'summary' => $summaryText,
-                'due_at_label' => $dueAtTs ? formatDateTimeForPhilippines(date(DATE_ATOM, $dueAtTs), 'M d, Y h:i A') . ' PST' : '-',
-                'proposed_changes' => [
-                    'recommended_profile' => $recommendedProfile,
-                    'recommended_addresses' => $recommendedAddresses,
-                    'recommended_government_ids' => $recommendedGovernmentIds,
-                    'recommended_family' => $recommendedFamily,
-                    'recommended_educational_backgrounds' => $recommendedEducation,
-                ],
-                'search_text' => $searchText,
-            ];
-        }
-    }
-}
-
-$civilStatusDefaultOptions = ['Single', 'Married', 'Widowed', 'Separated', 'Divorced', 'Annulled'];
-$bloodTypeDefaultOptions = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+sort($departmentFilterOptions, SORT_NATURAL | SORT_FLAG_CASE);
 
 $placeOfBirthOptionsMap = [];
-$civilStatusOptionsMap = array_fill_keys($civilStatusDefaultOptions, true);
-$bloodTypeOptionsMap = array_fill_keys($bloodTypeDefaultOptions, true);
-$addressCityOptionsMap = [];
-$addressProvinceOptionsMap = [];
-$addressBarangayOptionsMap = [];
-
-foreach ($employeeTableRows as $row) {
-    $placeOfBirthValue = trim((string)($row['place_of_birth'] ?? ''));
-    if ($placeOfBirthValue !== '') {
-        $placeOfBirthOptionsMap[$placeOfBirthValue] = true;
+foreach ($employeeTableRows as $employeeRow) {
+    $placeOfBirth = trim((string)($employeeRow['place_of_birth'] ?? ''));
+    if ($placeOfBirth !== '') {
+        $placeOfBirthOptionsMap[$placeOfBirth] = true;
     }
-
-    $civilStatusValue = trim((string)($row['civil_status'] ?? ''));
-    if ($civilStatusValue !== '') {
-        $civilStatusOptionsMap[$civilStatusValue] = true;
-    }
-
-    $bloodTypeValue = trim((string)($row['blood_type'] ?? ''));
-    if ($bloodTypeValue !== '') {
-        $bloodTypeOptionsMap[$bloodTypeValue] = true;
-    }
-
-    $residentialCityValue = trim((string)($row['residential_city_municipality'] ?? ''));
-    if ($residentialCityValue !== '') {
-        $addressCityOptionsMap[$residentialCityValue] = true;
-    }
-    $permanentCityValue = trim((string)($row['permanent_city_municipality'] ?? ''));
-    if ($permanentCityValue !== '') {
-        $addressCityOptionsMap[$permanentCityValue] = true;
-    }
-
-    $residentialProvinceValue = trim((string)($row['residential_province'] ?? ''));
-    if ($residentialProvinceValue !== '') {
-        $addressProvinceOptionsMap[$residentialProvinceValue] = true;
-    }
-    $permanentProvinceValue = trim((string)($row['permanent_province'] ?? ''));
-    if ($permanentProvinceValue !== '') {
-        $addressProvinceOptionsMap[$permanentProvinceValue] = true;
-    }
-
-    $residentialBarangayValue = trim((string)($row['residential_barangay'] ?? ''));
-    if ($residentialBarangayValue !== '') {
-        $addressBarangayOptionsMap[$residentialBarangayValue] = true;
-    }
-    $permanentBarangayValue = trim((string)($row['permanent_barangay'] ?? ''));
-    if ($permanentBarangayValue !== '') {
-        $addressBarangayOptionsMap[$permanentBarangayValue] = true;
+}
+foreach ($addressCityOptions as $cityOption) {
+    $cityValue = trim((string)$cityOption);
+    if ($cityValue !== '') {
+        $placeOfBirthOptionsMap[$cityValue] = true;
     }
 }
 
 $placeOfBirthOptions = array_keys($placeOfBirthOptionsMap);
 sort($placeOfBirthOptions, SORT_NATURAL | SORT_FLAG_CASE);
 
-$civilStatusOptions = array_keys($civilStatusOptionsMap);
-sort($civilStatusOptions, SORT_NATURAL | SORT_FLAG_CASE);
+$civilStatusOptions = ['Single', 'Married', 'Widowed', 'Separated', 'Divorced', 'Annulled'];
+$bloodTypeOptions = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
-$bloodTypeOptions = array_keys($bloodTypeOptionsMap);
-sort($bloodTypeOptions, SORT_NATURAL | SORT_FLAG_CASE);
-
-$addressCityOptions = array_keys($addressCityOptionsMap);
-sort($addressCityOptions, SORT_NATURAL | SORT_FLAG_CASE);
-
-$addressProvinceOptions = array_keys($addressProvinceOptionsMap);
-sort($addressProvinceOptions, SORT_NATURAL | SORT_FLAG_CASE);
-
-$addressBarangayOptions = array_keys($addressBarangayOptionsMap);
-sort($addressBarangayOptions, SORT_NATURAL | SORT_FLAG_CASE);
+$needsUpdateCount = max(0, $totalProfiles - $completeRecords);

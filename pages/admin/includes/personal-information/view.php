@@ -14,8 +14,18 @@ $rolePill = static function (string $roleKey): array {
     }
     return ['Employee', 'bg-emerald-100 text-emerald-800'];
 };
+
+$renderPersonalInfoEmployeeRegionOnly = !empty($renderPersonalInfoEmployeeRegionOnly);
+$personalInfoActionPath = trim((string)($personalInfoActionPath ?? 'personal-information.php'));
+$personalInfoProfilesPath = trim((string)($personalInfoProfilesPath ?? 'personal-information-profiles.php'));
+$personalInfoAuditPath = trim((string)($personalInfoAuditPath ?? 'personal-information-audit-logs.php'));
+$personalInfoEmployeeRegionUrl = trim((string)($personalInfoEmployeeRegionUrl ?? ($personalInfoActionPath . '?partial=employee-region')));
+$personalInfoProfileSource = trim((string)($personalInfoProfileSource ?? 'personal-information'));
+$personalInfoCurrentSection = trim((string)($personalInfoCurrentSection ?? 'workspace'));
+$personalInfoShowProfileCards = !empty($personalInfoShowProfileCards);
 ?>
 
+<?php if (!$renderPersonalInfoEmployeeRegionOnly): ?>
 <?php if ($state && $message): ?>
     <?php
     $alertClass = $state === 'success'
@@ -35,6 +45,27 @@ $rolePill = static function (string $roleKey): array {
         <span><?= htmlspecialchars((string)$dataLoadError, ENT_QUOTES, 'UTF-8') ?></span>
     </div>
 <?php endif; ?>
+
+<?php if (!empty($schemaSupportNotice)): ?>
+    <div class="mb-6 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 px-4 py-3 text-sm flex gap-2">
+        <span class="material-symbols-outlined text-base">info</span>
+        <span><?= htmlspecialchars((string)$schemaSupportNotice, ENT_QUOTES, 'UTF-8') ?></span>
+    </div>
+<?php endif; ?>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <div class="px-6 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+            <h2 class="text-lg font-semibold text-slate-800">Personal Information</h2>
+            <p class="text-sm text-slate-500 mt-1">Use the section menu to switch between request review and the full staff and employee directory.</p>
+        </div>
+        <nav class="flex flex-wrap items-center gap-2" aria-label="Personal information sections">
+            <a href="<?= htmlspecialchars($personalInfoActionPath, ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium <?= $personalInfoCurrentSection === 'workspace' ? 'bg-slate-900 text-white' : 'border border-slate-300 text-slate-700 hover:bg-slate-50' ?>">Requests &amp; Overview</a>
+            <a href="<?= htmlspecialchars($personalInfoProfilesPath, ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium <?= $personalInfoCurrentSection === 'profiles' ? 'bg-slate-900 text-white' : 'border border-slate-300 text-slate-700 hover:bg-slate-50' ?>">Staff &amp; Employee Profiles</a>
+            <a href="<?= htmlspecialchars($personalInfoAuditPath, ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium <?= $personalInfoCurrentSection === 'audit' ? 'bg-slate-900 text-white' : 'border border-slate-300 text-slate-700 hover:bg-slate-50' ?>">Audit &amp; Logs</a>
+        </nav>
+    </div>
+</section>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <div class="px-6 py-4 flex items-center justify-between gap-3">
@@ -98,7 +129,7 @@ $rolePill = static function (string $roleKey): array {
             <label class="text-slate-600">Status Filter</label>
             <select id="pendingProfileStatusFilter" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2">
                 <option value="">All Statuses</option>
-                <option value="Pending Admin Action">Pending Admin Action</option>
+                <option value="Pending">Pending</option>
             </select>
         </div>
         <div>
@@ -129,7 +160,7 @@ $rolePill = static function (string $roleKey): array {
                         <?php
                             $recommendationDetailsJson = htmlspecialchars((string)json_encode($recommendationRow['proposed_changes'] ?? [], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
                             $submittedDateValue = htmlspecialchars((string)($recommendationRow['submitted_at_date'] ?? ''), ENT_QUOTES, 'UTF-8');
-                            $statusLabelValue = (string)($recommendationRow['status_label'] ?? 'Pending Admin Action');
+                            $statusLabelValue = (string)($recommendationRow['status_label'] ?? 'Pending');
                         ?>
                         <tr
                             data-pending-review-row
@@ -228,7 +259,7 @@ $rolePill = static function (string $roleKey): array {
                                 <?php endif; ?>
                             </td>
                             <td class="px-4 py-3 align-top">
-                                <form method="POST" action="personal-information.php" class="space-y-2">
+                                <form method="POST" action="<?= htmlspecialchars($personalInfoActionPath, ENT_QUOTES, 'UTF-8') ?>" class="space-y-2" data-confirm-title="Submit spouse request decision?" data-confirm-text="This will apply the selected spouse-request decision and update the employee record when approved." data-confirm-button-text="Submit decision">
                                     <input type="hidden" name="form_action" value="review_spouse_request">
                                     <input type="hidden" name="request_log_id" value="<?= htmlspecialchars((string)($requestRow['request_log_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                                     <input type="hidden" name="person_id" value="<?= htmlspecialchars((string)($requestRow['person_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
@@ -247,7 +278,7 @@ $rolePill = static function (string $roleKey): array {
     </div>
 </section>
 
-<form id="personalInfoRecommendationReviewForm" action="personal-information.php" method="POST" class="hidden">
+<form id="personalInfoRecommendationReviewForm" action="<?= htmlspecialchars($personalInfoActionPath, ENT_QUOTES, 'UTF-8') ?>" method="POST" class="hidden" data-confirm-title="Submit profile change decision?" data-confirm-text="This will finalize the selected profile-change request and apply the approved updates to the employee record." data-confirm-button-text="Submit decision">
     <input type="hidden" name="form_action" value="review_profile_recommendation">
     <input type="hidden" id="recommendationReviewLogId" name="recommendation_log_id" value="">
     <input type="hidden" id="recommendationReviewPersonId" name="person_id" value="">
@@ -306,6 +337,53 @@ $rolePill = static function (string $roleKey): array {
     </div>
 </div>
 
+<section
+    id="adminPersonalInfoEmployeeRegion"
+    data-personal-info-employee-region-url="<?= htmlspecialchars($personalInfoEmployeeRegionUrl, ENT_QUOTES, 'UTF-8') ?>"
+    class="space-y-6"
+>
+    <div id="adminPersonalInfoEmployeeRegionSkeleton" class="space-y-6" aria-live="polite" role="status">
+        <section class="bg-white border border-slate-200 rounded-2xl p-6">
+            <div class="h-5 w-40 rounded bg-slate-200 animate-pulse"></div>
+            <div class="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div class="md:col-span-2 h-10 rounded bg-slate-100 animate-pulse"></div>
+                <div class="h-10 rounded bg-slate-100 animate-pulse"></div>
+                <div class="h-10 rounded bg-slate-100 animate-pulse"></div>
+            </div>
+            <div class="mt-5 space-y-3">
+                <?php for ($rowIndex = 0; $rowIndex < 6; $rowIndex += 1): ?>
+                    <div class="h-12 rounded bg-slate-100 animate-pulse"></div>
+                <?php endfor; ?>
+            </div>
+        </section>
+        <section class="bg-white border border-slate-200 rounded-2xl p-6">
+            <div class="h-5 w-48 rounded bg-slate-200 animate-pulse"></div>
+            <div class="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <?php for ($cardIndex = 0; $cardIndex < 6; $cardIndex += 1): ?>
+                    <div class="rounded-xl border border-slate-200 p-4">
+                        <div class="flex items-start gap-3">
+                            <div class="h-12 w-12 rounded-full bg-slate-200 animate-pulse"></div>
+                            <div class="flex-1 space-y-2">
+                                <div class="h-4 w-32 rounded bg-slate-200 animate-pulse"></div>
+                                <div class="h-3 w-24 rounded bg-slate-100 animate-pulse"></div>
+                                <div class="h-3 w-28 rounded bg-slate-100 animate-pulse"></div>
+                            </div>
+                        </div>
+                    </div>
+                <?php endfor; ?>
+            </div>
+        </section>
+    </div>
+    <div id="adminPersonalInfoEmployeeRegionError" class="hidden rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <p class="font-medium">Employee management content could not be loaded.</p>
+        <button type="button" id="adminPersonalInfoEmployeeRegionRetry" class="mt-3 inline-flex items-center rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100">Retry content</button>
+    </div>
+    <div id="adminPersonalInfoEmployeeRegionContent" class="hidden"></div>
+</section>
+<?php endif; ?>
+
+<?php if ($renderPersonalInfoEmployeeRegionOnly): ?>
+
 <div id="personalInfoEditProfileModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-slate-900/60" data-modal-close="personalInfoEditProfileModal"></div>
     <div class="relative min-h-full flex items-center justify-center p-4">
@@ -325,11 +403,11 @@ $rolePill = static function (string $roleKey): array {
                         <input id="quickEditProfileSearchInput" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Search by employee code or employee name">
                     </div>
                     <div class="flex items-end">
-                        <button type="button" data-person-profile-add class="w-full px-4 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Add Employee</button>
+                        <p class="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">Direct profile creation and editing are disabled here. Use employee requests plus approval review for profile changes.</p>
                     </div>
                 </div>
 
-                <div id="quickEditProfileList" class="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-80 overflow-y-auto">
+                <div id="quickEditProfileList" data-profile-source="<?= htmlspecialchars($personalInfoProfileSource, ENT_QUOTES, 'UTF-8') ?>" class="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-80 overflow-y-auto">
                     <?php foreach ($employeeTableRows as $quickRow): ?>
                         <button
                             type="button"
@@ -443,9 +521,9 @@ $rolePill = static function (string $roleKey): array {
                                         </button>
                                     </div>
 
-                                    <button type="button" hidden data-action-trigger="edit-profile" data-person-profile-open data-person-id="<?= htmlspecialchars((string)$row['person_id'], ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars((string)$row['full_name'], ENT_QUOTES, 'UTF-8') ?>" data-first-name="<?= htmlspecialchars((string)$row['first_name'], ENT_QUOTES, 'UTF-8') ?>" data-middle-name="<?= htmlspecialchars((string)$row['middle_name'], ENT_QUOTES, 'UTF-8') ?>" data-surname="<?= htmlspecialchars((string)$row['surname'], ENT_QUOTES, 'UTF-8') ?>" data-name-extension="<?= htmlspecialchars((string)$row['name_extension'], ENT_QUOTES, 'UTF-8') ?>" data-date-of-birth="<?= htmlspecialchars((string)$row['date_of_birth'], ENT_QUOTES, 'UTF-8') ?>" data-place-of-birth="<?= htmlspecialchars((string)$row['place_of_birth'], ENT_QUOTES, 'UTF-8') ?>" data-sex-at-birth="<?= htmlspecialchars((string)$row['sex_at_birth'], ENT_QUOTES, 'UTF-8') ?>" data-civil-status="<?= htmlspecialchars((string)$row['civil_status'], ENT_QUOTES, 'UTF-8') ?>" data-height-m="<?= htmlspecialchars((string)$row['height_m'], ENT_QUOTES, 'UTF-8') ?>" data-weight-kg="<?= htmlspecialchars((string)$row['weight_kg'], ENT_QUOTES, 'UTF-8') ?>" data-blood-type="<?= htmlspecialchars((string)$row['blood_type'], ENT_QUOTES, 'UTF-8') ?>" data-citizenship="<?= htmlspecialchars((string)$row['citizenship'], ENT_QUOTES, 'UTF-8') ?>" data-dual-citizenship-country="<?= htmlspecialchars((string)$row['dual_citizenship_country'], ENT_QUOTES, 'UTF-8') ?>" data-telephone-no="<?= htmlspecialchars((string)$row['telephone_no'], ENT_QUOTES, 'UTF-8') ?>" data-email="<?= htmlspecialchars((string)$row['email'], ENT_QUOTES, 'UTF-8') ?>" data-mobile="<?= htmlspecialchars((string)$row['mobile'], ENT_QUOTES, 'UTF-8') ?>" data-agency-employee-no="<?= htmlspecialchars((string)$row['agency_employee_no'], ENT_QUOTES, 'UTF-8') ?>" data-residential-house-no="<?= htmlspecialchars((string)$row['residential_house_no'], ENT_QUOTES, 'UTF-8') ?>" data-residential-street="<?= htmlspecialchars((string)$row['residential_street'], ENT_QUOTES, 'UTF-8') ?>" data-residential-subdivision="<?= htmlspecialchars((string)$row['residential_subdivision'], ENT_QUOTES, 'UTF-8') ?>" data-residential-barangay="<?= htmlspecialchars((string)$row['residential_barangay'], ENT_QUOTES, 'UTF-8') ?>" data-residential-city-municipality="<?= htmlspecialchars((string)$row['residential_city_municipality'], ENT_QUOTES, 'UTF-8') ?>" data-residential-province="<?= htmlspecialchars((string)$row['residential_province'], ENT_QUOTES, 'UTF-8') ?>" data-residential-zip-code="<?= htmlspecialchars((string)$row['residential_zip_code'], ENT_QUOTES, 'UTF-8') ?>" data-permanent-house-no="<?= htmlspecialchars((string)$row['permanent_house_no'], ENT_QUOTES, 'UTF-8') ?>" data-permanent-street="<?= htmlspecialchars((string)$row['permanent_street'], ENT_QUOTES, 'UTF-8') ?>" data-permanent-subdivision="<?= htmlspecialchars((string)$row['permanent_subdivision'], ENT_QUOTES, 'UTF-8') ?>" data-permanent-barangay="<?= htmlspecialchars((string)$row['permanent_barangay'], ENT_QUOTES, 'UTF-8') ?>" data-permanent-city-municipality="<?= htmlspecialchars((string)$row['permanent_city_municipality'], ENT_QUOTES, 'UTF-8') ?>" data-permanent-province="<?= htmlspecialchars((string)$row['permanent_province'], ENT_QUOTES, 'UTF-8') ?>" data-permanent-zip-code="<?= htmlspecialchars((string)$row['permanent_zip_code'], ENT_QUOTES, 'UTF-8') ?>" data-umid-no="<?= htmlspecialchars((string)$row['umid_no'], ENT_QUOTES, 'UTF-8') ?>" data-pagibig-no="<?= htmlspecialchars((string)$row['pagibig_no'], ENT_QUOTES, 'UTF-8') ?>" data-philhealth-no="<?= htmlspecialchars((string)$row['philhealth_no'], ENT_QUOTES, 'UTF-8') ?>" data-psn-no="<?= htmlspecialchars((string)$row['psn_no'], ENT_QUOTES, 'UTF-8') ?>" data-tin-no="<?= htmlspecialchars((string)$row['tin_no'], ENT_QUOTES, 'UTF-8') ?>"></button>
-                                    <button type="button" hidden data-action-trigger="assign" data-person-assignment-open data-person-id="<?= htmlspecialchars((string)$row['person_id'], ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars((string)$row['full_name'], ENT_QUOTES, 'UTF-8') ?>"></button>
-                                    <button type="button" hidden data-action-trigger="manage-status" data-person-status-open data-person-id="<?= htmlspecialchars((string)$row['person_id'], ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars((string)$row['full_name'], ENT_QUOTES, 'UTF-8') ?>"></button>
+                                    <button type="button" hidden data-action-trigger="edit-profile" data-person-profile-open data-person-id="<?= htmlspecialchars((string)$row['person_id'], ENT_QUOTES, 'UTF-8') ?>" data-employment-id="<?= htmlspecialchars((string)($row['employment_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars((string)$row['full_name'], ENT_QUOTES, 'UTF-8') ?>" data-first-name="<?= htmlspecialchars((string)$row['first_name'], ENT_QUOTES, 'UTF-8') ?>" data-middle-name="<?= htmlspecialchars((string)$row['middle_name'], ENT_QUOTES, 'UTF-8') ?>" data-surname="<?= htmlspecialchars((string)$row['surname'], ENT_QUOTES, 'UTF-8') ?>" data-name-extension="<?= htmlspecialchars((string)$row['name_extension'], ENT_QUOTES, 'UTF-8') ?>" data-date-of-birth="<?= htmlspecialchars((string)$row['date_of_birth'], ENT_QUOTES, 'UTF-8') ?>" data-place-of-birth="<?= htmlspecialchars((string)$row['place_of_birth'], ENT_QUOTES, 'UTF-8') ?>" data-sex-at-birth="<?= htmlspecialchars((string)$row['sex_at_birth'], ENT_QUOTES, 'UTF-8') ?>" data-civil-status="<?= htmlspecialchars((string)$row['civil_status'], ENT_QUOTES, 'UTF-8') ?>" data-height-m="<?= htmlspecialchars((string)$row['height_m'], ENT_QUOTES, 'UTF-8') ?>" data-weight-kg="<?= htmlspecialchars((string)$row['weight_kg'], ENT_QUOTES, 'UTF-8') ?>" data-blood-type="<?= htmlspecialchars((string)$row['blood_type'], ENT_QUOTES, 'UTF-8') ?>" data-citizenship="<?= htmlspecialchars((string)$row['citizenship'], ENT_QUOTES, 'UTF-8') ?>" data-dual-citizenship-country="<?= htmlspecialchars((string)$row['dual_citizenship_country'], ENT_QUOTES, 'UTF-8') ?>" data-telephone-no="<?= htmlspecialchars((string)$row['telephone_no'], ENT_QUOTES, 'UTF-8') ?>" data-email="<?= htmlspecialchars((string)$row['email'], ENT_QUOTES, 'UTF-8') ?>" data-mobile="<?= htmlspecialchars((string)$row['mobile'], ENT_QUOTES, 'UTF-8') ?>" data-agency-employee-no="<?= htmlspecialchars((string)$row['agency_employee_no'], ENT_QUOTES, 'UTF-8') ?>" data-residential-house-no="<?= htmlspecialchars((string)$row['residential_house_no'], ENT_QUOTES, 'UTF-8') ?>" data-residential-street="<?= htmlspecialchars((string)$row['residential_street'], ENT_QUOTES, 'UTF-8') ?>" data-residential-subdivision="<?= htmlspecialchars((string)$row['residential_subdivision'], ENT_QUOTES, 'UTF-8') ?>" data-residential-barangay="<?= htmlspecialchars((string)$row['residential_barangay'], ENT_QUOTES, 'UTF-8') ?>" data-residential-city-municipality="<?= htmlspecialchars((string)$row['residential_city_municipality'], ENT_QUOTES, 'UTF-8') ?>" data-residential-province="<?= htmlspecialchars((string)$row['residential_province'], ENT_QUOTES, 'UTF-8') ?>" data-residential-zip-code="<?= htmlspecialchars((string)$row['residential_zip_code'], ENT_QUOTES, 'UTF-8') ?>" data-permanent-house-no="<?= htmlspecialchars((string)$row['permanent_house_no'], ENT_QUOTES, 'UTF-8') ?>" data-permanent-street="<?= htmlspecialchars((string)$row['permanent_street'], ENT_QUOTES, 'UTF-8') ?>" data-permanent-subdivision="<?= htmlspecialchars((string)$row['permanent_subdivision'], ENT_QUOTES, 'UTF-8') ?>" data-permanent-barangay="<?= htmlspecialchars((string)$row['permanent_barangay'], ENT_QUOTES, 'UTF-8') ?>" data-permanent-city-municipality="<?= htmlspecialchars((string)$row['permanent_city_municipality'], ENT_QUOTES, 'UTF-8') ?>" data-permanent-province="<?= htmlspecialchars((string)$row['permanent_province'], ENT_QUOTES, 'UTF-8') ?>" data-permanent-zip-code="<?= htmlspecialchars((string)$row['permanent_zip_code'], ENT_QUOTES, 'UTF-8') ?>" data-umid-no="<?= htmlspecialchars((string)$row['umid_no'], ENT_QUOTES, 'UTF-8') ?>" data-pagibig-no="<?= htmlspecialchars((string)$row['pagibig_no'], ENT_QUOTES, 'UTF-8') ?>" data-philhealth-no="<?= htmlspecialchars((string)$row['philhealth_no'], ENT_QUOTES, 'UTF-8') ?>" data-psn-no="<?= htmlspecialchars((string)$row['psn_no'], ENT_QUOTES, 'UTF-8') ?>" data-tin-no="<?= htmlspecialchars((string)$row['tin_no'], ENT_QUOTES, 'UTF-8') ?>"></button>
+                                    <button type="button" hidden data-action-trigger="assign" data-person-assignment-open data-person-id="<?= htmlspecialchars((string)$row['person_id'], ENT_QUOTES, 'UTF-8') ?>" data-employment-id="<?= htmlspecialchars((string)($row['employment_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-current-office-id="<?= htmlspecialchars((string)($row['office_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-current-position-id="<?= htmlspecialchars((string)($row['position_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars((string)$row['full_name'], ENT_QUOTES, 'UTF-8') ?>"></button>
+                                    <button type="button" hidden data-action-trigger="manage-status" data-person-status-open data-person-id="<?= htmlspecialchars((string)$row['person_id'], ENT_QUOTES, 'UTF-8') ?>" data-employment-id="<?= htmlspecialchars((string)($row['employment_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-current-status="<?= htmlspecialchars((string)$statusLabel, ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars((string)$row['full_name'], ENT_QUOTES, 'UTF-8') ?>"></button>
                                     <button type="button" hidden data-action-trigger="merge-duplicate" data-person-merge-open data-person-id="<?= htmlspecialchars((string)$row['person_id'], ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars((string)$row['full_name'], ENT_QUOTES, 'UTF-8') ?>"></button>
                                     <button type="button" hidden data-action-trigger="archive" data-person-profile-archive data-person-id="<?= htmlspecialchars((string)$row['person_id'], ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars((string)$row['full_name'], ENT_QUOTES, 'UTF-8') ?>"></button>
 
@@ -471,6 +549,7 @@ $rolePill = static function (string $roleKey): array {
     </div>
 </section>
 
+<?php if ($personalInfoShowProfileCards): ?>
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Staff & Employee Profiles</h2>
@@ -485,7 +564,7 @@ $rolePill = static function (string $roleKey): array {
         <?php else: ?>
             <?php foreach ($employeeTableRows as $cardRow): ?>
                 <?php
-                    $profileUrl = 'employee-profile.php?person_id=' . rawurlencode((string)($cardRow['person_id'] ?? '')) . '&source=personal-information';
+                    $profileUrl = 'employee-profile.php?person_id=' . rawurlencode((string)($cardRow['person_id'] ?? '')) . '&source=' . rawurlencode($personalInfoProfileSource);
                     $fullName = trim((string)($cardRow['full_name'] ?? ''));
                     $initialsSource = preg_replace('/\s+/', ' ', $fullName);
                     $nameParts = array_values(array_filter(explode(' ', (string)$initialsSource), static fn(string $part): bool => $part !== ''));
@@ -527,8 +606,9 @@ $rolePill = static function (string $roleKey): array {
         <?php endif; ?>
     </div>
 </section>
+<?php endif; ?>
 
-<form id="personalInfoArchiveForm" action="personal-information.php" method="POST" class="hidden">
+<form id="personalInfoArchiveForm" action="<?= htmlspecialchars($personalInfoActionPath, ENT_QUOTES, 'UTF-8') ?>" method="POST" class="hidden">
     <input type="hidden" name="form_action" value="save_profile">
     <input type="hidden" name="profile_action" value="archive">
     <input type="hidden" name="person_id" id="personalInfoArchivePersonId" value="">
@@ -536,7 +616,7 @@ $rolePill = static function (string $roleKey): array {
     <input type="hidden" name="profile_notes" value="Archived by admin from employee records table.">
 </form>
 
-<form id="personalInfoMergeForm" action="personal-information.php" method="POST" class="hidden">
+<form id="personalInfoMergeForm" action="<?= htmlspecialchars($personalInfoActionPath, ENT_QUOTES, 'UTF-8') ?>" method="POST" class="hidden">
     <input type="hidden" name="form_action" value="resolve_duplicate_profile">
     <input type="hidden" name="source_person_id" id="personalInfoMergeSourcePersonId" value="">
     <input type="hidden" name="source_employee_name" id="personalInfoMergeSourceEmployeeName" value="">
@@ -545,14 +625,16 @@ $rolePill = static function (string $roleKey): array {
     <input type="hidden" name="resolution_notes" id="personalInfoMergeResolutionNotes" value="">
 </form>
 
-<form id="personalInfoEligibilityDeleteForm" action="personal-information.php" method="POST" class="hidden">
+<?php if ($supportsCivilServiceEligibility): ?>
+<form id="personalInfoEligibilityDeleteForm" action="<?= htmlspecialchars($personalInfoActionPath, ENT_QUOTES, 'UTF-8') ?>" method="POST" class="hidden">
     <input type="hidden" name="form_action" value="save_civil_service_eligibility">
     <input type="hidden" name="eligibility_action" value="delete">
     <input type="hidden" id="personalInfoEligibilityDeletePersonId" name="person_id" value="">
     <input type="hidden" id="personalInfoEligibilityDeleteId" name="eligibility_id" value="">
 </form>
+<?php endif; ?>
 
-<form id="personalInfoWorkExperienceDeleteForm" action="personal-information.php" method="POST" class="hidden">
+<form id="personalInfoWorkExperienceDeleteForm" action="<?= htmlspecialchars($personalInfoActionPath, ENT_QUOTES, 'UTF-8') ?>" method="POST" class="hidden">
     <input type="hidden" name="form_action" value="save_work_experience">
     <input type="hidden" name="work_experience_action" value="delete">
     <input type="hidden" id="personalInfoWorkExperienceDeletePersonId" name="person_id" value="">
@@ -574,7 +656,7 @@ $rolePill = static function (string $roleKey): array {
                 </div>
                 <p id="personalInfoProfileEmployeeLabel" class="px-6 py-2 text-sm text-slate-500">Selected employee</p>
             </div>
-            <form action="personal-information.php" method="POST" class="flex-1 min-h-0 flex flex-col" id="personalInfoProfileForm">
+            <form action="<?= htmlspecialchars($personalInfoActionPath, ENT_QUOTES, 'UTF-8') ?>" method="POST" class="flex-1 min-h-0 flex flex-col" id="personalInfoProfileForm">
                 <input type="hidden" name="form_action" value="save_profile">
                 <input type="hidden" name="profile_action" id="profileAction" value="edit">
                 <input name="person_id" type="hidden" id="profilePersonId" value="">
@@ -883,7 +965,7 @@ $rolePill = static function (string $roleKey): array {
                 <p id="personalInfoFamilyEmployeeLabel" class="px-6 py-2 text-sm text-slate-500">Selected employee</p>
             </div>
 
-            <form action="personal-information.php" method="POST" class="flex-1 min-h-0 flex flex-col" id="personalInfoFamilyForm">
+            <form action="<?= htmlspecialchars($personalInfoActionPath, ENT_QUOTES, 'UTF-8') ?>" method="POST" class="flex-1 min-h-0 flex flex-col" id="personalInfoFamilyForm">
                 <input type="hidden" name="form_action" value="save_family_background">
                 <input name="person_id" type="hidden" id="familyPersonId" value="">
 
@@ -1028,7 +1110,7 @@ $rolePill = static function (string $roleKey): array {
                 <p id="personalInfoEducationEmployeeLabel" class="px-6 py-2 text-sm text-slate-500">Selected employee</p>
             </div>
 
-            <form id="personalInfoEducationForm" action="personal-information.php" method="POST" class="flex-1 min-h-0 flex flex-col">
+            <form id="personalInfoEducationForm" action="<?= htmlspecialchars($personalInfoActionPath, ENT_QUOTES, 'UTF-8') ?>" method="POST" class="flex-1 min-h-0 flex flex-col">
                 <input type="hidden" name="form_action" value="save_educational_background">
                 <input type="hidden" name="person_id" id="educationPersonId" value="">
 
@@ -1106,6 +1188,7 @@ $rolePill = static function (string $roleKey): array {
     </div>
 </div>
 
+<?php if ($supportsCivilServiceEligibility): ?>
 <div id="personalInfoEligibilityModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-slate-900/60" data-modal-close="personalInfoEligibilityModal"></div>
     <div class="relative min-h-full flex items-center justify-center p-4">
@@ -1118,7 +1201,7 @@ $rolePill = static function (string $roleKey): array {
                 <button type="button" data-modal-close="personalInfoEligibilityModal" class="text-slate-500 hover:text-slate-700">✕</button>
             </div>
 
-            <form id="personalInfoEligibilityForm" action="personal-information.php" method="POST" class="flex-1 min-h-0 flex flex-col">
+            <form id="personalInfoEligibilityForm" action="<?= htmlspecialchars($personalInfoActionPath, ENT_QUOTES, 'UTF-8') ?>" method="POST" class="flex-1 min-h-0 flex flex-col">
                 <input type="hidden" name="form_action" value="save_civil_service_eligibility">
                 <input type="hidden" name="eligibility_action" id="personalInfoEligibilityAction" value="add">
                 <input type="hidden" name="person_id" id="personalInfoEligibilityPersonId" value="">
@@ -1189,7 +1272,9 @@ $rolePill = static function (string $roleKey): array {
         </div>
     </div>
 </div>
+<?php endif; ?>
 
+<?php if ($supportsWorkExperience): ?>
 <div id="personalInfoWorkExperienceModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-slate-900/60" data-modal-close="personalInfoWorkExperienceModal"></div>
     <div class="relative min-h-full flex items-center justify-center p-4">
@@ -1202,7 +1287,7 @@ $rolePill = static function (string $roleKey): array {
                 <button type="button" data-modal-close="personalInfoWorkExperienceModal" class="text-slate-500 hover:text-slate-700">✕</button>
             </div>
 
-            <form id="personalInfoWorkExperienceForm" action="personal-information.php" method="POST" class="flex-1 min-h-0 flex flex-col">
+            <form id="personalInfoWorkExperienceForm" action="<?= htmlspecialchars($personalInfoActionPath, ENT_QUOTES, 'UTF-8') ?>" method="POST" class="flex-1 min-h-0 flex flex-col">
                 <input type="hidden" name="form_action" value="save_work_experience">
                 <input type="hidden" name="work_experience_action" id="personalInfoWorkExperienceAction" value="add">
                 <input type="hidden" name="person_id" id="personalInfoWorkExperiencePersonId" value="">
@@ -1293,6 +1378,7 @@ $rolePill = static function (string $roleKey): array {
         </div>
     </div>
 </div>
+<?php endif; ?>
 
 <div id="personalInfoAssignmentModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-slate-900/60" data-modal-close="personalInfoAssignmentModal"></div>
@@ -1302,7 +1388,7 @@ $rolePill = static function (string $roleKey): array {
                 <h3 class="text-lg font-semibold text-slate-800">Assign Division and Position</h3>
                 <button type="button" data-modal-close="personalInfoAssignmentModal" class="text-slate-500 hover:text-slate-700">✕</button>
             </div>
-            <form action="personal-information.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <form action="<?= htmlspecialchars($personalInfoActionPath, ENT_QUOTES, 'UTF-8') ?>" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <input type="hidden" name="form_action" value="assign_department_position">
                 <input type="hidden" id="personalInfoAssignmentPersonId" name="person_id" value="">
                 <div>
@@ -1344,7 +1430,7 @@ $rolePill = static function (string $roleKey): array {
                 <h3 class="text-lg font-semibold text-slate-800">Manage Employee Status</h3>
                 <button type="button" data-modal-close="personalInfoStatusModal" class="text-slate-500 hover:text-slate-700">✕</button>
             </div>
-            <form action="personal-information.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <form action="<?= htmlspecialchars($personalInfoActionPath, ENT_QUOTES, 'UTF-8') ?>" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <input type="hidden" name="form_action" value="update_employee_status">
                 <input type="hidden" id="personalInfoStatusPersonId" name="person_id" value="">
                 <div>
@@ -1352,15 +1438,19 @@ $rolePill = static function (string $roleKey): array {
                     <input id="personalInfoStatusEmployeeDisplay" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
                 </div>
                 <div>
+                    <label class="text-slate-600">Current Status</label>
+                    <input id="personalInfoStatusCurrentDisplay" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
+                </div>
+                <div>
                     <label class="text-slate-600">New Status</label>
-                    <select name="new_status" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                    <select id="personalInfoStatusNewStatus" name="new_status" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
                     </select>
                 </div>
                 <div class="md:col-span-2">
                     <label class="text-slate-600">Status Specification</label>
-                    <textarea name="status_specification" rows="3" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Indicate reason (resigned, retired, on leave, reassigned, etc.)"></textarea>
+                    <textarea id="personalInfoStatusSpecification" name="status_specification" rows="3" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Indicate reason (resigned, retired, on leave, reassigned, etc.)"></textarea>
                 </div>
                 <div class="md:col-span-2 flex justify-end gap-3 mt-2">
                     <button type="button" data-modal-close="personalInfoStatusModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button>
@@ -1370,3 +1460,5 @@ $rolePill = static function (string $roleKey): array {
         </div>
     </div>
 </div>
+
+<?php endif; ?>

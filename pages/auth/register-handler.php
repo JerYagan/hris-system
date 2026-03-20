@@ -217,7 +217,9 @@ $firstName = (string)clean_text($_POST['first_name'] ?? '');
 $surname = (string)clean_text($_POST['surname'] ?? '');
 
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-  redirect_with_error('invalid_email');
+  if (preg_match('/^[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}$/i', $email) !== 1) {
+    redirect_with_error('invalid_email');
+  }
 }
 
 if ($password === '' || strlen($password) < 8) {

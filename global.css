@@ -70,6 +70,27 @@
   transform-origin: bottom right;
 }
 
+.report-analytics-chart-card {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.report-analytics-chart-frame {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.report-analytics-chart-frame canvas {
+  display: block;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  height: 100% !important;
+}
+
 .admin-action-item {
   width: 100%;
   display: inline-flex;

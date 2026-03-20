@@ -1,203 +1,277 @@
-(() => {
-    const normalize = (value) => (value || '').toString().trim().toLowerCase();
-
-    const escapeHtml = (value) => {
-        const text = (value || '').toString();
-        return text
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    };
-
-    const parseJsonScriptNode = (id) => {
-        const node = document.getElementById(id);
-        if (!node) {
-            return {};
-        }
-
-        try {
-            const parsed = JSON.parse(node.textContent || '{}');
-            return parsed && typeof parsed === 'object' ? parsed : {};
-        } catch (_error) {
-            return {};
-        }
-    };
-
-    const initDatePickers = () => {
-        if (!window.flatpickr) {
-            return;
-        }
-
-        const dateInputs = document.querySelectorAll('main input[type="date"]:not([data-flatpickr="off"])');
-        dateInputs.forEach((input) => {
-            if (input.dataset.flatpickrInitialized === 'true') {
-                return;
-            }
-
-            window.flatpickr(input, {
-                dateFormat: 'Y-m-d',
-                allowInput: true,
-            });
-            input.dataset.flatpickrInitialized = 'true';
-        });
-    };
-
-    const searchInput = document.getElementById('registrationSearchInput');
-    const statusFilter = document.getElementById('registrationStatusFilter');
-    const rows = Array.from(document.querySelectorAll('[data-registration-row]'));
-    const emptyRow = document.getElementById('registrationFilterEmptyRow');
-    const registrationViewData = parseJsonScriptNode('registrationViewData');
-
+document.addEventListener('DOMContentLoaded', () => {
+    const asyncRegion = document.getElementById('staffApplicantRegistrationAsyncRegion');
+    const listSkeleton = document.getElementById('staffApplicantRegistrationListSkeleton');
+    const listError = document.getElementById('staffApplicantRegistrationListError');
+    const listRetryButton = document.getElementById('staffApplicantRegistrationListRetry');
+    const listContent = document.getElementById('staffApplicantRegistrationListContent');
     const modal = document.getElementById('registrationModal');
     const closeButtons = Array.from(document.querySelectorAll('[data-registration-modal-close="registrationModal"]'));
-    const form = document.getElementById('registrationForm');
-    const submitBtn = document.getElementById('registrationSubmit');
-
     const applicationIdInput = document.getElementById('registrationApplicationId');
     const applicantNameLabel = document.getElementById('registrationApplicantName');
     const applicantMetaLabel = document.getElementById('registrationApplicantMeta');
     const applicantContactLabel = document.getElementById('registrationApplicantContact');
     const applicationRefLabel = document.getElementById('registrationApplicationRef');
-    const decisionInput = document.getElementById('registrationDecision');
     const documentsBody = document.getElementById('registrationDocumentsBody');
 
-    const applyFilters = () => {
-        if (!searchInput || !statusFilter) {
-            return;
-        }
+    if (!asyncRegion || !listContent || !modal || !documentsBody) {
+        return;
+    }
 
-        const query = normalize(searchInput.value);
-        const status = normalize(statusFilter.value);
-        let visible = 0;
+    const listUrl = asyncRegion.dataset.registrationListUrl || 'applicant-registration.php?partial=registration-list';
+    const detailUrl = asyncRegion.dataset.registrationDetailUrl || 'applicant-registration.php?partial=registration-detail';
 
-        rows.forEach((row) => {
-            const haystack = normalize(row.getAttribute('data-registration-search'));
-            const rowStatus = normalize(row.getAttribute('data-registration-status'));
-            const isMatch = (query === '' || haystack.includes(query)) && (status === '' || rowStatus === status);
-            row.classList.toggle('hidden', !isMatch);
-            if (isMatch) {
-                visible += 1;
-            }
-        });
+    let activeListAbortController = null;
+    let activeDetailAbortController = null;
+    let searchDebounceTimer = null;
 
-        if (emptyRow) {
-            emptyRow.classList.toggle('hidden', visible > 0);
-        }
+    const escapeHtml = (value) => String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+    const setListState = ({ loading = false, error = false }) => {
+        listSkeleton?.classList.toggle('hidden', !loading);
+        listContent.classList.toggle('hidden', loading || error);
+        listError?.classList.toggle('hidden', !error);
     };
 
-    let debounceTimer = null;
-    if (searchInput) {
-        searchInput.addEventListener('input', () => {
-            if (debounceTimer) {
-                window.clearTimeout(debounceTimer);
-            }
-            debounceTimer = window.setTimeout(applyFilters, 150);
-        });
-    }
+    const resetModal = () => {
+        if (applicationIdInput) {
+            applicationIdInput.value = '';
+        }
+        if (applicantNameLabel) {
+            applicantNameLabel.textContent = '-';
+        }
+        if (applicantMetaLabel) {
+            applicantMetaLabel.textContent = '-';
+        }
+        if (applicantContactLabel) {
+            applicantContactLabel.textContent = '-';
+        }
+        if (applicationRefLabel) {
+            applicationRefLabel.textContent = '-';
+        }
+        documentsBody.innerHTML = '<tr><td class="px-3 py-3 text-slate-500" colspan="3">No document selected.</td></tr>';
+    };
 
-    if (statusFilter) {
-        statusFilter.addEventListener('change', applyFilters);
-    }
+    const openModal = () => {
+        modal.classList.remove('hidden');
+    };
 
     const closeModal = () => {
-        if (!modal) {
-            return;
-        }
-
         modal.classList.add('hidden');
-        if (form) {
-            form.dataset.confirmed = '0';
-        }
-        if (documentsBody) {
-            documentsBody.innerHTML = '<tr><td class="px-3 py-3 text-slate-500" colspan="3">No document selected.</td></tr>';
-        }
+        resetModal();
     };
 
     const renderDocuments = (documents) => {
-        if (!documentsBody) {
-            return;
-        }
-
         if (!Array.isArray(documents) || documents.length === 0) {
             documentsBody.innerHTML = '<tr><td class="px-3 py-3 text-slate-500" colspan="3">No submitted documents found.</td></tr>';
             return;
         }
 
-        documentsBody.innerHTML = documents.map((documentRow) => {
-            const fileName = escapeHtml(documentRow && documentRow.file_name ? documentRow.file_name : '-');
-            const uploaded = escapeHtml(documentRow && documentRow.uploaded_label ? documentRow.uploaded_label : '-');
-            const previewUrl = documentRow && documentRow.preview_url ? documentRow.preview_url.toString() : ((documentRow && documentRow.file_url ? documentRow.file_url.toString() : ''));
-            const downloadUrl = documentRow && documentRow.download_url ? documentRow.download_url.toString() : previewUrl;
-            const hasFile = Boolean(documentRow && documentRow.is_available && previewUrl.trim() !== '');
-            const safePreviewUrl = escapeHtml(previewUrl);
-            const safeDownloadUrl = escapeHtml(downloadUrl);
-
-            const actionHtml = hasFile
-                ? `
-                    <div class="flex items-center gap-2">
-                        <a href="${safePreviewUrl}" target="_blank" rel="noopener noreferrer" class="px-2 py-1 text-xs rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">View</a>
-                        <a href="${safeDownloadUrl}" class="px-2 py-1 text-xs rounded-md border border-green-200 bg-green-50 text-green-700 hover:bg-green-100">Download</a>
-                    </div>
-                `
-                : '<span class="text-xs text-slate-500">File unavailable</span>';
+        documentsBody.innerHTML = documents.map((documentItem) => {
+            const fileName = escapeHtml(documentItem?.file_name || '-');
+            const uploadedLabel = escapeHtml(documentItem?.uploaded_label || '-');
+            const previewUrl = escapeHtml(documentItem?.preview_url || documentItem?.file_url || '');
+            const downloadUrl = escapeHtml(documentItem?.download_url || documentItem?.preview_url || documentItem?.file_url || '');
+            const hasFile = Boolean(documentItem?.is_available && previewUrl !== '');
 
             return `
                 <tr>
                     <td class="px-3 py-2 text-slate-700">${fileName}</td>
-                    <td class="px-3 py-2 text-slate-700">${uploaded}</td>
-                    <td class="px-3 py-2">${actionHtml}</td>
+                    <td class="px-3 py-2 text-slate-700">${uploadedLabel}</td>
+                    <td class="px-3 py-2">
+                        ${hasFile ? `
+                            <div class="flex items-center gap-2">
+                                <a href="${previewUrl}" target="_blank" rel="noopener noreferrer" class="px-2 py-1 text-xs rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">View</a>
+                                <a href="${downloadUrl}" class="px-2 py-1 text-xs rounded-md border border-green-200 bg-green-50 text-green-700 hover:bg-green-100">Download</a>
+                            </div>
+                        ` : '<span class="text-xs text-slate-500">File unavailable</span>'}
+                    </td>
                 </tr>
             `;
         }).join('');
     };
 
-    document.querySelectorAll('[data-open-registration-modal]').forEach((button) => {
-        button.addEventListener('click', () => {
-            if (!modal || !applicationIdInput || !applicantNameLabel) {
-                return;
-            }
-
-            const applicationId = button.getAttribute('data-application-id') || '';
-            const payload = registrationViewData && typeof registrationViewData === 'object'
-                ? registrationViewData[applicationId]
-                : null;
-            if (!payload || typeof payload !== 'object') {
-                return;
-            }
-
-            applicationIdInput.value = applicationId;
+    const renderProfile = (payload) => {
+        if (applicationIdInput) {
+            applicationIdInput.value = payload.application_id || '';
+        }
+        if (applicantNameLabel) {
             applicantNameLabel.textContent = payload.applicant_name || 'Applicant';
-            if (applicantMetaLabel) {
-                applicantMetaLabel.textContent = `${payload.posting_title || '-'} • ${payload.applicant_email || '-'} • Submitted ${payload.submitted_label || '-'} • ${payload.screening_label || '-'}`;
+        }
+        if (applicantMetaLabel) {
+            applicantMetaLabel.textContent = `${payload.posting_title || '-'} • ${payload.applicant_email || '-'} • Submitted ${payload.submitted_label || '-'} • ${payload.screening_label || '-'}`;
+        }
+        if (applicantContactLabel) {
+            applicantContactLabel.textContent = `Mobile: ${payload.applicant_mobile || '-'} • Address: ${payload.applicant_address || '-'}`;
+        }
+        if (applicationRefLabel) {
+            applicationRefLabel.textContent = `Application Ref: ${payload.application_ref_no || '-'} • Basis: ${payload.basis || '-'}`;
+        }
+
+        renderDocuments(payload.documents || []);
+    };
+
+    const bindListInteractions = () => {
+        const searchInput = listContent.querySelector('#registrationSearchInput');
+        const statusFilter = listContent.querySelector('#registrationStatusFilter');
+        const paginationButtons = Array.from(listContent.querySelectorAll('[data-registration-page]'));
+        const profileButtons = Array.from(listContent.querySelectorAll('[data-open-registration-modal]'));
+
+        const queueListReload = () => {
+            if (searchDebounceTimer !== null) {
+                window.clearTimeout(searchDebounceTimer);
             }
-            if (applicantContactLabel) {
-                applicantContactLabel.textContent = `Mobile: ${payload.applicant_mobile || '-'} • Address: ${payload.applicant_address || '-'}`;
-            }
-            if (applicationRefLabel) {
-                applicationRefLabel.textContent = `Application Ref: ${payload.application_ref_no || '-'}`;
-            }
-            if (decisionInput) {
-                decisionInput.value = 'approve_for_next_stage';
-            }
-            renderDocuments(payload.documents || []);
-            modal.classList.remove('hidden');
+
+            searchDebounceTimer = window.setTimeout(() => {
+                loadList({
+                    page: 1,
+                    search: (searchInput?.value || '').trim(),
+                    status: (statusFilter?.value || '').trim(),
+                });
+            }, 180);
+        };
+
+        searchInput?.addEventListener('input', queueListReload);
+        searchInput?.addEventListener('search', queueListReload);
+        statusFilter?.addEventListener('change', () => {
+            loadList({
+                page: 1,
+                search: (searchInput?.value || '').trim(),
+                status: (statusFilter?.value || '').trim(),
+            });
         });
-    });
+
+        paginationButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                if (button.disabled) {
+                    return;
+                }
+
+                const page = Number.parseInt(button.dataset.registrationPage || '1', 10);
+                if (!Number.isFinite(page) || page < 1) {
+                    return;
+                }
+
+                loadList({
+                    page,
+                    search: (searchInput?.value || '').trim(),
+                    status: (statusFilter?.value || '').trim(),
+                });
+            });
+        });
+
+        profileButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                const applicationId = (button.dataset.applicationId || '').trim();
+                if (applicationId === '') {
+                    return;
+                }
+
+                void loadDetail(applicationId);
+            });
+        });
+    };
+
+    const loadList = async ({ page = 1, search = '', status = '' } = {}) => {
+        activeListAbortController?.abort();
+        activeListAbortController = new AbortController();
+
+        setListState({ loading: true, error: false });
+
+        const requestUrl = new URL(listUrl, window.location.href);
+        requestUrl.searchParams.set('page', String(page));
+        if (search !== '') {
+            requestUrl.searchParams.set('search', search);
+        }
+        if (status !== '') {
+            requestUrl.searchParams.set('status', status);
+        }
+
+        try {
+            const response = await fetch(requestUrl.toString(), {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                signal: activeListAbortController.signal,
+            });
+
+            if (!response.ok) {
+                throw new Error(`List request failed with status ${response.status}`);
+            }
+
+            listContent.innerHTML = await response.text();
+            setListState({ loading: false, error: false });
+            bindListInteractions();
+        } catch (error) {
+            if (error?.name === 'AbortError') {
+                return;
+            }
+
+            setListState({ loading: false, error: true });
+        }
+    };
+
+    const loadDetail = async (applicationId) => {
+        activeDetailAbortController?.abort();
+        activeDetailAbortController = new AbortController();
+
+        resetModal();
+        if (applicantNameLabel) {
+            applicantNameLabel.textContent = 'Loading applicant profile...';
+        }
+        openModal();
+
+        const requestUrl = new URL(detailUrl, window.location.href);
+        requestUrl.searchParams.set('application_id', applicationId);
+
+        try {
+            const response = await fetch(requestUrl.toString(), {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                signal: activeDetailAbortController.signal,
+            });
+
+            const payload = await response.json().catch(() => null);
+            if (!response.ok || !payload || payload.error) {
+                throw new Error(payload?.error || `Detail request failed with status ${response.status}`);
+            }
+
+            renderProfile(payload);
+        } catch (error) {
+            if (error?.name === 'AbortError') {
+                return;
+            }
+
+            if (applicantNameLabel) {
+                applicantNameLabel.textContent = 'Applicant profile unavailable';
+            }
+            if (applicantMetaLabel) {
+                applicantMetaLabel.textContent = 'The selected profile could not be loaded right now.';
+            }
+            documentsBody.innerHTML = '<tr><td class="px-3 py-3 text-amber-700" colspan="3">Applicant documents could not be loaded right now.</td></tr>';
+        }
+    };
 
     closeButtons.forEach((button) => {
         button.addEventListener('click', closeModal);
     });
 
-    if (modal) {
-        modal.addEventListener('click', (event) => {
-            if (event.target === modal) {
-                closeModal();
-            }
-        });
-    }
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            closeModal();
+        }
+    });
 
-    initDatePickers();
-    applyFilters();
-})();
+    listRetryButton?.addEventListener('click', () => {
+        void loadList();
+    });
+
+    resetModal();
+    void loadList();
+});

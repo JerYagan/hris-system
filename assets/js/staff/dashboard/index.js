@@ -1,4 +1,5 @@
 const STAFF_DASHBOARD_PAGE_SIZE = 5;
+const MIN_SKELETON_MS = 250;
 
 const initPaginatedFeed = ({
   cardId,
@@ -139,27 +140,214 @@ const initPaginatedFeed = ({
 };
 
 const initStaffDashboardPage = () => {
-  initPaginatedFeed({
-    cardId: 'staffDashboardNotificationsCard',
-    rowSelector: '[data-dashboard-notification-row]',
-    searchInputId: 'staffDashboardNotificationsSearch',
-    statusFilterId: 'staffDashboardNotificationsStatusFilter',
-    emptyStateId: 'staffDashboardNotificationsEmpty',
-    infoId: 'staffDashboardNotificationsInfo',
-    prevButtonId: 'staffDashboardNotificationsPrev',
-    nextButtonId: 'staffDashboardNotificationsNext',
+  const region = document.getElementById('staffDashboardAsyncRegion');
+  const summaryUrl = region?.getAttribute('data-dashboard-summary-url') || '';
+  const approvalsUrl = region?.getAttribute('data-dashboard-approvals-url') || '';
+  const notificationsUrl = region?.getAttribute('data-dashboard-notifications-url') || '';
+  const announcementsUrl = region?.getAttribute('data-dashboard-announcements-url') || '';
+
+  const summarySkeleton = document.getElementById('staffDashboardSummarySkeleton');
+  const summaryContent = document.getElementById('staffDashboardSummaryContent');
+  const summaryError = document.getElementById('staffDashboardSummaryError');
+  const summaryRetry = document.getElementById('staffDashboardSummaryRetry');
+
+  const approvalsSkeleton = document.getElementById('staffDashboardApprovalsSkeleton');
+  const approvalsContent = document.getElementById('staffDashboardApprovalsContent');
+  const approvalsError = document.getElementById('staffDashboardApprovalsError');
+  const approvalsRetry = document.getElementById('staffDashboardApprovalsRetry');
+
+  const notificationsSkeleton = document.getElementById('staffDashboardNotificationsSkeleton');
+  const notificationsContent = document.getElementById('staffDashboardNotificationsContent');
+  const notificationsError = document.getElementById('staffDashboardNotificationsError');
+  const notificationsRetry = document.getElementById('staffDashboardNotificationsRetry');
+
+  const announcementsSkeleton = document.getElementById('staffDashboardAnnouncementsSkeleton');
+  const announcementsContent = document.getElementById('staffDashboardAnnouncementsContent');
+  const announcementsError = document.getElementById('staffDashboardAnnouncementsError');
+  const announcementsRetry = document.getElementById('staffDashboardAnnouncementsRetry');
+
+  if (!region || summaryUrl === '' || approvalsUrl === '' || notificationsUrl === '' || announcementsUrl === '' || !summarySkeleton || !summaryContent || !summaryError || !summaryRetry || !approvalsSkeleton || !approvalsContent || !approvalsError || !approvalsRetry || !notificationsSkeleton || !notificationsContent || !notificationsError || !notificationsRetry || !announcementsSkeleton || !announcementsContent || !announcementsError || !announcementsRetry) {
+    return;
+  }
+
+  const fetchPartialHtml = async (url) => {
+    const response = await fetch(url, {
+      credentials: 'same-origin',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    });
+
+    if (response.redirected) {
+      window.location.href = response.url;
+      return '';
+    }
+
+    if (!response.ok) {
+      throw new Error(`Dashboard partial request failed with status ${response.status}`);
+    }
+
+    const html = await response.text();
+    if (html.trim() === '') {
+      throw new Error('Dashboard partial returned an empty response.');
+    }
+
+    return html;
+  };
+
+  const setSectionLoadingState = ({ skeleton, content, errorBox, retryButton }, isLoading) => {
+    skeleton.classList.toggle('hidden', !isLoading);
+    content.classList.toggle('hidden', isLoading);
+    if (isLoading) {
+      errorBox.classList.add('hidden');
+    }
+    retryButton.disabled = isLoading;
+  };
+
+  const showSectionError = ({ skeleton, content, errorBox, retryButton }) => {
+    skeleton.classList.add('hidden');
+    content.classList.add('hidden');
+    errorBox.classList.remove('hidden');
+    retryButton.disabled = false;
+  };
+
+  const loadSection = async ({ url, skeleton, content, errorBox, retryButton, onSuccess }) => {
+    setSectionLoadingState({ skeleton, content, errorBox, retryButton }, true);
+    const startedAt = window.performance?.now?.() ?? Date.now();
+
+    try {
+      const html = await fetchPartialHtml(url);
+      const elapsed = (window.performance?.now?.() ?? Date.now()) - startedAt;
+      const remaining = Math.max(0, MIN_SKELETON_MS - elapsed);
+
+      window.setTimeout(() => {
+        content.innerHTML = html;
+        content.classList.remove('hidden');
+        skeleton.classList.add('hidden');
+        errorBox.classList.add('hidden');
+        retryButton.disabled = false;
+        if (typeof onSuccess === 'function') {
+          onSuccess();
+        }
+      }, remaining);
+    } catch (error) {
+      console.error(error);
+      showSectionError({ skeleton, content, errorBox, retryButton });
+    }
+  };
+
+  const hydrateNotifications = () => {
+    initPaginatedFeed({
+      cardId: 'staffDashboardNotificationsCard',
+      rowSelector: '[data-dashboard-notification-row]',
+      searchInputId: 'staffDashboardNotificationsSearch',
+      statusFilterId: 'staffDashboardNotificationsStatusFilter',
+      emptyStateId: 'staffDashboardNotificationsEmpty',
+      infoId: 'staffDashboardNotificationsInfo',
+      prevButtonId: 'staffDashboardNotificationsPrev',
+      nextButtonId: 'staffDashboardNotificationsNext',
+    });
+  };
+
+  const hydrateAnnouncements = () => {
+    initPaginatedFeed({
+      cardId: 'staffDashboardAnnouncementsCard',
+      rowSelector: '[data-dashboard-announcement-row]',
+      searchInputId: 'staffDashboardAnnouncementsSearch',
+      statusFilterId: 'staffDashboardAnnouncementsStatusFilter',
+      emptyStateId: 'staffDashboardAnnouncementsEmpty',
+      infoId: 'staffDashboardAnnouncementsInfo',
+      prevButtonId: 'staffDashboardAnnouncementsPrev',
+      nextButtonId: 'staffDashboardAnnouncementsNext',
+    });
+  };
+
+  const loadApprovalsPage = async (page = 1) => {
+    const nextUrl = `${approvalsUrl}&approvals_page=${Math.max(1, Number(page) || 1)}`;
+    await loadSection({
+      url: nextUrl,
+      skeleton: approvalsSkeleton,
+      content: approvalsContent,
+      errorBox: approvalsError,
+      retryButton: approvalsRetry,
+      onSuccess: () => {
+        approvalsContent.querySelectorAll('[data-dashboard-approvals-page]').forEach((button) => {
+          button.addEventListener('click', () => {
+            if (button.disabled) {
+              return;
+            }
+
+            const targetPage = Number(button.getAttribute('data-dashboard-approvals-page') || '1');
+            loadApprovalsPage(targetPage).catch(console.error);
+          });
+        });
+      },
+    });
+  };
+
+  summaryRetry.addEventListener('click', () => {
+    loadSection({
+      url: summaryUrl,
+      skeleton: summarySkeleton,
+      content: summaryContent,
+      errorBox: summaryError,
+      retryButton: summaryRetry,
+    }).catch(console.error);
   });
 
-  initPaginatedFeed({
-    cardId: 'staffDashboardAnnouncementsCard',
-    rowSelector: '[data-dashboard-announcement-row]',
-    searchInputId: 'staffDashboardAnnouncementsSearch',
-    statusFilterId: 'staffDashboardAnnouncementsStatusFilter',
-    emptyStateId: 'staffDashboardAnnouncementsEmpty',
-    infoId: 'staffDashboardAnnouncementsInfo',
-    prevButtonId: 'staffDashboardAnnouncementsPrev',
-    nextButtonId: 'staffDashboardAnnouncementsNext',
+  approvalsRetry.addEventListener('click', () => {
+    loadApprovalsPage(1).catch(console.error);
   });
+
+  notificationsRetry.addEventListener('click', () => {
+    loadSection({
+      url: notificationsUrl,
+      skeleton: notificationsSkeleton,
+      content: notificationsContent,
+      errorBox: notificationsError,
+      retryButton: notificationsRetry,
+      onSuccess: hydrateNotifications,
+    }).catch(console.error);
+  });
+
+  announcementsRetry.addEventListener('click', () => {
+    loadSection({
+      url: announcementsUrl,
+      skeleton: announcementsSkeleton,
+      content: announcementsContent,
+      errorBox: announcementsError,
+      retryButton: announcementsRetry,
+      onSuccess: hydrateAnnouncements,
+    }).catch(console.error);
+  });
+
+  loadSection({
+    url: summaryUrl,
+    skeleton: summarySkeleton,
+    content: summaryContent,
+    errorBox: summaryError,
+    retryButton: summaryRetry,
+  }).catch(console.error);
+
+  loadApprovalsPage(1).catch(console.error);
+
+  loadSection({
+    url: notificationsUrl,
+    skeleton: notificationsSkeleton,
+    content: notificationsContent,
+    errorBox: notificationsError,
+    retryButton: notificationsRetry,
+    onSuccess: hydrateNotifications,
+  }).catch(console.error);
+
+  loadSection({
+    url: announcementsUrl,
+    skeleton: announcementsSkeleton,
+    content: announcementsContent,
+    errorBox: announcementsError,
+    retryButton: announcementsRetry,
+    onSuccess: hydrateAnnouncements,
+  }).catch(console.error);
 };
 
 if (document.readyState === 'loading') {

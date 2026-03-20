@@ -18,6 +18,18 @@ export const initFloatingActionMenus = ({
 
   const getScopes = () => Array.from(document.querySelectorAll(scopeSelector));
   const getMenus = () => Array.from(document.querySelectorAll(menuSelector));
+  const findScopeFromToggle = (target) => target instanceof Element ? target.closest(scopeSelector) : null;
+  const isToggleDisabled = (toggle) => {
+    if (!(toggle instanceof HTMLElement)) {
+      return true;
+    }
+
+    if (toggle instanceof HTMLButtonElement && toggle.disabled) {
+      return true;
+    }
+
+    return toggle.getAttribute('aria-disabled') === 'true';
+  };
 
   const setExpanded = (scope, expanded) => {
     const toggle = scope?.querySelector(toggleSelector);
@@ -93,30 +105,39 @@ export const initFloatingActionMenus = ({
   };
 
   getScopes().forEach((scope) => {
-    const toggle = scope.querySelector(toggleSelector);
-    const menu = scope.querySelector(menuSelector);
-
-    if (!(toggle instanceof HTMLElement) || !(menu instanceof HTMLElement)) {
-      return;
-    }
-
-    toggle.setAttribute('aria-expanded', 'false');
-    toggle.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      const willOpen = menu.classList.contains('hidden');
-      closeAllMenus();
-      if (willOpen) {
-        menu.classList.remove('hidden');
-        positionMenu(scope, menu);
-        setExpanded(scope, true);
-      }
-    });
+    setExpanded(scope, false);
   });
 
   window.addEventListener('resize', refreshOpenMenus);
   window.addEventListener('scroll', refreshOpenMenus, true);
+
+  document.addEventListener('click', (event) => {
+    if (!(event.target instanceof Element)) {
+      return;
+    }
+
+    const toggle = event.target.closest(toggleSelector);
+    if (!toggle) {
+      return;
+    }
+
+    const scope = findScopeFromToggle(toggle);
+    const menu = scope?.querySelector(menuSelector);
+    if (!scope || !(menu instanceof HTMLElement) || isToggleDisabled(toggle)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const willOpen = menu.classList.contains('hidden');
+    closeAllMenus();
+    if (willOpen) {
+      menu.classList.remove('hidden');
+      positionMenu(scope, menu);
+      setExpanded(scope, true);
+    }
+  });
 
   document.addEventListener('click', (event) => {
     if (!(event.target instanceof Element) || event.target.closest(scopeSelector)) {

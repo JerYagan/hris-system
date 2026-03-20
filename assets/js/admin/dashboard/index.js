@@ -1,4 +1,6 @@
-import { initAdminShellInteractions, initModalSystem, initStatusChangeConfirmations, openModal } from '/assets/js/shared/admin-core.js';
+import { initAdminShellInteractions, initModalSystem, initStatusChangeConfirmations } from '/hris-system/assets/js/shared/admin-core.js';
+
+const MIN_SKELETON_MS = 250;
 
 const parseJsonArray = (value) => {
   try {
@@ -83,185 +85,205 @@ const initCharts = async () => {
   });
 };
 
-const initDashboardActions = () => {
-  document.querySelectorAll('[data-dashboard-leave-open]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const leaveRequestId = button.getAttribute('data-leave-request-id') || '';
-      const employeeName = button.getAttribute('data-employee-name') || '-';
-      const currentStatus = button.getAttribute('data-current-status') || '-';
-      const dateRange = button.getAttribute('data-date-range') || '-';
+const initDashboardSecondaryControls = ({ reloadSecondary }) => {
+  const filtersForm = document.getElementById('dashboardDepartmentFilters');
+  const pageInput = document.getElementById('dashboardDepartmentPage');
+  const searchInput = document.getElementById('dashboardDepartmentSearch');
+  const previousButton = document.getElementById('dashboardDepartmentPrevPage');
+  const nextButton = document.getElementById('dashboardDepartmentNextPage');
 
-      const idInput = document.getElementById('dashboardLeaveRequestId');
-      const employeeInput = document.getElementById('dashboardLeaveEmployeeName');
-      const statusInput = document.getElementById('dashboardLeaveCurrentStatus');
-      const rangeInput = document.getElementById('dashboardLeaveDateRange');
+  if (!filtersForm || !pageInput || !searchInput) {
+    return;
+  }
 
-      if (idInput) idInput.value = leaveRequestId;
-      if (employeeInput) employeeInput.value = employeeName;
-      if (statusInput) statusInput.value = currentStatus;
-      if (rangeInput) rangeInput.value = dateRange;
+  let searchTimer = 0;
 
-      openModal('dashboardLeaveReviewModal');
-    });
+  const submitCurrentState = () => {
+    reloadSecondary(new FormData(filtersForm));
+  };
+
+  filtersForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    pageInput.value = '1';
+    submitCurrentState();
   });
 
-  document.querySelectorAll('[data-dashboard-notification-open]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const notificationId = button.getAttribute('data-notification-id') || '';
-      const title = button.getAttribute('data-notification-title') || '-';
-      const idInput = document.getElementById('dashboardNotificationId');
-      const titleElement = document.getElementById('dashboardNotificationTitle');
+  searchInput.addEventListener('input', () => {
+    pageInput.value = '1';
+    window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(() => {
+      submitCurrentState();
+    }, 250);
+  });
 
-      if (idInput) idInput.value = notificationId;
-      if (titleElement) titleElement.textContent = title;
+  [previousButton, nextButton].forEach((button) => {
+    button?.addEventListener('click', () => {
+      const targetPage = button.getAttribute('data-dashboard-secondary-page') || '';
+      if (targetPage === '') {
+        return;
+      }
 
-      openModal('dashboardNotificationModal');
+      pageInput.value = targetPage;
+      submitCurrentState();
     });
   });
 };
 
-const initDashboardFilters = () => {
-  const bindDashboardTable = ({
-    tableId,
-    searchInputId,
-    searchDataAttr,
-    statusFilterId,
-    statusDataAttr,
-    secondaryFilterId,
-    secondaryDataAttr,
-    metaId,
-    prevId,
-    nextId,
-    pageSize = 10,
-  }) => {
-    const table = document.getElementById(tableId);
-    if (!table) {
-      return;
+const initAdminDashboardAsync = () => {
+  const region = document.getElementById('adminDashboardAsyncRegion');
+  const summaryUrl = region?.getAttribute('data-dashboard-summary-url') || '';
+  const secondaryUrl = region?.getAttribute('data-dashboard-secondary-url') || '';
+
+  const summarySkeleton = document.getElementById('adminDashboardSummarySkeleton');
+  const summaryContent = document.getElementById('adminDashboardSummaryContent');
+  const summaryError = document.getElementById('adminDashboardSummaryError');
+  const summaryRetry = document.getElementById('adminDashboardSummaryRetry');
+
+  const secondarySkeleton = document.getElementById('adminDashboardSecondarySkeleton');
+  const secondaryContent = document.getElementById('adminDashboardSecondaryContent');
+  const secondaryError = document.getElementById('adminDashboardSecondaryError');
+  const secondaryRetry = document.getElementById('adminDashboardSecondaryRetry');
+  const summaryState = { requestId: 0 };
+  const secondaryState = { requestId: 0 };
+
+  if (!region || summaryUrl === '' || secondaryUrl === '' || !summarySkeleton || !summaryContent || !summaryError || !summaryRetry || !secondarySkeleton || !secondaryContent || !secondaryError || !secondaryRetry) {
+    return false;
+  }
+
+  const buildSectionUrl = (baseUrl, params) => {
+    const url = new URL(baseUrl, window.location.href);
+
+    if (!(params instanceof FormData)) {
+      return url.toString();
     }
 
-    const rows = Array.from(table.querySelectorAll('tbody tr'));
-    const searchInput = searchInputId ? document.getElementById(searchInputId) : null;
-    const statusFilter = statusFilterId ? document.getElementById(statusFilterId) : null;
-    const secondaryFilter = secondaryFilterId ? document.getElementById(secondaryFilterId) : null;
-    const metaNode = metaId ? document.getElementById(metaId) : null;
-    const prevBtn = prevId ? document.getElementById(prevId) : null;
-    const nextBtn = nextId ? document.getElementById(nextId) : null;
-
-    let currentPage = 1;
-
-    const apply = () => {
-      const query = String(searchInput?.value || '').toLowerCase().trim();
-      const selectedStatus = String(statusFilter?.value || '').toLowerCase().trim();
-      const selectedSecondary = String(secondaryFilter?.value || '').toLowerCase().trim();
-
-      const filteredRows = rows.filter((row) => {
-        const rowSearch = String(row.getAttribute(searchDataAttr) || '').toLowerCase();
-        const rowStatus = statusDataAttr ? String(row.getAttribute(statusDataAttr) || '').toLowerCase() : '';
-        const rowSecondary = secondaryDataAttr ? String(row.getAttribute(secondaryDataAttr) || '').toLowerCase() : '';
-        const searchMatch = query === '' || rowSearch.includes(query);
-        const statusMatch = selectedStatus === '' || rowStatus === selectedStatus;
-        const secondaryMatch = selectedSecondary === '' || rowSecondary === selectedSecondary;
-        return searchMatch && statusMatch && secondaryMatch;
-      });
-
-      const total = filteredRows.length;
-      const totalPages = Math.max(1, Math.ceil(total / pageSize));
-      if (currentPage > totalPages) {
-        currentPage = totalPages;
-      }
-      if (currentPage < 1) {
-        currentPage = 1;
-      }
-
-      const start = (currentPage - 1) * pageSize;
-      const end = start + pageSize;
-      const visibleSet = new Set(filteredRows.slice(start, end));
-
-      rows.forEach((row) => {
-        row.style.display = visibleSet.has(row) ? '' : 'none';
-      });
-
-      if (metaNode) {
-        if (total === 0) {
-          metaNode.textContent = 'Showing 0 to 0 of 0 entries';
-        } else {
-          metaNode.textContent = `Showing ${start + 1} to ${Math.min(end, total)} of ${total} entries`;
-        }
-      }
-
-      if (prevBtn) {
-        prevBtn.disabled = currentPage <= 1;
-      }
-      if (nextBtn) {
-        nextBtn.disabled = currentPage >= totalPages || total === 0;
-      }
-    };
-
-    const rerenderFromFirstPage = () => {
-      currentPage = 1;
-      apply();
-    };
-
-    searchInput?.addEventListener('input', rerenderFromFirstPage);
-    statusFilter?.addEventListener('change', rerenderFromFirstPage);
-    secondaryFilter?.addEventListener('change', rerenderFromFirstPage);
-    prevBtn?.addEventListener('click', () => {
-      currentPage -= 1;
-      apply();
-    });
-    nextBtn?.addEventListener('click', () => {
-      currentPage += 1;
-      apply();
+    Array.from(params.entries()).forEach(([key, value]) => {
+      url.searchParams.set(key, String(value));
     });
 
-    apply();
+    return url.toString();
   };
 
-  bindDashboardTable({
-    tableId: 'dashboardPendingLeaveTable',
-    searchInputId: 'dashboardLeaveSearch',
-    searchDataAttr: 'data-dashboard-leave-search',
-    statusFilterId: 'dashboardLeaveStatusFilter',
-    statusDataAttr: 'data-dashboard-leave-status',
-    secondaryFilterId: '',
-    secondaryDataAttr: '',
-    metaId: 'dashboardLeavePaginationMeta',
-    prevId: 'dashboardLeavePrevPage',
-    nextId: 'dashboardLeaveNextPage',
+  const fetchPartialHtml = async (url) => {
+    const response = await fetch(url, {
+      credentials: 'same-origin',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    });
+
+    if (response.redirected) {
+      window.location.href = response.url;
+      return '';
+    }
+
+    if (!response.ok) {
+      throw new Error(`Dashboard partial request failed with status ${response.status}`);
+    }
+
+    const html = await response.text();
+    if (html.trim() === '') {
+      throw new Error('Dashboard partial returned an empty response.');
+    }
+
+    return html;
+  };
+
+  const setLoadingState = ({ skeleton, content, errorBox, retryButton }, isLoading) => {
+    skeleton.classList.toggle('hidden', !isLoading);
+    content.classList.toggle('hidden', isLoading);
+    if (isLoading) {
+      errorBox.classList.add('hidden');
+    }
+    retryButton.disabled = isLoading;
+  };
+
+  const showErrorState = ({ skeleton, content, errorBox, retryButton }) => {
+    skeleton.classList.add('hidden');
+    content.classList.add('hidden');
+    errorBox.classList.remove('hidden');
+    retryButton.disabled = false;
+  };
+
+  const loadSection = async ({ url, params, skeleton, content, errorBox, retryButton, onSuccess, state }) => {
+    setLoadingState({ skeleton, content, errorBox, retryButton }, true);
+    state.requestId += 1;
+    const requestId = state.requestId;
+    const startedAt = window.performance?.now?.() ?? Date.now();
+
+    try {
+      const html = await fetchPartialHtml(buildSectionUrl(url, params));
+      const elapsed = (window.performance?.now?.() ?? Date.now()) - startedAt;
+      const remaining = Math.max(0, MIN_SKELETON_MS - elapsed);
+
+      window.setTimeout(() => {
+        if (requestId !== state.requestId) {
+          return;
+        }
+
+        content.innerHTML = html;
+        content.classList.remove('hidden');
+        skeleton.classList.add('hidden');
+        errorBox.classList.add('hidden');
+        retryButton.disabled = false;
+        if (typeof onSuccess === 'function') {
+          onSuccess();
+        }
+      }, remaining);
+    } catch (error) {
+      console.error(error);
+      showErrorState({ skeleton, content, errorBox, retryButton });
+    }
+  };
+
+  summaryRetry.addEventListener('click', () => {
+    loadSection({
+      url: summaryUrl,
+      skeleton: summarySkeleton,
+      content: summaryContent,
+      errorBox: summaryError,
+      retryButton: summaryRetry,
+      state: summaryState,
+    }).catch(console.error);
   });
 
-  bindDashboardTable({
-    tableId: 'dashboardNotificationsTable',
-    searchInputId: 'dashboardNotificationsSearch',
-    searchDataAttr: 'data-dashboard-notification-search',
-    statusFilterId: 'dashboardNotificationsStatusFilter',
-    statusDataAttr: 'data-dashboard-notification-status',
-    secondaryFilterId: 'dashboardNotificationsCategoryFilter',
-    secondaryDataAttr: 'data-dashboard-notification-category',
-    metaId: 'dashboardNotificationsPaginationMeta',
-    prevId: 'dashboardNotificationsPrevPage',
-    nextId: 'dashboardNotificationsNextPage',
+  const loadSecondary = (params) => loadSection({
+    url: secondaryUrl,
+    params,
+    skeleton: secondarySkeleton,
+    content: secondaryContent,
+    errorBox: secondaryError,
+    retryButton: secondaryRetry,
+    state: secondaryState,
+    onSuccess: () => {
+      initDashboardSecondaryControls({ reloadSecondary: loadSecondary });
+      initCharts().catch(console.error);
+    },
   });
 
-  bindDashboardTable({
-    tableId: 'dashboardDepartmentTable',
-    searchInputId: 'dashboardDepartmentSearch',
-    searchDataAttr: 'data-dashboard-department-search',
-    statusFilterId: '',
-    statusDataAttr: '',
-    secondaryFilterId: '',
-    secondaryDataAttr: '',
-    metaId: 'dashboardDepartmentPaginationMeta',
-    prevId: 'dashboardDepartmentPrevPage',
-    nextId: 'dashboardDepartmentNextPage',
+  secondaryRetry.addEventListener('click', () => {
+    loadSecondary().catch(console.error);
   });
+
+  loadSection({
+    url: summaryUrl,
+    skeleton: summarySkeleton,
+    content: summaryContent,
+    errorBox: summaryError,
+    retryButton: summaryRetry,
+    state: summaryState,
+  }).catch(console.error);
+
+  loadSecondary().catch(console.error);
+
+  return true;
 };
 
 export default function initAdminDashboardPage() {
   initAdminShellInteractions();
   initModalSystem();
   initStatusChangeConfirmations();
-  initDashboardFilters();
-  initDashboardActions();
-  initCharts().catch(console.error);
+  if (!initAdminDashboardAsync()) {
+    initCharts().catch(console.error);
+  }
 }

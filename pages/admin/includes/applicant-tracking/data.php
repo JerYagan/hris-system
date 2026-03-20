@@ -23,19 +23,26 @@ $recentInterviews = isSuccessful($recentInterviewsResponse) ? $recentInterviewsR
 $feedbackRows = isSuccessful($feedbackResponse) ? $feedbackResponse['data'] : [];
 
 $applicantUserIds = [];
+$applicantEmails = [];
 foreach ((array)$applications as $application) {
     $userId = strtolower(trim((string)($application['applicant']['user_id'] ?? '')));
     if ($userId !== '' && preg_match('/^[a-f0-9-]{36}$/i', $userId)) {
         $applicantUserIds[$userId] = $userId;
     }
+
+    $email = strtolower(trim((string)($application['applicant']['email'] ?? '')));
+    if ($email !== '') {
+        $applicantEmails[$email] = $email;
+    }
 }
 
 $hasCurrentEmploymentByUserId = [];
-if (!empty($applicantUserIds)) {
+$hasCurrentEmploymentByEmail = [];
+if (!empty($applicantUserIds) || !empty($applicantEmails)) {
     $employmentResponse = apiRequest(
         'GET',
         $supabaseUrl
-        . '/rest/v1/employment_records?select=id,person:people!employment_records_person_id_fkey(user_id),is_current'
+        . '/rest/v1/employment_records?select=id,person:people!employment_records_person_id_fkey(user_id,personal_email),is_current'
         . '&is_current=eq.true&limit=5000',
         $headers
     );
@@ -43,11 +50,14 @@ if (!empty($applicantUserIds)) {
     $employmentRows = isSuccessful($employmentResponse) ? (array)($employmentResponse['data'] ?? []) : [];
     foreach ($employmentRows as $employmentRow) {
         $userId = strtolower(trim((string)($employmentRow['person']['user_id'] ?? '')));
-        if ($userId === '' || !isset($applicantUserIds[$userId])) {
-            continue;
+        if ($userId !== '' && isset($applicantUserIds[$userId])) {
+            $hasCurrentEmploymentByUserId[$userId] = true;
         }
 
-        $hasCurrentEmploymentByUserId[$userId] = true;
+        $email = strtolower(trim((string)($employmentRow['person']['personal_email'] ?? '')));
+        if ($email !== '' && isset($applicantEmails[$email])) {
+            $hasCurrentEmploymentByEmail[$email] = true;
+        }
     }
 }
 

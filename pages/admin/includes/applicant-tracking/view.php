@@ -18,7 +18,9 @@ $hiredApplications = [];
 foreach ((array)$applications as $applicationRow) {
     $statusKey = strtolower(trim((string)($applicationRow['application_status'] ?? 'submitted')));
     $applicantUserId = strtolower(trim((string)($applicationRow['applicant']['user_id'] ?? '')));
-    $isAlreadyEmployee = $applicantUserId !== '' && !empty($hasCurrentEmploymentByUserId[$applicantUserId]);
+    $applicantEmail = strtolower(trim((string)($applicationRow['applicant']['email'] ?? '')));
+    $isAlreadyEmployee = ($applicantUserId !== '' && !empty($hasCurrentEmploymentByUserId[$applicantUserId]))
+        || ($applicantEmail !== '' && !empty($hasCurrentEmploymentByEmail[$applicantEmail]));
 
     if ($statusKey === 'hired') {
         if ($isAlreadyEmployee) {
@@ -354,7 +356,9 @@ $buildPaginationHref = static function (string $target, int $page) use ($progres
                         $statusValue = (string)($application['application_status'] ?? 'hired');
                         [$statusLabel, $statusClass] = $statusPill($statusValue);
                         $applicantUserId = strtolower(trim((string)($application['applicant']['user_id'] ?? '')));
-                        $isAlreadyEmployee = $applicantUserId !== '' && !empty($hasCurrentEmploymentByUserId[$applicantUserId]);
+                        $applicantEmail = strtolower(trim((string)($application['applicant']['email'] ?? '')));
+                        $isAlreadyEmployee = ($applicantUserId !== '' && !empty($hasCurrentEmploymentByUserId[$applicantUserId]))
+                            || ($applicantEmail !== '' && !empty($hasCurrentEmploymentByEmail[$applicantEmail]));
                         $updatedAt = (string)($application['updated_at'] ?? $application['submitted_at'] ?? '');
                         $updatedLabel = $updatedAt !== '' ? date('M d, Y', strtotime($updatedAt)) : '-';
                         ?>

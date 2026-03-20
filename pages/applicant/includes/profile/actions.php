@@ -24,6 +24,38 @@ if (!in_array($action, ['update_profile', 'replace_uploaded_file', 'upload_profi
     redirectWithState('error', 'Unsupported profile action.', 'profile.php');
 }
 
+$deleteWorkExperiences = static function (string $personId) use ($supabaseUrl, $headers): array {
+    $workLookupResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/person_work_experiences?select=id&person_id=eq.' . rawurlencode($personId) . '&limit=500',
+        $headers
+    );
+
+    if (!isSuccessful($workLookupResponse)) {
+        return $workLookupResponse;
+    }
+
+    $workIds = [];
+    foreach ((array)($workLookupResponse['data'] ?? []) as $workRow) {
+        $workId = cleanText($workRow['id'] ?? null) ?? '';
+        if (isValidUuid($workId)) {
+            $workIds[] = $workId;
+        }
+    }
+
+    if ($workIds === []) {
+        return ['status' => 204, 'data' => []];
+    }
+
+    return apiRequest(
+        'DELETE',
+        $supabaseUrl
+        . '/rest/v1/person_work_experiences?id=in.' . rawurlencode('(' . implode(',', $workIds) . ')')
+        . '&person_id=eq.' . rawurlencode($personId),
+        array_merge($headers, ['Prefer: return=minimal'])
+    );
+};
+
 $verifyCurrentPassword = static function (string $email, string $currentPassword) use ($supabaseUrl): bool {
     loadEnvFile(dirname(__DIR__, 4) . '/.env');
     $anonKey = trim((string)($_ENV['SUPABASE_ANON_KEY'] ?? $_SERVER['SUPABASE_ANON_KEY'] ?? ''));
@@ -791,11 +823,7 @@ if (isValidUuid($personId)) {
         }
     }
 
-    $existingWorkDelete = apiRequest(
-        'DELETE',
-        $supabaseUrl . '/rest/v1/person_work_experiences?person_id=eq.' . rawurlencode($personId),
-        $headers
-    );
+    $existingWorkDelete = $deleteWorkExperiences($personId);
 
     if (!isSuccessful($existingWorkDelete)) {
         redirectWithState('error', 'Failed to refresh work experience records.', 'profile.php?edit=true');

@@ -1,5 +1,243 @@
 <?php
 
+$staffPayrollDataStage = (string)($staffPayrollDataStage ?? 'full');
+
+if (!function_exists('staffPayrollAppendQueryError')) {
+	function staffPayrollAppendQueryError(?string $currentError, string $label, array $response): string
+	{
+		$message = $label . ' query failed (HTTP ' . (int)($response['status'] ?? 0) . ').';
+		$raw = trim((string)($response['raw'] ?? ''));
+		if ($raw !== '') {
+			$message .= ' ' . $raw;
+		}
+
+		return $currentError ? ($currentError . ' ' . $message) : $message;
+	}
+}
+
+if (!function_exists('staffPayrollRunStatusBadge')) {
+	function staffPayrollRunStatusBadge(string $status): array
+	{
+		$key = strtolower(trim($status));
+		return match ($key) {
+			'pending_review' => ['Pending Review', 'bg-amber-100 text-amber-800'],
+			'computed' => ['Computed', 'bg-violet-100 text-violet-800'],
+			'approved' => ['Approved', 'bg-blue-100 text-blue-800'],
+			'released' => ['Released', 'bg-emerald-100 text-emerald-800'],
+			'cancelled' => ['Cancelled', 'bg-rose-100 text-rose-800'],
+			default => ['Draft', 'bg-amber-100 text-amber-800'],
+		};
+	}
+}
+
+if (!function_exists('staffPayrollFormatPeriodRange')) {
+	function staffPayrollFormatPeriodRange(?string $periodStart, ?string $periodEnd, string $fallback = 'Uncoded'): string
+	{
+		$start = cleanText($periodStart) ?? '';
+		$end = cleanText($periodEnd) ?? '';
+		if ($start !== '' && $end !== '') {
+			return formatDateTimeForPhilippines($start, 'M d, Y') . ' - ' . formatDateTimeForPhilippines($end, 'M d, Y');
+		}
+
+		return $fallback;
+	}
+}
+
+if ($staffPayrollDataStage === 'summary') {
+	$dataLoadError = null;
+	$staffPayrollSummary = [
+		'current_period_label' => 'No payroll period found',
+		'current_period_status' => 'No run yet',
+		'current_run_status_label' => 'No run yet',
+		'current_period_employee_count' => 0,
+		'current_period_gross_total' => 0.0,
+		'current_period_net_total' => 0.0,
+		'pending_admin_review_count' => 0,
+		'approved_runs_count' => 0,
+		'released_runs_count' => 0,
+		'open_periods_count' => 0,
+	];
+
+	$summaryPeriodsResponse = apiRequest(
+		'GET',
+		$supabaseUrl . '/rest/v1/payroll_periods?select=id,period_code,period_start,period_end,status&order=period_end.desc&limit=48',
+		$headers
+	);
+	$summaryRunsResponse = apiRequest(
+		'GET',
+		$supabaseUrl
+		. '/rest/v1/payroll_runs?select=id,payroll_period_id,run_status,created_at,period:payroll_periods(period_code,period_start,period_end,status)'
+		. '&order=created_at.desc&limit=320',
+		$headers
+	);
+
+	$summaryPeriodRows = isSuccessful($summaryPeriodsResponse) ? (array)($summaryPeriodsResponse['data'] ?? []) : [];
+	$summaryRunRows = isSuccessful($summaryRunsResponse) ? (array)($summaryRunsResponse['data'] ?? []) : [];
+
+	if (!isSuccessful($summaryPeriodsResponse)) {
+		$dataLoadError = staffPayrollAppendQueryError($dataLoadError, 'Payroll periods', $summaryPeriodsResponse);
+	}
+	if (!isSuccessful($summaryRunsResponse)) {
+		$dataLoadError = staffPayrollAppendQueryError($dataLoadError, 'Payroll runs', $summaryRunsResponse);
+	}
+
+	$summaryRunIds = [];
+	foreach ($summaryRunRows as $summaryRunRow) {
+		$runId = cleanText($summaryRunRow['id'] ?? null) ?? '';
+		if (isValidUuid($runId)) {
+			$summaryRunIds[] = $runId;
+		}
+	}
+
+	$recommendationByRunId = [];
+	if (!empty($summaryRunIds)) {
+		$runLogResponse = apiRequest(
+			'GET',
+			$supabaseUrl
+			. '/rest/v1/activity_logs?select=entity_id,action_name,created_at'
+			. '&entity_name=eq.payroll_runs'
+			. '&entity_id=in.' . rawurlencode('(' . implode(',', $summaryRunIds) . ')')
+			. '&action_name=eq.submit_batch_for_admin_approval'
+			. '&order=created_at.desc&limit=1500',
+			$headers
+		);
+
+		if (isSuccessful($runLogResponse)) {
+			foreach ((array)($runLogResponse['data'] ?? []) as $logRow) {
+				$runId = cleanText($logRow['entity_id'] ?? null) ?? '';
+				if (isValidUuid($runId) && !isset($recommendationByRunId[$runId])) {
+					$recommendationByRunId[$runId] = true;
+				}
+			}
+		} else {
+			$dataLoadError = staffPayrollAppendQueryError($dataLoadError, 'Payroll run handoff logs', $runLogResponse);
+		}
+	}
+
+	foreach ($summaryPeriodRows as $periodRow) {
+		$status = strtolower((string)(cleanText($periodRow['status'] ?? null) ?? 'open'));
+		if (in_array($status, ['open', 'processing', 'posted'], true)) {
+			$staffPayrollSummary['open_periods_count']++;
+		}
+	}
+
+	$latestRunByPeriodId = [];
+	foreach ($summaryRunRows as $summaryRunRow) {
+		$runId = cleanText($summaryRunRow['id'] ?? null) ?? '';
+		$periodId = cleanText($summaryRunRow['payroll_period_id'] ?? null) ?? '';
+		if (!isValidUuid($runId) || !isValidUuid($periodId)) {
+			continue;
+		}
+
+		$statusRaw = strtolower((string)(cleanText($summaryRunRow['run_status'] ?? null) ?? 'draft'));
+		$effectiveStatus = (!$recommendationByRunId[$runId] && $statusRaw === 'computed') ? 'pending_review' : $statusRaw;
+
+		if ($effectiveStatus === 'pending_review') {
+			$staffPayrollSummary['pending_admin_review_count']++;
+		} elseif ($effectiveStatus === 'approved') {
+			$staffPayrollSummary['approved_runs_count']++;
+		} elseif ($effectiveStatus === 'released') {
+			$staffPayrollSummary['released_runs_count']++;
+		}
+
+		if (!isset($latestRunByPeriodId[$periodId])) {
+			$latestRunByPeriodId[$periodId] = [
+				'id' => $runId,
+				'effective_status' => $effectiveStatus,
+			];
+		}
+	}
+
+	if (!empty($summaryPeriodRows)) {
+		$latestPeriod = (array)$summaryPeriodRows[0];
+		$latestPeriodId = cleanText($latestPeriod['id'] ?? null) ?? '';
+		$periodCode = cleanText($latestPeriod['period_code'] ?? null) ?? 'Current Period';
+		$staffPayrollSummary['current_period_label'] = staffPayrollFormatPeriodRange($latestPeriod['period_start'] ?? null, $latestPeriod['period_end'] ?? null, $periodCode);
+		$staffPayrollSummary['current_period_status'] = ucwords((string)(cleanText($latestPeriod['status'] ?? null) ?? 'open'));
+
+		$latestRun = is_array($latestRunByPeriodId[$latestPeriodId] ?? null) ? (array)$latestRunByPeriodId[$latestPeriodId] : null;
+		if (is_array($latestRun)) {
+			[$runStatusLabel] = staffPayrollRunStatusBadge((string)($latestRun['effective_status'] ?? 'draft'));
+			$staffPayrollSummary['current_run_status_label'] = $runStatusLabel;
+			$staffPayrollSummary['current_period_status'] = $runStatusLabel;
+
+			$latestRunId = cleanText($latestRun['id'] ?? null) ?? '';
+			if (isValidUuid($latestRunId)) {
+				$summaryItemsResponse = apiRequest(
+					'GET',
+					$supabaseUrl . '/rest/v1/payroll_items?select=person_id,gross_pay,net_pay&payroll_run_id=eq.' . rawurlencode($latestRunId) . '&limit=2000',
+					$headers
+				);
+
+				if (isSuccessful($summaryItemsResponse)) {
+					$employeeIds = [];
+					foreach ((array)($summaryItemsResponse['data'] ?? []) as $itemRow) {
+						$personId = cleanText($itemRow['person_id'] ?? null) ?? '';
+						if (isValidUuid($personId)) {
+							$employeeIds[$personId] = true;
+						}
+
+						$staffPayrollSummary['current_period_gross_total'] += (float)($itemRow['gross_pay'] ?? 0);
+						$staffPayrollSummary['current_period_net_total'] += (float)($itemRow['net_pay'] ?? 0);
+					}
+
+					$staffPayrollSummary['current_period_employee_count'] = count($employeeIds);
+				} else {
+					$dataLoadError = staffPayrollAppendQueryError($dataLoadError, 'Payroll items', $summaryItemsResponse);
+				}
+			}
+		}
+	}
+
+	return;
+}
+
+$staffPayrollPageSize = 10;
+$staffPayrollPeriodsPage = max(1, (int)($_GET['payroll_period_page'] ?? 1));
+$staffPayrollAdjustmentsPage = max(1, (int)($_GET['salary_adjustment_page'] ?? 1));
+$staffPayrollRunsPage = max(1, (int)($_GET['payroll_run_page'] ?? 1));
+
+$staffPayrollBuildPageQuery = static function (int $page, int $pageSize): array {
+	return [
+		'limit' => $pageSize + 1,
+		'offset' => max(0, ($page - 1) * $pageSize),
+	];
+};
+
+$staffPayrollFinalizePagination = static function (array $rows, int $page, int $pageSize): array {
+	$hasNext = count($rows) > $pageSize;
+	if ($hasNext) {
+		$rows = array_slice($rows, 0, $pageSize);
+	}
+
+	return [
+		'rows' => array_values($rows),
+		'page' => $page,
+		'page_size' => $pageSize,
+		'has_prev' => $page > 1,
+		'has_next' => $hasNext,
+	];
+};
+
+$staffPayrollPeriodsPagination = [
+	'page' => $staffPayrollPeriodsPage,
+	'page_size' => $staffPayrollPageSize,
+	'has_prev' => false,
+	'has_next' => false,
+];
+$staffPayrollAdjustmentsPagination = [
+	'page' => $staffPayrollAdjustmentsPage,
+	'page_size' => $staffPayrollPageSize,
+	'has_prev' => false,
+	'has_next' => false,
+];
+$staffPayrollRunsPagination = [
+	'page' => $staffPayrollRunsPage,
+	'page_size' => $staffPayrollPageSize,
+	'has_prev' => false,
+	'has_next' => false,
+];
+
 $payrollPeriodRows = [];
 $payrollRunRows = [];
 $payrollAdjustmentRows = [];
@@ -57,21 +295,30 @@ $periodsResponse = apiRequest(
 	'GET',
 	$supabaseUrl
 	. '/rest/v1/payroll_periods?select=id,period_code,period_start,period_end,payout_date,status,updated_at'
-	. '&order=period_end.desc&limit=500',
+	. '&order=period_end.desc'
+	. '&limit=' . (int)$staffPayrollBuildPageQuery($staffPayrollPeriodsPage, $staffPayrollPageSize)['limit']
+	. '&offset=' . (int)$staffPayrollBuildPageQuery($staffPayrollPeriodsPage, $staffPayrollPageSize)['offset'],
 	$headers
 );
 $appendDataError('Payroll periods', $periodsResponse);
 $periodRows = isSuccessful($periodsResponse) ? (array)($periodsResponse['data'] ?? []) : [];
+$staffPayrollPeriodsPagination = $staffPayrollFinalizePagination($periodRows, $staffPayrollPeriodsPage, $staffPayrollPageSize);
+$periodRows = (array)($staffPayrollPeriodsPagination['rows'] ?? []);
 
+$runPageQuery = $staffPayrollBuildPageQuery($staffPayrollRunsPage, $staffPayrollPageSize);
 $runsResponse = apiRequest(
 	'GET',
 	$supabaseUrl
 	. '/rest/v1/payroll_runs?select=id,payroll_period_id,run_status,generated_by,generated_at,approved_at,created_at,period:payroll_periods(period_code,period_start,period_end,status)'
-	. '&order=created_at.desc&limit=1500',
+	. '&order=created_at.desc'
+	. '&limit=' . (int)$runPageQuery['limit']
+	. '&offset=' . (int)$runPageQuery['offset'],
 	$headers
 );
 $appendDataError('Payroll runs', $runsResponse);
 $runRows = isSuccessful($runsResponse) ? (array)($runsResponse['data'] ?? []) : [];
+$staffPayrollRunsPagination = $staffPayrollFinalizePagination($runRows, $staffPayrollRunsPage, $staffPayrollPageSize);
+$runRows = (array)($staffPayrollRunsPagination['rows'] ?? []);
 
 $runById = [];
 foreach ($runRows as $runRow) {
@@ -190,13 +437,27 @@ if (isSuccessful($employmentPeopleResponse)) {
 $employeeCompensationByPerson = [];
 if (!empty($employeePeopleByPersonId)) {
 	$personFilter = $formatUuidInFilter(array_keys($employeePeopleByPersonId));
+	$visiblePeriodStarts = array_values(array_filter(array_map(
+		static fn(array $periodRow): string => (string)(cleanText($periodRow['period_start'] ?? null) ?? ''),
+		$periodRows
+	)));
+	$earliestVisiblePeriodStart = !empty($visiblePeriodStarts) ? min($visiblePeriodStarts) : '';
+	$latestVisiblePeriodStart = !empty($visiblePeriodStarts) ? max($visiblePeriodStarts) : '';
 	if ($personFilter !== '') {
+		$compensationUrl = $supabaseUrl
+			. '/rest/v1/employee_compensations?select=id,person_id,effective_from,effective_to,monthly_rate,base_pay,allowance_total,tax_deduction,government_deductions,other_deductions,pay_frequency,created_at'
+			. '&person_id=in.' . rawurlencode('(' . $personFilter . ')');
+		if ($latestVisiblePeriodStart !== '') {
+			$compensationUrl .= '&effective_from=lte.' . rawurlencode($latestVisiblePeriodStart);
+		}
+		if ($earliestVisiblePeriodStart !== '') {
+			$compensationUrl .= '&or=' . rawurlencode('(effective_to.is.null,effective_to.gte.' . $earliestVisiblePeriodStart . ')');
+		}
+		$compensationUrl .= '&order=effective_from.desc,created_at.desc&limit=10000';
+
 		$compensationResponse = apiRequest(
 			'GET',
-			$supabaseUrl
-			. '/rest/v1/employee_compensations?select=id,person_id,effective_from,effective_to,monthly_rate,base_pay,allowance_total,tax_deduction,government_deductions,other_deductions,pay_frequency,created_at'
-			. '&person_id=in.' . rawurlencode('(' . $personFilter . ')')
-			. '&order=effective_from.desc,created_at.desc&limit=10000',
+			$compensationUrl,
 			$headers
 		);
 		$appendDataError('Employee compensation records', $compensationResponse);
@@ -492,6 +753,72 @@ if (!empty($itemIds)) {
 	}
 }
 
+$periodStatsById = [];
+$visiblePeriodIds = [];
+foreach ($periodRows as $periodRow) {
+	$periodId = cleanText($periodRow['id'] ?? null) ?? '';
+	if (isValidUuid($periodId)) {
+		$visiblePeriodIds[] = $periodId;
+	}
+}
+
+if (!empty($visiblePeriodIds)) {
+	$periodRunsResponse = apiRequest(
+		'GET',
+		$supabaseUrl
+		. '/rest/v1/payroll_runs?select=id,payroll_period_id'
+		. '&payroll_period_id=in.' . rawurlencode('(' . implode(',', $visiblePeriodIds) . ')')
+		. '&limit=1000',
+		$headers
+	);
+	$appendDataError('Payroll period run stats', $periodRunsResponse);
+	$periodRunRows = isSuccessful($periodRunsResponse) ? (array)($periodRunsResponse['data'] ?? []) : [];
+
+	$periodRunIds = [];
+	$periodIdByRunId = [];
+	foreach ($periodRunRows as $periodRunRow) {
+		$runId = cleanText($periodRunRow['id'] ?? null) ?? '';
+		$periodId = cleanText($periodRunRow['payroll_period_id'] ?? null) ?? '';
+		if (!isValidUuid($runId) || !isValidUuid($periodId)) {
+			continue;
+		}
+
+		$periodRunIds[] = $runId;
+		$periodIdByRunId[$runId] = $periodId;
+		if (!isset($periodStatsById[$periodId])) {
+			$periodStatsById[$periodId] = [
+				'run_count' => 0,
+				'employees' => [],
+			];
+		}
+		$periodStatsById[$periodId]['run_count']++;
+	}
+
+	if (!empty($periodRunIds)) {
+		$periodItemsResponse = apiRequest(
+			'GET',
+			$supabaseUrl
+			. '/rest/v1/payroll_items?select=payroll_run_id,person_id'
+			. '&payroll_run_id=in.' . rawurlencode('(' . implode(',', $periodRunIds) . ')')
+			. '&limit=5000',
+			$headers
+		);
+		$appendDataError('Payroll period employee stats', $periodItemsResponse);
+		$periodItemRows = isSuccessful($periodItemsResponse) ? (array)($periodItemsResponse['data'] ?? []) : [];
+
+		foreach ($periodItemRows as $periodItemRow) {
+			$runId = cleanText($periodItemRow['payroll_run_id'] ?? null) ?? '';
+			$personId = cleanText($periodItemRow['person_id'] ?? null) ?? '';
+			$periodId = $periodIdByRunId[$runId] ?? '';
+			if (!isValidUuid($periodId) || !isValidUuid($personId)) {
+				continue;
+			}
+
+			$periodStatsById[$periodId]['employees'][$personId] = true;
+		}
+	}
+}
+
 $releasedByItemId = [];
 if (!empty($itemIds)) {
 	$payslipResponse = apiRequest(
@@ -516,7 +843,6 @@ if (!empty($itemIds)) {
 }
 
 $runStatsById = [];
-$periodStatsById = [];
 $batchBreakdownByRun = [];
 
 foreach ($itemRows as $item) {
@@ -553,33 +879,6 @@ foreach ($itemRows as $item) {
 	$itemId = cleanText($item['id'] ?? null) ?? '';
 	if ($itemId !== '' && !empty($releasedByItemId[$itemId])) {
 		$runStatsById[$runId]['released_count']++;
-	}
-}
-
-foreach ($runRows as $run) {
-	$runId = cleanText($run['id'] ?? null) ?? '';
-	$periodId = cleanText($run['payroll_period_id'] ?? null) ?? '';
-	if (!isValidUuid($runId) || !isValidUuid($periodId)) {
-		continue;
-	}
-
-	if (!isset($periodStatsById[$periodId])) {
-		$periodStatsById[$periodId] = [
-			'run_count' => 0,
-			'employees' => [],
-		];
-	}
-
-	$runStats = $runStatsById[$runId] ?? [
-		'employees' => [],
-		'gross_total' => 0.0,
-		'net_total' => 0.0,
-		'released_count' => 0,
-	];
-
-	$periodStatsById[$periodId]['run_count']++;
-	foreach (array_keys((array)$runStats['employees']) as $personId) {
-		$periodStatsById[$periodId]['employees'][$personId] = true;
 	}
 }
 
@@ -846,15 +1145,21 @@ usort($salaryAdjustmentCreateRows, static function (array $left, array $right): 
 	return strcmp($leftKey, $rightKey);
 });
 
+
+$adjustmentsPageQuery = $staffPayrollBuildPageQuery($staffPayrollAdjustmentsPage, $staffPayrollPageSize);
 $adjustmentsResponse = apiRequest(
 	'GET',
 	$supabaseUrl
 	. '/rest/v1/payroll_adjustments?select=id,payroll_item_id,adjustment_type,adjustment_code,description,amount,created_at,item:payroll_items(id,payroll_run_id,person_id,person:people(id,user_id,first_name,middle_name,surname),run:payroll_runs(id,payroll_period_id,period:payroll_periods(period_code)))'
-	. '&order=created_at.desc&limit=3000',
+	. '&order=created_at.desc'
+	. '&limit=' . (int)$adjustmentsPageQuery['limit']
+	. '&offset=' . (int)$adjustmentsPageQuery['offset'],
 	$headers
 );
 $appendDataError('Payroll adjustments', $adjustmentsResponse);
 $adjustmentRows = isSuccessful($adjustmentsResponse) ? (array)($adjustmentsResponse['data'] ?? []) : [];
+$staffPayrollAdjustmentsPagination = $staffPayrollFinalizePagination($adjustmentRows, $staffPayrollAdjustmentsPage, $staffPayrollPageSize);
+$adjustmentRows = (array)($staffPayrollAdjustmentsPagination['rows'] ?? []);
 
 $adjustmentIds = [];
 foreach ($adjustmentRows as $adjustment) {

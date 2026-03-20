@@ -1,11 +1,12 @@
 <?php
+  require_once __DIR__ . '/../../shared/lib/system-helpers.php';
   include __DIR__ . '/auth-guard.php';
   require_once __DIR__ . '/lib/employee-backend.php';
 
-  // Defaults (safe for all pages)
-  $pageTitle   = $pageTitle   ?? 'DA HRIS';
-  $activePage  = $activePage  ?? '';
-  $breadcrumbs = $breadcrumbs ?? [];
+  $shellContext = systemShellContext($pageTitle ?? null, 'DA HRIS', $activePage ?? '', $breadcrumbs ?? [], []);
+  $pageTitle = $shellContext['page_title'];
+  $activePage = $shellContext['active_page'];
+  $breadcrumbs = $shellContext['breadcrumbs'];
 
   $employeeTopnavDisplayName = 'Employee';
   $employeeTopnavRoleLabel = 'Employee';
@@ -16,23 +17,6 @@
   $employeeTopnavPhotoUrl = null;
   $employeeTopnavInitials = 'EM';
 
-  $resolveProfilePhotoUrl = static function (?string $rawPath): ?string {
-    $path = trim((string)$rawPath);
-    if ($path === '') {
-      return null;
-    }
-
-    if (preg_match('#^https?://#i', $path) === 1) {
-      return $path;
-    }
-
-    if (str_starts_with($path, '/')) {
-      return $path;
-    }
-
-    return systemAppPath('/storage/document/' . ltrim($path, '/'));
-  };
-
   if (function_exists('employeeBackendContext')) {
     $topnavBackend = employeeBackendContext();
     $topnavSupabaseUrl = (string)($topnavBackend['supabase_url'] ?? '');
@@ -41,38 +25,21 @@
 
     $cacheTtlSeconds = 45;
     $topnavCache = (array)($_SESSION['employee_topnav_cache'] ?? []);
-    $cacheUserId = (string)($topnavCache['user_id'] ?? '');
-    $cacheTimestamp = (int)($topnavCache['cached_at'] ?? 0);
-    $cacheIsFresh = $cacheUserId !== ''
-      && $cacheUserId === $topnavEmployeeUserId
-      && $cacheTimestamp > 0
-      && (time() - $cacheTimestamp) <= $cacheTtlSeconds;
+    $cacheIsFresh = systemTopnavCacheIsFresh($topnavCache, $topnavEmployeeUserId, $cacheTtlSeconds);
 
     if ($cacheIsFresh) {
       $employeeTopnavDisplayName = (string)($topnavCache['display_name'] ?? $employeeTopnavDisplayName);
-      $employeeTopnavPhotoUrl = $resolveProfilePhotoUrl((string)($topnavCache['profile_photo_url'] ?? ''));
+      $employeeTopnavRoleLabel = (string)($topnavCache['display_role'] ?? $topnavCache['role_label'] ?? $employeeTopnavRoleLabel);
+      $employeeTopnavPhotoUrl = systemTopnavResolveProfilePhotoUrl((string)($topnavCache['profile_photo_url'] ?? ''));
       $employeeUnreadNotificationCount = max(0, (int)($topnavCache['unread_count'] ?? 0));
       $employeeTopnavNotificationsPreview = (array)($topnavCache['notifications_preview'] ?? []);
     }
 
     if (!$cacheIsFresh && $topnavSupabaseUrl !== '' && $topnavEmployeeUserId !== '' && !empty($topnavHeaders) && function_exists('apiRequest') && function_exists('isSuccessful')) {
-      $peopleResponse = apiRequest(
-        'GET',
-        rtrim($topnavSupabaseUrl, '/') . '/rest/v1/people?select=first_name,surname,profile_photo_url&user_id=eq.' . rawurlencode($topnavEmployeeUserId) . '&limit=1',
-        $topnavHeaders
-      );
-
-      $profilePhotoPath = null;
-      if (isSuccessful($peopleResponse) && !empty((array)($peopleResponse['data'] ?? []))) {
-        $peopleRow = (array)$peopleResponse['data'][0];
-        $firstName = trim((string)($peopleRow['first_name'] ?? ''));
-        $surname = trim((string)($peopleRow['surname'] ?? ''));
-        $profilePhotoPath = trim((string)($peopleRow['profile_photo_url'] ?? ''));
-
-        $fullName = trim($firstName . ' ' . $surname);
-        if ($fullName !== '') {
-          $employeeTopnavDisplayName = $fullName;
-        }
+      $profileData = systemTopnavFetchPeopleProfile($topnavSupabaseUrl, $topnavHeaders, $topnavEmployeeUserId);
+      $profilePhotoPath = (string)($profileData['profile_photo_path'] ?? '');
+      if ((string)($profileData['display_name'] ?? '') !== '') {
+        $employeeTopnavDisplayName = (string)$profileData['display_name'];
       }
 
       $employeeNotificationSince = '';
@@ -90,59 +57,37 @@
         $employeeNotificationSince = trim((string)($roleAssignedRow['assigned_at'] ?? ''));
       }
 
-      $unreadResponse = apiRequest(
-        'GET',
-        rtrim($topnavSupabaseUrl, '/')
-          . '/rest/v1/notifications?select=id'
-          . '&recipient_user_id=eq.' . rawurlencode($topnavEmployeeUserId)
-          . '&is_read=eq.false'
-          . '&category=not.in.(application,recruitment)'
-          . ($employeeNotificationSince !== '' ? ('&created_at=gte.' . rawurlencode($employeeNotificationSince)) : '')
-          . '&limit=200',
-        $topnavHeaders
-      );
-
-      if (isSuccessful($unreadResponse)) {
-        $employeeUnreadNotificationCount = count((array)($unreadResponse['data'] ?? []));
+      $notificationFilters = ['category=not.in.(application,recruitment)'];
+      if ($employeeNotificationSince !== '') {
+        $notificationFilters[] = 'created_at=gte.' . rawurlencode($employeeNotificationSince);
       }
 
-      $previewResponse = apiRequest(
-        'GET',
-        rtrim($topnavSupabaseUrl, '/')
-          . '/rest/v1/notifications?select=id,title,body,link_url,is_read,created_at,category'
-          . '&recipient_user_id=eq.' . rawurlencode($topnavEmployeeUserId)
-          . '&category=not.in.(application,recruitment)'
-          . ($employeeNotificationSince !== '' ? ('&created_at=gte.' . rawurlencode($employeeNotificationSince)) : '')
-          . '&order=created_at.desc&limit=8',
-        $topnavHeaders
+      $notificationSummary = systemTopnavFetchNotificationSummary(
+        $topnavSupabaseUrl,
+        $topnavHeaders,
+        $topnavEmployeeUserId,
+        [
+          'unread_filters' => $notificationFilters,
+          'preview_filters' => $notificationFilters,
+        ]
       );
+      $employeeUnreadNotificationCount = (int)($notificationSummary['unread_count'] ?? 0);
+      $employeeTopnavNotificationsPreview = (array)($notificationSummary['notifications_preview'] ?? []);
 
-      if (isSuccessful($previewResponse)) {
-        $employeeTopnavNotificationsPreview = array_values((array)($previewResponse['data'] ?? []));
-      }
-
-      $employeeTopnavPhotoUrl = $resolveProfilePhotoUrl($profilePhotoPath);
-      $_SESSION['employee_topnav_cache'] = [
-        'user_id' => $topnavEmployeeUserId,
-        'display_name' => $employeeTopnavDisplayName,
-        'profile_photo_url' => (string)($profilePhotoPath ?? ''),
-        'unread_count' => $employeeUnreadNotificationCount,
-        'notifications_preview' => $employeeTopnavNotificationsPreview,
-        'cached_at' => time(),
-      ];
+      $employeeTopnavPhotoUrl = systemTopnavResolveProfilePhotoUrl($profilePhotoPath);
+      $_SESSION['employee_topnav_cache'] = systemTopnavCachePayload(
+        $topnavEmployeeUserId,
+        $employeeTopnavDisplayName,
+        $employeeTopnavRoleLabel,
+        $profilePhotoPath,
+        $employeeUnreadNotificationCount,
+        $employeeTopnavNotificationsPreview,
+        ['role_label' => $employeeTopnavRoleLabel]
+      );
     }
   }
 
-  $nameParts = preg_split('/\s+/', trim($employeeTopnavDisplayName)) ?: [];
-  $initials = '';
-  foreach (array_slice($nameParts, 0, 2) as $part) {
-    if ($part !== '') {
-      $initials .= strtoupper(substr($part, 0, 1));
-    }
-  }
-  if ($initials !== '') {
-    $employeeTopnavInitials = $initials;
-  }
+  $employeeTopnavInitials = systemTopnavBuildInitials($employeeTopnavDisplayName, 'EM');
 
   $employeeUnreadNotificationBadge = $employeeUnreadNotificationCount > 99
     ? '99+'
@@ -176,9 +121,10 @@
 </div>
 
 <!-- SIDEBAR TOGGLE SCRIPT (GLOBAL) -->
-  <script src="./js/script.js"></script>
+  <script src="<?= htmlspecialchars(systemAppPath('/assets/js/script.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <?php foreach (($pageScripts ?? []) as $pageScript): ?>
     <script type="module" src="<?= htmlspecialchars((string)$pageScript, ENT_QUOTES, 'UTF-8') ?>" defer></script>
   <?php endforeach; ?>
+  <?= systemRenderQaPerfConsoleScript() ?>
 </body>
 </html>

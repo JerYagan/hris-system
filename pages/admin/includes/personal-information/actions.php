@@ -11,6 +11,15 @@ if (!function_exists('isValidUuid')) {
     }
 }
 
+if (!function_exists('ensurePersonalInfoTableExists')) {
+    function ensurePersonalInfoTableExists(string $supabaseUrl, array $headers, string $tableName, string $errorMessage): void
+    {
+        if (!personalInfoTableExists($supabaseUrl, $headers, $tableName)) {
+            redirectWithState('error', $errorMessage);
+        }
+    }
+}
+
 $action = (string)($_POST['form_action'] ?? '');
 
 if ($action === 'create_staff_account' || $action === 'create_user_account') {
@@ -820,7 +829,7 @@ if ($action === 'save_profile') {
 
         $deleteEducationalResponse = apiRequest(
             'DELETE',
-            $supabaseUrl . '/rest/v1/person_educational_backgrounds?person_id=eq.' . $targetPersonId,
+            $supabaseUrl . '/rest/v1/person_educations?person_id=eq.' . $targetPersonId,
             array_merge($headers, ['Prefer: return=minimal'])
         );
 
@@ -833,11 +842,19 @@ if ($action === 'save_profile') {
                 return (int)($left['sequence_no'] ?? 0) <=> (int)($right['sequence_no'] ?? 0);
             });
 
+            $educationPayloadRows = [];
+            foreach (array_values($validRecords) as $index => $record) {
+                $mappedRecord = buildPersonEducationPayload((array)$record, $targetPersonId, $index + 1);
+                if (is_array($mappedRecord)) {
+                    $educationPayloadRows[] = $mappedRecord;
+                }
+            }
+
             $insertEducationalResponse = apiRequest(
                 'POST',
-                $supabaseUrl . '/rest/v1/person_educational_backgrounds',
+                $supabaseUrl . '/rest/v1/person_educations',
                 array_merge($headers, ['Prefer: return=minimal']),
-                array_values($validRecords)
+                $educationPayloadRows
             );
 
             if (!isSuccessful($insertEducationalResponse)) {
@@ -1203,7 +1220,7 @@ if ($action === 'review_profile_recommendation') {
 
     $personResponse = apiRequest(
         'GET',
-        $supabaseUrl . '/rest/v1/people?select=id,user_id,first_name,surname,personal_email,mobile_no,agency_employee_no&id=eq.' . $personId . '&limit=1',
+        $supabaseUrl . '/rest/v1/people?select=id,user_id,first_name,middle_name,surname,name_extension,date_of_birth,place_of_birth,sex_at_birth,civil_status,height_m,weight_kg,blood_type,citizenship,dual_citizenship,dual_citizenship_country,telephone_no,mobile_no,personal_email,agency_employee_no&id=eq.' . $personId . '&limit=1',
         $headers
     );
 
@@ -1243,6 +1260,27 @@ if ($action === 'review_profile_recommendation') {
             'agency_employee_no',
         ];
 
+        $normalizeApprovedNumeric = static function ($value, float $maxValue, int $scale = 2): ?float {
+            if ($value === null || $value === '') {
+                return null;
+            }
+
+            if (is_string($value)) {
+                $value = trim($value);
+            }
+
+            if ($value === '' || !is_numeric($value)) {
+                return null;
+            }
+
+            $numericValue = round((float)$value, $scale);
+            if ($numericValue < 0 || $numericValue > $maxValue) {
+                return null;
+            }
+
+            return $numericValue;
+        };
+
         foreach ($allowedProfileKeys as $allowedKey) {
             if (!array_key_exists($allowedKey, $recommendedProfile)) {
                 continue;
@@ -1252,6 +1290,45 @@ if ($action === 'review_profile_recommendation') {
             if (is_string($value)) {
                 $value = trim($value);
             }
+
+            if (in_array($allowedKey, ['first_name', 'surname'], true)) {
+                $fallbackValue = trim((string)($personRow[$allowedKey] ?? ''));
+                if ($value === null || $value === '') {
+                    $value = $fallbackValue !== '' ? $fallbackValue : null;
+                }
+            }
+
+            if ($allowedKey === 'sex_at_birth') {
+                $normalizedSex = strtolower((string)$value);
+                $value = in_array($normalizedSex, ['male', 'female'], true) ? $normalizedSex : null;
+            }
+
+            if ($allowedKey === 'dual_citizenship') {
+                $value = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                if ($value === null) {
+                    $value = false;
+                }
+            }
+
+            if ($allowedKey === 'dual_citizenship_country') {
+                $dualCitizenshipEnabled = filter_var($recommendedProfile['dual_citizenship'] ?? false, FILTER_VALIDATE_BOOLEAN);
+                if (!$dualCitizenshipEnabled) {
+                    $value = null;
+                }
+            }
+
+            if ($allowedKey === 'height_m') {
+                $value = $normalizeApprovedNumeric($value, 3.0);
+            }
+
+            if ($allowedKey === 'weight_kg') {
+                $value = $normalizeApprovedNumeric($value, 999.99);
+            }
+
+            if ($allowedKey === 'personal_email' && is_string($value) && $value !== '' && !filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                $value = trim((string)($personRow['personal_email'] ?? '')) ?: null;
+            }
+
             if ($value === '') {
                 $value = null;
             }
@@ -1540,7 +1617,7 @@ if ($action === 'review_profile_recommendation') {
 
         apiRequest(
             'DELETE',
-            $supabaseUrl . '/rest/v1/person_educational_backgrounds?person_id=eq.' . $personId,
+            $supabaseUrl . '/rest/v1/person_educations?person_id=eq.' . $personId,
             array_merge($headers, ['Prefer: return=minimal'])
         );
 
@@ -1550,24 +1627,16 @@ if ($action === 'review_profile_recommendation') {
                 continue;
             }
 
-            $educationPayloadRows[] = [
-                'person_id' => $personId,
-                'education_level' => trim((string)($educationRow['education_level'] ?? '')),
-                'school_name' => ($schoolName = trim((string)($educationRow['school_name'] ?? ''))) !== '' ? $schoolName : null,
-                'degree_course' => ($degreeCourse = trim((string)($educationRow['degree_course'] ?? ''))) !== '' ? $degreeCourse : null,
-                'attendance_from_year' => ($attendanceFrom = trim((string)($educationRow['attendance_from_year'] ?? ''))) !== '' ? $attendanceFrom : null,
-                'attendance_to_year' => ($attendanceTo = trim((string)($educationRow['attendance_to_year'] ?? ''))) !== '' ? $attendanceTo : null,
-                'highest_level_units_earned' => ($highestUnits = trim((string)($educationRow['highest_level_units_earned'] ?? ''))) !== '' ? $highestUnits : null,
-                'year_graduated' => ($yearGraduated = trim((string)($educationRow['year_graduated'] ?? ''))) !== '' ? $yearGraduated : null,
-                'scholarship_honors_received' => ($honors = trim((string)($educationRow['scholarship_honors_received'] ?? ''))) !== '' ? $honors : null,
-                'sequence_no' => $index + 1,
-            ];
+            $mappedEducationPayload = buildPersonEducationPayload($educationRow, $personId, $index + 1);
+            if (is_array($mappedEducationPayload)) {
+                $educationPayloadRows[] = $mappedEducationPayload;
+            }
         }
 
         if (!empty($educationPayloadRows)) {
             apiRequest(
                 'POST',
-                $supabaseUrl . '/rest/v1/person_educational_backgrounds',
+                $supabaseUrl . '/rest/v1/person_educations',
                 array_merge($headers, ['Prefer: return=minimal']),
                 $educationPayloadRows
             );
@@ -2030,11 +2099,17 @@ if ($action === 'resolve_duplicate_profile') {
             ['table' => 'person_family_spouses', 'column' => 'person_id'],
             ['table' => 'person_parents', 'column' => 'person_id'],
             ['table' => 'person_family_children', 'column' => 'person_id'],
-            ['table' => 'person_educational_backgrounds', 'column' => 'person_id'],
-            ['table' => 'person_civil_service_eligibilities', 'column' => 'person_id'],
-            ['table' => 'person_work_experiences', 'column' => 'person_id'],
+            ['table' => 'person_educations', 'column' => 'person_id'],
             ['table' => 'employment_records', 'column' => 'person_id'],
         ];
+
+        if (personalInfoTableExists($supabaseUrl, $headers, 'person_civil_service_eligibilities')) {
+            $tablesToReassign[] = ['table' => 'person_civil_service_eligibilities', 'column' => 'person_id'];
+        }
+
+        if (personalInfoTableExists($supabaseUrl, $headers, 'person_work_experiences')) {
+            $tablesToReassign[] = ['table' => 'person_work_experiences', 'column' => 'person_id'];
+        }
 
         foreach ($tablesToReassign as $tableMeta) {
             $tableName = (string)$tableMeta['table'];
@@ -2045,7 +2120,6 @@ if ($action === 'resolve_duplicate_profile') {
                 array_merge($headers, ['Prefer: return=minimal']),
                 [
                     $columnName => $targetPersonId,
-                    'updated_at' => gmdate('c'),
                 ]
             );
 
@@ -2266,6 +2340,8 @@ if ($action === 'resolve_duplicate_profile') {
 }
 
 if ($action === 'save_family_background') {
+    redirectWithState('error', 'Direct admin editing of employee family background has been removed. Use the request and review workflow instead.');
+
     $personId = (string)(cleanText($_POST['person_id'] ?? null) ?? '');
     if (!isValidUuid($personId)) {
         redirectWithState('error', 'Please select a valid employee for Section II update.');
@@ -2525,6 +2601,8 @@ if ($action === 'save_family_background') {
 }
 
 if ($action === 'save_educational_background') {
+    redirectWithState('error', 'Direct admin editing of employee educational background has been removed. Use the request and review workflow instead.');
+
     $personId = (string)(cleanText($_POST['person_id'] ?? null) ?? '');
     if (!isValidUuid($personId)) {
         redirectWithState('error', 'Please select a valid employee for Section III update.');
@@ -2622,7 +2700,7 @@ if ($action === 'save_educational_background') {
 
     $deleteExistingResponse = apiRequest(
         'DELETE',
-        $supabaseUrl . '/rest/v1/person_educational_backgrounds?person_id=eq.' . $personId,
+        $supabaseUrl . '/rest/v1/person_educations?person_id=eq.' . $personId,
         array_merge($headers, ['Prefer: return=minimal'])
     );
 
@@ -2635,11 +2713,19 @@ if ($action === 'save_educational_background') {
             return (int)($left['sequence_no'] ?? 0) <=> (int)($right['sequence_no'] ?? 0);
         });
 
+        $educationPayloadRows = [];
+        foreach (array_values($validRecords) as $index => $record) {
+            $mappedRecord = buildPersonEducationPayload((array)$record, $personId, $index + 1);
+            if (is_array($mappedRecord)) {
+                $educationPayloadRows[] = $mappedRecord;
+            }
+        }
+
         $insertResponse = apiRequest(
             'POST',
-            $supabaseUrl . '/rest/v1/person_educational_backgrounds',
+            $supabaseUrl . '/rest/v1/person_educations',
             array_merge($headers, ['Prefer: return=minimal']),
-            array_values($validRecords)
+            $educationPayloadRows
         );
 
         if (!isSuccessful($insertResponse)) {
@@ -2654,7 +2740,7 @@ if ($action === 'save_educational_background') {
         [[
             'actor_user_id' => $adminUserId !== '' ? $adminUserId : null,
             'module_name' => 'personal_information',
-            'entity_name' => 'person_educational_backgrounds',
+            'entity_name' => 'person_educations',
             'entity_id' => $personId,
             'action_name' => 'save_educational_background',
             'old_data' => null,
@@ -2670,6 +2756,15 @@ if ($action === 'save_educational_background') {
 }
 
 if ($action === 'save_civil_service_eligibility') {
+    redirectWithState('error', 'Direct admin editing of employee civil service eligibility has been removed. Use the request and review workflow instead.');
+
+    ensurePersonalInfoTableExists(
+        $supabaseUrl,
+        $headers,
+        'person_civil_service_eligibilities',
+        'Civil service eligibility is not available in this environment because the required Supabase table has not been deployed.'
+    );
+
     $eligibilityAction = strtolower((string)(cleanText($_POST['eligibility_action'] ?? null) ?? 'add'));
     $personId = (string)(cleanText($_POST['person_id'] ?? null) ?? '');
     $eligibilityId = (string)(cleanText($_POST['eligibility_id'] ?? null) ?? '');
@@ -2833,6 +2928,15 @@ if ($action === 'save_civil_service_eligibility') {
 }
 
 if ($action === 'save_work_experience') {
+    redirectWithState('error', 'Direct admin editing of employee work experience has been removed. Use the request and review workflow instead.');
+
+    ensurePersonalInfoTableExists(
+        $supabaseUrl,
+        $headers,
+        'person_work_experiences',
+        'Work experience is not available in this environment because the required Supabase table has not been deployed.'
+    );
+
     $workAction = strtolower((string)(cleanText($_POST['work_experience_action'] ?? null) ?? 'add'));
     $personId = (string)(cleanText($_POST['person_id'] ?? null) ?? '');
     $workExperienceId = (string)(cleanText($_POST['work_experience_id'] ?? null) ?? '');

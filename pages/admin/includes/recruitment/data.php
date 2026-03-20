@@ -1,9 +1,36 @@
 <?php
 
+require_once dirname(__DIR__, 3) . '/shared/lib/recruitment-domain.php';
+
 $activeRecruitmentRows = [];
 $archivedRecruitmentRows = [];
 $applicationDeadlineRows = [];
+$activeRecruitmentStatusOptions = [];
+$recruitmentSummary = [
+    'active_postings' => 0,
+    'published_postings' => 0,
+    'archived_postings' => 0,
+    'pending_applications' => 0,
+    'total_applications' => 0,
+    'upcoming_deadlines' => 0,
+];
+$recruitmentPagination = [
+    'page' => 1,
+    'page_size' => 10,
+    'total_rows' => 0,
+    'total_pages' => 1,
+    'from' => 0,
+    'to' => 0,
+    'search' => '',
+    'status' => '',
+    'has_prev' => false,
+    'has_next' => false,
+    'prev_page' => 1,
+    'next_page' => 1,
+];
+$dataLoadError = null;
 $postingViewById = [];
+$recruitmentPostingViewPayload = null;
 $eligibilityConfig = [
     'policy_default' => 'career service sub professional',
     'position_overrides' => [],
@@ -11,73 +38,22 @@ $eligibilityConfig = [
 $positionCriteriaConfig = [
     'position_overrides' => [],
 ];
-$recruitmentEmailTemplates = [
-    'submitted' => [
-        'subject' => 'Application Submitted: {application_ref_no}',
-        'body' => 'Hello {applicant_name},<br><br>Your application for <strong>{job_title}</strong> has been submitted successfully.<br>Reference: <strong>{application_ref_no}</strong><br><br>Remarks: {remarks}<br><br>Thank you.',
-    ],
-    'passed' => [
-        'subject' => 'Application Update: Passed Initial Screening',
-        'body' => 'Hello {applicant_name},<br><br>Good news. You passed initial screening for <strong>{job_title}</strong>.<br>Reference: <strong>{application_ref_no}</strong><br><br>Remarks: {remarks}<br><br>Please wait for next instructions.',
-    ],
-    'failed' => [
-        'subject' => 'Application Update: Not Qualified',
-        'body' => 'Hello {applicant_name},<br><br>Thank you for applying to <strong>{job_title}</strong>.<br>Reference: <strong>{application_ref_no}</strong><br><br>Result: Not Qualified.<br>Remarks: {remarks}<br><br>We appreciate your interest.',
-    ],
-    'next_stage' => [
-        'subject' => 'Application Update: Next Stage',
-        'body' => 'Hello {applicant_name},<br><br>Your application for <strong>{job_title}</strong> has moved to the next stage.<br>Reference: <strong>{application_ref_no}</strong><br><br>Remarks: {remarks}<br><br>Please monitor your account and email for schedule details.',
-    ],
-];
+$recruitmentEmailTemplates = recruitmentServiceDefaultEmailTemplates();
 
 $normalizeEducationLevel = static function (?string $value): string {
-    $key = strtolower(trim((string)$value));
-
-    return match ($key) {
-        'elementary' => 'elementary',
-        'secondary', 'highschool', 'high_school', 'high-school' => 'secondary',
-        'vocational', 'trade', 'trade_course', 'vocational_trade_course', 'vocational/trade course', 'tvet' => 'vocational',
-        'college', 'bachelor', 'bachelors', "bachelor's", "bachelor's degree" => 'college',
-        'graduate', 'graduate_studies', 'masters', 'masteral', 'doctorate', 'phd' => 'graduate',
-        default => 'college',
-    };
+    return recruitmentServiceNormalizeEducationLevel((string)$value);
 };
 
 $educationLevelRank = static function (string $value) use ($normalizeEducationLevel): int {
-    return match ($normalizeEducationLevel($value)) {
-        'graduate' => 5,
-        'college' => 4,
-        'vocational' => 3,
-        'secondary' => 2,
-        default => 1,
-    };
+    return recruitmentServiceEducationLevelRank($normalizeEducationLevel($value));
 };
 
 $educationYearsToLevel = static function (float $years): string {
-    if ($years >= 6) {
-        return 'graduate';
-    }
-    if ($years >= 4) {
-        return 'college';
-    }
-    if ($years >= 2) {
-        return 'vocational';
-    }
-    if ($years >= 1) {
-        return 'secondary';
-    }
-
-    return 'elementary';
+    return recruitmentServiceEducationYearsToLevel($years);
 };
 
 $educationLevelLabel = static function (?string $value) use ($normalizeEducationLevel): string {
-    return match ($normalizeEducationLevel((string)$value)) {
-        'graduate' => 'Graduate Studies',
-        'college' => 'College',
-        'vocational' => 'Vocational/Trade Course',
-        'secondary' => 'Secondary',
-        default => 'Elementary',
-    };
+    return recruitmentServiceEducationLevelLabel($normalizeEducationLevel((string)$value));
 };
 
 $resolveRecruitmentDocumentUrl = static function (?string $rawUrl) use ($supabaseUrl): string {
@@ -132,9 +108,324 @@ $resolveRecruitmentDocumentUrl = static function (?string $rawUrl) use ($supabas
     return rtrim($supabaseUrl, '/') . '/' . ltrim($value, '/');
 };
 
+$recruitmentDataStage = (string)($recruitmentDataStage ?? 'full');
+$recruitmentPostingId = cleanText($_GET['posting_id'] ?? null) ?? '';
+if (!isValidUuid($recruitmentPostingId)) {
+    $recruitmentPostingId = '';
+}
+
+if (in_array($recruitmentDataStage, ['summary', 'listings'], true)) {
+    $recruitmentPageSize = 10;
+    $recruitmentPage = max(1, (int)($_GET['recruitment_page'] ?? 1));
+    $recruitmentSearch = trim((string)($_GET['recruitment_search'] ?? ''));
+    $recruitmentSearchNormalized = strtolower($recruitmentSearch);
+    $recruitmentStatusFilter = strtolower(trim((string)($_GET['recruitment_status'] ?? '')));
+
+    $appendDataError = static function (string $label, array $response) use (&$dataLoadError): void {
+        if (isSuccessful($response)) {
+            return;
+        }
+
+        $message = $label . ' query failed (HTTP ' . (int)($response['status'] ?? 0) . ').';
+        $raw = trim((string)($response['raw'] ?? ''));
+        if ($raw !== '') {
+            $message .= ' ' . $raw;
+        }
+
+        $dataLoadError = $dataLoadError ? ($dataLoadError . ' ' . $message) : $message;
+    };
+
+    $statusPill = static function (string $status): array {
+        $key = strtolower(trim($status));
+        return match ($key) {
+            'published' => ['Open', 'bg-emerald-100 text-emerald-800'],
+            'closed' => ['Closed', 'bg-amber-100 text-amber-800'],
+            'archived' => ['Archived', 'bg-slate-200 text-slate-700'],
+            default => ['Draft', 'bg-blue-100 text-blue-800'],
+        };
+    };
+
+    $employmentTypeLabel = static function (?string $classification): string {
+        $key = strtolower(trim((string)$classification));
+        return match ($key) {
+            'regular', 'coterminous' => 'Permanent',
+            'contractual', 'casual', 'job_order' => 'Contractual',
+            default => 'Contractual',
+        };
+    };
+
+    $normalizeRequiredDocumentLabels = static function ($rawValue): array {
+        $defaultDocuments = ['Application Letter', 'Updated Resume/CV', 'Personal Data Sheet', 'Valid Government ID', 'Transcript of Records'];
+        if (!is_array($rawValue) || empty($rawValue)) {
+            return $defaultDocuments;
+        }
+
+        $documentMap = [
+            'application_letter' => 'Application Letter',
+            'updated_resume_cv' => 'Updated Resume/CV',
+            'personal_data_sheet' => 'Personal Data Sheet',
+            'valid_government_id' => 'Valid Government ID',
+            'transcript_of_records' => 'Transcript of Records',
+            'pds' => 'Personal Data Sheet',
+            'wes' => 'Updated Resume/CV',
+            'eligibility_csc_prc' => 'Valid Government ID',
+            'transcript' => 'Transcript of Records',
+            'certificate' => 'Valid Government ID',
+        ];
+
+        $labels = [];
+        foreach ($rawValue as $value) {
+            $text = trim((string)$value);
+            if ($text === '') {
+                continue;
+            }
+
+            $normalizedKey = strtolower(str_replace([' ', '-', '/', '(', ')'], ['_', '_', '_', '', ''], $text));
+            $label = $documentMap[$normalizedKey] ?? $documentMap[strtolower($text)] ?? $text;
+            $labels[$label] = $label;
+        }
+
+        return !empty($labels) ? array_values($labels) : $defaultDocuments;
+    };
+
+    $normalizeRequiredDocumentKeys = static function ($rawValue): array {
+        $defaultKeys = ['application_letter', 'updated_resume_cv', 'personal_data_sheet', 'valid_government_id', 'transcript_of_records'];
+        if (!is_array($rawValue) || empty($rawValue)) {
+            return $defaultKeys;
+        }
+
+        $keyMap = [
+            'application_letter' => 'application_letter',
+            'updated_resume_cv' => 'updated_resume_cv',
+            'personal_data_sheet' => 'personal_data_sheet',
+            'valid_government_id' => 'valid_government_id',
+            'transcript_of_records' => 'transcript_of_records',
+            'pds' => 'personal_data_sheet',
+            'wes' => 'updated_resume_cv',
+            'eligibility_csc_prc' => 'valid_government_id',
+            'transcript' => 'transcript_of_records',
+            'certificate' => 'valid_government_id',
+        ];
+
+        $keys = [];
+        foreach ($rawValue as $value) {
+            $text = trim((string)$value);
+            if ($text === '') {
+                continue;
+            }
+
+            $normalizedKey = strtolower(str_replace([' ', '-', '/', '(', ')'], ['_', '_', '_', '', ''], $text));
+            $key = $keyMap[$normalizedKey] ?? $keyMap[strtolower($text)] ?? null;
+            if ($key === null) {
+                continue;
+            }
+
+            $keys[$key] = $key;
+        }
+
+        return !empty($keys) ? array_values($keys) : $defaultKeys;
+    };
+
+    $todayDate = gmdate('Y-m-d');
+    $today = strtotime($todayDate);
+
+    $postingsResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/job_postings?select=id,title,office_id,position_id,plantilla_item_no,description,qualifications,responsibilities,required_documents,posting_status,open_date,close_date,updated_at,office:offices(office_name),position:job_positions(position_title,employment_classification)&order=updated_at.desc&limit=240',
+        $headers
+    );
+    $appendDataError('Job postings', $postingsResponse);
+    $postings = isSuccessful($postingsResponse) ? (array)($postingsResponse['data'] ?? []) : [];
+
+    $postingIds = [];
+    foreach ($postings as $posting) {
+        $postingId = (string)($posting['id'] ?? '');
+        if ($postingId === '') {
+            continue;
+        }
+
+        $postingIds[] = $postingId;
+    }
+
+    $applicationCountByPosting = [];
+    if (!empty($postingIds)) {
+        $applicationResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/applications?select=id,job_posting_id,application_status'
+            . '&job_posting_id=in.' . rawurlencode('(' . implode(',', $postingIds) . ')')
+            . '&limit=4000',
+            $headers
+        );
+        $appendDataError('Applications', $applicationResponse);
+        $applicationRows = isSuccessful($applicationResponse) ? (array)($applicationResponse['data'] ?? []) : [];
+
+        foreach ($applicationRows as $application) {
+            $postingId = cleanText($application['job_posting_id'] ?? null) ?? '';
+            if (!isValidUuid($postingId)) {
+                continue;
+            }
+
+            if (!isset($applicationCountByPosting[$postingId])) {
+                $applicationCountByPosting[$postingId] = ['total' => 0, 'pending' => 0];
+            }
+
+            $applicationCountByPosting[$postingId]['total']++;
+            $status = strtolower((string)(cleanText($application['application_status'] ?? null) ?? 'submitted'));
+            if (in_array($status, ['submitted', 'screening', 'shortlisted', 'interview', 'offer'], true)) {
+                $applicationCountByPosting[$postingId]['pending']++;
+            }
+        }
+    }
+
+    $activeRowsUnfiltered = [];
+    foreach ($postings as $posting) {
+        $postingId = cleanText($posting['id'] ?? null) ?? '';
+        if (!isValidUuid($postingId)) {
+            continue;
+        }
+
+        $statusRaw = strtolower((string)(cleanText($posting['posting_status'] ?? null) ?? 'draft'));
+        [$statusLabel, $statusClass] = $statusPill($statusRaw);
+        $title = cleanText($posting['title'] ?? null) ?? 'Untitled Posting';
+        $positionTitle = cleanText($posting['position']['position_title'] ?? null) ?? 'Unassigned Position';
+        $officeName = cleanText($posting['office']['office_name'] ?? null) ?? 'Unassigned Division';
+        $employmentTypeRaw = strtolower((string)(cleanText($posting['position']['employment_classification'] ?? null) ?? ''));
+        $employmentType = $employmentTypeLabel($employmentTypeRaw);
+        $plantillaItemNo = cleanText($posting['plantilla_item_no'] ?? null) ?? '';
+        $description = cleanText($posting['description'] ?? null) ?? '';
+        $qualifications = cleanText($posting['qualifications'] ?? null) ?? '';
+        $responsibilities = cleanText($posting['responsibilities'] ?? null) ?? '';
+        $requiredDocumentKeys = $normalizeRequiredDocumentKeys($posting['required_documents'] ?? []);
+        $requirements = $normalizeRequiredDocumentLabels($posting['required_documents'] ?? []);
+        $counts = $applicationCountByPosting[$postingId] ?? ['total' => 0, 'pending' => 0];
+        $openDate = cleanText($posting['open_date'] ?? null) ?? '';
+        $closeDate = cleanText($posting['close_date'] ?? null) ?? '';
+        $updatedAt = cleanText($posting['updated_at'] ?? null) ?? '';
+
+        $row = [
+            'id' => $postingId,
+            'title' => $title,
+            'position_title' => $positionTitle,
+            'plantilla_item_no' => $plantillaItemNo !== '' ? $plantillaItemNo : '-',
+            'plantilla_item_no_raw' => $plantillaItemNo,
+            'office_id' => (string)($posting['office_id'] ?? ''),
+            'position_id' => (string)($posting['position_id'] ?? ''),
+            'office_name' => $officeName,
+            'employment_type' => $employmentType,
+            'employment_type_raw' => $employmentTypeRaw,
+            'applications_total' => (int)($counts['total'] ?? 0),
+            'applications_pending' => (int)($counts['pending'] ?? 0),
+            'status_raw' => $statusRaw,
+            'status_label' => $statusLabel,
+            'status_class' => $statusClass,
+            'description' => $description,
+            'qualifications' => $qualifications,
+            'responsibilities' => $responsibilities,
+            'eligibility_scope' => 'policy',
+            'eligibility_option' => 'csc_prc',
+            'eligibility_requirement' => '',
+            'minimum_education_level' => 'college',
+            'minimum_education_years' => 0,
+            'minimum_training_hours' => 0,
+            'minimum_experience_years' => 0,
+            'required_document_keys' => $requiredDocumentKeys,
+            'requirements' => $requirements,
+            'open_date' => $openDate,
+            'open_date_label' => $openDate !== '' ? date('M d, Y', strtotime($openDate)) : '-',
+            'close_date' => $closeDate,
+            'close_date_label' => $closeDate !== '' ? date('M d, Y', strtotime($closeDate)) : '-',
+            'updated_label' => $updatedAt !== '' ? date('M d, Y', strtotime($updatedAt)) : '-',
+            'search_text' => strtolower(trim($title . ' ' . $positionTitle . ' ' . $plantillaItemNo . ' ' . $officeName . ' ' . $employmentType . ' ' . $statusLabel)),
+        ];
+
+        if ($statusRaw === 'archived') {
+            $archivedRecruitmentRows[] = $row;
+        } else {
+            $activeRowsUnfiltered[] = $row;
+            $activeRecruitmentStatusOptions[$statusRaw] = $statusLabel;
+        }
+
+        $closeDateTimestamp = $closeDate !== '' ? strtotime($closeDate) : false;
+        if ($statusRaw === 'published' && $closeDateTimestamp !== false && $closeDateTimestamp >= $today) {
+            $daysRemaining = (int)floor(($closeDateTimestamp - $today) / 86400);
+            $applicationDeadlineRows[] = [
+                'title' => $title,
+                'position_title' => $positionTitle,
+                'office_name' => $officeName,
+                'close_date_label' => $closeDate !== '' ? date('M d, Y', strtotime($closeDate)) : '-',
+                'days_remaining' => $daysRemaining,
+                'priority_label' => $daysRemaining <= 3 ? 'Urgent' : ($daysRemaining <= 7 ? 'Upcoming' : 'Scheduled'),
+                'priority_class' => $daysRemaining <= 3
+                    ? 'bg-rose-100 text-rose-800'
+                    : ($daysRemaining <= 7 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'),
+            ];
+        }
+    }
+
+    usort($applicationDeadlineRows, static fn(array $left, array $right): int => ((int)($left['days_remaining'] ?? 0)) <=> ((int)($right['days_remaining'] ?? 0)));
+    asort($activeRecruitmentStatusOptions);
+
+    $recruitmentSummary = [
+        'active_postings' => count($activeRowsUnfiltered),
+        'published_postings' => count(array_filter($activeRowsUnfiltered, static fn(array $row): bool => (string)($row['status_raw'] ?? '') === 'published')),
+        'archived_postings' => count($archivedRecruitmentRows),
+        'pending_applications' => array_sum(array_map(static fn(array $row): int => (int)($row['applications_pending'] ?? 0), $activeRowsUnfiltered)),
+        'total_applications' => array_sum(array_map(static fn(array $row): int => (int)($row['applications_total'] ?? 0), $activeRowsUnfiltered)),
+        'upcoming_deadlines' => count(array_filter($applicationDeadlineRows, static fn(array $row): bool => (int)($row['days_remaining'] ?? 0) <= 7)),
+    ];
+
+    $activeRecruitmentRows = $activeRowsUnfiltered;
+    if ($recruitmentSearchNormalized !== '') {
+        $activeRecruitmentRows = array_values(array_filter(
+            $activeRecruitmentRows,
+            static fn(array $row): bool => strpos((string)($row['search_text'] ?? ''), $recruitmentSearchNormalized) !== false
+        ));
+    }
+
+    if ($recruitmentStatusFilter !== '') {
+        $activeRecruitmentRows = array_values(array_filter(
+            $activeRecruitmentRows,
+            static fn(array $row): bool => strtolower((string)($row['status_raw'] ?? '')) === $recruitmentStatusFilter
+        ));
+    }
+
+    $recruitmentTotalRows = count($activeRecruitmentRows);
+    $recruitmentTotalPages = max(1, (int)ceil($recruitmentTotalRows / $recruitmentPageSize));
+    if ($recruitmentPage > $recruitmentTotalPages) {
+        $recruitmentPage = $recruitmentTotalPages;
+    }
+
+    $recruitmentOffset = ($recruitmentPage - 1) * $recruitmentPageSize;
+    $activeRecruitmentRows = array_slice($activeRecruitmentRows, $recruitmentOffset, $recruitmentPageSize);
+    $recruitmentPagination = [
+        'page' => $recruitmentPage,
+        'page_size' => $recruitmentPageSize,
+        'total_rows' => $recruitmentTotalRows,
+        'total_pages' => $recruitmentTotalPages,
+        'from' => $recruitmentTotalRows > 0 ? ($recruitmentOffset + 1) : 0,
+        'to' => $recruitmentTotalRows > 0 ? min($recruitmentOffset + $recruitmentPageSize, $recruitmentTotalRows) : 0,
+        'search' => $recruitmentSearch,
+        'status' => $recruitmentStatusFilter,
+        'has_prev' => $recruitmentPage > 1,
+        'has_next' => $recruitmentPage < $recruitmentTotalPages,
+        'prev_page' => max(1, $recruitmentPage - 1),
+        'next_page' => min($recruitmentTotalPages, $recruitmentPage + 1),
+    ];
+
+    return;
+}
+
+$postingsQuery = $supabaseUrl . '/rest/v1/job_postings?select=id,title,office_id,position_id,plantilla_item_no,description,qualifications,responsibilities,required_documents,posting_status,open_date,close_date,updated_at,office:offices(office_name),position:job_positions(position_title,employment_classification)&order=updated_at.desc';
+if ($recruitmentDataStage === 'posting-view' && $recruitmentPostingId !== '') {
+    $postingsQuery .= '&id=eq.' . rawurlencode($recruitmentPostingId) . '&limit=1';
+} else {
+    $postingsQuery .= '&limit=500';
+}
+
 $postingsResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/job_postings?select=id,title,office_id,position_id,plantilla_item_no,description,qualifications,responsibilities,required_documents,posting_status,open_date,close_date,updated_at,office:offices(office_name),position:job_positions(position_title,employment_classification)&order=updated_at.desc&limit=500',
+    $postingsQuery,
     $headers
 );
 
@@ -186,7 +477,7 @@ $interviewsByApplicationId = [];
 $feedbackTextByApplicationId = [];
 $evaluationRecommendationByApplicationId = [];
 $peopleByUserId = [];
-if (!empty($postingIds)) {
+if (!empty($postingIds) && in_array($recruitmentDataStage, ['full', 'posting-view'], true)) {
     $postingIdList = implode(',', $postingIds);
 
     $postingApplicationsResponse = apiRequest(
@@ -527,64 +818,21 @@ $eligibilityValue = is_array($eligibilityRaw) && array_key_exists('value', $elig
     ? $eligibilityRaw['value']
     : $eligibilityRaw;
 
-if (is_array($eligibilityValue)) {
-    $policyDefault = trim((string)($eligibilityValue['policy_default'] ?? ''));
-    if ($policyDefault !== '') {
-        $eligibilityConfig['policy_default'] = $policyDefault;
-    } else {
-        $eligibilityConfig['policy_default'] = $requiredEligibility;
-    }
-
-    $positionOverrides = is_array($eligibilityValue['position_overrides'] ?? null)
-        ? (array)$eligibilityValue['position_overrides']
-        : [];
-    $normalizedOverrides = [];
-    foreach ($positionOverrides as $positionKey => $positionEligibility) {
-        $normalizedKey = strtolower(trim((string)$positionKey));
-        $normalizedValue = trim((string)$positionEligibility);
-        if ($normalizedKey === '' || $normalizedValue === '') {
-            continue;
-        }
-        $normalizedOverrides[$normalizedKey] = $normalizedValue;
-    }
-    $eligibilityConfig['position_overrides'] = $normalizedOverrides;
-} else {
-    $eligibilityConfig['policy_default'] = $requiredEligibility;
-}
+$eligibilityConfig = recruitmentServiceNormalizeEligibilityConfig(
+    is_array($eligibilityValue) ? $eligibilityValue : [],
+    $requiredEligibility
+);
 
 $normalizeEligibilityOption = static function (string $value): string {
-    $key = strtolower(trim($value));
-    return match ($key) {
-        'none', 'not_applicable', 'not applicable', 'n/a', 'na' => 'none',
-        'csc', 'career service', 'career service sub professional' => 'csc',
-        'prc' => 'prc',
-        'csc_prc', 'csc,prc', 'csc, prc', 'csc/prc' => 'csc_prc',
-        default => 'csc_prc',
-    };
+    return recruitmentServiceResolveEligibilityOption($value);
 };
 
 $eligibilityOptionToRequirement = static function (string $option): string {
-    return match ($option) {
-        'none' => 'none',
-        'csc' => 'csc',
-        'prc' => 'prc',
-        default => 'csc, prc',
-    };
+    return recruitmentServiceEligibilityOptionToRequirement($option);
 };
 
 $formatEligibilityRequirement = static function (string $value): string {
-    $normalized = strtolower(trim($value));
-    if ($normalized === '' || in_array($normalized, ['none', 'n/a', 'na', 'not applicable', 'not_applicable'], true)) {
-        return 'None (Not Required)';
-    }
-    if ($normalized === 'csc') {
-        return 'CSC';
-    }
-    if ($normalized === 'prc') {
-        return 'PRC';
-    }
-
-    return 'CSC or PRC';
+    return recruitmentServiceFormatEligibilityRequirement($value);
 };
 
 $positionCriteriaResponse = apiRequest(
@@ -603,32 +851,12 @@ $positionCriteriaValue = is_array($positionCriteriaRaw) && array_key_exists('val
     ? $positionCriteriaRaw['value']
     : $positionCriteriaRaw;
 
-if (is_array($positionCriteriaValue)) {
-    $rawOverrides = is_array($positionCriteriaValue['position_overrides'] ?? null)
-        ? (array)$positionCriteriaValue['position_overrides']
-        : [];
-
-    $normalizedOverrides = [];
-    foreach ($rawOverrides as $positionKey => $criteriaRow) {
-        $normalizedPositionKey = strtolower(trim((string)$positionKey));
-        if ($normalizedPositionKey === '' || !is_array($criteriaRow)) {
-            continue;
-        }
-
-        $eligibilityOption = $normalizeEligibilityOption((string)($criteriaRow['eligibility'] ?? 'csc_prc'));
-        $minimumEducationYears = max(0, (float)($criteriaRow['minimum_education_years'] ?? $requiredEducationYears));
-        $minimumEducationLevel = $normalizeEducationLevel((string)($criteriaRow['minimum_education_level'] ?? $educationYearsToLevel($minimumEducationYears)));
-        $normalizedOverrides[$normalizedPositionKey] = [
-            'eligibility' => $eligibilityOption,
-            'minimum_education_level' => $minimumEducationLevel,
-            'minimum_education_years' => $minimumEducationYears,
-            'minimum_training_hours' => max(0, (float)($criteriaRow['minimum_training_hours'] ?? $requiredTrainingHours)),
-            'minimum_experience_years' => max(0, (float)($criteriaRow['minimum_experience_years'] ?? $requiredExperienceYears)),
-        ];
-    }
-
-    $positionCriteriaConfig['position_overrides'] = $normalizedOverrides;
-}
+$positionCriteriaConfig = recruitmentServiceNormalizePositionCriteriaConfig(
+    is_array($positionCriteriaValue) ? $positionCriteriaValue : [],
+    $requiredEducationYears,
+    $requiredTrainingHours,
+    $requiredExperienceYears
+);
 
 $resolvePostingCriteria = static function (string $positionId) use (
     $positionCriteriaConfig,
@@ -637,45 +865,18 @@ $resolvePostingCriteria = static function (string $positionId) use (
     $requiredEducationLevel,
     $requiredEducationYears,
     $requiredTrainingHours,
-    $requiredExperienceYears,
-    $normalizeEligibilityOption,
-    $eligibilityOptionToRequirement,
-    $normalizeEducationLevel
+    $requiredExperienceYears
 ): array {
-    $normalizedPositionId = strtolower(trim($positionId));
-
-    $legacyEligibilityRequirement = trim((string)($eligibilityConfig['position_overrides'][$normalizedPositionId] ?? ''));
-    $legacyPolicyDefault = trim((string)($eligibilityConfig['policy_default'] ?? $requiredEligibility));
-    $legacyEffective = $legacyEligibilityRequirement !== '' ? $legacyEligibilityRequirement : $legacyPolicyDefault;
-
-    $override = is_array($positionCriteriaConfig['position_overrides'][$normalizedPositionId] ?? null)
-        ? (array)$positionCriteriaConfig['position_overrides'][$normalizedPositionId]
-        : [];
-
-    $eligibilityOption = isset($override['eligibility'])
-        ? $normalizeEligibilityOption((string)$override['eligibility'])
-        : $normalizeEligibilityOption($legacyEffective);
-
-    $resolvedEducationYears = isset($override['minimum_education_years'])
-        ? max(0, (float)$override['minimum_education_years'])
-        : $requiredEducationYears;
-    $resolvedEducationLevel = isset($override['minimum_education_level'])
-        ? $normalizeEducationLevel((string)$override['minimum_education_level'])
-        : $requiredEducationLevel;
-
-    return [
-        'eligibility_scope' => isset($override['eligibility']) ? 'position' : ($legacyEligibilityRequirement !== '' ? 'position' : 'policy'),
-        'eligibility_option' => $eligibilityOption,
-        'eligibility_requirement' => $eligibilityOptionToRequirement($eligibilityOption),
-        'minimum_education_level' => $resolvedEducationLevel,
-        'minimum_education_years' => $resolvedEducationYears,
-        'minimum_training_hours' => isset($override['minimum_training_hours'])
-            ? max(0, (float)$override['minimum_training_hours'])
-            : $requiredTrainingHours,
-        'minimum_experience_years' => isset($override['minimum_experience_years'])
-            ? max(0, (float)$override['minimum_experience_years'])
-            : $requiredExperienceYears,
-    ];
+    return recruitmentServiceResolvePostingCriteria(
+        $positionId,
+        $positionCriteriaConfig,
+        $eligibilityConfig,
+        $requiredEligibility,
+        $requiredEducationLevel,
+        $requiredEducationYears,
+        $requiredTrainingHours,
+        $requiredExperienceYears
+    );
 };
 
 $emailTemplatesResponse = apiRequest(
@@ -694,21 +895,9 @@ $emailTemplatesValue = is_array($emailTemplatesRaw) && array_key_exists('value',
     ? $emailTemplatesRaw['value']
     : $emailTemplatesRaw;
 
-if (is_array($emailTemplatesValue)) {
-    foreach (['submitted', 'passed', 'failed', 'next_stage'] as $templateKey) {
-        $templateRow = is_array($emailTemplatesValue[$templateKey] ?? null)
-            ? (array)$emailTemplatesValue[$templateKey]
-            : [];
-        $subject = trim((string)($templateRow['subject'] ?? ''));
-        $body = trim((string)($templateRow['body'] ?? ''));
-        if ($subject !== '') {
-            $recruitmentEmailTemplates[$templateKey]['subject'] = $subject;
-        }
-        if ($body !== '') {
-            $recruitmentEmailTemplates[$templateKey]['body'] = $body;
-        }
-    }
-}
+$recruitmentEmailTemplates = recruitmentServiceMergeEmailTemplates(
+    is_array($emailTemplatesValue) ? $emailTemplatesValue : []
+);
 
 $matchEligibility = static function (string $required, string $actual): bool {
     $requiredRaw = strtolower(trim($required));
@@ -1227,28 +1416,30 @@ foreach ($postings as $posting) {
         'search_text' => strtolower(trim($title . ' ' . $positionTitle . ' ' . $plantillaItemNo . ' ' . $officeName . ' ' . $employmentType . ' ' . $statusLabel)),
     ];
 
-    $postingViewById[$postingId] = [
-        'id' => $postingId,
-        'posting_title' => $title,
-        'position_title' => $positionTitle,
-        'plantilla_item_no' => $plantillaItemNo !== '' ? $plantillaItemNo : '-',
-        'office_name' => $officeName,
-        'employment_type' => $employmentType,
-        'status_label' => $statusLabel,
-        'open_date_label' => $row['open_date_label'],
-        'close_date_label' => $row['close_date_label'],
-        'description' => $description,
-        'qualifications' => $qualifications,
-        'responsibilities' => $responsibilities,
-        'requirements' => $requirements,
-        'criteria' => [
-            'eligibility' => $formatEligibilityRequirement($effectiveEligibilityRequirement),
-            'education' => 'Minimum ' . $educationLevelLabel($minimumEducationLevel),
-            'training' => 'Minimum ' . $formatNumber($minimumTrainingHours) . ' hour(s)',
-            'experience' => 'Minimum ' . $formatNumber($minimumExperienceYears) . ' year(s)',
-        ],
-        'applicants' => $postingApplicantRows,
-    ];
+    if (in_array($recruitmentDataStage, ['full', 'posting-view'], true)) {
+        $postingViewById[$postingId] = [
+            'id' => $postingId,
+            'posting_title' => $title,
+            'position_title' => $positionTitle,
+            'plantilla_item_no' => $plantillaItemNo !== '' ? $plantillaItemNo : '-',
+            'office_name' => $officeName,
+            'employment_type' => $employmentType,
+            'status_label' => $statusLabel,
+            'open_date_label' => $row['open_date_label'],
+            'close_date_label' => $row['close_date_label'],
+            'description' => $description,
+            'qualifications' => $qualifications,
+            'responsibilities' => $responsibilities,
+            'requirements' => $requirements,
+            'criteria' => [
+                'eligibility' => $formatEligibilityRequirement($effectiveEligibilityRequirement),
+                'education' => 'Minimum ' . $educationLevelLabel($minimumEducationLevel),
+                'training' => 'Minimum ' . $formatNumber($minimumTrainingHours) . ' hour(s)',
+                'experience' => 'Minimum ' . $formatNumber($minimumExperienceYears) . ' year(s)',
+            ],
+            'applicants' => $postingApplicantRows,
+        ];
+    }
 
     if ($statusRaw === 'archived') {
         $archivedRecruitmentRows[] = $row;
@@ -1276,3 +1467,11 @@ foreach ($postings as $posting) {
 usort($applicationDeadlineRows, static function (array $left, array $right): int {
     return ((int)($left['days_remaining'] ?? 0)) <=> ((int)($right['days_remaining'] ?? 0));
 });
+
+if ($recruitmentDataStage === 'posting-view') {
+    $recruitmentPostingViewPayload = $recruitmentPostingId !== ''
+        ? ($postingViewById[$recruitmentPostingId] ?? null)
+        : null;
+
+    return;
+}

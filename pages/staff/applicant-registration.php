@@ -1,14 +1,46 @@
 <?php
 require_once __DIR__ . '/includes/applicant-registration/bootstrap.php';
 require_once __DIR__ . '/includes/applicant-registration/actions.php';
-require_once __DIR__ . '/includes/applicant-registration/data.php';
 
 $pageTitle = 'Applicant Registration | Staff';
 $activePage = 'recruitment.php';
 $breadcrumbs = ['Recruitment', 'Applicant Registration'];
+$pageScripts = $pageScripts ?? [];
+$pageScripts[] = '/hris-system/assets/js/staff/applicant-registration/index.js';
 
 $state = cleanText($_GET['state'] ?? null);
 $message = cleanText($_GET['message'] ?? null);
+
+$applicantRegistrationPartial = trim((string)($_GET['partial'] ?? ''));
+
+if ($applicantRegistrationPartial === 'registration-list') {
+    $applicantRegistrationDataStage = 'list';
+    require_once __DIR__ . '/includes/applicant-registration/data.php';
+    header('Content-Type: text/html; charset=UTF-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    $registrationContentSection = 'list';
+    require __DIR__ . '/includes/applicant-registration/content.php';
+    exit;
+}
+
+if ($applicantRegistrationPartial === 'registration-detail') {
+    $applicantRegistrationDataStage = 'detail';
+    $registrationDetailApplicationId = trim((string)($_GET['application_id'] ?? ''));
+    require_once __DIR__ . '/includes/applicant-registration/data.php';
+    header('Content-Type: application/json; charset=UTF-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+
+    if ($dataLoadError !== null || !is_array($registrationDetailPayload)) {
+        http_response_code(400);
+        echo json_encode([
+            'error' => $dataLoadError ?: 'Applicant registration detail could not be loaded.',
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
+    echo json_encode($registrationDetailPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
 
 ob_start();
 ?>
@@ -24,85 +56,36 @@ ob_start();
     </div>
 <?php endif; ?>
 
-<?php if ($dataLoadError): ?>
-    <div class="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        <?= htmlspecialchars((string)$dataLoadError, ENT_QUOTES, 'UTF-8') ?>
-    </div>
-<?php endif; ?>
-
-<section class="bg-white border rounded-xl mb-6">
-    <header class="px-6 py-4 border-b">
-        <h2 class="text-lg font-semibold text-gray-800">View Registered Applicants</h2>
-        <p class="text-sm text-gray-500 mt-1">Review applicants by posting, submission date, and screening status.</p>
-    </header>
-
-    <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div class="md:col-span-2">
-            <label for="registrationSearchInput" class="text-sm text-gray-600">Search Applicants</label>
-            <input id="registrationSearchInput" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search by applicant, email, or position">
-        </div>
-        <div>
-            <label for="registrationStatusFilter" class="text-sm text-gray-600">Screening Filter</label>
-            <select id="registrationStatusFilter" class="w-full mt-1 border rounded-md px-3 py-2 text-sm">
-                <option value="">All</option>
-                <option value="submitted">Applied</option>
-                <option value="screening">Verified</option>
-                <option value="interview">Interview</option>
-                <option value="shortlisted">Evaluation</option>
-                <option value="offer">For Approval</option>
-                <option value="hired">Hired</option>
-                <option value="rejected">Rejected</option>
-            </select>
-        </div>
+<section
+    id="staffApplicantRegistrationAsyncRegion"
+    data-registration-list-url="applicant-registration.php?partial=registration-list"
+    data-registration-detail-url="applicant-registration.php?partial=registration-detail"
+>
+    <div id="staffApplicantRegistrationListSkeleton" class="space-y-6" aria-live="polite" role="status">
+        <section class="bg-white border rounded-xl mb-6">
+            <header class="px-6 py-4 border-b">
+                <div class="h-5 w-48 animate-pulse rounded bg-slate-200"></div>
+                <div class="mt-2 h-4 w-96 animate-pulse rounded bg-slate-200"></div>
+            </header>
+            <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="md:col-span-2 h-10 animate-pulse rounded bg-slate-100"></div>
+                <div class="h-10 animate-pulse rounded bg-slate-100"></div>
+            </div>
+            <div class="p-6 space-y-3">
+                <?php for ($index = 0; $index < 5; $index += 1): ?>
+                    <div class="h-14 animate-pulse rounded bg-slate-100"></div>
+                <?php endfor; ?>
+            </div>
+        </section>
     </div>
 
-    <div class="p-6 overflow-x-auto">
-        <table id="registrationTable" class="w-full text-sm">
-            <thead class="bg-gray-50 text-gray-600">
-                <tr>
-                    <th class="text-left px-4 py-3">Applicant</th>
-                    <th class="text-left px-4 py-3">Applied Position</th>
-                    <th class="text-left px-4 py-3">Date Submitted</th>
-                    <th class="text-left px-4 py-3">Initial Screening</th>
-                    <th class="text-left px-4 py-3">Basis</th>
-                    <th class="text-left px-4 py-3">Action</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y">
-                <?php if (empty($registrationRows)): ?>
-                    <tr>
-                        <td class="px-4 py-3 text-gray-500" colspan="6">No registration records found in your division scope.</td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($registrationRows as $row): ?>
-                        <tr data-registration-row data-registration-search="<?= htmlspecialchars((string)($row['search_text'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-registration-status="<?= htmlspecialchars((string)($row['status_raw'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
-                            <td class="px-4 py-3">
-                                <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($row['applicant_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                                <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars((string)($row['applicant_email'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                            </td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['posting_title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['submitted_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)($row['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($row['status_label'] ?? 'Unknown'), ENT_QUOTES, 'UTF-8') ?></span></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['basis'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3">
-                                <button
-                                    type="button"
-                                    data-open-registration-modal
-                                    data-application-id="<?= htmlspecialchars((string)($row['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm"
-                                >
-                                    <span class="material-symbols-outlined text-[16px]">person_search</span>View Profile
-                                </button>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-                <tr id="registrationFilterEmptyRow" class="hidden">
-                    <td class="px-4 py-3 text-gray-500" colspan="6">No records match your search/filter criteria.</td>
-                </tr>
-            </tbody>
-        </table>
+    <div id="staffApplicantRegistrationListError" class="hidden mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" aria-live="polite">
+        <p class="font-medium">Applicant registration list could not be loaded.</p>
+        <p class="mt-1">Retry to load the first-page intake queue.</p>
+        <button type="button" id="staffApplicantRegistrationListRetry" class="mt-3 inline-flex items-center rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100">Retry list</button>
     </div>
+
+    <div id="staffApplicantRegistrationListContent" class="hidden"></div>
 </section>
 
 <div id="registrationModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
@@ -156,10 +139,6 @@ ob_start();
         </div>
     </div>
 </div>
-
-<script id="registrationViewData" type="application/json"><?= (string)json_encode($registrationViewById, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
-
-<script src="../../assets/js/staff/applicant-registration/index.js" defer></script>
 
 <?php
 $content = ob_get_clean();

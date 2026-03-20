@@ -42,6 +42,8 @@ $setupStatusPill = static function (string $status): array {
 
     return ['Current', 'bg-emerald-100 text-emerald-800'];
 };
+
+$payrollRefreshTarget = (string)($payrollRefreshTarget ?? 'summary');
 ?>
 
 <?php if ($state && $message): ?>
@@ -64,13 +66,15 @@ $setupStatusPill = static function (string $status): array {
     </div>
 <?php endif; ?>
 
+<?php if (empty($hidePayrollHeaderSection)): ?>
+<?php if (empty($hidePayrollSalarySetupLogsSection)): ?>
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
             <h2 class="text-lg font-semibold text-slate-800">Payroll Management</h2>
             <p class="text-sm text-slate-500 mt-1">Use quick actions for salary adjustment review and payslip release workflows.</p>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="flex flex-wrap items-center justify-end gap-2 lg:justify-end">
             <button type="button" data-modal-open="reviewSalaryAdjustmentsModal" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm">
                 <span class="material-symbols-outlined text-[15px]">rule_settings</span>Review Salary Adjustments
             </button>
@@ -80,11 +84,12 @@ $setupStatusPill = static function (string $status): array {
         </div>
     </header>
 </section>
+<?php endif; ?>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Payroll Source Sync</h2>
-        <p class="text-sm text-slate-500 mt-1">Store the client payroll source links, define the Excel-to-Google-Sheets workflow, and import canonical deduction workbooks before generating payroll batches.</p>
+        <p class="text-sm text-slate-500 mt-1">Set payroll source links, sync rules, and deduction imports before generating batches.</p>
     </header>
 
     <div class="p-6 grid grid-cols-1 xl:grid-cols-2 gap-6 text-sm">
@@ -92,9 +97,8 @@ $setupStatusPill = static function (string $status): array {
             <div class="flex items-start justify-between gap-3">
                 <div>
                     <h3 class="text-base font-semibold text-slate-800">Source Links and Rules</h3>
-                    <p class="text-slate-500 mt-1">The links below become the module’s declared source of truth while imported deduction sheets feed actual payroll computation.</p>
+                    <p class="text-slate-500 mt-1">Maintain the source files and the rule used for timekeeping deductions.</p>
                 </div>
-                <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium <?= $payrollSourceLinksConfirmed ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800' ?>"><?= $payrollSourceLinksConfirmed ? 'Links Confirmed' : 'Awaiting Client Links' ?></span>
             </div>
 
             <form action="payroll-management.php" method="POST" class="mt-5 space-y-4">
@@ -113,7 +117,7 @@ $setupStatusPill = static function (string $status): array {
                 <div>
                     <label class="text-slate-600">Canonical Google Sheet Link</label>
                     <input type="url" name="google_sheet_url" value="<?= htmlspecialchars((string)($payrollSyncConfig['google_sheet_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-white" placeholder="https://docs.google.com/spreadsheets/...">
-                    <p class="text-xs text-slate-500 mt-1">Use the Google Sheet that payroll deductions should flow into without double encoding.</p>
+                    <p class="text-xs text-slate-500 mt-1">Destination sheet for synced payroll deduction data.</p>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -123,7 +127,7 @@ $setupStatusPill = static function (string $status): array {
                             <option value="attendance" <?= (($payrollRuleSummary['permanent_timekeeping_source'] ?? 'attendance') === 'attendance') ? 'selected' : '' ?>>Attendance and leave records</option>
                             <option value="import" <?= (($payrollRuleSummary['permanent_timekeeping_source'] ?? '') === 'import') ? 'selected' : '' ?>>Imported deduction workbook</option>
                         </select>
-                        <p class="text-xs text-slate-500 mt-1">Default recommended rule: permanent employees use attendance-driven deductions.</p>
+                        <p class="text-xs text-slate-500 mt-1">Recommended: attendance-driven deductions.</p>
                     </div>
                     <div>
                         <label class="text-slate-600">COS Employee Timekeeping Source</label>
@@ -131,13 +135,13 @@ $setupStatusPill = static function (string $status): array {
                             <option value="attendance" <?= (($payrollRuleSummary['cos_timekeeping_source'] ?? '') === 'attendance') ? 'selected' : '' ?>>Attendance and leave records</option>
                             <option value="import" <?= (($payrollRuleSummary['cos_timekeeping_source'] ?? 'import') === 'import') ? 'selected' : '' ?>>Imported deduction workbook</option>
                         </select>
-                        <p class="text-xs text-slate-500 mt-1">Default recommended rule: COS employees use imported canonical deductions for leave, lateness, and absences.</p>
+                        <p class="text-xs text-slate-500 mt-1">Recommended: imported canonical deductions.</p>
                     </div>
                 </div>
 
                 <div>
                     <label class="text-slate-600">Workflow Notes</label>
-                    <textarea name="workflow_notes" rows="4" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-white" placeholder="Describe how Excel should land in Google Sheets before payroll batch generation."><?= htmlspecialchars((string)($payrollSyncConfig['workflow_notes'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
+                    <textarea name="workflow_notes" rows="4" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-white" placeholder="Optional notes for the sync flow."><?= htmlspecialchars((string)($payrollSyncConfig['workflow_notes'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
                 </div>
 
                 <div class="flex justify-end">
@@ -150,9 +154,8 @@ $setupStatusPill = static function (string $status): array {
             <div class="flex items-start justify-between gap-3">
                 <div>
                     <h3 class="text-base font-semibold text-slate-800">Deduction Workbook Import</h3>
-                    <p class="text-slate-500 mt-1">Accepted workbook columns: <span class="font-medium text-slate-700">employee_identifier</span>, optional <span class="font-medium text-slate-700">period_code</span>, and any of <span class="font-medium text-slate-700">statutory_deductions</span>, <span class="font-medium text-slate-700">timekeeping_deductions</span>, <span class="font-medium text-slate-700">other_deductions</span>, <span class="font-medium text-slate-700">notes</span>.</p>
+                    <p class="text-slate-500 mt-1">Accepted columns: employee identifier, optional period code, deductions, and notes.</p>
                 </div>
-                <span class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-800">Workbook import</span>
             </div>
 
             <form action="payroll-management.php" method="POST" enctype="multipart/form-data" class="mt-5 space-y-4">
@@ -316,9 +319,14 @@ $setupStatusPill = static function (string $status): array {
 </div>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
-    <header class="px-6 py-4 border-b border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800">Employees Salary Setup</h2>
-        <p class="text-sm text-slate-500 mt-1">Select an employee to manage salary setup in a modal without leaving payroll management.</p>
+    <header class="px-6 py-4 border-b border-slate-200 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+            <h2 class="text-lg font-semibold text-slate-800">Employees Salary Setup</h2>
+            <p class="text-sm text-slate-500 mt-1">Select an employee to manage salary setup in a modal without leaving payroll management.</p>
+        </div>
+        <button type="button" data-payroll-refresh-tab="<?= htmlspecialchars($payrollRefreshTarget, ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center gap-1.5 self-start rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            <span class="material-symbols-outlined text-[15px]">refresh</span>Refresh Table
+        </button>
     </header>
 
     <div class="px-6 pb-3 pt-4 flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
@@ -394,11 +402,18 @@ $setupStatusPill = static function (string $status): array {
         </div>
     </div>
 </section>
+<?php endif; ?>
 
+<?php if (empty($hidePayrollEstimateHistorySection)): ?>
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
-    <header class="px-6 py-4 border-b border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800">Salary Setup Logs</h2>
-        <p class="text-sm text-slate-500 mt-1">Review all salary setup entries. Delete an incorrect entry to re-align the compensation timeline.</p>
+    <header class="px-6 py-4 border-b border-slate-200 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+            <h2 class="text-lg font-semibold text-slate-800">Salary Setup Logs</h2>
+            <p class="text-sm text-slate-500 mt-1">Review all salary setup entries. Delete an incorrect entry to re-align the compensation timeline.</p>
+        </div>
+        <button type="button" data-payroll-refresh-tab="<?= htmlspecialchars($payrollRefreshTarget, ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center gap-1.5 self-start rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            <span class="material-symbols-outlined text-[15px]">refresh</span>Refresh Table
+        </button>
     </header>
 
     <div class="px-6 pb-3 pt-4 flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
@@ -499,14 +514,21 @@ $setupStatusPill = static function (string $status): array {
         <?php endif; ?>
     </div>
 </section>
+<?php endif; ?>
 
+<?php if (empty($hidePayrollPayslipsSection)): ?>
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
-    <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+    <header class="px-6 py-4 border-b border-slate-200 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
             <h2 class="text-lg font-semibold text-slate-800">Generate Payroll Reports</h2>
             <p class="text-sm text-slate-500 mt-1">Use payroll summary values from current and previous cutoffs, then continue export when needed.</p>
         </div>
-        <a href="#payrollEstimateHistory" class="px-4 py-2 rounded-md bg-slate-900 text-white text-sm hover:bg-slate-800">View Estimate History</a>
+        <div class="flex items-center gap-2">
+            <button type="button" data-payroll-refresh-tab="<?= htmlspecialchars($payrollRefreshTarget, ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                <span class="material-symbols-outlined text-[15px]">refresh</span>Refresh Table
+            </button>
+            <a href="#payrollEstimateHistory" class="px-4 py-2 rounded-md bg-slate-900 text-white text-sm hover:bg-slate-800">View Estimate History</a>
+        </div>
     </header>
 
     <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -683,10 +705,16 @@ $setupStatusPill = static function (string $status): array {
     </div>
 </div>
 
+<?php if (empty($hidePayrollBatchesSection)): ?>
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
-    <header class="px-6 py-4 border-b border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800">Approve Payroll Batches</h2>
-        <p class="text-sm text-slate-500 mt-1">Review computed payroll batches and update release readiness.</p>
+    <header class="px-6 py-4 border-b border-slate-200 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+            <h2 class="text-lg font-semibold text-slate-800">Approve Payroll Batches</h2>
+            <p class="text-sm text-slate-500 mt-1">Review computed payroll batches and update release readiness.</p>
+        </div>
+        <button type="button" data-payroll-refresh-tab="batches" class="inline-flex items-center gap-1.5 self-start rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            <span class="material-symbols-outlined text-[15px]">refresh</span>Refresh Table
+        </button>
     </header>
 
     <div class="px-6 pb-3 pt-4 flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
@@ -817,6 +845,7 @@ $setupStatusPill = static function (string $status): array {
 </section>
 
 <script id="payrollBatchBreakdownByRunData" type="application/json"><?= json_encode($batchBreakdownByRun, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>
+<?php endif; ?>
 
 <div id="reviewSalaryAdjustmentsModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-slate-900/60" data-modal-close="reviewSalaryAdjustmentsModal"></div>
@@ -896,9 +925,14 @@ $setupStatusPill = static function (string $status): array {
 </div>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
-    <header class="px-6 py-4 border-b border-slate-200">
-        <h2 class="text-lg font-semibold text-slate-800">View Employee Payslips</h2>
-        <p class="text-sm text-slate-500 mt-1">Track generated payslip records and release status by employee payroll item.</p>
+    <header class="px-6 py-4 border-b border-slate-200 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+            <h2 class="text-lg font-semibold text-slate-800">View Employee Payslips</h2>
+            <p class="text-sm text-slate-500 mt-1">Track generated payslip records and release status by employee payroll item.</p>
+        </div>
+        <button type="button" data-payroll-refresh-tab="<?= htmlspecialchars($payrollRefreshTarget, ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center gap-1.5 self-start rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            <span class="material-symbols-outlined text-[15px]">refresh</span>Refresh Table
+        </button>
     </header>
 
     <div class="px-6 pb-3 pt-4 flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
@@ -1055,6 +1089,7 @@ $setupStatusPill = static function (string $status): array {
         </div>
     </div>
 </div>
+    <?php endif; ?>
 
 <div id="releasePayslipsModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-slate-900/60" data-modal-close="releasePayslipsModal"></div>
@@ -1205,6 +1240,7 @@ $setupStatusPill = static function (string $status): array {
 
 <script id="generationPreviewByPeriodData" type="application/json"><?= json_encode($generationPreviewByPeriod, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>
 
+<?php if (empty($hidePayrollBatchesSection)): ?>
 <div id="reviewPayrollBatchModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-slate-900/60" data-modal-close="reviewPayrollBatchModal"></div>
     <div class="relative min-h-full flex items-start sm:items-center justify-center p-4 sm:p-6 overflow-y-auto">
@@ -1213,7 +1249,7 @@ $setupStatusPill = static function (string $status): array {
                 <h3 class="text-lg font-semibold text-slate-800">Review Payroll Batch</h3>
                 <button type="button" data-modal-close="reviewPayrollBatchModal" class="text-slate-500 hover:text-slate-700">✕</button>
             </div>
-            <form action="payroll-management.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <form id="reviewPayrollBatchForm" action="payroll-management.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm" data-confirm-title="Submit payroll batch decision?" data-confirm-text="This updates payroll batch status and related approval fields." data-confirm-button-text="Submit decision">
                 <input type="hidden" name="form_action" value="review_payroll_batch">
                 <input type="hidden" id="payrollRunId" name="run_id" value="">
                 <div class="md:col-span-2">
@@ -1357,3 +1393,4 @@ $setupStatusPill = static function (string $status): array {
         </div>
     </div>
 </div>
+<?php endif; ?>

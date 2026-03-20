@@ -1,14 +1,62 @@
 <?php
 require_once __DIR__ . '/includes/recruitment/bootstrap.php';
 require_once __DIR__ . '/includes/recruitment/actions.php';
-require_once __DIR__ . '/includes/recruitment/data.php';
 
 $pageTitle = 'Recruitment | Staff';
 $activePage = 'recruitment.php';
 $breadcrumbs = ['Recruitment'];
+$pageScripts = $pageScripts ?? [];
+$pageScripts[] = '/hris-system/assets/js/staff/recruitment/index.js';
 
 $state = cleanText($_GET['state'] ?? null);
 $message = cleanText($_GET['message'] ?? null);
+
+$recruitmentPartial = (string)($_GET['partial'] ?? '');
+if ($recruitmentPartial === 'recruitment-posting-view') {
+    $recruitmentDataStage = 'posting-view';
+    require_once __DIR__ . '/includes/recruitment/data.php';
+    $statusCode = is_array($recruitmentPostingViewPayload ?? null) ? 200 : 404;
+    http_response_code($statusCode);
+    header('Content-Type: application/json; charset=UTF-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    echo (string)json_encode(
+        is_array($recruitmentPostingViewPayload ?? null)
+            ? $recruitmentPostingViewPayload
+            : ['error' => 'Recruitment posting details could not be loaded.'],
+        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+    );
+    exit;
+}
+
+if ($recruitmentPartial === 'recruitment-applicant-view') {
+    $recruitmentDataStage = 'applicant-view';
+    require_once __DIR__ . '/includes/recruitment/data.php';
+    $statusCode = is_array($recruitmentApplicantViewPayload ?? null) ? 200 : 404;
+    http_response_code($statusCode);
+    header('Content-Type: application/json; charset=UTF-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    echo (string)json_encode(
+        is_array($recruitmentApplicantViewPayload ?? null)
+            ? $recruitmentApplicantViewPayload
+            : ['error' => 'Recruitment applicant details could not be loaded.'],
+        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+    );
+    exit;
+}
+
+if (in_array($recruitmentPartial, ['recruitment-summary', 'recruitment-listings', 'recruitment-secondary'], true)) {
+    $recruitmentDataStage = match ($recruitmentPartial) {
+        'recruitment-summary' => 'summary',
+        'recruitment-listings' => 'listings',
+        default => 'secondary',
+    };
+    $recruitmentContentSection = $recruitmentDataStage;
+    require_once __DIR__ . '/includes/recruitment/data.php';
+    header('Content-Type: text/html; charset=UTF-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    require __DIR__ . '/includes/recruitment/content.php';
+    exit;
+}
 
 ob_start();
 ?>
@@ -26,12 +74,6 @@ ob_start();
     </div>
 <?php endif; ?>
 
-<?php if ($dataLoadError): ?>
-    <div class="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        <?= htmlspecialchars((string)$dataLoadError, ENT_QUOTES, 'UTF-8') ?>
-    </div>
-<?php endif; ?>
-
 <section class="bg-white border rounded-xl mb-6">
     <header class="px-6 py-4 border-b flex items-center justify-between gap-3">
         <div>
@@ -45,165 +87,70 @@ ob_start();
     </header>
 </section>
 
-<section class="bg-white border rounded-xl mb-6">
-    <header class="px-6 py-4 border-b flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div>
-            <h2 class="text-lg font-semibold text-gray-800">Job Listings</h2>
-            <p class="text-sm text-gray-500 mt-1">Active admin-posted job listings shown in read-only view.</p>
-        </div>
-        <span class="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-full bg-slate-100 text-slate-600">Staff read-only access</span>
-    </header>
-
-    <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div class="md:col-span-2">
-            <label for="recruitmentSearchInput" class="text-sm text-gray-600">Search Requests</label>
-            <input id="recruitmentSearchInput" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search by posting title, division, position, or status">
-        </div>
-        <div>
-            <label for="recruitmentStatusFilter" class="text-sm text-gray-600">All Statuses</label>
-            <select id="recruitmentStatusFilter" class="w-full mt-1 border rounded-md px-3 py-2 text-sm">
-                <option value="">All Statuses</option>
-                <?php foreach ($activeRecruitmentStatusOptions as $statusValue => $statusLabel): ?>
-                    <option value="<?= htmlspecialchars((string)$statusValue, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$statusLabel, ENT_QUOTES, 'UTF-8') ?></option>
-                <?php endforeach; ?>
-            </select>
-        </div>
+<section
+    id="staffRecruitmentAsyncRegion"
+    data-recruitment-summary-url="recruitment.php?partial=recruitment-summary"
+    data-recruitment-listings-url="recruitment.php?partial=recruitment-listings"
+    data-recruitment-secondary-url="recruitment.php?partial=recruitment-secondary"
+    data-recruitment-posting-view-url="recruitment.php?partial=recruitment-posting-view"
+    data-recruitment-applicant-view-url="recruitment.php?partial=recruitment-applicant-view"
+>
+    <div id="staffRecruitmentSummarySkeleton" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6" aria-live="polite" role="status">
+        <?php for ($index = 0; $index < 4; $index += 1): ?>
+            <article class="bg-white border border-slate-200 rounded-xl p-4 min-h-[120px]">
+                <div class="h-4 w-28 rounded bg-slate-200 animate-pulse"></div>
+                <div class="mt-4 h-8 w-16 rounded bg-slate-200 animate-pulse"></div>
+                <div class="mt-3 h-3 w-full rounded bg-slate-100 animate-pulse"></div>
+            </article>
+        <?php endfor; ?>
     </div>
-
-    <div class="p-6 overflow-x-auto">
-        <table id="recruitmentTable" class="w-full text-sm">
-            <thead class="bg-gray-50 text-gray-600">
-                <tr>
-                    <th class="text-left px-4 py-3">Position</th>
-                    <th class="text-left px-4 py-3">Division</th>
-                    <th class="text-left px-4 py-3">Employment Type</th>
-                    <th class="text-left px-4 py-3">Open Date</th>
-                    <th class="text-left px-4 py-3">Deadline</th>
-                    <th class="text-left px-4 py-3">Applications</th>
-                    <th class="text-left px-4 py-3">Status</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y">
-                <?php if (empty($activeRecruitmentRows)): ?>
-                    <tr>
-                        <td class="px-4 py-3 text-gray-500" colspan="7">No active admin-posted job listings found.</td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($activeRecruitmentRows as $row): ?>
-                        <tr data-recruitment-row data-recruitment-search="<?= htmlspecialchars((string)($row['search_text'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-recruitment-status="<?= htmlspecialchars((string)($row['status_raw'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
-                            <td class="px-4 py-3">
-                                <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($row['position_title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                                <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars((string)($row['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                            </td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['office_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['employment_type'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['open_date_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['close_date_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3">
-                                <p><?= (int)($row['applications_total'] ?? 0) ?> total</p>
-                                <p class="text-xs text-amber-700 mt-1"><?= (int)($row['applications_pending'] ?? 0) ?> pending</p>
-                            </td>
-                            <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)($row['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($row['status_label'] ?? 'Unknown'), ENT_QUOTES, 'UTF-8') ?></span></td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-                <tr id="recruitmentFilterEmptyRow" class="hidden">
-                    <td class="px-4 py-3 text-gray-500" colspan="7">No active job listings match your search/filter criteria.</td>
-                </tr>
-            </tbody>
-        </table>
+    <div id="staffRecruitmentSummaryError" class="hidden mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <p class="font-medium">Recruitment summary could not be loaded.</p>
+        <button type="button" id="staffRecruitmentSummaryRetry" class="mt-3 inline-flex items-center rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100">Retry summary</button>
     </div>
+    <div id="staffRecruitmentSummaryContent" class="hidden"></div>
 
-    <div class="px-6 pb-6 flex items-center justify-between gap-3 text-sm text-slate-600">
-        <p id="recruitmentPaginationInfo">Showing 0 to 0 of 0 entries</p>
-        <div class="flex items-center gap-2">
-            <button type="button" id="recruitmentPrevPage" class="rounded-md border border-slate-300 px-3 py-1.5 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Previous</button>
-            <p id="recruitmentPageLabel" class="text-xs text-slate-500">Page 1 of 1</p>
-            <button type="button" id="recruitmentNextPage" class="rounded-md border border-slate-300 px-3 py-1.5 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Next</button>
+    <div id="staffRecruitmentListingsSkeleton" class="bg-white border border-slate-200 rounded-xl mb-6 p-6" aria-live="polite" role="status">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+            <div>
+                <div class="h-5 w-40 rounded bg-slate-200 animate-pulse"></div>
+                <div class="mt-2 h-4 w-64 rounded bg-slate-100 animate-pulse"></div>
+            </div>
+            <div class="h-9 w-28 rounded-full bg-slate-100 animate-pulse"></div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            <div class="md:col-span-2 h-10 rounded bg-slate-100 animate-pulse"></div>
+            <div class="h-10 rounded bg-slate-100 animate-pulse"></div>
+        </div>
+        <div class="space-y-3">
+            <?php for ($index = 0; $index < 5; $index += 1): ?>
+                <div class="h-14 rounded bg-slate-100 animate-pulse"></div>
+            <?php endfor; ?>
         </div>
     </div>
-</section>
-
-<section class="bg-slate-50 border border-slate-300 rounded-xl mb-6">
-    <header class="px-6 py-4 border-b border-slate-300">
-        <h2 class="text-lg font-semibold text-slate-800">Archived Job Postings</h2>
-        <p class="text-sm text-slate-600 mt-1">Archived postings are separated from active listings and can be restored with Unarchive.</p>
-    </header>
-
-    <div class="p-6 overflow-x-auto">
-        <table class="w-full text-sm">
-            <thead class="bg-slate-100 text-slate-700">
-                <tr>
-                    <th class="text-left px-4 py-3">Position</th>
-                    <th class="text-left px-4 py-3">Division</th>
-                    <th class="text-left px-4 py-3">Employment Type</th>
-                    <th class="text-left px-4 py-3">Archived Deadline</th>
-                    <th class="text-left px-4 py-3">Status</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y">
-                <?php if (empty($archivedRecruitmentRows)): ?>
-                    <tr>
-                        <td class="px-4 py-3 text-slate-500" colspan="5">No archived job postings found.</td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($archivedRecruitmentRows as $row): ?>
-                        <tr>
-                            <td class="px-4 py-3">
-                                <p class="font-medium text-slate-800"><?= htmlspecialchars((string)($row['position_title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                                <p class="text-xs text-slate-500 mt-1"><?= htmlspecialchars((string)($row['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                            </td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['office_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['employment_type'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['close_date_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)($row['status_class'] ?? 'bg-slate-200 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($row['status_label'] ?? 'Archived'), ENT_QUOTES, 'UTF-8') ?></span></td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
+    <div id="staffRecruitmentListingsError" class="hidden mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <p class="font-medium">Active job listings could not be loaded.</p>
+        <button type="button" id="staffRecruitmentListingsRetry" class="mt-3 inline-flex items-center rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100">Retry listings</button>
     </div>
-</section>
+    <div id="staffRecruitmentListingsContent" class="hidden"></div>
 
-<section class="bg-white border rounded-xl mb-6">
-    <header class="px-6 py-4 border-b">
-        <h2 class="text-lg font-semibold text-gray-800">View Application Deadlines</h2>
-        <p class="text-sm text-gray-500 mt-1">Track active job postings and prioritize upcoming application deadlines.</p>
-    </header>
-
-    <div class="p-6 overflow-x-auto">
-        <table class="w-full text-sm">
-            <thead class="bg-gray-50 text-gray-600">
-                <tr>
-                    <th class="text-left px-4 py-3">Job Posting</th>
-                    <th class="text-left px-4 py-3">Division</th>
-                    <th class="text-left px-4 py-3">Deadline</th>
-                    <th class="text-left px-4 py-3">Days Remaining</th>
-                    <th class="text-left px-4 py-3">Priority</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y">
-                <?php if (empty($applicationDeadlineRows)): ?>
-                    <tr>
-                        <td class="px-4 py-3 text-gray-500" colspan="5">No active posting deadlines found.</td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($applicationDeadlineRows as $row): ?>
-                        <tr>
-                            <td class="px-4 py-3">
-                                <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($row['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                                <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars((string)($row['position_title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                            </td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['office_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['close_date_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= (int)($row['days_remaining'] ?? 0) ?> day(s)</td>
-                            <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)($row['priority_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($row['priority_label'] ?? 'Scheduled'), ENT_QUOTES, 'UTF-8') ?></span></td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
+    <div id="staffRecruitmentSecondarySkeleton" class="space-y-6" aria-live="polite" role="status">
+        <?php for ($section = 0; $section < 2; $section += 1): ?>
+            <section class="bg-white border border-slate-200 rounded-xl p-6">
+                <div class="h-5 w-48 rounded bg-slate-200 animate-pulse"></div>
+                <div class="mt-4 space-y-3">
+                    <?php for ($row = 0; $row < 4; $row += 1): ?>
+                        <div class="h-12 rounded bg-slate-100 animate-pulse"></div>
+                    <?php endfor; ?>
+                </div>
+            </section>
+        <?php endfor; ?>
     </div>
+    <div id="staffRecruitmentSecondaryError" class="hidden rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <p class="font-medium">Recruitment secondary sections could not be loaded.</p>
+        <button type="button" id="staffRecruitmentSecondaryRetry" class="mt-3 inline-flex items-center rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100">Retry sections</button>
+    </div>
+    <div id="staffRecruitmentSecondaryContent" class="hidden"></div>
 </section>
 
 
@@ -216,6 +163,7 @@ ob_start();
             </button>
         </div>
         <div class="flex-1 overflow-y-auto p-6 space-y-5 text-sm">
+            <div id="postingViewFeedback" class="hidden rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"></div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <p class="text-gray-500">Position</p>
@@ -304,8 +252,9 @@ ob_start();
                         <div id="staffApplicantEmployeeAction" class="mt-3"></div>
                     </div>
                     <div class="md:col-span-2 rounded-lg border border-slate-200 bg-blue-50 px-4 py-3 text-slate-700">
-                        Staff access in this module is read-only. Use this modal to review the applicant profile and submitted documents only.
+                        Staff access in this module is read-only. Use this modal to review applicant documents plus deferred feedback and interview history.
                     </div>
+                    <div id="staffApplicantProfileStatus" class="md:col-span-2 hidden rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800"></div>
                     <div class="md:col-span-2">
                         <p class="text-slate-600">Submitted Documents</p>
                         <div class="mt-2 overflow-x-auto border border-slate-200 rounded-lg">
@@ -324,6 +273,22 @@ ob_start();
                             </table>
                         </div>
                     </div>
+                    <div>
+                        <p class="text-slate-600">Feedback History</p>
+                        <div class="mt-2 border border-slate-200 rounded-lg bg-white p-3">
+                            <div id="staffApplicantFeedbackList" class="space-y-3 text-sm text-slate-700">
+                                <p class="text-slate-500">No feedback selected.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-slate-600">Interview History</p>
+                        <div class="mt-2 border border-slate-200 rounded-lg bg-white p-3">
+                            <div id="staffApplicantInterviewList" class="space-y-3 text-sm text-slate-700">
+                                <p class="text-slate-500">No interview history selected.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="px-6 py-4 border-t border-slate-200 bg-white sticky bottom-0 flex justify-end gap-3">
@@ -333,10 +298,6 @@ ob_start();
         </div>
     </div>
 </div>
-
-<script id="recruitmentPostingViewData" type="application/json"><?= (string)json_encode($postingViewById, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
-
-<script src="../../assets/js/staff/recruitment/index.js" defer></script>
 
 <?php
 $content = ob_get_clean();

@@ -1,0 +1,157 @@
+#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
+#include <SPI.h>
+#include <MFRC522.h>
+#include <WiFiClientSecure.h>
+
+#define SS_PIN D2
+#define RST_PIN D1
+
+MFRC522 mfrc522(SS_PIN, RST_PIN);
+
+// Wi-Fi credentials
+const char* ssid = "HUAWEI-2.4G-8Wcq";
+const char* password = "ytwFW8Jq";
+
+// Supabase API
+String supabaseUrl = "https://dgciyvkzprevbharsvwj.supabase.co/rest/v1/attendance_logs";
+String supabaseKey = "sb_publishable_fOVQeSyUlufSQcWrjWMHMQ_ouILxfo_";
+
+WiFiClientSecure client; // reused client
+
+String lastUID = "";
+String lastTapType = "";
+
+// ------------------------
+// HELPER: Determine next tap_type
+// ------------------------
+String getNextTapType(String lastType) {
+  if(lastType == "LOGIN") return "BREAK_START";
+  if(lastType == "BREAK_START") return "BREAK_END";
+  if(lastType == "BREAK_END") return "LOGOUT";
+  return "LOGIN";
+}
+
+// ------------------------
+// HELPER: GET last tap from Supabase
+// ------------------------
+String getLastTapType(String uid) {
+  if(uid == "") return "LOGIN";
+
+  String url = supabaseUrl + "?select=tap_type&uid=eq." + uid + "&order=id.desc&limit=1";
+
+  HTTPClient http;
+  int attempts = 0;
+  while(attempts < 3){
+    http.begin(client, url);
+    http.addHeader("apikey", supabaseKey);
+    http.addHeader("Authorization", "Bearer " + supabaseKey);
+    int code = http.GET();
+    if(code == 200){
+      String payload = http.getString();
+      http.end();
+      if(payload.length() > 5){ // some data
+        int start = payload.indexOf("tap_type\":\"") + 11;
+        int end = payload.indexOf("\"", start);
+        String type = payload.substring(start, end);
+        return type;
+      }
+      return "";
+    }
+    http.end();
+    attempts++;
+    delay(200);
+  }
+  return "";
+}
+
+// ------------------------
+// HELPER: POST new tap to Supabase
+// ------------------------
+void postTap(String uid, String tapType) {
+  if(uid == "") return;
+
+  String json = "[{\"uid\":\"" + uid + "\",\"tap_type\":\"" + tapType + "\"}]";
+  HTTPClient http;
+
+  int attempts = 0;
+  while(attempts < 3){
+    http.begin(client, supabaseUrl);
+    http.addHeader("Content-Type", "application/json");
+    http.addHeader("apikey", supabaseKey);
+    http.addHeader("Authorization", "Bearer " + supabaseKey);
+    http.addHeader("Prefer", "return=minimal");
+
+    int code = http.POST(json);
+    if(code > 0){
+      Serial.print("POST success, HTTP code: "); Serial.println(code);
+      http.end();
+      break;
+    } else {
+      Serial.print("POST failed, retrying... "); Serial.println(code);
+      http.end();
+      attempts++;
+      delay(200);
+    }
+  }
+}
+
+// ------------------------
+// SETUP
+// ------------------------
+void setup() {
+  Serial.begin(115200);
+  SPI.begin();
+  mfrc522.PCD_Init();
+
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(250);
+    Serial.print(".");
+  }
+  Serial.println("\nWiFi Connected");
+
+  client.setInsecure(); // skip SSL validation
+  Serial.println("Scan RFID Card...");
+}
+
+// ------------------------
+// LOOP
+// ------------------------
+void loop() {
+  // Check if a new card is present
+  if (!mfrc522.PICC_IsNewCardPresent()) {
+    lastUID = ""; // reset lastUID when no card present
+    return;
+  }
+  
+  if (!mfrc522.PICC_ReadCardSerial()) return;
+
+  String uid = "";
+  for (byte i = 0; i < mfrc522.uid.size; i++) {
+    uid += String(mfrc522.uid.uidByte[i], HEX);
+  }
+  uid.toUpperCase();
+
+  // Only process if new card or card removed before
+  if(uid == lastUID) return;
+
+  Serial.print("Card UID: "); Serial.println(uid);
+
+  // Get last tap_type from Supabase
+  String lastType = getLastTapType(uid);
+  String nextType = getNextTapType(lastType);
+
+  Serial.print("Last Tap: "); Serial.println(lastType);
+  Serial.print("Next Tap: "); Serial.println(nextType);
+
+  // Send new tap
+  postTap(uid, nextType);
+
+  // Update lastUID & lastTapType
+  lastUID = uid;
+  lastTapType = nextType;
+
+  delay(500); // short delay to allow card removal
+}

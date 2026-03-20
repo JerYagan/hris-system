@@ -1,10 +1,11 @@
 <?php
 include __DIR__ . '/auth-guard.php';
 
-$pageTitle = $pageTitle ?? 'Admin | DA HRIS';
-$activePage = $activePage ?? '';
-$breadcrumbs = $breadcrumbs ?? ['Dashboard'];
-$pageSlug = strtolower((string)pathinfo((string)$activePage, PATHINFO_FILENAME));
+$shellContext = systemShellContext($pageTitle ?? null, 'Admin | DA HRIS', $activePage ?? '', $breadcrumbs ?? [], ['Dashboard']);
+$pageTitle = $shellContext['page_title'];
+$activePage = $shellContext['active_page'];
+$breadcrumbs = $shellContext['breadcrumbs'];
+$pageSlug = $shellContext['page_slug'];
 ?>
 
 <!DOCTYPE html>
@@ -27,6 +28,10 @@ $pageSlug = strtolower((string)pathinfo((string)$activePage, PATHINFO_FILENAME))
     </div>
 </div>
 
-<script type="module" src="/hris-system/assets/js/bootstrap.js"></script>
+<script type="module" src="<?= htmlspecialchars(systemAppPath('/assets/js/bootstrap.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<?php foreach (($pageScripts ?? []) as $pageScript): ?>
+    <script type="module" src="<?= htmlspecialchars((string)$pageScript, ENT_QUOTES, 'UTF-8') ?>" defer></script>
+<?php endforeach; ?>
+<?= systemRenderQaPerfConsoleScript() ?>
 </body>
 </html>

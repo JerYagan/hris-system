@@ -1,242 +1,195 @@
 <?php
 require_once __DIR__ . '/includes/applicant-tracking/bootstrap.php';
 require_once __DIR__ . '/includes/applicant-tracking/actions.php';
-require_once __DIR__ . '/includes/applicant-tracking/data.php';
 
 $pageTitle = 'Applicant Tracking | Staff';
 $activePage = 'recruitment.php';
 $breadcrumbs = ['Recruitment', 'Applicant Tracking'];
+$pageScripts = $pageScripts ?? [];
+$pageScripts[] = '/hris-system/assets/js/staff/applicant-tracking/index.js';
 
 $state = cleanText($_GET['state'] ?? null);
 $message = cleanText($_GET['message'] ?? null);
+
+$applicantTrackingPartial = trim((string)($_GET['partial'] ?? ''));
+
+if ($applicantTrackingPartial === 'tracking-postings') {
+    $trackingDataStage = 'postings';
+    require_once __DIR__ . '/includes/applicant-tracking/data.php';
+    header('Content-Type: text/html; charset=UTF-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    $trackingContentSection = 'postings';
+    require __DIR__ . '/includes/applicant-tracking/content.php';
+    exit;
+}
+
+if ($applicantTrackingPartial === 'tracking-applicants') {
+    $trackingDataStage = 'applicants';
+    require_once __DIR__ . '/includes/applicant-tracking/data.php';
+    header('Content-Type: text/html; charset=UTF-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    $trackingContentSection = 'applicants';
+    require __DIR__ . '/includes/applicant-tracking/content.php';
+    exit;
+}
+
+if ($applicantTrackingPartial === 'tracking-detail') {
+    $trackingDataStage = 'detail';
+    $trackingSelectedApplicationId = trim((string)($_GET['application_id'] ?? ''));
+    require_once __DIR__ . '/includes/applicant-tracking/data.php';
+    header('Content-Type: application/json; charset=UTF-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+
+    if ($dataLoadError !== null || !is_array($trackingDetailPayload)) {
+        http_response_code(400);
+        echo json_encode([
+            'error' => $dataLoadError ?: 'Applicant tracking detail could not be loaded.',
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
+    echo json_encode($trackingDetailPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
 
 ob_start();
 ?>
 
 <div class="mb-6">
     <h1 class="text-2xl font-bold text-gray-800">Applicant Tracking</h1>
-    <p class="text-sm text-gray-500">Read-only tracking of applicant progress, interviews, and recruitment history.</p>
+    <p class="text-sm text-gray-500">Read-only tracking shell with deferred posting queues, applicant lists, and profile history.</p>
 </div>
 
 <div id="trackingFlashState" class="hidden" data-state="<?= htmlspecialchars((string)($state ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-message="<?= htmlspecialchars((string)($message ?? ''), ENT_QUOTES, 'UTF-8') ?>"></div>
 
-<?php if ($dataLoadError): ?>
-    <div class="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        <?= htmlspecialchars((string)$dataLoadError, ENT_QUOTES, 'UTF-8') ?>
-    </div>
-<?php endif; ?>
-
-<section class="bg-white border rounded-xl mb-6">
-    <header class="px-6 py-4 border-b">
-        <h2 class="text-lg font-semibold text-gray-800">Application Progress</h2>
-        <p class="text-sm text-gray-500 mt-1">Monitor applicant progress using current status only, with interview results and recruiter feedback visible.</p>
-    </header>
-
-    <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div class="md:col-span-2">
-            <label for="trackingSearchInput" class="text-sm text-gray-600">Search Applicants</label>
-            <input id="trackingSearchInput" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search applicant, posting, email, status">
-        </div>
+<section
+    id="staffApplicantTrackingAsyncRegion"
+    data-tracking-postings-url="applicant-tracking.php?partial=tracking-postings"
+    data-tracking-applicants-url="applicant-tracking.php?partial=tracking-applicants"
+    data-tracking-detail-url="applicant-tracking.php?partial=tracking-detail"
+>
+    <div class="space-y-6">
         <div>
-            <label for="trackingStatusFilter" class="text-sm text-gray-600">Status Filter</label>
-            <select id="trackingStatusFilter" class="w-full mt-1 border rounded-md px-3 py-2 text-sm">
-                <option value="">All Statuses</option>
-                <option value="Submitted">Submitted</option>
-                <option value="Screening">Screening</option>
-                <option value="Shortlisted">Shortlisted</option>
-                <option value="Interview">Interview</option>
-                <option value="Offer">Offer</option>
-                <option value="Hired">Hired</option>
-                <option value="Rejected">Rejected</option>
-                <option value="Withdrawn">Withdrawn</option>
-            </select>
-        </div>
-    </div>
+            <div id="staffApplicantTrackingPostingsSkeleton" class="space-y-4" aria-live="polite" role="status">
+                <section class="bg-white border rounded-xl">
+                    <header class="px-6 py-4 border-b">
+                        <div class="h-5 w-40 animate-pulse rounded bg-slate-200"></div>
+                        <div class="mt-2 h-4 w-64 animate-pulse rounded bg-slate-200"></div>
+                    </header>
+                    <div class="p-6 space-y-3">
+                        <?php for ($index = 0; $index < 5; $index += 1): ?>
+                            <div class="h-14 animate-pulse rounded bg-slate-100"></div>
+                        <?php endfor; ?>
+                    </div>
+                </section>
+            </div>
 
-    <div class="p-6 overflow-x-auto">
-        <table id="trackingTable" class="w-full text-sm">
-            <thead class="bg-gray-50 text-gray-600">
-                <tr>
-                    <th class="text-left px-4 py-3">Applicant</th>
-                    <th class="text-left px-4 py-3">Posting</th>
-                    <th class="text-left px-4 py-3">Submitted</th>
-                    <th class="text-left px-4 py-3">Latest Interview</th>
-                    <th class="text-left px-4 py-3">Interview & Feedback</th>
-                    <th class="text-left px-4 py-3">Status</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y">
-                <?php if (empty($trackingRows)): ?>
-                    <tr>
-                        <td class="px-4 py-3 text-gray-500" colspan="6">No application records found.</td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($trackingRows as $row): ?>
-                        <tr data-tracking-row data-tracking-search="<?= htmlspecialchars((string)($row['search_text'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-tracking-status="<?= htmlspecialchars((string)($row['status_filter'] ?? strtolower((string)($row['status_label'] ?? 'submitted'))), ENT_QUOTES, 'UTF-8') ?>">
-                            <td class="px-4 py-3">
-                                <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($row['applicant_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                                <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars((string)($row['applicant_email'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                            </td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['posting_title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['submitted_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['interview_meta'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3">
-                                <p class="text-xs text-slate-700 leading-5"><?= htmlspecialchars((string)($row['feedback_meta'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                            </td>
-                            <td class="px-4 py-3">
-                                <span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)($row['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($row['status_label'] ?? 'Unknown'), ENT_QUOTES, 'UTF-8') ?></span>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-                <tr id="trackingFilterEmptyRow" class="hidden">
-                    <td class="px-4 py-3 text-gray-500" colspan="6">No records match your search/filter criteria.</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-    <div class="px-6 pb-4 flex items-center justify-between gap-3">
-        <p id="trackingPaginationInfo" class="text-xs text-slate-500">Page 1 of 1</p>
-        <div class="flex items-center gap-2">
-            <button type="button" id="trackingPrevPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Previous</button>
-            <button type="button" id="trackingNextPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Next</button>
-        </div>
-    </div>
-</section>
+            <div id="staffApplicantTrackingPostingsError" class="hidden rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" aria-live="polite">
+                <p class="font-medium">Posting queue could not be loaded.</p>
+                <button type="button" id="staffApplicantTrackingPostingsRetry" class="mt-3 inline-flex items-center rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100">Retry postings</button>
+            </div>
 
-<section class="bg-white border rounded-xl mb-6">
-    <header class="px-6 py-4 border-b">
-        <h2 class="text-lg font-semibold text-gray-800">Screening & Next Steps Queue</h2>
-        <p class="text-sm text-gray-500 mt-1">Applicants that passed initial application and are waiting for next recruitment steps.</p>
-    </header>
-
-    <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div class="md:col-span-2">
-            <label for="queueSearchInput" class="text-sm text-gray-600">Search Applicants</label>
-            <input id="queueSearchInput" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search applicant, posting, email, stage, status">
+            <div id="staffApplicantTrackingPostingsContent" class="hidden"></div>
         </div>
+
         <div>
-            <label for="queueStatusFilter" class="text-sm text-gray-600">Status Filter</label>
-            <select id="queueStatusFilter" class="w-full mt-1 border rounded-md px-3 py-2 text-sm">
-                <option value="">All Queue Statuses</option>
-                <option value="Screening">Screening</option>
-                <option value="Shortlisted">Shortlisted</option>
-                <option value="Interview">Interview</option>
-                <option value="Offer">Offer</option>
-            </select>
-        </div>
-    </div>
+            <div id="staffApplicantTrackingApplicantsSkeleton" class="space-y-4" aria-live="polite" role="status">
+                <section class="bg-white border rounded-xl">
+                    <header class="px-6 py-4 border-b">
+                        <div class="h-5 w-44 animate-pulse rounded bg-slate-200"></div>
+                        <div class="mt-2 h-4 w-80 animate-pulse rounded bg-slate-200"></div>
+                    </header>
+                    <div class="px-6 pt-4 pb-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div class="md:col-span-2 h-10 animate-pulse rounded bg-slate-100"></div>
+                        <div class="h-10 animate-pulse rounded bg-slate-100"></div>
+                    </div>
+                    <div class="p-6 space-y-3">
+                        <?php for ($index = 0; $index < 6; $index += 1): ?>
+                            <div class="h-14 animate-pulse rounded bg-slate-100"></div>
+                        <?php endfor; ?>
+                    </div>
+                </section>
+            </div>
 
-    <div class="p-6 overflow-x-auto">
-        <table id="queueTable" class="w-full text-sm">
-            <thead class="bg-gray-50 text-gray-600">
-                <tr>
-                    <th class="text-left px-4 py-3">Applicant</th>
-                    <th class="text-left px-4 py-3">Posting</th>
-                    <th class="text-left px-4 py-3">Submitted</th>
-                    <th class="text-left px-4 py-3">Latest Interview</th>
-                    <th class="text-left px-4 py-3">Interview & Feedback</th>
-                    <th class="text-left px-4 py-3">Status</th>
-                    <th class="text-left px-4 py-3">Current Stage</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y">
-                <?php if (empty($screeningQueueRows)): ?>
-                    <tr>
-                        <td class="px-4 py-3 text-gray-500" colspan="7">No applicants currently in screening and next-step queue.</td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($screeningQueueRows as $row): ?>
-                        <tr data-queue-row data-queue-search="<?= htmlspecialchars((string)($row['search_text'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-queue-status="<?= htmlspecialchars((string)($row['status_filter'] ?? strtolower((string)($row['status_label'] ?? 'submitted'))), ENT_QUOTES, 'UTF-8') ?>">
-                            <td class="px-4 py-3">
-                                <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($row['applicant_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                                <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars((string)($row['applicant_email'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                            </td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['posting_title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['submitted_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['interview_meta'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><p class="text-xs text-slate-700 leading-5"><?= htmlspecialchars((string)($row['feedback_meta'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p></td>
-                            <td class="px-4 py-3">
-                                <span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)($row['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($row['status_label'] ?? 'Unknown'), ENT_QUOTES, 'UTF-8') ?></span>
-                            </td>
-                            <td class="px-4 py-3"><span class="inline-flex items-center px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700"><?= htmlspecialchars((string)($row['current_stage_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></span></td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-                <tr id="queueFilterEmptyRow" class="hidden">
-                    <td class="px-4 py-3 text-gray-500" colspan="7">No queue records match your search/filter criteria.</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-    <div class="px-6 pb-4 flex items-center justify-between gap-3">
-        <p id="queuePaginationInfo" class="text-xs text-slate-500">Page 1 of 1</p>
-        <div class="flex items-center gap-2">
-            <button type="button" id="queuePrevPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Previous</button>
-            <button type="button" id="queueNextPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Next</button>
+            <div id="staffApplicantTrackingApplicantsError" class="hidden rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" aria-live="polite">
+                <p class="font-medium">Applicant list could not be loaded.</p>
+                <button type="button" id="staffApplicantTrackingApplicantsRetry" class="mt-3 inline-flex items-center rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100">Retry applicants</button>
+            </div>
+
+            <div id="staffApplicantTrackingApplicantsContent" class="hidden"></div>
         </div>
     </div>
 </section>
 
-<section class="bg-white border rounded-xl mb-6">
-    <header class="px-6 py-4 border-b">
-        <h2 class="text-lg font-semibold text-gray-800">Hired Applicants</h2>
-        <p class="text-sm text-gray-500 mt-1">Convert hired applicants to employee records with one action.</p>
-    </header>
+<div id="trackingProfileModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-slate-900/60" data-tracking-modal-close="trackingProfileModal"></div>
+    <div class="relative min-h-full flex items-center justify-center p-4">
+        <div class="w-full max-w-5xl max-h-[calc(100vh-2rem)] bg-white rounded-2xl border border-slate-200 shadow-xl flex flex-col overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-slate-800">Applicant Profile</h3>
+                <button type="button" data-tracking-modal-close="trackingProfileModal" class="text-slate-500 hover:text-slate-700">✕</button>
+            </div>
 
-    <div class="px-6 pt-4 pb-3">
-        <label for="hiredSearchInput" class="text-sm text-gray-600">Search Hired Applicants</label>
-        <input id="hiredSearchInput" type="search" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Search hired applicant, posting, email, feedback">
-    </div>
+            <div class="flex-1 min-h-0 flex flex-col" id="trackingProfileModalForm">
+                <input type="hidden" id="trackingProfileApplicationId" value="">
+                <div class="flex-1 min-h-0 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div class="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <p class="text-xs uppercase text-slate-500 tracking-wide">Selected Applicant</p>
+                        <p id="trackingProfileApplicantName" class="text-base font-semibold text-slate-800 mt-1">-</p>
+                        <p id="trackingProfileApplicantMeta" class="text-sm text-slate-600 mt-1">-</p>
+                        <p id="trackingProfileApplicantContact" class="text-xs text-slate-500 mt-2">-</p>
+                        <p id="trackingProfileApplicationRef" class="text-xs text-slate-500 mt-1">-</p>
+                    </div>
 
-    <div class="p-6 overflow-x-auto">
-        <table id="hiredTable" class="w-full text-sm">
-            <thead class="bg-gray-50 text-gray-600">
-                <tr>
-                    <th class="text-left px-4 py-3">Applicant</th>
-                    <th class="text-left px-4 py-3">Posting</th>
-                    <th class="text-left px-4 py-3">Hired Date</th>
-                    <th class="text-left px-4 py-3">Interview & Feedback</th>
-                    <th class="text-left px-4 py-3">Status</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y">
-                <?php if (empty($hiredApplicantRows)): ?>
-                    <tr>
-                        <td class="px-4 py-3 text-gray-500" colspan="5">No hired applicants found.</td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($hiredApplicantRows as $row): ?>
-                        <tr data-hired-row data-hired-search="<?= htmlspecialchars((string)($row['search_text'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
-                            <td class="px-4 py-3">
-                                <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($row['applicant_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                                <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars((string)($row['applicant_email'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                            </td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['posting_title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['updated_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><p class="text-xs text-slate-700 leading-5"><?= htmlspecialchars((string)($row['feedback_meta'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p></td>
-                            <td class="px-4 py-3">
-                                <span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)($row['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($row['status_label'] ?? 'Hired'), ENT_QUOTES, 'UTF-8') ?></span>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-                <tr id="hiredFilterEmptyRow" class="hidden">
-                    <td class="px-4 py-3 text-gray-500" colspan="5">No hired applicants match your search criteria.</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-    <div class="px-6 pb-4 flex items-center justify-between gap-3">
-        <p id="hiredPaginationInfo" class="text-xs text-slate-500">Page 1 of 1</p>
-        <div class="flex items-center gap-2">
-            <button type="button" id="hiredPrevPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Previous</button>
-            <button type="button" id="hiredNextPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Next</button>
+                    <div class="md:col-span-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-slate-700">
+                        Staff tracking is read-only. Applicant documents, interview history, and feedback load only after a profile is opened, and add-as-employee follow-up actions stay outside this initial page payload.
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <p class="text-slate-600">Submitted Documents</p>
+                        <div class="mt-2 overflow-x-auto border border-slate-200 rounded-lg">
+                            <table class="w-full text-sm">
+                                <thead class="bg-slate-50 text-slate-600">
+                                    <tr>
+                                        <th class="text-left px-3 py-2">Document Type</th>
+                                        <th class="text-left px-3 py-2">File Name</th>
+                                        <th class="text-left px-3 py-2">Uploaded</th>
+                                        <th class="text-left px-3 py-2">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="trackingProfileDocumentsBody" class="divide-y divide-slate-100">
+                                    <tr><td class="px-3 py-3 text-slate-500" colspan="4">No document selected.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div>
+                        <p class="text-slate-600">Feedback History</p>
+                        <div class="mt-2 border border-slate-200 rounded-lg bg-white p-3">
+                            <div id="trackingProfileFeedbackList" class="space-y-3 text-sm text-slate-700">
+                                <p class="text-slate-500">No feedback selected.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <p class="text-slate-600">Interview History</p>
+                        <div class="mt-2 border border-slate-200 rounded-lg bg-white p-3">
+                            <div id="trackingProfileInterviewList" class="space-y-3 text-sm text-slate-700">
+                                <p class="text-slate-500">No interview history selected.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="px-6 py-4 border-t border-slate-200 bg-white sticky bottom-0 flex justify-end gap-3">
+                    <button type="button" data-tracking-modal-close="trackingProfileModal" class="px-4 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Close</button>
+                </div>
+            </div>
         </div>
     </div>
-</section>
-
-<script src="/hris-system/assets/js/staff/applicant-tracking/index.js" defer></script>
+</div>
 
 <?php
 $content = ob_get_clean();

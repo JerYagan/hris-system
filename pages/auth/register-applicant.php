@@ -38,10 +38,6 @@ ob_start();
         $errorMessage = 'Applicant role is missing from the system configuration.';
       } elseif ($errorCode === 'email_exists') {
         $errorMessage = 'This email is already registered.';
-      } elseif ($errorCode === 'otp_send_failed') {
-        $errorMessage = 'We could not send the verification code right now. Please try again.';
-      } elseif ($errorCode === 'mfa_locked') {
-        $errorMessage = 'Too many invalid verification attempts. Start registration again to request a new code.';
       } elseif ($errorCode === 'config') {
         $errorMessage = 'Registration is not configured. Check Supabase credentials.';
       }
@@ -72,7 +68,7 @@ ob_start();
     <div>
       <label class="block text-sm font-medium mb-1">Mobile Number</label>
       <input type="text" id="registerMobile" name="mobile" autocomplete="tel" inputmode="tel" placeholder="09XXXXXXXXX" required pattern="(?:\+639\d{9}|09\d{9})" title="Use 09XXXXXXXXX or +639XXXXXXXXX." class="w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-daGreen">
-      <p class="mt-1 text-xs text-gray-500">We will send your one-time verification code to this email address after you submit the form.</p>
+      <p class="mt-1 text-xs text-gray-500">Use 09XXXXXXXXX or +639XXXXXXXXX.</p>
     </div>
 
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -104,6 +100,7 @@ ob_start();
   const confirmPasswordInput = document.getElementById('registerConfirmPassword');
   const namePattern = /^[A-Za-z][A-Za-z\s'.-]*$/;
   const mobilePattern = /^(?:\+639\d{9}|09\d{9})$/;
+  const emailPattern = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
   const setFieldValidity = (input, message) => {
     if (!input) {
@@ -142,7 +139,7 @@ ob_start();
     if (value === '') {
       return setFieldValidity(emailInput, 'Email address is required.');
     }
-    if (!emailInput.checkValidity()) {
+    if (!emailPattern.test(value)) {
       return setFieldValidity(emailInput, 'Please enter a valid email address.');
     }
 

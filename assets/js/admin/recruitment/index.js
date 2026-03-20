@@ -1,5 +1,7 @@
 import { bindTableFilters, initAdminShellInteractions, initModalSystem, initStatusChangeConfirmations, openModal } from '/hris-system/assets/js/shared/admin-core.js';
 
+const MIN_SKELETON_MS = 250;
+
 const parseJsonScriptNode = (id) => {
   const node = document.getElementById(id);
   if (!node) {
@@ -22,6 +24,63 @@ const escapeHtml = (value) => {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+};
+
+const emitQaPerfSectionMetric = ({ section, status = 'success', fetchMs = null, displayMs = null, detail = '', url = '' }) => {
+  if (typeof document === 'undefined' || typeof window.CustomEvent !== 'function') {
+    return;
+  }
+
+  document.dispatchEvent(new CustomEvent('hris:qa-perf-section', {
+    detail: {
+      page: window.location.pathname,
+      section,
+      status,
+      fetch_ms: fetchMs,
+      display_ms: displayMs,
+      detail,
+      url,
+      source: 'admin-recruitment',
+    },
+  }));
+};
+
+const fetchJsonResponse = async (url) => {
+  const response = await fetch(url, {
+    credentials: 'same-origin',
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+  });
+
+  if (response.redirected) {
+    window.location.href = response.url;
+    return null;
+  }
+
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch (_error) {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    const message = payload && typeof payload.error === 'string' && payload.error.trim() !== ''
+      ? payload.error.trim()
+      : `Recruitment JSON request failed with status ${response.status}`;
+    throw new Error(message);
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('Recruitment detail request returned an invalid payload.');
+  }
+
+  if (typeof payload.error === 'string' && payload.error.trim() !== '') {
+    throw new Error(payload.error.trim());
+  }
+
+  return payload;
 };
 
 const setInputValue = (id, value) => {
@@ -63,7 +122,56 @@ const educationLevelFromYears = (years) => {
   return 'elementary';
 };
 
-const initRecruitmentFilters = () => {
+const initRecruitmentFilters = ({ reloadListings } = {}) => {
+  const filtersForm = document.getElementById('recruitmentListingsFilters');
+  const pageInput = document.getElementById('recruitmentPageInput');
+  const searchInput = document.getElementById('recruitmentSearchInput');
+  const statusFilter = document.getElementById('recruitmentStatusFilter');
+  const prevButton = document.getElementById('recruitmentPrevPage');
+  const nextButton = document.getElementById('recruitmentNextPage');
+
+  if (filtersForm && pageInput && searchInput && statusFilter && typeof reloadListings === 'function') {
+    let debounceTimer = 0;
+    const submitCurrentState = () => {
+      reloadListings(new FormData(filtersForm));
+    };
+
+    searchInput.addEventListener('input', () => {
+      pageInput.value = '1';
+      window.clearTimeout(debounceTimer);
+      debounceTimer = window.setTimeout(() => {
+        submitCurrentState();
+      }, 200);
+    });
+
+    statusFilter.addEventListener('change', () => {
+      pageInput.value = '1';
+      submitCurrentState();
+    });
+
+    prevButton?.addEventListener('click', () => {
+      const page = prevButton.getAttribute('data-recruitment-page') || '';
+      if (page === '') {
+        return;
+      }
+
+      pageInput.value = page;
+      submitCurrentState();
+    });
+
+    nextButton?.addEventListener('click', () => {
+      const page = nextButton.getAttribute('data-recruitment-page') || '';
+      if (page === '') {
+        return;
+      }
+
+      pageInput.value = page;
+      submitCurrentState();
+    });
+
+    return;
+  }
+
   bindTableFilters({
     tableId: 'recruitmentPostingsTable',
     searchInputId: 'recruitmentPostingsSearch',
@@ -300,20 +408,12 @@ const initEditPositionMode = () => {
 
 const initRecruitmentActions = () => {
   const postingViewData = parseJsonScriptNode('recruitmentPostingViewData');
+  const asyncRegion = document.getElementById('adminRecruitmentAsyncRegion');
+  const postingViewBaseUrl = asyncRegion?.getAttribute('data-recruitment-posting-view-url') || '';
+  const postingViewCache = new Map(Object.entries(postingViewData && typeof postingViewData === 'object' ? postingViewData : {}));
+  let postingViewRequestId = 0;
   const requirementsEl = document.getElementById('recruitmentViewRequirements');
   const applicantsBodyEl = document.getElementById('recruitmentViewApplicantsBody');
-  const applicantProfileNameEl = document.getElementById('recruitmentApplicantProfileName');
-  const applicantProfileMetaEl = document.getElementById('recruitmentApplicantProfileMeta');
-  const applicantProfileContactEl = document.getElementById('recruitmentApplicantProfileContact');
-  const applicantProfilePhotoEl = document.getElementById('recruitmentApplicantProfilePhoto');
-  const applicantProfilePhotoFallbackEl = document.getElementById('recruitmentApplicantProfilePhotoFallback');
-  const applicantEligibilityEl = document.getElementById('recruitmentApplicantEligibility');
-  const applicantEducationEl = document.getElementById('recruitmentApplicantEducation');
-  const applicantTrainingEl = document.getElementById('recruitmentApplicantTraining');
-  const applicantExperienceEl = document.getElementById('recruitmentApplicantExperience');
-  const applicantWorkExperienceEl = document.getElementById('recruitmentApplicantWorkExperience');
-  const applicantLinksEmptyEl = document.getElementById('recruitmentApplicantLinksEmpty');
-  const applicantDocumentsBodyEl = document.getElementById('recruitmentApplicantDocumentsBody');
 
   const renderRequirements = (requirements) => {
     if (!requirementsEl) {
@@ -375,33 +475,123 @@ const initRecruitmentActions = () => {
     }).join('');
   };
 
+  const setPostingViewLoadingState = () => {
+    setTextContent('recruitmentViewPosition', 'Loading...');
+    setTextContent('recruitmentViewPlantillaItemNo', '-');
+    setTextContent('recruitmentViewOffice', '-');
+    setTextContent('recruitmentViewEmploymentType', '-');
+    setTextContent('recruitmentViewStatus', '-');
+    setTextContent('recruitmentViewOpenDate', '-');
+    setTextContent('recruitmentViewCloseDate', '-');
+    setTextContent('recruitmentViewDescription', 'Loading recruitment posting details...');
+    setTextContent('recruitmentViewQualifications', '-');
+    setTextContent('recruitmentViewResponsibilities', '-');
+    setTextContent('recruitmentViewCriteriaEligibility', '-');
+    setTextContent('recruitmentViewCriteriaEducation', '-');
+    setTextContent('recruitmentViewCriteriaTraining', '-');
+    setTextContent('recruitmentViewCriteriaExperience', '-');
+    if (requirementsEl) {
+      requirementsEl.innerHTML = '<li>Loading requirements...</li>';
+    }
+    if (applicantsBodyEl) {
+      applicantsBodyEl.innerHTML = '<tr><td colspan="7" class="px-3 py-3 text-slate-500">Loading applicants...</td></tr>';
+    }
+  };
+
+  const renderPostingView = (posting) => {
+    setTextContent('recruitmentViewPosition', posting.position_title || posting.posting_title || '-');
+    setTextContent('recruitmentViewPlantillaItemNo', posting.plantilla_item_no || '-');
+    setTextContent('recruitmentViewOffice', posting.office_name || '-');
+    setTextContent('recruitmentViewEmploymentType', posting.employment_type || '-');
+    setTextContent('recruitmentViewStatus', posting.status_label || '-');
+    setTextContent('recruitmentViewOpenDate', posting.open_date_label || '-');
+    setTextContent('recruitmentViewCloseDate', posting.close_date_label || '-');
+    setTextContent('recruitmentViewDescription', posting.description || '-');
+    setTextContent('recruitmentViewQualifications', posting.qualifications || '-');
+    setTextContent('recruitmentViewResponsibilities', posting.responsibilities || '-');
+    setTextContent('recruitmentViewCriteriaEligibility', posting.criteria?.eligibility || '-');
+    setTextContent('recruitmentViewCriteriaEducation', posting.criteria?.education || '-');
+    setTextContent('recruitmentViewCriteriaTraining', posting.criteria?.training || '-');
+    setTextContent('recruitmentViewCriteriaExperience', posting.criteria?.experience || '-');
+
+    renderRequirements(posting.requirements || []);
+    renderApplicants(posting.applicants || []);
+  };
+
+  const loadPostingView = async (postingId) => {
+    if (postingViewCache.has(postingId)) {
+      return postingViewCache.get(postingId);
+    }
+
+    if (!postingViewBaseUrl) {
+      throw new Error('Recruitment posting detail endpoint is not available.');
+    }
+
+    const url = new URL(postingViewBaseUrl, window.location.href);
+    url.searchParams.set('posting_id', postingId);
+    const payload = await fetchJsonResponse(url.toString());
+    postingViewCache.set(postingId, payload);
+    return payload;
+  };
+
   document.querySelectorAll('[data-recruitment-job-view]').forEach((button) => {
-    button.addEventListener('click', () => {
+    button.addEventListener('click', async () => {
       const postingId = (button.getAttribute('data-posting-id') || '').trim();
-      const posting = postingViewData && typeof postingViewData === 'object' ? postingViewData[postingId] : null;
-      if (!posting || typeof posting !== 'object') {
+      if (postingId === '') {
         return;
       }
 
-      setTextContent('recruitmentViewPosition', posting.position_title || posting.posting_title || '-');
-      setTextContent('recruitmentViewPlantillaItemNo', posting.plantilla_item_no || '-');
-      setTextContent('recruitmentViewOffice', posting.office_name || '-');
-      setTextContent('recruitmentViewEmploymentType', posting.employment_type || '-');
-      setTextContent('recruitmentViewStatus', posting.status_label || '-');
-      setTextContent('recruitmentViewOpenDate', posting.open_date_label || '-');
-      setTextContent('recruitmentViewCloseDate', posting.close_date_label || '-');
-      setTextContent('recruitmentViewDescription', posting.description || '-');
-      setTextContent('recruitmentViewQualifications', posting.qualifications || '-');
-      setTextContent('recruitmentViewResponsibilities', posting.responsibilities || '-');
-      setTextContent('recruitmentViewCriteriaEligibility', posting.criteria?.eligibility || '-');
-      setTextContent('recruitmentViewCriteriaEducation', posting.criteria?.education || '-');
-      setTextContent('recruitmentViewCriteriaTraining', posting.criteria?.training || '-');
-      setTextContent('recruitmentViewCriteriaExperience', posting.criteria?.experience || '-');
-
-      renderRequirements(posting.requirements || []);
-      renderApplicants(posting.applicants || []);
-
+      postingViewRequestId += 1;
+      const requestId = postingViewRequestId;
+      const startedAt = window.performance?.now?.() ?? Date.now();
+      setPostingViewLoadingState();
       openModal('recruitmentPostingViewModal');
+
+      try {
+        const posting = await loadPostingView(postingId);
+        if (requestId !== postingViewRequestId) {
+          return;
+        }
+
+        renderPostingView(posting);
+        const elapsed = (window.performance?.now?.() ?? Date.now()) - startedAt;
+        emitQaPerfSectionMetric({
+          section: 'Posting View',
+          status: 'success',
+          fetchMs: elapsed,
+          displayMs: elapsed,
+          url: postingViewBaseUrl,
+        });
+      } catch (error) {
+        if (requestId !== postingViewRequestId) {
+          return;
+        }
+
+        setTextContent('recruitmentViewPosition', 'Unavailable');
+        setTextContent('recruitmentViewDescription', error instanceof Error ? error.message : 'Recruitment posting details could not be loaded.');
+        setTextContent('recruitmentViewQualifications', '-');
+        setTextContent('recruitmentViewResponsibilities', '-');
+        setTextContent('recruitmentViewCriteriaEligibility', '-');
+        setTextContent('recruitmentViewCriteriaEducation', '-');
+        setTextContent('recruitmentViewCriteriaTraining', '-');
+        setTextContent('recruitmentViewCriteriaExperience', '-');
+        if (requirementsEl) {
+          requirementsEl.innerHTML = '<li>-</li>';
+        }
+        if (applicantsBodyEl) {
+          applicantsBodyEl.innerHTML = '<tr><td colspan="7" class="px-3 py-3 text-rose-600">Recruitment posting details could not be loaded.</td></tr>';
+        }
+        const elapsed = (window.performance?.now?.() ?? Date.now()) - startedAt;
+        emitQaPerfSectionMetric({
+          section: 'Posting View',
+          status: 'error',
+          fetchMs: elapsed,
+          displayMs: elapsed,
+          detail: error instanceof Error ? error.message : 'Posting view failed.',
+          url: postingViewBaseUrl,
+        });
+        console.error(error);
+      }
     });
   });
 
@@ -592,6 +782,221 @@ export default function initAdminRecruitmentPage() {
   initAdminShellInteractions();
   initModalSystem();
   initStatusChangeConfirmations();
+
+  const initAdminRecruitmentAsync = () => {
+    const region = document.getElementById('adminRecruitmentAsyncRegion');
+    if (!region) {
+      return false;
+    }
+
+    const summaryUrl = region.getAttribute('data-recruitment-summary-url') || '';
+    const listingsUrl = region.getAttribute('data-recruitment-listings-url') || '';
+    const secondaryUrl = region.getAttribute('data-recruitment-secondary-url') || '';
+
+    const summarySkeleton = document.getElementById('adminRecruitmentSummarySkeleton');
+    const summaryContent = document.getElementById('adminRecruitmentSummaryContent');
+    const summaryError = document.getElementById('adminRecruitmentSummaryError');
+    const summaryRetry = document.getElementById('adminRecruitmentSummaryRetry');
+
+    const listingsSkeleton = document.getElementById('adminRecruitmentListingsSkeleton');
+    const listingsContent = document.getElementById('adminRecruitmentListingsContent');
+    const listingsError = document.getElementById('adminRecruitmentListingsError');
+    const listingsRetry = document.getElementById('adminRecruitmentListingsRetry');
+
+    const secondarySkeleton = document.getElementById('adminRecruitmentSecondarySkeleton');
+    const secondaryContent = document.getElementById('adminRecruitmentSecondaryContent');
+    const secondaryError = document.getElementById('adminRecruitmentSecondaryError');
+    const secondaryRetry = document.getElementById('adminRecruitmentSecondaryRetry');
+
+    if (!summaryUrl || !listingsUrl || !secondaryUrl || !summarySkeleton || !summaryContent || !summaryError || !summaryRetry || !listingsSkeleton || !listingsContent || !listingsError || !listingsRetry || !secondarySkeleton || !secondaryContent || !secondaryError || !secondaryRetry) {
+      return false;
+    }
+
+    const summaryState = { requestId: 0 };
+    const listingsState = { requestId: 0 };
+    const secondaryState = { requestId: 0 };
+
+    const buildSectionUrl = (baseUrl, params) => {
+      const url = new URL(baseUrl, window.location.href);
+      if (!(params instanceof FormData)) {
+        return url.toString();
+      }
+
+      Array.from(params.entries()).forEach(([key, value]) => {
+        url.searchParams.set(key, String(value));
+      });
+
+      return url.toString();
+    };
+
+    const setLoadingState = ({ skeleton, content, errorBox, retryButton }, isLoading) => {
+      skeleton.classList.toggle('hidden', !isLoading);
+      content.classList.toggle('hidden', isLoading);
+      if (isLoading) {
+        errorBox.classList.add('hidden');
+      }
+      retryButton.disabled = isLoading;
+    };
+
+    const showErrorState = ({ skeleton, content, errorBox, retryButton }) => {
+      skeleton.classList.add('hidden');
+      content.classList.add('hidden');
+      errorBox.classList.remove('hidden');
+      retryButton.disabled = false;
+    };
+
+    const fetchPartialHtml = async (url) => {
+      const response = await fetch(url, {
+        credentials: 'same-origin',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+      });
+
+      if (response.redirected) {
+        window.location.href = response.url;
+        return '';
+      }
+
+      if (!response.ok) {
+        throw new Error(`Recruitment partial request failed with status ${response.status}`);
+      }
+
+      const html = await response.text();
+      if (html.trim() === '') {
+        throw new Error('Recruitment partial returned an empty response.');
+      }
+
+      return html;
+    };
+
+    const loadSection = async ({ sectionName, url, params, skeleton, content, errorBox, retryButton, onSuccess, state }) => {
+      setLoadingState({ skeleton, content, errorBox, retryButton }, true);
+      state.requestId += 1;
+      const requestId = state.requestId;
+      const startedAt = window.performance?.now?.() ?? Date.now();
+      const requestUrl = buildSectionUrl(url, params);
+
+      try {
+        const html = await fetchPartialHtml(requestUrl);
+        const fetchElapsed = (window.performance?.now?.() ?? Date.now()) - startedAt;
+        const remaining = Math.max(0, MIN_SKELETON_MS - fetchElapsed);
+
+        window.setTimeout(() => {
+          if (requestId !== state.requestId) {
+            return;
+          }
+
+          content.innerHTML = html;
+          content.classList.remove('hidden');
+          skeleton.classList.add('hidden');
+          errorBox.classList.add('hidden');
+          retryButton.disabled = false;
+          if (typeof onSuccess === 'function') {
+            onSuccess();
+          }
+
+          const displayElapsed = (window.performance?.now?.() ?? Date.now()) - startedAt;
+          emitQaPerfSectionMetric({
+            section: sectionName,
+            status: 'success',
+            fetchMs: fetchElapsed,
+            displayMs: displayElapsed,
+            url: requestUrl,
+          });
+        }, remaining);
+      } catch (error) {
+        console.error(error);
+        showErrorState({ skeleton, content, errorBox, retryButton });
+        const elapsed = (window.performance?.now?.() ?? Date.now()) - startedAt;
+        emitQaPerfSectionMetric({
+          section: sectionName,
+          status: 'error',
+          fetchMs: elapsed,
+          displayMs: elapsed,
+          detail: error instanceof Error ? error.message : 'Section load failed.',
+          url: requestUrl,
+        });
+      }
+    };
+
+    const setSecondaryActionsEnabled = (enabled) => {
+      document.querySelectorAll('[data-recruitment-secondary-action]').forEach((element) => {
+        element.disabled = !enabled;
+        element.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+      });
+    };
+
+    const loadSummary = () => loadSection({
+      sectionName: 'Summary',
+      url: summaryUrl,
+      skeleton: summarySkeleton,
+      content: summaryContent,
+      errorBox: summaryError,
+      retryButton: summaryRetry,
+      state: summaryState,
+    });
+
+    const loadListings = (params) => loadSection({
+      sectionName: 'Listings',
+      url: listingsUrl,
+      params,
+      skeleton: listingsSkeleton,
+      content: listingsContent,
+      errorBox: listingsError,
+      retryButton: listingsRetry,
+      state: listingsState,
+      onSuccess: () => {
+        initRecruitmentFilters({ reloadListings: loadListings });
+      },
+    });
+
+    const loadSecondary = () => loadSection({
+      sectionName: 'Secondary',
+      url: secondaryUrl,
+      skeleton: secondarySkeleton,
+      content: secondaryContent,
+      errorBox: secondaryError,
+      retryButton: secondaryRetry,
+      state: secondaryState,
+      onSuccess: () => {
+        initModalSystem();
+        initStatusChangeConfirmations();
+        initRecruitmentFilters({ reloadListings: loadListings });
+        initPositionFilters();
+        initCreatePositionModeAndCriteria();
+        initEditPositionMode();
+        initRecruitmentActions();
+        initRecruitmentDecisionConfirmations();
+        setSecondaryActionsEnabled(true);
+        initRecruitmentDatePickers().catch(console.error);
+      },
+    });
+
+    summaryRetry.addEventListener('click', () => {
+      loadSummary().catch?.(console.error);
+    });
+
+    listingsRetry.addEventListener('click', () => {
+      loadListings().catch?.(console.error);
+    });
+
+    secondaryRetry.addEventListener('click', () => {
+      loadSecondary().catch?.(console.error);
+    });
+
+    setSecondaryActionsEnabled(false);
+    loadSummary()
+      .catch(console.error)
+      .finally(() => loadListings().catch(console.error).finally(() => loadSecondary().catch(console.error)));
+
+    return true;
+  };
+
+  if (initAdminRecruitmentAsync()) {
+    return;
+  }
+
   initRecruitmentFilters();
   initPositionFilters();
   initCreatePositionModeAndCriteria();

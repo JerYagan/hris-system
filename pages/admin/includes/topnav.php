@@ -24,40 +24,7 @@ $topnavProfilePhotoUrl = null;
 
 $adminTopnavCacheTtlSeconds = 45;
 $adminTopnavCache = (array)($_SESSION['admin_topnav_cache'] ?? []);
-$adminTopnavCacheUserId = (string)($adminTopnavCache['user_id'] ?? '');
-$adminTopnavCacheTimestamp = (int)($adminTopnavCache['cached_at'] ?? 0);
-$adminTopnavCacheIsFresh = $adminTopnavCacheUserId !== ''
-    && $adminTopnavCacheUserId === $topnavAdminUserId
-    && $adminTopnavCacheTimestamp > 0
-    && (time() - $adminTopnavCacheTimestamp) <= $adminTopnavCacheTtlSeconds;
-
-$resolveProfilePhotoUrl = static function (?string $rawPath): ?string {
-    $path = trim((string)$rawPath);
-    if ($path === '') {
-        return null;
-    }
-
-    if (preg_match('#^https?://#i', $path) === 1) {
-        return $path;
-    }
-
-    if (str_starts_with($path, '/')) {
-        return $path;
-    }
-
-    $normalized = str_replace('\\', '/', ltrim($path, '/'));
-    if (str_starts_with($normalized, 'storage/document/')) {
-        $normalized = substr($normalized, strlen('storage/document/'));
-    }
-
-    $segments = array_values(array_filter(explode('/', $normalized), static fn(string $segment): bool => $segment !== ''));
-    if (empty($segments)) {
-        return null;
-    }
-
-    $encoded = implode('/', array_map('rawurlencode', $segments));
-    return systemAppPath('/storage/document/' . $encoded);
-};
+$adminTopnavCacheIsFresh = systemTopnavCacheIsFresh($adminTopnavCache, $topnavAdminUserId, $adminTopnavCacheTtlSeconds);
 
 if ($adminTopnavCacheIsFresh) {
     $cachedDisplayName = trim((string)($adminTopnavCache['display_name'] ?? ''));
@@ -71,8 +38,8 @@ if ($adminTopnavCacheIsFresh) {
     }
 
     $topnavUnreadCount = max(0, (int)($adminTopnavCache['unread_count'] ?? 0));
-    $topnavUnreadNotifications = (array)($adminTopnavCache['unread_notifications'] ?? []);
-    $topnavProfilePhotoUrl = $resolveProfilePhotoUrl((string)($adminTopnavCache['profile_photo_url'] ?? ''));
+    $topnavUnreadNotifications = (array)($adminTopnavCache['notifications_preview'] ?? $adminTopnavCache['unread_notifications'] ?? []);
+    $topnavProfilePhotoUrl = systemTopnavResolveProfilePhotoUrl((string)($adminTopnavCache['profile_photo_url'] ?? ''));
 }
 
 if (!$adminTopnavCacheIsFresh && $topnavSupabaseUrl !== '' && !empty($topnavHeaders) && $topnavAdminUserId !== '' && function_exists('apiRequest') && function_exists('isSuccessful')) {
@@ -87,7 +54,7 @@ if (!$adminTopnavCacheIsFresh && $topnavSupabaseUrl !== '' && !empty($topnavHead
         $peopleRow = (array)($profileRow['people'][0] ?? $profileRow['people'] ?? []);
         $firstName = trim((string)($peopleRow['first_name'] ?? ''));
         $surname = trim((string)($peopleRow['surname'] ?? ''));
-        $topnavProfilePhotoUrl = $resolveProfilePhotoUrl((string)($peopleRow['profile_photo_url'] ?? ''));
+        $topnavProfilePhotoUrl = systemTopnavResolveProfilePhotoUrl((string)($peopleRow['profile_photo_url'] ?? ''));
         $email = trim((string)($profileRow['email'] ?? ''));
 
         $candidateName = trim($firstName . ' ' . $surname);
@@ -132,15 +99,14 @@ if (!$adminTopnavCacheIsFresh && $topnavSupabaseUrl !== '' && !empty($topnavHead
         $topnavUnreadNotifications = (array)($topnavUnreadPreviewResponse['data'] ?? []);
     }
 
-    $_SESSION['admin_topnav_cache'] = [
-        'user_id' => $topnavAdminUserId,
-        'display_name' => $topnavDisplayName,
-        'display_role' => $topnavDisplayRole,
-        'profile_photo_url' => (string)($topnavProfilePhotoUrl ?? ''),
-        'unread_count' => $topnavUnreadCount,
-        'unread_notifications' => $topnavUnreadNotifications,
-        'cached_at' => time(),
-    ];
+    $_SESSION['admin_topnav_cache'] = systemTopnavCachePayload(
+        $topnavAdminUserId,
+        $topnavDisplayName,
+        $topnavDisplayRole,
+        $topnavProfilePhotoUrl,
+        $topnavUnreadCount,
+        $topnavUnreadNotifications
+    );
 }
 
 if (isset($_SESSION['user']) && is_array($_SESSION['user'])) {
@@ -155,18 +121,7 @@ if (isset($_SESSION['user']) && is_array($_SESSION['user'])) {
     }
 }
 
-$topnavInitialSource = preg_replace('/\s+/', ' ', trim((string)$topnavDisplayName));
-if ($topnavInitialSource !== '') {
-    $parts = array_values(array_filter(explode(' ', $topnavInitialSource), static fn(string $part): bool => $part !== ''));
-    if (!empty($parts)) {
-        $first = strtoupper(substr($parts[0], 0, 1));
-        $second = count($parts) > 1 ? strtoupper(substr($parts[count($parts) - 1], 0, 1)) : strtoupper(substr($parts[0], 1, 1));
-        $topnavDisplayInitials = trim($first . ($second !== '' ? $second : ''));
-        if ($topnavDisplayInitials === '') {
-            $topnavDisplayInitials = 'AD';
-        }
-    }
-}
+$topnavDisplayInitials = systemTopnavBuildInitials($topnavDisplayName, 'AD');
 ?>
 
 <header id="topnav" class="h-16 admin-topbar sticky top-0 z-20 flex items-center justify-between px-5 transition-transform duration-300 ease-in-out bg-slate-900">
@@ -187,19 +142,6 @@ if ($topnavInitialSource !== '') {
         </div>
 
         <nav aria-label="Breadcrumb" class="leading-tight">
-            <ol class="flex items-center gap-1.5 text-sm text-slate-400">
-                <?php foreach ($breadcrumbs as $index => $crumb): ?>
-                    <li class="flex items-center gap-1.5">
-                        <?php if ($index > 0): ?>
-                            <span class="material-symbols-outlined text-[13px] text-slate-500">chevron_right</span>
-                        <?php endif; ?>
-                        <span class="<?= $index === count($breadcrumbs) - 1 ? 'text-slate-100 font-semibold' : '' ?>">
-                            <?= htmlspecialchars($crumb, ENT_QUOTES, 'UTF-8') ?>
-                        </span>
-                    </li>
-                <?php endforeach; ?>
-            </ol>
-        </nav>
     </div>
 
     <div class="flex items-center gap-3">

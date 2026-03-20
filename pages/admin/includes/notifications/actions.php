@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/email.php';
+require_once __DIR__ . '/../../../shared/lib/notification-domain.php';
 
 if (!function_exists('smtpConfigIsReady')) {
     function smtpConfigIsReady(array $smtpConfig, string $fromEmail): bool
@@ -42,62 +43,22 @@ $respondNotificationAction = static function (bool $ok, string $message, array $
     redirectWithState($ok ? 'success' : 'error', $message);
 };
 
-$formatNotificationDateTime = static function (?string $dateTime): string {
-    $value = trim((string)$dateTime);
-    if ($value === '') {
-        return '-';
-    }
-
-    $formatted = function_exists('formatDateTimeForPhilippines')
-        ? formatDateTimeForPhilippines($value, 'M d, Y h:i A')
-        : date('M d, Y h:i A', strtotime($value));
-
-    return $formatted !== '-' ? ($formatted . ' PST') : '-';
+$loadNotificationSnapshot = static function () use ($supabaseUrl, $headers, $adminUserId): array {
+    $delegate = 'notificationServiceLoadSnapshot';
+    return $delegate($supabaseUrl, $headers, $adminUserId, [
+        'unread_filters' => ['category=neq.announcement'],
+        'preview_filters' => ['is_read=eq.false', 'category=neq.announcement'],
+        'preview_limit' => 5,
+        'unread_limit' => 500,
+    ]);
 };
 
-$loadUnreadCount = static function () use ($supabaseUrl, $headers, $adminUserId): int {
-    $response = apiRequest(
-        'GET',
-        $supabaseUrl
-        . '/rest/v1/notifications?select=id'
-        . '&recipient_user_id=eq.' . rawurlencode($adminUserId)
-        . '&is_read=eq.false'
-        . '&category=neq.announcement'
-        . '&limit=500',
-        $headers
-    );
-
-    if (!isSuccessful($response)) {
-        return 0;
-    }
-
-    return count((array)($response['data'] ?? []));
+$loadUnreadCount = static function () use ($loadNotificationSnapshot): int {
+    return (int)($loadNotificationSnapshot()['unread_count'] ?? 0);
 };
 
-$loadTopnavItems = static function () use ($supabaseUrl, $headers, $adminUserId, $formatNotificationDateTime): array {
-    $response = apiRequest(
-        'GET',
-        $supabaseUrl . '/rest/v1/notifications?select=id,title,body,link_url,is_read,created_at,category&recipient_user_id=eq.' . rawurlencode($adminUserId) . '&is_read=eq.false&category=neq.announcement&order=created_at.desc&limit=5',
-        $headers
-    );
-
-    if (!isSuccessful($response)) {
-        return [];
-    }
-
-    return array_map(static function (array $row) use ($formatNotificationDateTime): array {
-        $createdAt = trim((string)($row['created_at'] ?? ''));
-        return [
-            'id' => (string)($row['id'] ?? ''),
-            'title' => (string)($row['title'] ?? 'Notification'),
-            'body' => (string)($row['body'] ?? 'No details available.'),
-            'link_url' => (string)($row['link_url'] ?? ''),
-            'category' => (string)($row['category'] ?? 'general'),
-            'is_read' => (bool)($row['is_read'] ?? false),
-            'created_at' => $createdAt,
-            'created_at_label' => $formatNotificationDateTime($createdAt),
-        ];
-    }, array_values((array)($response['data'] ?? [])));
+$loadTopnavItems = static function () use ($loadNotificationSnapshot): array {
+    return (array)($loadNotificationSnapshot()['items'] ?? []);
 };
 
 if (!function_exists('isValidUuid')) {

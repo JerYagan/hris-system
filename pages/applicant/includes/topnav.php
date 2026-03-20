@@ -22,12 +22,7 @@ $topnavHeaders = (array)($topnavBackend['headers'] ?? []);
 $cacheTtlSeconds = 45;
 $topnavCache = (array)($_SESSION['applicant_topnav_cache'] ?? []);
 $profilePhotoCachePath = trim((string)($topnavCache['profile_photo_url'] ?? ''));
-$cacheUserId = (string)($topnavCache['user_id'] ?? '');
-$cacheTimestamp = (int)($topnavCache['cached_at'] ?? 0);
-$cacheIsFresh = $cacheUserId !== ''
-    && $cacheUserId === $topnavApplicantUserId
-    && $cacheTimestamp > 0
-    && (time() - $cacheTimestamp) <= $cacheTtlSeconds;
+$cacheIsFresh = systemTopnavCacheIsFresh($topnavCache, $topnavApplicantUserId, $cacheTtlSeconds);
 
 if ($cacheIsFresh) {
     $cachedFirstName = trim((string)($topnavCache['first_name'] ?? ''));
@@ -39,42 +34,27 @@ if ($cacheIsFresh) {
         : $applicantDisplayName;
     $cachedPhotoPath = $profilePhotoCachePath;
     if ($cachedPhotoPath !== '') {
-        $applicantTopnavPhotoUrl = preg_match('#^https?://#i', $cachedPhotoPath) === 1 || str_starts_with($cachedPhotoPath, '/')
-            ? $cachedPhotoPath
-            : systemAppPath('/storage/document/' . ltrim($cachedPhotoPath, '/'));
+        $applicantTopnavPhotoUrl = systemTopnavResolveProfilePhotoUrl($cachedPhotoPath);
     }
     $unreadNotificationCount = max(0, (int)($topnavCache['unread_count'] ?? 0));
     $topnavNotificationsPreview = (array)($topnavCache['notifications_preview'] ?? []);
 }
 
 if (!$cacheIsFresh && $topnavSupabaseUrl !== '' && $topnavApplicantUserId !== '' && !empty($topnavHeaders) && function_exists('apiRequest')) {
-    $peopleNameResponse = apiRequest(
-        'GET',
-        $topnavSupabaseUrl
-        . '/rest/v1/people?select=first_name,surname,profile_photo_url&user_id=eq.' . rawurlencode($topnavApplicantUserId)
-        . '&limit=1',
-        $topnavHeaders
-    );
-
-    if (isSuccessful($peopleNameResponse)) {
-        $peopleRow = (array)($peopleNameResponse['data'][0] ?? []);
-        $peopleSurname = trim((string)($peopleRow['surname'] ?? ''));
-        $peopleFirstName = trim((string)($peopleNameResponse['data'][0]['first_name'] ?? ''));
-        if ($peopleFirstName !== '') {
-            $applicantFirstName = $peopleFirstName;
-            $applicantDisplayName = trim($peopleFirstName . ' ' . $peopleSurname);
-            if ($applicantDisplayName === '') {
-                $applicantDisplayName = $peopleFirstName;
-            }
+    $profileData = systemTopnavFetchPeopleProfile($topnavSupabaseUrl, $topnavHeaders, $topnavApplicantUserId);
+    $peopleFirstName = trim((string)($profileData['first_name'] ?? ''));
+    if ($peopleFirstName !== '') {
+        $applicantFirstName = $peopleFirstName;
+        $applicantDisplayName = trim((string)($profileData['display_name'] ?? ''));
+        if ($applicantDisplayName === '') {
+            $applicantDisplayName = $peopleFirstName;
         }
+    }
 
-        $profilePhotoPath = trim((string)($peopleRow['profile_photo_url'] ?? ''));
-        if ($profilePhotoPath !== '') {
-            $profilePhotoCachePath = $profilePhotoPath;
-            $applicantTopnavPhotoUrl = preg_match('#^https?://#i', $profilePhotoPath) === 1 || str_starts_with($profilePhotoPath, '/')
-                ? $profilePhotoPath
-                : systemAppPath('/storage/document/' . ltrim($profilePhotoPath, '/'));
-        }
+    $profilePhotoPath = trim((string)($profileData['profile_photo_path'] ?? ''));
+    if ($profilePhotoPath !== '') {
+        $profilePhotoCachePath = $profilePhotoPath;
+        $applicantTopnavPhotoUrl = systemTopnavResolveProfilePhotoUrl($profilePhotoPath);
     }
 
     if ($applicantFirstName === 'Applicant') {
@@ -102,40 +82,26 @@ if (!$cacheIsFresh && $topnavSupabaseUrl !== '' && $topnavApplicantUserId !== ''
         $applicantDisplayName = $fullNameFromSession;
     }
 
-    $unreadResponse = apiRequest(
-        'GET',
-        $topnavSupabaseUrl
-        . '/rest/v1/notifications?select=id&recipient_user_id=eq.' . rawurlencode($topnavApplicantUserId)
-        . '&is_read=eq.false&limit=100',
-        $topnavHeaders
+    $notificationSummary = systemTopnavFetchNotificationSummary(
+        $topnavSupabaseUrl,
+        $topnavHeaders,
+        $topnavApplicantUserId,
+        [
+            'unread_limit' => 100,
+        ]
     );
+    $unreadNotificationCount = (int)($notificationSummary['unread_count'] ?? 0);
+    $topnavNotificationsPreview = (array)($notificationSummary['notifications_preview'] ?? []);
 
-    if (isSuccessful($unreadResponse)) {
-        $unreadNotificationCount = count((array)($unreadResponse['data'] ?? []));
-    }
-
-    $previewResponse = apiRequest(
-        'GET',
-        $topnavSupabaseUrl
-        . '/rest/v1/notifications?select=id,title,body,link_url,is_read,created_at,category'
-        . '&recipient_user_id=eq.' . rawurlencode($topnavApplicantUserId)
-        . '&order=created_at.desc&limit=8',
-        $topnavHeaders
+    $_SESSION['applicant_topnav_cache'] = systemTopnavCachePayload(
+        $topnavApplicantUserId,
+        $applicantDisplayName,
+        'Applicant',
+        $profilePhotoCachePath,
+        $unreadNotificationCount,
+        $topnavNotificationsPreview,
+        ['first_name' => $applicantFirstName]
     );
-
-    if (isSuccessful($previewResponse)) {
-        $topnavNotificationsPreview = array_values((array)($previewResponse['data'] ?? []));
-    }
-
-    $_SESSION['applicant_topnav_cache'] = [
-        'user_id' => $topnavApplicantUserId,
-        'first_name' => $applicantFirstName,
-        'display_name' => $applicantDisplayName,
-        'profile_photo_url' => $profilePhotoCachePath,
-        'unread_count' => $unreadNotificationCount,
-        'notifications_preview' => $topnavNotificationsPreview,
-        'cached_at' => time(),
-    ];
 }
 
 if ($applicantFirstName === 'Applicant' && $fullNameFromSession !== '') {
@@ -151,16 +117,7 @@ if (trim($applicantDisplayName) === '') {
     $applicantDisplayName = $applicantFirstName;
 }
 
-$namePartsForInitials = preg_split('/\s+/', trim($applicantDisplayName)) ?: [];
-$initials = '';
-foreach (array_slice($namePartsForInitials, 0, 2) as $part) {
-    if ($part !== '') {
-        $initials .= strtoupper(substr($part, 0, 1));
-    }
-}
-if ($initials !== '') {
-    $applicantTopnavInitials = $initials;
-}
+$applicantTopnavInitials = systemTopnavBuildInitials($applicantDisplayName, 'AP');
 
 $unreadNotificationBadge = $unreadNotificationCount > 99 ? '99+' : (string)$unreadNotificationCount;
 

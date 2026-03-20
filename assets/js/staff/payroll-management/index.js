@@ -1,4 +1,25 @@
-(() => {
+const MIN_SKELETON_MS = 250;
+
+const emitQaPerfSectionMetric = ({ section, status = 'success', fetchMs = null, displayMs = null, detail = '', url = '' }) => {
+    if (typeof document === 'undefined' || typeof window.CustomEvent !== 'function') {
+        return;
+    }
+
+    document.dispatchEvent(new CustomEvent('hris:qa-perf-section', {
+        detail: {
+            page: window.location.pathname,
+            section,
+            status,
+            fetch_ms: fetchMs,
+            display_ms: displayMs,
+            detail,
+            url,
+            source: 'staff-payroll',
+        },
+    }));
+};
+
+const initStaffPayrollInteractive = () => {
     const normalize = (value) => (value || '').toString().trim().toLowerCase();
     const currencyFormatter = new Intl.NumberFormat('en-PH', {
         style: 'currency',
@@ -358,7 +379,12 @@
         const recommendationInput = document.getElementById('computePayrollRecommendation');
         const employeesBody = document.getElementById('computePayrollEmployeesBody');
         const employeeCount = document.getElementById('computePayrollEmployeeCount');
+        const prevPageButton = document.getElementById('computePayrollPrevPage');
+        const nextPageButton = document.getElementById('computePayrollNextPage');
+        const pageLabel = document.getElementById('computePayrollPageLabel');
         const previewByPeriod = parseJsonScript('payrollComputePreviewData');
+        let currentPage = 1;
+        const pageSize = 10;
 
         if (!modal || !form || !periodIdInput || !employeesBody) {
             return;
@@ -386,11 +412,21 @@
                 if (submitButton) {
                     submitButton.disabled = true;
                 }
+                if (pageLabel) {
+                    pageLabel.textContent = 'Page 1';
+                }
+                prevPageButton?.setAttribute('disabled', 'disabled');
+                nextPageButton?.setAttribute('disabled', 'disabled');
                 return;
             }
 
+            const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+            currentPage = Math.min(Math.max(currentPage, 1), totalPages);
+            const startIndex = (currentPage - 1) * pageSize;
+            const visibleRows = rows.slice(startIndex, startIndex + pageSize);
+
             const fragment = document.createDocumentFragment();
-            rows.forEach((entry) => {
+            visibleRows.forEach((entry) => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `<td class="px-3 py-2 text-slate-700">${(entry.employee_name || entry.full_name || '-').toString()}</td><td class="px-3 py-2 text-right text-slate-700">${currencyFormatter.format(Number(entry.estimated_net || 0))}</td>`;
                 fragment.appendChild(tr);
@@ -399,6 +435,15 @@
 
             if (employeeCount) {
                 employeeCount.textContent = `${rows.length} employee(s)`;
+            }
+            if (pageLabel) {
+                pageLabel.textContent = `Page ${currentPage} of ${totalPages}`;
+            }
+            if (prevPageButton) {
+                prevPageButton.disabled = currentPage <= 1;
+            }
+            if (nextPageButton) {
+                nextPageButton.disabled = currentPage >= totalPages;
             }
             if (submitButton) {
                 submitButton.disabled = false;
@@ -420,6 +465,7 @@
                 if (recommendationInput) {
                     recommendationInput.value = 'Recommend approval';
                 }
+                currentPage = 1;
                 renderEmployees(periodId);
 
                 modal.classList.remove('hidden');
@@ -437,6 +483,16 @@
             if (event.target === modal) {
                 closeModal();
             }
+        });
+
+        prevPageButton?.addEventListener('click', () => {
+            currentPage -= 1;
+            renderEmployees(periodIdInput.value || '');
+        });
+
+        nextPageButton?.addEventListener('click', () => {
+            currentPage += 1;
+            renderEmployees(periodIdInput.value || '');
         });
 
         form.addEventListener('submit', async (event) => {
@@ -483,14 +539,23 @@
         const breakdownNet = document.getElementById('generatePayslipBreakdownNet');
         const breakdownRows = document.getElementById('generatePayslipBreakdownRows');
         const breakdownBody = document.getElementById('generatePayslipBreakdownBody');
+        const breakdownPrev = document.getElementById('generatePayslipBreakdownPrev');
+        const breakdownNext = document.getElementById('generatePayslipBreakdownNext');
+        const breakdownPageLabel = document.getElementById('generatePayslipBreakdownPageLabel');
 
         const adjustmentSubmitted = document.getElementById('generatePayslipAdjustmentSubmitted');
         const adjustmentPending = document.getElementById('generatePayslipAdjustmentPending');
         const adjustmentApproved = document.getElementById('generatePayslipAdjustmentApproved');
         const adjustmentRejected = document.getElementById('generatePayslipAdjustmentRejected');
         const adjustmentBody = document.getElementById('generatePayslipAdjustmentBody');
+        const adjustmentPrev = document.getElementById('generatePayslipAdjustmentPrev');
+        const adjustmentNext = document.getElementById('generatePayslipAdjustmentNext');
+        const adjustmentPageLabel = document.getElementById('generatePayslipAdjustmentPageLabel');
 
         const batchBreakdownByRun = parseJsonScript('payrollBatchBreakdownByRunData');
+        let currentBreakdownPage = 1;
+        let currentAdjustmentPage = 1;
+        const modalPageSize = 10;
 
         if (!modal || !form || !runIdInput) {
             return;
@@ -532,8 +597,16 @@
             if (breakdownBody) {
                 if (!rows.length) {
                     breakdownBody.innerHTML = '<tr id="generatePayslipBreakdownEmptyRow"><td class="px-3 py-3 text-slate-500" colspan="11">No computation breakdown available for this batch.</td></tr>';
+                    if (breakdownPageLabel) {
+                        breakdownPageLabel.textContent = 'Page 1';
+                    }
+                    breakdownPrev?.setAttribute('disabled', 'disabled');
+                    breakdownNext?.setAttribute('disabled', 'disabled');
                 } else {
-                    breakdownBody.innerHTML = rows.map((row) => {
+                    const breakdownTotalPages = Math.max(1, Math.ceil(rows.length / modalPageSize));
+                    currentBreakdownPage = Math.min(Math.max(currentBreakdownPage, 1), breakdownTotalPages);
+                    const visibleRows = rows.slice((currentBreakdownPage - 1) * modalPageSize, currentBreakdownPage * modalPageSize);
+                    breakdownBody.innerHTML = visibleRows.map((row) => {
                         const adjustmentNet = (Number(row.adjustment_earnings) || 0) - (Number(row.adjustment_deductions) || 0);
                         const lateMinutes = Number(row.late_minutes) || 0;
                         const undertimeHours = Number(row.undertime_hours) || 0;
@@ -557,6 +630,15 @@
                             </tr>
                         `;
                     }).join('');
+                    if (breakdownPageLabel) {
+                        breakdownPageLabel.textContent = `Page ${currentBreakdownPage} of ${breakdownTotalPages}`;
+                    }
+                    if (breakdownPrev) {
+                        breakdownPrev.disabled = currentBreakdownPage <= 1;
+                    }
+                    if (breakdownNext) {
+                        breakdownNext.disabled = currentBreakdownPage >= breakdownTotalPages;
+                    }
                 }
             }
 
@@ -568,8 +650,16 @@
             if (adjustmentBody) {
                 if (!adjustmentRows.length) {
                     adjustmentBody.innerHTML = '<tr id="generatePayslipAdjustmentEmptyRow"><td class="px-3 py-3 text-slate-500" colspan="6">No staff-submitted salary adjustment recommendations in this batch.</td></tr>';
+                    if (adjustmentPageLabel) {
+                        adjustmentPageLabel.textContent = 'Page 1';
+                    }
+                    adjustmentPrev?.setAttribute('disabled', 'disabled');
+                    adjustmentNext?.setAttribute('disabled', 'disabled');
                 } else {
-                    adjustmentBody.innerHTML = adjustmentRows.map((row) => {
+                    const adjustmentTotalPages = Math.max(1, Math.ceil(adjustmentRows.length / modalPageSize));
+                    currentAdjustmentPage = Math.min(Math.max(currentAdjustmentPage, 1), adjustmentTotalPages);
+                    const visibleAdjustmentRows = adjustmentRows.slice((currentAdjustmentPage - 1) * modalPageSize, currentAdjustmentPage * modalPageSize);
+                    adjustmentBody.innerHTML = visibleAdjustmentRows.map((row) => {
                         const recommendation = String(row.staff_recommendation || '').trim();
                         const recommendationLabel = recommendation === '' ? 'Not submitted' : recommendation.replace(/_/g, ' ');
                         const adminLabel = String(row.admin_status_label || 'Pending').trim() || 'Pending';
@@ -591,6 +681,15 @@
                             </tr>
                         `;
                     }).join('');
+                    if (adjustmentPageLabel) {
+                        adjustmentPageLabel.textContent = `Page ${currentAdjustmentPage} of ${adjustmentTotalPages}`;
+                    }
+                    if (adjustmentPrev) {
+                        adjustmentPrev.disabled = currentAdjustmentPage <= 1;
+                    }
+                    if (adjustmentNext) {
+                        adjustmentNext.disabled = currentAdjustmentPage >= adjustmentTotalPages;
+                    }
                 }
             }
 
@@ -614,6 +713,8 @@
                 if (recommendationInput) recommendationInput.value = button.getAttribute('data-staff-recommendation') || 'Recommend approval';
                 if (submittedAtInput) submittedAtInput.value = button.getAttribute('data-staff-submitted') || '-';
                 if (reviewedAtInput) reviewedAtInput.value = button.getAttribute('data-admin-reviewed') || '-';
+                currentBreakdownPage = 1;
+                currentAdjustmentPage = 1;
                 renderBreakdown(runId);
 
                 modal.classList.remove('hidden');
@@ -636,6 +737,26 @@
             if (event.target === modal) {
                 closeModal();
             }
+        });
+
+        breakdownPrev?.addEventListener('click', () => {
+            currentBreakdownPage -= 1;
+            renderBreakdown(runIdInput.value || '');
+        });
+
+        breakdownNext?.addEventListener('click', () => {
+            currentBreakdownPage += 1;
+            renderBreakdown(runIdInput.value || '');
+        });
+
+        adjustmentPrev?.addEventListener('click', () => {
+            currentAdjustmentPage -= 1;
+            renderBreakdown(runIdInput.value || '');
+        });
+
+        adjustmentNext?.addEventListener('click', () => {
+            currentAdjustmentPage += 1;
+            renderBreakdown(runIdInput.value || '');
         });
 
         form.addEventListener('submit', async (event) => {
@@ -693,4 +814,255 @@
     setupCreateAdjustmentModal();
     setupComputePayrollModal();
     setupGeneratePayslipModal();
-})();
+};
+
+const initStaffPayrollAsync = () => {
+    const region = document.getElementById('staffPayrollAsyncRegion');
+    const summaryUrl = region?.getAttribute('data-payroll-summary-url') || '';
+    const secondaryUrl = region?.getAttribute('data-payroll-secondary-url') || '';
+
+    const summarySkeleton = document.getElementById('staffPayrollSummarySkeleton');
+    const summaryContent = document.getElementById('staffPayrollSummaryContent');
+    const summaryError = document.getElementById('staffPayrollSummaryError');
+    const summaryRetry = document.getElementById('staffPayrollSummaryRetry');
+
+    const secondarySkeleton = document.getElementById('staffPayrollSecondarySkeleton');
+    const secondaryContent = document.getElementById('staffPayrollSecondaryContent');
+    const secondaryError = document.getElementById('staffPayrollSecondaryError');
+    const secondaryRetry = document.getElementById('staffPayrollSecondaryRetry');
+
+    const summaryState = { requestId: 0 };
+    const secondaryState = { requestId: 0 };
+
+    const buildSectionUrl = (baseUrl, params = null) => {
+        const url = new URL(baseUrl, window.location.href);
+        const currentUrl = new URL(window.location.href);
+
+        ['payroll_period_page', 'salary_adjustment_page', 'payroll_run_page'].forEach((key) => {
+            const value = currentUrl.searchParams.get(key);
+            if (value) {
+                url.searchParams.set(key, value);
+            }
+        });
+
+        if (params && typeof params === 'object') {
+            Object.entries(params).forEach(([key, value]) => {
+                if (value === null || value === undefined || value === '') {
+                    url.searchParams.delete(key);
+                    return;
+                }
+                url.searchParams.set(key, String(value));
+            });
+        }
+
+        return url.toString();
+    };
+
+    if (!region || summaryUrl === '' || secondaryUrl === '' || !summarySkeleton || !summaryContent || !summaryError || !summaryRetry || !secondarySkeleton || !secondaryContent || !secondaryError || !secondaryRetry) {
+        return false;
+    }
+
+    const fetchPartialHtml = async (url) => {
+        const response = await fetch(url, {
+            credentials: 'same-origin',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+
+        if (response.redirected) {
+            window.location.href = response.url;
+            return '';
+        }
+
+        if (!response.ok) {
+            throw new Error(`Staff payroll partial request failed with status ${response.status}`);
+        }
+
+        const html = await response.text();
+        if (html.trim() === '') {
+            throw new Error('Staff payroll partial returned an empty response.');
+        }
+
+        return html;
+    };
+
+    const setLoadingState = ({ skeleton, content, errorBox, retryButton }, isLoading) => {
+        skeleton.classList.toggle('hidden', !isLoading);
+        content.classList.toggle('hidden', isLoading);
+        if (isLoading) {
+            errorBox.classList.add('hidden');
+        }
+        retryButton.disabled = isLoading;
+    };
+
+    const showErrorState = ({ skeleton, content, errorBox, retryButton }) => {
+        skeleton.classList.add('hidden');
+        content.classList.add('hidden');
+        errorBox.classList.remove('hidden');
+        retryButton.disabled = false;
+    };
+
+    const loadSection = async ({ sectionName, url, params = null, skeleton, content, errorBox, retryButton, onSuccess, state }) => {
+        setLoadingState({ skeleton, content, errorBox, retryButton }, true);
+        state.requestId += 1;
+        const requestId = state.requestId;
+        const startedAt = window.performance?.now?.() ?? Date.now();
+        const requestUrl = buildSectionUrl(url, params);
+
+        try {
+            const html = await fetchPartialHtml(requestUrl);
+            const fetchElapsed = (window.performance?.now?.() ?? Date.now()) - startedAt;
+            const remaining = Math.max(0, MIN_SKELETON_MS - fetchElapsed);
+
+            window.setTimeout(() => {
+                if (requestId !== state.requestId) {
+                    return;
+                }
+
+                content.innerHTML = html;
+                content.classList.remove('hidden');
+                skeleton.classList.add('hidden');
+                errorBox.classList.add('hidden');
+                retryButton.disabled = false;
+                if (typeof onSuccess === 'function') {
+                    onSuccess();
+                }
+
+                const displayElapsed = (window.performance?.now?.() ?? Date.now()) - startedAt;
+                emitQaPerfSectionMetric({
+                    section: sectionName,
+                    status: 'success',
+                    fetchMs: fetchElapsed,
+                    displayMs: displayElapsed,
+                    url: requestUrl,
+                });
+            }, remaining);
+        } catch (error) {
+            console.error(error);
+            showErrorState({ skeleton, content, errorBox, retryButton });
+            const elapsed = (window.performance?.now?.() ?? Date.now()) - startedAt;
+            emitQaPerfSectionMetric({
+                section: sectionName,
+                status: 'error',
+                fetchMs: elapsed,
+                displayMs: elapsed,
+                detail: error instanceof Error ? error.message : 'Section load failed.',
+                url: requestUrl,
+            });
+        }
+    };
+
+    const loadSummary = () => loadSection({
+        sectionName: 'Summary',
+        url: summaryUrl,
+        skeleton: summarySkeleton,
+        content: summaryContent,
+        errorBox: summaryError,
+        retryButton: summaryRetry,
+        state: summaryState,
+    });
+
+    const loadSecondary = (params = null) => loadSection({
+        sectionName: 'Payroll Workspace',
+        url: secondaryUrl,
+        params,
+        skeleton: secondarySkeleton,
+        content: secondaryContent,
+        errorBox: secondaryError,
+        retryButton: secondaryRetry,
+        state: secondaryState,
+        onSuccess: () => {
+            initStaffPayrollInteractive();
+        },
+    });
+
+    summaryRetry.addEventListener('click', () => {
+        loadSummary().catch?.(console.error);
+    });
+
+    secondaryRetry.addEventListener('click', () => {
+        loadSecondary().catch?.(console.error);
+    });
+
+    region.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target) {
+            return;
+        }
+
+        const refreshButton = target.closest('[data-staff-payroll-refresh-scope]');
+        if (refreshButton) {
+            loadSecondary().catch?.(console.error);
+            return;
+        }
+
+        const pageButton = target.closest('[data-staff-payroll-page-scope][data-staff-payroll-page]');
+        if (!pageButton) {
+            return;
+        }
+
+        const scope = pageButton.getAttribute('data-staff-payroll-page-scope') || '';
+        const page = Number(pageButton.getAttribute('data-staff-payroll-page') || 1);
+        const queryKey = scope === 'periods'
+            ? 'payroll_period_page'
+            : scope === 'adjustments'
+                ? 'salary_adjustment_page'
+                : scope === 'runs'
+                    ? 'payroll_run_page'
+                    : '';
+
+        if (queryKey === '' || !Number.isFinite(page) || page < 1) {
+            return;
+        }
+
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set(queryKey, String(page));
+        window.history.replaceState({}, '', currentUrl.toString());
+        loadSecondary({ [queryKey]: page }).catch?.(console.error);
+    });
+
+    loadSummary();
+    loadSecondary();
+    return true;
+};
+
+if (!initStaffPayrollAsync()) {
+    initStaffPayrollInteractive();
+
+    document.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target) {
+            return;
+        }
+
+        const refreshButton = target.closest('[data-staff-payroll-refresh-scope]');
+        if (refreshButton) {
+            window.location.reload();
+            return;
+        }
+
+        const pageButton = target.closest('[data-staff-payroll-page-scope][data-staff-payroll-page]');
+        if (!pageButton) {
+            return;
+        }
+
+        const scope = pageButton.getAttribute('data-staff-payroll-page-scope') || '';
+        const page = Number(pageButton.getAttribute('data-staff-payroll-page') || 1);
+        const queryKey = scope === 'periods'
+            ? 'payroll_period_page'
+            : scope === 'adjustments'
+                ? 'salary_adjustment_page'
+                : scope === 'runs'
+                    ? 'payroll_run_page'
+                    : '';
+
+        if (queryKey === '' || !Number.isFinite(page) || page < 1) {
+            return;
+        }
+
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set(queryKey, String(page));
+        window.location.href = currentUrl.toString();
+    });
+}

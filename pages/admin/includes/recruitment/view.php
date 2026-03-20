@@ -1,4 +1,12 @@
-<?php if ($state && $message): ?>
+<?php
+$hideRecruitmentFlashState = !empty($hideRecruitmentFlashState);
+$renderRecruitmentListingsSection = !array_key_exists('renderRecruitmentListingsSection', get_defined_vars()) || !empty($renderRecruitmentListingsSection);
+$renderRecruitmentArchivedSection = !array_key_exists('renderRecruitmentArchivedSection', get_defined_vars()) || !empty($renderRecruitmentArchivedSection);
+$renderRecruitmentDeadlinesSection = !array_key_exists('renderRecruitmentDeadlinesSection', get_defined_vars()) || !empty($renderRecruitmentDeadlinesSection);
+$renderRecruitmentModals = !array_key_exists('renderRecruitmentModals', get_defined_vars()) || !empty($renderRecruitmentModals);
+?>
+
+<?php if (!$hideRecruitmentFlashState && $state && $message): ?>
     <?php
     $alertClass = $state === 'success'
         ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
@@ -11,6 +19,7 @@
     </div>
 <?php endif; ?>
 
+<?php if ($renderRecruitmentListingsSection): ?>
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
         <div>
@@ -149,7 +158,9 @@
         </table>
     </div>
 </section>
+<?php endif; ?>
 
+<?php if ($renderRecruitmentArchivedSection): ?>
 <section class="bg-slate-50 border border-slate-300 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-300">
         <h2 class="text-lg font-semibold text-slate-800">Archived Job Postings</h2>
@@ -191,7 +202,9 @@
         </table>
     </div>
 </section>
+<?php endif; ?>
 
+<?php if ($renderRecruitmentDeadlinesSection): ?>
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Job Deadlines</h2>
@@ -232,7 +245,9 @@
         </table>
     </div>
 </section>
+<?php endif; ?>
 
+<?php if ($renderRecruitmentModals): ?>
 <div id="recruitmentPostingViewModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-slate-900/60" data-modal-close="recruitmentPostingViewModal"></div>
     <div class="relative min-h-full flex items-center justify-center p-4">
@@ -820,8 +835,8 @@
     </div>
 </div>
 
-<script id="recruitmentPostingViewData" type="application/json"><?= (string)json_encode($postingViewById, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 <script id="recruitmentCreatePositionCriteriaData" type="application/json"><?= (string)json_encode([
     'defaults' => $recruitmentCreateCriteriaDefaults,
     'positions' => $recruitmentPositionCriteriaById,
 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
+<?php endif; ?>

@@ -1,6 +1,7 @@
 <?php
 
 require_once dirname(__DIR__, 3) . '/admin/includes/notifications/email.php';
+require_once dirname(__DIR__, 3) . '/shared/lib/recruitment-domain.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     return;
@@ -17,113 +18,28 @@ redirectWithState('error', 'Staff recruitment pages are now read-only. Decision 
 if (!function_exists('staffRecruitmentNotify')) {
     function staffRecruitmentNotify(array $headers, string $supabaseUrl, string $recipientUserId, string $title, string $body): void
     {
-        if (!isValidUuid($recipientUserId)) {
-            return;
-        }
-
-        apiRequest(
-            'POST',
-            $supabaseUrl . '/rest/v1/notifications',
-            array_merge($headers, ['Prefer: return=minimal']),
-            [[
-                'recipient_user_id' => $recipientUserId,
-                'category' => 'recruitment',
-                'title' => $title,
-                'body' => $body,
-                'link_url' => '/hris-system/pages/staff/recruitment.php',
-            ]]
-        );
+        recruitmentServiceNotify($headers, $supabaseUrl, $recipientUserId, $title, $body);
     }
 }
 
 if (!function_exists('staffRecruitmentSplitName')) {
     function staffRecruitmentSplitName(string $fullName): array
     {
-        $parts = preg_split('/\s+/', trim($fullName)) ?: [];
-        $parts = array_values(array_filter($parts, static fn ($part): bool => $part !== ''));
-        if (count($parts) === 0) {
-            return ['first_name' => 'Applicant', 'surname' => 'User'];
-        }
-        if (count($parts) === 1) {
-            return ['first_name' => $parts[0], 'surname' => 'User'];
-        }
-
-        return [
-            'first_name' => $parts[0],
-            'surname' => $parts[count($parts) - 1],
-        ];
+        return recruitmentServiceSplitName($fullName);
     }
 }
 
 if (!function_exists('staffRecruitmentLoadEmployeeIdPrefix')) {
     function staffRecruitmentLoadEmployeeIdPrefix(string $supabaseUrl, array $headers): string
     {
-        $defaultPrefix = 'DA-EMP-';
-        $response = apiRequest(
-            'GET',
-            $supabaseUrl . '/rest/v1/system_settings?select=setting_value&setting_key=eq.' . rawurlencode('employee_id_prefix') . '&limit=1',
-            $headers
-        );
-
-        $storedValue = '';
-        if (isSuccessful($response) && !empty((array)($response['data'] ?? []))) {
-            $raw = $response['data'][0]['setting_value'] ?? null;
-            $value = is_array($raw) && array_key_exists('value', $raw) ? $raw['value'] : $raw;
-            if (is_scalar($value)) {
-                $storedValue = trim((string)$value);
-            }
-        }
-
-        $prefix = strtoupper((string)preg_replace('/[^A-Z0-9-]+/i', '-', $storedValue));
-        $prefix = preg_replace('/-+/', '-', $prefix ?? '') ?: '';
-        $prefix = trim($prefix);
-        if ($prefix === '') {
-            $prefix = $defaultPrefix;
-        }
-        if (!str_ends_with($prefix, '-')) {
-            $prefix .= '-';
-        }
-
-        return $prefix;
+        return recruitmentServiceLoadEmployeeIdPrefix($supabaseUrl, $headers);
     }
 }
 
 if (!function_exists('staffRecruitmentGenerateEmployeeId')) {
     function staffRecruitmentGenerateEmployeeId(string $supabaseUrl, array $headers): string
     {
-        $prefix = staffRecruitmentLoadEmployeeIdPrefix($supabaseUrl, $headers);
-        $response = apiRequest(
-            'GET',
-            $supabaseUrl . '/rest/v1/people?select=agency_employee_no&agency_employee_no=ilike.' . rawurlencode($prefix . '%') . '&limit=5000',
-            $headers
-        );
-
-        $maxSequence = 0;
-        $usedCodes = [];
-        if (isSuccessful($response)) {
-            foreach ((array)($response['data'] ?? []) as $row) {
-                $code = trim((string)($row['agency_employee_no'] ?? ''));
-                if ($code === '' || stripos($code, $prefix) !== 0) {
-                    continue;
-                }
-
-                $usedCodes[strtolower($code)] = true;
-                $suffix = substr($code, strlen($prefix));
-                if ($suffix !== '' && ctype_digit($suffix)) {
-                    $maxSequence = max($maxSequence, (int)$suffix);
-                }
-            }
-        }
-
-        $sequence = max(1, $maxSequence + 1);
-        for ($attempt = 0; $attempt < 10000; $attempt++, $sequence++) {
-            $candidate = $prefix . str_pad((string)$sequence, 4, '0', STR_PAD_LEFT);
-            if (!isset($usedCodes[strtolower($candidate)])) {
-                return $candidate;
-            }
-        }
-
-        return $prefix . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
+        return recruitmentServiceGenerateEmployeeId($supabaseUrl, $headers);
     }
 }
 
