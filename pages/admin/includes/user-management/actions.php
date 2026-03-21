@@ -792,18 +792,6 @@ if ($action === 'delete_user') {
     );
     $applicantProfileId = trim((string)($applicantProfileResponse['data'][0]['id'] ?? ''));
 
-    if (userManagementIsValidUuid($applicantProfileId)) {
-        $applicationsResponse = apiRequest(
-            'GET',
-            $supabaseUrl . '/rest/v1/applications?select=id&applicant_profile_id=eq.' . rawurlencode($applicantProfileId) . '&limit=1',
-            $headers
-        );
-
-        if (isSuccessful($applicationsResponse) && !empty((array)($applicationsResponse['data'] ?? []))) {
-            redirectWithState('error', 'This applicant has recruitment history and cannot be deleted. Archive the account instead.');
-        }
-    }
-
     if (userManagementIsValidUuid($personId)) {
         $employmentDeleteResponse = apiRequest(
             'DELETE',

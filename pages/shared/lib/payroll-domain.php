@@ -119,16 +119,18 @@ if (!function_exists('payrollServiceCompensationAppliesToPeriod')) {
 }
 
 if (!function_exists('payrollServiceIsCosEmploymentStatus')) {
-    function payrollServiceIsCosEmploymentStatus(?string $employmentStatus): bool
+    function payrollServiceIsCosEmploymentStatus(?string $employmentStatus, ?string $positionClassification = null): bool
     {
-        $normalized = strtolower(trim((string)$employmentStatus));
-        if ($normalized === '') {
-            return false;
-        }
+        foreach ([$employmentStatus, $positionClassification] as $candidate) {
+            $normalized = strtolower(trim((string)$candidate));
+            if ($normalized === '') {
+                continue;
+            }
 
-        foreach (['contract of service', 'cos', 'contractual', 'job order', 'job_order', 'casual'] as $marker) {
-            if (str_contains($normalized, $marker)) {
-                return true;
+            foreach (['contract of service', 'cos', 'contractual', 'job order', 'job_order', 'casual'] as $marker) {
+                if (str_contains($normalized, $marker)) {
+                    return true;
+                }
             }
         }
 
@@ -147,6 +149,8 @@ if (!function_exists('payrollServicePrepareActivePeopleFromEmploymentRows')) {
             $employmentRow = (array)$employmentRowRaw;
             $employmentStatus = trim((string)(cleanText($employmentRow['employment_status'] ?? null) ?? ''));
             $employmentStatusKey = strtolower($employmentStatus);
+            $employmentType = trim((string)(cleanText($employmentRow['employment_type'] ?? null) ?? ''));
+            $positionClassification = trim((string)(cleanText($employmentRow['position']['employment_classification'] ?? null) ?? ''));
             if (in_array($employmentStatusKey, ['inactive', 'separated', 'terminated', 'resigned', 'retired'], true)) {
                 continue;
             }
@@ -165,7 +169,10 @@ if (!function_exists('payrollServicePrepareActivePeopleFromEmploymentRows')) {
                 $personRow['office_id'] = $employmentRow['office_id'];
             }
 
-            $personRow['employment_status'] = $employmentStatus;
+            $effectiveEmploymentMarker = $employmentType !== '' ? $employmentType : $positionClassification;
+            $personRow['employment_status'] = payrollServiceIsCosEmploymentStatus($employmentStatus, $effectiveEmploymentMarker) && $effectiveEmploymentMarker !== ''
+                ? $effectiveEmploymentMarker
+                : $employmentStatus;
             $peopleById[$personId] = $personRow;
             $personIds[] = $personId;
             $activeRows[] = $employmentRow;

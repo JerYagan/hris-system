@@ -107,6 +107,7 @@ $employmentStatusLabel = trim((string)($selectedEmployee['status_label'] ?? 'Ina
 $profileHighlights = [
     ['label' => 'Division', 'value' => (string)($selectedEmployee['department'] ?? 'Unassigned Division')],
     ['label' => 'Position', 'value' => (string)($selectedEmployee['position'] ?? 'Unassigned Position')],
+    ['label' => 'Employment Type', 'value' => (string)($selectedEmployee['employment_type_label'] ?? 'Not provided')],
     ['label' => 'Employee ID', 'value' => (string)($selectedEmployee['agency_employee_no'] ?? 'Not provided')],
     ['label' => 'Status', 'value' => $employmentStatusLabel],
 ];
@@ -290,6 +291,13 @@ ob_start();
                     <?php endif; ?>
                     <div>
                         <p class="text-lg font-semibold text-slate-800"><?= htmlspecialchars((string)($selectedEmployee['full_name'] ?? 'Unknown Employee'), ENT_QUOTES, 'UTF-8') ?></p>
+                        <?php if (!empty($selectedEmployee['has_contractual_application'])): ?>
+                            <p class="mt-2">
+                                <span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-medium text-amber-800" title="<?= htmlspecialchars((string)($selectedEmployee['contractual_application_job_title'] ?? 'Contractual Job'), ENT_QUOTES, 'UTF-8') ?>">
+                                    <?= htmlspecialchars((string)($selectedEmployee['contractual_application_label'] ?? 'Applied to Contractual Job'), ENT_QUOTES, 'UTF-8') ?>
+                                </span>
+                            </p>
+                        <?php endif; ?>
                         <p class="text-sm text-slate-600 mt-1">Comprehensive profile view for admin review and approval decisions.</p>
                     </div>
                 </div>

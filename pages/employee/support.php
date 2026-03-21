@@ -191,8 +191,12 @@ $buildQuery = static function (array $params): string {
                   type="button"
                   class="border px-3 py-1 rounded text-xs"
                   data-open-support-detail
+                  data-detail-ticket-id="<?= $escape((string)($inquiry['ticket_id'] ?? '')) ?>"
                   data-detail-subject="<?= $escape((string)($inquiry['subject'] ?? 'Support Ticket')) ?>"
                   data-detail-body="<?= $escape((string)($inquiry['message'] ?? '')) ?>"
+                  data-detail-status="<?= $escape((string)($inquiry['status'] ?? 'submitted')) ?>"
+                  data-detail-updated-at="<?= $escape($formatDateTime((string)($inquiry['updated_at'] ?? ''))) ?>"
+                  data-detail-history="<?= $escape((string)json_encode($inquiry['history'] ?? [], JSON_UNESCAPED_UNICODE)) ?>"
                   data-detail-notes="<?= $escape((string)((string)($inquiry['resolution_notes'] ?? '') !== '' ? $inquiry['resolution_notes'] : ((string)($inquiry['admin_notes'] ?? '') !== '' ? $inquiry['admin_notes'] : ($inquiry['staff_notes'] ?? '')))) ?>"
                 >
                   View
@@ -227,10 +231,21 @@ $buildQuery = static function (array $params): string {
       <button type="button" data-close-support-detail><span class="material-icons">close</span></button>
     </div>
     <div class="px-6 py-5 overflow-y-auto">
+      <div class="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-600">Ticket Summary</p>
+          <span id="supportDetailStatus" class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700">Submitted</span>
+        </div>
+        <p id="supportDetailTicketMeta" class="mt-2 text-xs text-slate-500">Ticket ID: -</p>
+      </div>
       <p class="text-sm text-gray-700 whitespace-pre-line" id="supportDetailBody"></p>
       <div id="supportDetailNotesWrap" class="mt-4 hidden rounded-lg border border-slate-200 bg-slate-50 p-3">
         <p class="text-xs font-semibold uppercase tracking-wide text-slate-600">Support Update</p>
         <p class="mt-1 text-sm text-slate-700 whitespace-pre-line" id="supportDetailNotes"></p>
+      </div>
+      <div id="supportDetailTimelineWrap" class="mt-4 hidden rounded-lg border border-slate-200 bg-white p-3">
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-600">Message Thread</p>
+        <div id="supportDetailTimeline" class="mt-3 space-y-3"></div>
       </div>
     </div>
     <div class="px-6 py-4 border-t flex justify-end">

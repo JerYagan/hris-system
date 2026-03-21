@@ -213,35 +213,51 @@
         <div class="max-w-7xl mx-auto px-6">
             <div class="mb-10">
                 <h2 class="text-3xl font-bold">Careers</h2>
-                <p class="text-gray-600 mt-2">Featured ATI career opportunities highlighted for prospective applicants.</p>
+                <p class="text-gray-600 mt-2">Live ATI career opportunities pulled from the current published job postings feed.</p>
             </div>
 
-            <div id="careersGrid" class="grid md:grid-cols-3 gap-6">
+            <div id="careersFeedStatus" class="mb-6 rounded-2xl border border-gray-200 bg-gray-50 px-5 py-4 text-sm text-gray-600">
+                Loading current published openings...
+            </div>
+
+            <div id="careersGrid" class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
                 <article class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-                    <p class="text-xs uppercase tracking-wide text-daGreen font-semibold mb-3">Featured Career</p>
-                    <h3 class="text-xl font-semibold text-gray-900 mb-3">Administrative Aide VI</h3>
-                    <p class="text-sm leading-relaxed text-gray-600">Provides frontline administrative and records support for office operations, prepares official correspondence, maintains document tracking, and helps ensure timely coordination of internal and external transactions.</p>
+                    <div class="h-4 w-28 rounded bg-gray-200 animate-pulse"></div>
+                    <div class="mt-4 h-6 w-3/4 rounded bg-gray-200 animate-pulse"></div>
+                    <div class="mt-3 h-4 w-2/3 rounded bg-gray-100 animate-pulse"></div>
+                    <div class="mt-6 h-20 rounded bg-gray-100 animate-pulse"></div>
+                    <div class="mt-6 h-10 w-36 rounded bg-gray-200 animate-pulse"></div>
                 </article>
-                <article class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-                    <p class="text-xs uppercase tracking-wide text-daGreen font-semibold mb-3">Featured Career</p>
-                    <h3 class="text-xl font-semibold text-gray-900 mb-3">Training Specialist I</h3>
-                    <p class="text-sm leading-relaxed text-gray-600">Supports learning and development initiatives by coordinating training schedules, assisting with curriculum delivery logistics, consolidating attendance and evaluation records, and preparing activity documentation.</p>
+                <article class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm hidden md:block">
+                    <div class="h-4 w-28 rounded bg-gray-200 animate-pulse"></div>
+                    <div class="mt-4 h-6 w-3/4 rounded bg-gray-200 animate-pulse"></div>
+                    <div class="mt-3 h-4 w-2/3 rounded bg-gray-100 animate-pulse"></div>
+                    <div class="mt-6 h-20 rounded bg-gray-100 animate-pulse"></div>
+                    <div class="mt-6 h-10 w-36 rounded bg-gray-200 animate-pulse"></div>
                 </article>
-                <article class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-                    <p class="text-xs uppercase tracking-wide text-daGreen font-semibold mb-3">Featured Career</p>
-                    <h3 class="text-xl font-semibold text-gray-900 mb-3">Accountant I</h3>
-                    <p class="text-sm leading-relaxed text-gray-600">Handles accounting support functions such as voucher and disbursement review, financial report preparation, account reconciliation, and compliance with government budgeting and auditing standards.</p>
+                <article class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm hidden xl:block">
+                    <div class="h-4 w-28 rounded bg-gray-200 animate-pulse"></div>
+                    <div class="mt-4 h-6 w-3/4 rounded bg-gray-200 animate-pulse"></div>
+                    <div class="mt-3 h-4 w-2/3 rounded bg-gray-100 animate-pulse"></div>
+                    <div class="mt-6 h-20 rounded bg-gray-100 animate-pulse"></div>
+                    <div class="mt-6 h-10 w-36 rounded bg-gray-200 animate-pulse"></div>
                 </article>
             </div>
+
+            <a id="homepageApplicantJobListLink" href="./pages/applicant/job-list.php" class="hidden" aria-hidden="true" tabindex="-1">Applicant Job Listings</a>
 
             <div class="mt-8 flex flex-wrap gap-3">
+                <a href="./pages/applicant/job-list.php" class="inline-flex items-center gap-2 rounded-lg border border-daGreen px-5 py-3 text-sm font-semibold text-daGreen hover:bg-green-50 transition">
+                    <span class="material-icons text-sm">work</span>
+                    View All Openings
+                </a>
                 <a href="./pages/auth/register.php" class="inline-flex items-center gap-2 rounded-lg bg-daGreen px-5 py-3 text-sm font-semibold text-white hover:bg-daGreenLight transition">
                     <span class="material-icons text-sm">person_add</span>
                     Register to Apply
                 </a>
                 <a href="./pages/auth/login.php" class="inline-flex items-center gap-2 rounded-lg border border-daGreen px-5 py-3 text-sm font-semibold text-daGreen hover:bg-green-50 transition">
                     <span class="material-icons text-sm">login</span>
-                    Login to HRIS
+                    LOGIN
                 </a>
             </div>
         </div>
@@ -254,7 +270,7 @@
                 <p class="mt-2 text-sm text-white/90">ATI Building, Elliptical Road, Diliman, Quezon City 1100 Philippines</p>
                 <div class="mt-3 flex flex-col gap-1 text-sm text-white/90 sm:flex-row sm:flex-wrap sm:gap-4">
                     <span>Trunkline: +632 89298541 to 49</span>
-                    <span>Email: director@ati.da.gov.ph</span>
+                    <span>Email: hrmo.co@ati.da.gov.ph / atico.hrms@yahoo.com</span>
                 </div>
             </div>
             <div class="text-sm text-white/90 md:text-right">
@@ -268,10 +284,132 @@
     <script>
         const menuToggle = document.getElementById("menuToggle");
         const mobileMenu = document.getElementById("mobileMenu");
+        const careersGrid = document.getElementById("careersGrid");
+        const careersFeedStatus = document.getElementById("careersFeedStatus");
+        const applicantJobListLink = document.getElementById("homepageApplicantJobListLink");
 
-        menuToggle.addEventListener("click", () => {
-            mobileMenu.classList.toggle("hidden");
-        });
+        if (menuToggle && mobileMenu) {
+            menuToggle.addEventListener("click", () => {
+                mobileMenu.classList.toggle("hidden");
+            });
+        }
+
+        const escapeHtml = (value) => String(value ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/\"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+
+        const formatEmploymentType = (value) => {
+            const normalized = String(value ?? "").trim();
+            if (!normalized) {
+                return "Employment type available on the applicant portal";
+            }
+
+            return normalized
+                .split("_")
+                .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+                .join(" ");
+        };
+
+        const formatDateLabel = (value) => {
+            const normalized = String(value ?? "").trim();
+            if (!normalized) {
+                return "Open until further notice";
+            }
+
+            const parsed = new Date(normalized + "T00:00:00");
+            if (Number.isNaN(parsed.getTime())) {
+                return normalized;
+            }
+
+            return parsed.toLocaleDateString("en-PH", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+            });
+        };
+
+        const careersWorkflowHref = applicantJobListLink ? applicantJobListLink.getAttribute("href") : "./pages/applicant/job-list.php";
+
+        const renderCareers = (items) => {
+            if (!careersGrid) {
+                return;
+            }
+
+            if (!Array.isArray(items) || items.length === 0) {
+                careersGrid.innerHTML = `
+                    <article class="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center md:col-span-2 xl:col-span-3">
+                        <p class="text-sm font-semibold uppercase tracking-wide text-daGreen">No Published Openings</p>
+                        <h3 class="mt-3 text-xl font-semibold text-gray-900">There are no active public job postings right now.</h3>
+                        <p class="mt-3 text-sm leading-relaxed text-gray-600">Check back later or use the applicant portal once new openings are published.</p>
+                    </article>
+                `;
+                return;
+            }
+
+            careersGrid.innerHTML = items.map((item) => {
+                const title = escapeHtml(item.position_title || item.title || "ATI Career Opportunity");
+                const officeName = escapeHtml(item.office_name || "Agricultural Training Institute");
+                const description = escapeHtml(item.description || "Please log in to view the full posting details and application requirements.");
+                const employmentType = escapeHtml(formatEmploymentType(item.employment_type));
+                const deadline = escapeHtml(formatDateLabel(item.close_date));
+                const plantilla = escapeHtml(item.plantilla_item_no || "To be confirmed");
+
+                return `
+                    <article class="flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition hover:border-green-200 hover:shadow-md">
+                        <p class="text-xs uppercase tracking-wide text-daGreen font-semibold">Live Job Posting</p>
+                        <h3 class="mt-3 text-xl font-semibold text-gray-900">${title}</h3>
+                        <p class="mt-2 text-sm font-medium text-gray-700">${officeName}</p>
+                        <div class="mt-4 flex flex-wrap gap-2 text-xs text-gray-600">
+                            <span class="inline-flex items-center rounded-full bg-green-50 px-2.5 py-1 font-medium text-green-700">${employmentType}</span>
+                            <span class="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1">Plantilla ${plantilla}</span>
+                            <span class="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1">Deadline ${deadline}</span>
+                        </div>
+                        <p class="mt-4 flex-1 text-sm leading-relaxed text-gray-600">${description}</p>
+                        <div class="mt-6">
+                            <a href="${escapeHtml(careersWorkflowHref)}" class="inline-flex items-center gap-2 rounded-lg border border-daGreen px-4 py-2.5 text-sm font-semibold text-daGreen hover:bg-green-50 transition">
+                                <span class="material-icons text-sm">arrow_forward</span>
+                                Open Careers Workflow
+                            </a>
+                        </div>
+                    </article>
+                `;
+            }).join("");
+        };
+
+        const loadCareers = async () => {
+            if (!careersGrid || !careersFeedStatus) {
+                return;
+            }
+
+            try {
+                const response = await fetch("./api/public-careers.php", {
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest"
+                    }
+                });
+                const payload = await response.json();
+
+                if (!response.ok || !payload || payload.success !== true) {
+                    throw new Error((payload && payload.message) || "Unable to load careers feed.");
+                }
+
+                const items = Array.isArray(payload.items) ? payload.items : [];
+                renderCareers(items);
+                careersFeedStatus.className = "mb-6 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-sm text-green-700";
+                careersFeedStatus.textContent = items.length > 0
+                    ? `Showing ${items.length} current published opening${items.length === 1 ? "" : "s"} from the live ATI job postings feed.`
+                    : "No active published openings are currently available in the public careers feed.";
+            } catch (error) {
+                renderCareers([]);
+                careersFeedStatus.className = "mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800";
+                careersFeedStatus.textContent = error instanceof Error
+                    ? error.message
+                    : "Unable to load careers feed right now.";
+            }
+        };
 
         new Swiper(".heroSwiper", {
             loop: true,
@@ -289,6 +427,8 @@
                 prevEl: ".swiper-button-prev",
             },
         });
+
+        loadCareers();
     </script>
 </body>
 

@@ -56,6 +56,11 @@ $currentPage = basename($_SERVER['PHP_SELF']);
           <span class="material-icons text-base">description</span>
           <span class="sidebar-label">Document Management</span>
         </a>
+
+        <a href="document-category-management.php" class="flex items-center gap-3 px-4 py-2 rounded-lg <?= $activePage === 'document-category-management.php' ? 'bg-green-100 font-medium' : 'hover:bg-gray-100' ?>">
+          <span class="material-icons text-base">folder_managed</span>
+          <span class="sidebar-label">Category Management</span>
+        </a>
       </div>
     </div>
 

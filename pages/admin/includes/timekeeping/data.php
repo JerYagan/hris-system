@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/../../../shared/lib/rfid-attendance.php';
+
 $todayDate = date('Y-m-d');
 
 $isLateByPolicy = static function (?string $timeValue): bool {
@@ -49,7 +51,7 @@ $timekeepingQueryLimits = [
 $attendanceTodayResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/attendance_logs?select=id,person_id,attendance_date,time_in,time_out,hours_worked,late_minutes,attendance_status,person:people(first_name,surname)'
+    . '/rest/v1/attendance_logs?select=id,person_id,attendance_date,time_in,time_out,hours_worked,late_minutes,attendance_status,source,person:people(first_name,surname)'
     . '&attendance_date=eq.' . rawurlencode($todayDate)
     . '&order=attendance_date.desc,time_in.asc&limit=' . (int)$timekeepingQueryLimits['attendance_today'],
     $headers
@@ -58,7 +60,7 @@ $attendanceTodayResponse = apiRequest(
 $attendanceHistoryResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/attendance_logs?select=id,person_id,attendance_date,time_in,time_out,attendance_status,person:people(first_name,surname)'
+    . '/rest/v1/attendance_logs?select=id,person_id,attendance_date,time_in,time_out,attendance_status,source,person:people(first_name,surname)'
     . '&order=attendance_date.desc,created_at.desc&limit=' . (int)$timekeepingQueryLimits['attendance_history'],
     $headers
 );
@@ -126,9 +128,9 @@ $employeeRoleAssignmentsResponse = apiRequest(
 $employeeOptionsResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/people?select=id,first_name,surname,user_id,agency_employee_no'
-    . '&user_id=not.is.null'
-    . '&order=surname.asc,first_name.asc&limit=' . (int)$timekeepingQueryLimits['employees'],
+    . '/rest/v1/employment_records?select=person_id,employment_status,employment_type,person:people!employment_records_person_id_fkey(id,first_name,surname,user_id,agency_employee_no),position:job_positions(employment_classification)'
+    . '&is_current=eq.true'
+    . '&order=person(surname).asc,person(first_name).asc&limit=' . (int)$timekeepingQueryLimits['employees'],
     $headers
 );
 
@@ -168,6 +170,16 @@ $leaveTypeOptions = [];
 $approvedTravelByPersonDate = [];
 $specialRequestCreateMetaById = [];
 $specialRequestStatusOverrideById = [];
+$cosEmployeeRows = [];
+$employeeDirectoryByPersonId = [];
+$rfidRecentEventRows = [];
+$rfidDeviceRows = [];
+$rfidSummaryToday = [
+    'active_cards' => 0,
+    'active_devices' => 0,
+    'tap_success' => 0,
+    'tap_failures' => 0,
+];
 
 $employeeRoleUserIds = [];
 if (isSuccessful($employeeRoleAssignmentsResponse)) {
@@ -181,10 +193,18 @@ if (isSuccessful($employeeRoleAssignmentsResponse)) {
 }
 
 if (isSuccessful($employeeOptionsResponse)) {
-    foreach ((array)$employeeOptionsResponse['data'] as $personRaw) {
-        $person = (array)$personRaw;
-        $personId = trim((string)($person['id'] ?? ''));
+    foreach ((array)$employeeOptionsResponse['data'] as $employmentRaw) {
+        $employment = (array)$employmentRaw;
+        $person = (array)($employment['person'] ?? []);
+        $personId = trim((string)($employment['person_id'] ?? $person['id'] ?? ''));
         $userId = trim((string)($person['user_id'] ?? ''));
+        $employmentStatus = (string)($employment['employment_status'] ?? '');
+        $employmentType = cleanText($employment['employment_type'] ?? null) ?? '';
+        $positionClassification = cleanText($employment['position']['employment_classification'] ?? null) ?? '';
+        $effectiveEmploymentMarker = $employmentType !== '' ? $employmentType : $positionClassification;
+        $effectiveEmploymentStatus = timekeepingIsCosEmploymentStatus($employmentStatus, $effectiveEmploymentMarker)
+            ? ($effectiveEmploymentMarker !== '' ? $effectiveEmploymentMarker : $employmentStatus)
+            : $employmentStatus;
         if ($personId === '') {
             continue;
         }
@@ -205,8 +225,25 @@ if (isSuccessful($employeeOptionsResponse)) {
             'label' => $displayLabel,
             'name' => $fullName,
             'employee_code' => $employeeCode,
+            'employment_status' => $effectiveEmploymentStatus,
             'user_id' => $userId,
         ];
+
+        $employeeDirectoryByPersonId[$personId] = [
+            'employee_name' => $fullName,
+            'employee_code' => $employeeCode,
+            'employment_status' => $effectiveEmploymentStatus,
+        ];
+
+        if (timekeepingIsCosEmploymentStatus($employmentStatus, $effectiveEmploymentMarker)) {
+            $cosEmployeeRows[$personId] = [
+                'employee_name' => $fullName,
+                'employee_code' => $employeeCode,
+                'employment_status' => $effectiveEmploymentStatus !== '' ? $effectiveEmploymentStatus : 'COS',
+                'latest_cos_status' => '-',
+                'latest_cos_requested_label' => '-',
+            ];
+        }
     }
 }
 
@@ -235,6 +272,34 @@ if (isSuccessful($leaveTypeOptionsResponse)) {
         ];
     }
 }
+
+$rfidCardsResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/rfid_cards?select=id,person_id,card_uid,status,issued_at'
+    . '&status=eq.active'
+    . '&limit=5000',
+    $headers
+);
+$dataLoadError = $appendError($dataLoadError, 'RFID cards', $rfidCardsResponse);
+
+$rfidDevicesResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/rfid_devices?select=id,device_code,device_name,status,last_seen_at'
+    . '&limit=500',
+    $headers
+);
+$dataLoadError = $appendError($dataLoadError, 'RFID devices', $rfidDevicesResponse);
+
+$rfidEventsResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/rfid_scan_events?select=id,person_id,device_id,card_uid,scanned_at,request_source,result_code,result_message,attendance_log_id'
+    . '&order=scanned_at.desc&limit=250',
+    $headers
+);
+$dataLoadError = $appendError($dataLoadError, 'RFID scan events', $rfidEventsResponse);
 
 $approvedTravelResponse = apiRequest(
     'GET',
@@ -357,6 +422,86 @@ if (isSuccessful($attendanceTodayResponse)) {
             'late_minutes' => (int)($attendanceRow['late_minutes'] ?? 0),
             'attendance_status' => $rawStatus,
             'display_status' => $displayStatus,
+            'source_label' => ucfirst(str_replace('_', ' ', strtolower((string)($attendanceRow['source'] ?? '')))),
+        ];
+    }
+}
+
+$rfidDeviceMap = [];
+if (isSuccessful($rfidDevicesResponse)) {
+    foreach ((array)($rfidDevicesResponse['data'] ?? []) as $deviceRaw) {
+        $device = (array)$deviceRaw;
+        $deviceId = trim((string)($device['id'] ?? ''));
+        if ($deviceId === '') {
+            continue;
+        }
+
+        $statusRaw = strtolower((string)($device['status'] ?? 'inactive'));
+        if ($statusRaw === 'active') {
+            $rfidSummaryToday['active_devices']++;
+        }
+
+        $deviceName = trim((string)($device['device_name'] ?? 'Unnamed Device'));
+        $deviceCode = trim((string)($device['device_code'] ?? 'Unknown'));
+        $lastSeenRaw = trim((string)($device['last_seen_at'] ?? ''));
+
+        $rfidDeviceMap[$deviceId] = [
+            'device_name' => $deviceName,
+            'device_code' => $deviceCode,
+        ];
+
+        $rfidDeviceRows[] = [
+            'device_name' => $deviceName,
+            'device_code' => $deviceCode,
+            'status_label' => ucfirst(str_replace('_', ' ', $statusRaw)),
+            'status_class' => $statusRaw === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700',
+            'last_seen_label' => $lastSeenRaw !== '' ? formatDateTimeForPhilippines($lastSeenRaw, 'M d, Y h:i A') : '-',
+        ];
+    }
+}
+
+if (isSuccessful($rfidCardsResponse)) {
+    foreach ((array)($rfidCardsResponse['data'] ?? []) as $cardRaw) {
+        $card = (array)$cardRaw;
+        if (strtolower((string)($card['status'] ?? '')) === 'active') {
+            $rfidSummaryToday['active_cards']++;
+        }
+    }
+}
+
+if (isSuccessful($rfidEventsResponse)) {
+    foreach ((array)($rfidEventsResponse['data'] ?? []) as $eventRaw) {
+        $event = (array)$eventRaw;
+        $resultCode = strtolower((string)($event['result_code'] ?? 'unknown'));
+        $isSuccess = in_array($resultCode, ['time_in_logged', 'time_out_logged', 'duplicate_ignored', 'attendance_processed'], true);
+        $scannedAt = trim((string)($event['scanned_at'] ?? ''));
+        if (substr($scannedAt, 0, 10) === $todayDate) {
+            if ($isSuccess) {
+                $rfidSummaryToday['tap_success']++;
+            } else {
+                $rfidSummaryToday['tap_failures']++;
+            }
+        }
+
+        $personId = trim((string)($event['person_id'] ?? ''));
+        $employee = $personId !== '' ? ($employeeDirectoryByPersonId[$personId] ?? null) : null;
+        $deviceId = trim((string)($event['device_id'] ?? ''));
+        $device = $deviceId !== '' ? ($rfidDeviceMap[$deviceId] ?? null) : null;
+        $requestSource = strtolower((string)($event['request_source'] ?? 'device'));
+
+        $rfidRecentEventRows[] = [
+            'scanned_at_label' => formatDateTimeForPhilippines($scannedAt, 'M d, Y h:i A'),
+            'employee_name' => is_array($employee) ? (string)($employee['employee_name'] ?? 'Unknown Employee') : 'Unmapped Card',
+            'employee_code' => is_array($employee) ? (string)($employee['employee_code'] ?? '-') : '-',
+            'card_uid_masked' => rfidMaskCardUid((string)($event['card_uid'] ?? '')),
+            'request_source_label' => $requestSource === 'employee_simulation' ? 'Employee Simulation' : 'Device',
+            'device_label' => is_array($device)
+                ? trim((string)($device['device_name'] ?? 'Unnamed Device') . ' (' . (string)($device['device_code'] ?? 'Unknown') . ')')
+                : 'No Device',
+            'result_label' => ucfirst(str_replace('_', ' ', $resultCode)),
+            'result_class' => $isSuccess ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800',
+            'result_message' => trim((string)($event['result_message'] ?? '-')),
+            'attendance_linked' => trim((string)($event['attendance_log_id'] ?? '')) !== '',
         ];
     }
 }
@@ -405,6 +550,8 @@ if (isSuccessful($ctoRequestsResponse)) {
         $referenceNumber = cleanText($createMeta['reference_number'] ?? null);
         $attachmentPath = cleanText($attachmentMeta['relative_path'] ?? null);
         $attachmentName = cleanText($attachmentMeta['original_name'] ?? null);
+        $weekRangeLabel = cleanText($createMeta['week_range_label'] ?? null);
+        $weeklyScheduleSummary = timekeepingFormatCosWeeklyScheduleSummary((array)($createMeta['weekly_schedule'] ?? []));
         $statusRaw = strtolower((string)($request['status'] ?? 'pending'));
         if (isset($specialRequestStatusOverrideById[$requestId])) {
             $statusRaw = (string)$specialRequestStatusOverrideById[$requestId];
@@ -426,12 +573,22 @@ if (isSuccessful($ctoRequestsResponse)) {
                 $destination !== null ? 'Destination: ' . $destination : '',
                 $referenceNumber !== null ? 'Ref: ' . $referenceNumber : '',
                 $attachmentName !== null ? 'Attachment: ' . $attachmentName : '',
+                $weekRangeLabel !== null ? 'Week: ' . $weekRangeLabel : '',
+                $weeklyScheduleSummary !== '' ? 'Weekly Schedule: ' . $weeklyScheduleSummary : '',
             ]))),
             'attachment_url' => $attachmentPath !== null ? systemAppPath($attachmentPath) : null,
             'attachment_name' => $attachmentName,
         ];
 
         if ($isSpecialRequest) {
+            if ((string)($requestRow['request_type'] ?? '') === 'cos_schedule') {
+                $cosPersonId = trim((string)($request['person_id'] ?? ''));
+                if ($cosPersonId !== '' && isset($cosEmployeeRows[$cosPersonId])) {
+                    $cosEmployeeRows[$cosPersonId]['latest_cos_status'] = ucfirst(str_replace('_', ' ', $statusRaw));
+                    $cosEmployeeRows[$cosPersonId]['latest_cos_requested_label'] = $weekRangeLabel ?? (string)($requestRow['overtime_date'] ?? '-');
+                }
+            }
+
             $obRequests[] = $requestRow;
             $historyEntries[] = [
                 'sort_ts' => strtotime((string)($requestRow['created_at'] ?? '')) ?: 0,
@@ -455,6 +612,11 @@ if (isSuccessful($ctoRequestsResponse)) {
         ];
     }
 }
+
+$cosEmployeeRows = array_values($cosEmployeeRows);
+usort($cosEmployeeRows, static function (array $left, array $right): int {
+    return strcasecmp((string)($left['employee_name'] ?? ''), (string)($right['employee_name'] ?? ''));
+});
 
 foreach ($leaveRequests as $leaveRowRaw) {
     $leaveRow = (array)$leaveRowRaw;

@@ -17,6 +17,9 @@ $supportSearch = strtolower((string)cleanText($_GET['search'] ?? null));
 $supportStatusFilter = strtolower((string)cleanText($_GET['status'] ?? null));
 $supportCategoryFilter = strtolower((string)cleanText($_GET['category'] ?? null));
 $supportCategoryOptions = [];
+$actorLabels = [
+    (string)$employeeUserId => 'You',
+];
 
 $statusClass = static function (string $status): string {
     return match (strtolower(trim($status))) {
@@ -51,6 +54,7 @@ if (!isSuccessful($historyResponse)) {
 
 $rows = (array)($historyResponse['data'] ?? []);
 $tickets = [];
+$actorUserIds = [];
 
 $thirtyDaysAgo = strtotime('-30 days');
 
@@ -65,6 +69,11 @@ foreach ($rows as $rowRaw) {
     $requesterUserId = (string)($payload['requester_user_id'] ?? '');
     $actionName = strtolower((string)($row['action_name'] ?? ''));
     $createdAt = (string)($row['created_at'] ?? '');
+    $actorUserId = (string)($row['actor_user_id'] ?? '');
+
+    if ($actorUserId !== '' && $actorUserId !== (string)$employeeUserId) {
+        $actorUserIds[$actorUserId] = true;
+    }
 
     if ($actionName === 'submit_ticket' && $requesterUserId === (string)$employeeUserId) {
         $tickets[$ticketId] = [
@@ -82,6 +91,16 @@ foreach ($rows as $rowRaw) {
             'staff_notes' => '',
             'attachment_name' => (string)($payload['attachment_name'] ?? ''),
             'attachment_path' => (string)($payload['attachment_path'] ?? ''),
+            'history' => [[
+                'created_at' => $createdAt,
+                'action' => 'Ticket Submitted',
+                'actor_user_id' => $actorUserId,
+                'actor_label' => 'You',
+                'status' => (string)($payload['status'] ?? 'submitted'),
+                'message' => (string)($payload['message'] ?? ''),
+                'notes' => '',
+                'resolution' => '',
+            ]],
         ];
         continue;
     }
@@ -93,13 +112,104 @@ foreach ($rows as $rowRaw) {
         $tickets[$ticketId]['updated_at'] = $createdAt;
         $tickets[$ticketId]['admin_notes'] = (string)($payload['admin_notes'] ?? $tickets[$ticketId]['admin_notes']);
         $tickets[$ticketId]['resolution_notes'] = (string)($payload['resolution_notes'] ?? $tickets[$ticketId]['resolution_notes']);
+        $tickets[$ticketId]['history'][] = [
+            'created_at' => $createdAt,
+            'action' => 'Admin Updated Ticket',
+            'actor_user_id' => $actorUserId,
+            'actor_label' => '',
+            'status' => $status,
+            'message' => '',
+            'notes' => (string)($payload['admin_notes'] ?? ''),
+            'resolution' => (string)($payload['resolution_notes'] ?? ''),
+        ];
         continue;
     }
 
     if ($actionName === 'staff_ticket_update' && isset($tickets[$ticketId])) {
         $tickets[$ticketId]['updated_at'] = $createdAt;
         $tickets[$ticketId]['staff_notes'] = (string)($payload['staff_notes'] ?? $tickets[$ticketId]['staff_notes']);
+        $tickets[$ticketId]['history'][] = [
+            'created_at' => $createdAt,
+            'action' => 'HR Staff Reply',
+            'actor_user_id' => $actorUserId,
+            'actor_label' => '',
+            'status' => (string)($payload['status'] ?? $tickets[$ticketId]['status']),
+            'message' => '',
+            'notes' => (string)($payload['staff_notes'] ?? ''),
+            'resolution' => '',
+        ];
     }
+}
+
+if (!empty($actorUserIds)) {
+    $actorIds = array_keys($actorUserIds);
+
+    $actorUsersResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/user_accounts?select=id,email,username&id=in.' . rawurlencode('(' . implode(',', $actorIds) . ')') . '&limit=1000',
+        $headers
+    );
+
+    if (isSuccessful($actorUsersResponse)) {
+        foreach ((array)($actorUsersResponse['data'] ?? []) as $actorRowRaw) {
+            $actorRow = (array)$actorRowRaw;
+            $actorId = cleanText($actorRow['id'] ?? null);
+            if ($actorId === null) {
+                continue;
+            }
+
+            $label = trim((string)($actorRow['username'] ?? ''));
+            if ($label === '') {
+                $label = (string)($actorRow['email'] ?? $actorId);
+            }
+            $actorLabels[$actorId] = $label;
+        }
+    }
+
+    $actorPeopleResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/people?select=user_id,first_name,surname&user_id=in.' . rawurlencode('(' . implode(',', $actorIds) . ')') . '&limit=1000',
+        $headers
+    );
+
+    if (isSuccessful($actorPeopleResponse)) {
+        foreach ((array)($actorPeopleResponse['data'] ?? []) as $personRowRaw) {
+            $personRow = (array)$personRowRaw;
+            $actorId = cleanText($personRow['user_id'] ?? null);
+            if ($actorId === null) {
+                continue;
+            }
+
+            $fullName = trim((string)($personRow['first_name'] ?? '') . ' ' . (string)($personRow['surname'] ?? ''));
+            if ($fullName !== '') {
+                $actorLabels[$actorId] = $fullName;
+            }
+        }
+    }
+}
+
+foreach ($tickets as $ticketId => $ticket) {
+    $historyItems = [];
+    foreach ((array)($ticket['history'] ?? []) as $historyItem) {
+        $actorId = (string)($historyItem['actor_user_id'] ?? '');
+        if ($actorId === (string)$employeeUserId) {
+            $historyItem['actor_label'] = 'You';
+        } elseif ($actorId !== '' && isset($actorLabels[$actorId])) {
+            $historyItem['actor_label'] = $actorLabels[$actorId];
+        } elseif ((string)($historyItem['action'] ?? '') === 'Admin Updated Ticket') {
+            $historyItem['actor_label'] = 'Admin';
+        } elseif ((string)($historyItem['action'] ?? '') === 'HR Staff Reply') {
+            $historyItem['actor_label'] = 'HR Staff';
+        } else {
+            $historyItem['actor_label'] = 'System';
+        }
+
+        unset($historyItem['actor_user_id']);
+        $historyItems[] = $historyItem;
+    }
+
+    $ticket['history'] = $historyItems;
+    $tickets[$ticketId] = $ticket;
 }
 
 $supportInquiries = array_values($tickets);

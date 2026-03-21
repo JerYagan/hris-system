@@ -240,7 +240,7 @@ const wirePermanentAddressToggle = () => {
   const container = document.querySelector('[data-permanent-address-container]');
   if (!checkbox || !container) return;
 
-  const inputs = Array.from(container.querySelectorAll('input'));
+  const fields = Array.from(container.querySelectorAll('input, select'));
   const byId = (id) => document.getElementById(id);
   const residentialInputs = [
     byId('profileResidentialHouseNo'),
@@ -250,7 +250,7 @@ const wirePermanentAddressToggle = () => {
     byId('profileResidentialCity'),
     byId('profileResidentialProvince'),
     byId('profileResidentialZipCode'),
-  ].filter((item) => item instanceof HTMLInputElement);
+  ].filter((item) => item instanceof HTMLInputElement || item instanceof HTMLSelectElement);
 
   const syncResidentialToPermanent = () => {
     const pairs = [
@@ -266,8 +266,9 @@ const wirePermanentAddressToggle = () => {
     pairs.forEach(([sourceId, targetId]) => {
       const source = byId(sourceId);
       const target = byId(targetId);
-      if (source instanceof HTMLInputElement && target instanceof HTMLInputElement) {
+      if ((source instanceof HTMLInputElement || source instanceof HTMLSelectElement) && (target instanceof HTMLInputElement || target instanceof HTMLSelectElement)) {
         target.value = source.value;
+        target.dispatchEvent(new Event('change', { bubbles: true }));
       }
     });
   };
@@ -278,9 +279,9 @@ const wirePermanentAddressToggle = () => {
       syncResidentialToPermanent();
     }
 
-    inputs.forEach((input) => {
-      input.disabled = disabled;
-      input.classList.toggle('bg-gray-100', disabled);
+    fields.forEach((field) => {
+      field.disabled = disabled;
+      field.classList.toggle('bg-gray-100', disabled);
     });
   };
 
@@ -529,6 +530,75 @@ const normalizeLookup = (value) => {
     .trim();
 };
 
+const normalizeLookupVariants = (value, isBarangay = false) => {
+  const seed = normalizeLookup(value);
+  if (!seed) {
+    return [];
+  }
+
+  const variants = new Set();
+  const queue = [seed];
+
+  while (queue.length > 0) {
+    const current = queue.shift() || '';
+    if (!current || variants.has(current)) {
+      continue;
+    }
+
+    variants.add(current);
+
+    const withoutParen = current.replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
+    if (withoutParen && !variants.has(withoutParen)) {
+      queue.push(withoutParen);
+    }
+
+    const withoutSuffix = current.replace(/\s*,\s*.*$/, '').trim();
+    if (withoutSuffix && !variants.has(withoutSuffix)) {
+      queue.push(withoutSuffix);
+    }
+
+    if (isBarangay) {
+      const withoutBarangayPrefix = current.replace(/^(barangay|brgy\.?|brg\.?|bgy\.?)\s+/i, '').trim();
+      if (withoutBarangayPrefix && !variants.has(withoutBarangayPrefix)) {
+        queue.push(withoutBarangayPrefix);
+      }
+    } else {
+      const withoutCityPrefix = current.replace(/^(city|city of|municipality|municipality of|mun\.?|municipio de)\s+/i, '').trim();
+      if (withoutCityPrefix && !variants.has(withoutCityPrefix)) {
+        queue.push(withoutCityPrefix);
+      }
+
+      const withoutCitySuffix = current.replace(/\s+city$/i, '').trim();
+      if (withoutCitySuffix && !variants.has(withoutCitySuffix)) {
+        queue.push(withoutCitySuffix);
+      }
+    }
+  }
+
+  return Array.from(variants);
+};
+
+const resolveLookupKeys = (value, lookup, isBarangay = false) => {
+  if (!lookup || typeof lookup !== 'object') {
+    return [];
+  }
+
+  const valueVariants = normalizeLookupVariants(value, isBarangay);
+  if (valueVariants.length === 0) {
+    return [];
+  }
+
+  const resolved = new Set();
+  Object.keys(lookup).forEach((lookupKey) => {
+    const lookupVariants = normalizeLookupVariants(lookupKey, isBarangay);
+    if (lookupVariants.some((lookupVariant) => valueVariants.includes(lookupVariant))) {
+      resolved.add(lookupKey);
+    }
+  });
+
+  return Array.from(resolved);
+};
+
 const createUniqueSortedOptions = (values) => {
   const deduped = new Map();
   (values || []).forEach((value) => {
@@ -548,6 +618,45 @@ const buildModernSearch = (inputElement, optionsResolver) => {
   if (!(inputElement instanceof HTMLInputElement) || typeof optionsResolver !== 'function') {
     return;
   }
+
+  const inferLookupMode = () => {
+    const addressRole = (inputElement.dataset.addressRole || '').toLowerCase();
+    if (addressRole === 'barangay') {
+      return 'barangay';
+    }
+    if (addressRole === 'city') {
+      return 'city';
+    }
+
+    const identifier = `${inputElement.id || ''} ${inputElement.name || ''}`.toLowerCase();
+    if (identifier.includes('barangay')) {
+      return 'barangay';
+    }
+    if (identifier.includes('city') || identifier.includes('municipality')) {
+      return 'city';
+    }
+
+    return 'generic';
+  };
+
+  const matchesQuery = (option, query) => {
+    if (query === '') {
+      return true;
+    }
+
+    const lookupMode = inferLookupMode();
+    if (lookupMode === 'generic') {
+      return normalizeLookup(option).includes(query);
+    }
+
+    const isBarangay = lookupMode === 'barangay';
+    const queryVariants = normalizeLookupVariants(query, isBarangay);
+    const optionVariants = normalizeLookupVariants(option, isBarangay);
+
+    return optionVariants.some((optionVariant) => {
+      return queryVariants.some((queryVariant) => optionVariant.includes(queryVariant) || queryVariant.includes(optionVariant));
+    });
+  };
 
   const originalListId = inputElement.getAttribute('list') || '';
   if (originalListId !== '') {
@@ -592,7 +701,7 @@ const buildModernSearch = (inputElement, optionsResolver) => {
   const renderOptions = () => {
     const query = normalizeLookup(inputElement.value);
     const options = createUniqueSortedOptions(optionsResolver())
-      .filter((option) => query === '' || normalizeLookup(option).includes(query))
+      .filter((option) => matchesQuery(option, query))
       .slice(0, 30);
 
     container.innerHTML = '';
@@ -747,6 +856,8 @@ const wireModernProfileSearch = async () => {
   const bloodTypeOptions = extractDatalistValues('profileBloodTypeList');
 
   let barangayByCityLookup = {};
+  let provinceByCityLookup = {};
+  let zipLookupByCityBarangay = {};
   const employeeAddressLookupData = document.getElementById('employeeAddressLookupData');
   if (employeeAddressLookupData) {
     try {
@@ -754,90 +865,156 @@ const wireModernProfileSearch = async () => {
       if (parsedLookup && typeof parsedLookup === 'object' && parsedLookup.barangayByCity && typeof parsedLookup.barangayByCity === 'object') {
         barangayByCityLookup = parsedLookup.barangayByCity;
       }
-    } catch {
-      barangayByCityLookup = {};
-    }
-  }
-
-  let zipLookupByCityBarangay = {};
-  if (typeof window.fetch === 'function') {
-    try {
-      const response = await window.fetch('/hris-system/assets/zip-codes.json', { credentials: 'same-origin' });
-      if (response.ok) {
-        const payload = await response.json();
-        if (payload && typeof payload === 'object') {
-          zipLookupByCityBarangay = payload;
-        }
+      if (parsedLookup && typeof parsedLookup === 'object' && parsedLookup.provinceByCity && typeof parsedLookup.provinceByCity === 'object') {
+        provinceByCityLookup = parsedLookup.provinceByCity;
+      }
+      if (parsedLookup && typeof parsedLookup === 'object' && parsedLookup.zipByCityBarangay && typeof parsedLookup.zipByCityBarangay === 'object') {
+        zipLookupByCityBarangay = parsedLookup.zipByCityBarangay;
       }
     } catch {
+      barangayByCityLookup = {};
+      provinceByCityLookup = {};
       zipLookupByCityBarangay = {};
     }
   }
 
-  const resolveBarangayOptions = (groupKey) => {
-    const cityInput = cityInputs[groupKey];
-    if (!(cityInput instanceof HTMLInputElement)) {
-      return [];
-    }
-    const cityKey = normalizeLookup(cityInput.value);
-    if (!cityKey) {
-      return [];
-    }
+  const defaultBarangayOptions = extractDatalistValues('profileResidentialBarangayList');
 
-    const mappedBarangays = barangayByCityLookup[cityKey];
-    if (Array.isArray(mappedBarangays) && mappedBarangays.length > 0) {
-      return createUniqueSortedOptions(mappedBarangays);
-    }
-
-    const rawBarangays = zipLookupByCityBarangay[cityKey];
-    if (!rawBarangays || typeof rawBarangays !== 'object') {
-      return [];
-    }
-
-    return createUniqueSortedOptions(Object.keys(rawBarangays));
+  const addressControls = {
+    residential: {
+      city: cityInputs.residential,
+      barangay: barangayInputs.residential,
+      zip: zipInputs.residential,
+      province: document.getElementById('profileResidentialProvince'),
+    },
+    permanent: {
+      city: cityInputs.permanent,
+      barangay: barangayInputs.permanent,
+      zip: zipInputs.permanent,
+      province: document.getElementById('profilePermanentProvince'),
+    },
+  };
+  const lastAutofilledZipByGroup = {
+    residential: '',
+    permanent: '',
   };
 
-  const resolveZipOptions = (groupKey) => {
-    const cityInput = cityInputs[groupKey];
-    const barangayInput = barangayInputs[groupKey];
-    if (!(cityInput instanceof HTMLInputElement)) {
-      return [];
-    }
-
-    const cityKey = normalizeLookup(cityInput.value);
-    if (!cityKey) {
-      return [];
-    }
-
-    const rawBarangays = zipLookupByCityBarangay[cityKey];
-    if (!rawBarangays || typeof rawBarangays !== 'object') {
-      return [];
-    }
-
-    const barangayKey = barangayInput instanceof HTMLInputElement ? normalizeLookup(barangayInput.value) : '';
-    if (barangayKey && Array.isArray(rawBarangays[barangayKey])) {
-      return createUniqueSortedOptions(rawBarangays[barangayKey]);
-    }
-
-    const aggregate = [];
-    Object.values(rawBarangays).forEach((zipList) => {
-      if (Array.isArray(zipList)) {
-        zipList.forEach((zipValue) => aggregate.push((zipValue || '').toString()));
-      }
-    });
-    return createUniqueSortedOptions(aggregate);
-  };
-
-  const autofillZip = (groupKey) => {
-    const zipInput = zipInputs[groupKey];
-    if (!(zipInput instanceof HTMLInputElement)) {
+  const setDatalistOptions = (datalistId, options) => {
+    const datalist = document.getElementById(datalistId);
+    if (!(datalist instanceof HTMLDataListElement)) {
       return;
     }
 
-    const options = resolveZipOptions(groupKey);
-    if (options.length === 1) {
-      zipInput.value = options[0];
+    datalist.innerHTML = '';
+
+    options.forEach((optionValue) => {
+      const text = (optionValue || '').toString().trim();
+      if (text === '') {
+        return;
+      }
+
+      const option = document.createElement('option');
+      option.value = text;
+      datalist.appendChild(option);
+    });
+  };
+
+  const resolveBarangayOptions = (groupKey) => {
+    const controls = addressControls[groupKey];
+    if (!controls || !(controls.city instanceof HTMLInputElement || controls.city instanceof HTMLSelectElement)) {
+      return defaultBarangayOptions;
     }
+    const cityKeys = resolveLookupKeys(controls.city.value, barangayByCityLookup, false);
+    if (cityKeys.length === 0) {
+      return defaultBarangayOptions;
+    }
+
+    const resolvedOptions = [];
+
+    cityKeys.forEach((cityKey) => {
+      const mappedBarangays = barangayByCityLookup[cityKey];
+      if (Array.isArray(mappedBarangays) && mappedBarangays.length > 0) {
+        mappedBarangays.forEach((barangay) => resolvedOptions.push(barangay));
+        return;
+      }
+
+      const rawBarangays = zipLookupByCityBarangay[cityKey];
+      if (!rawBarangays || typeof rawBarangays !== 'object') {
+        return;
+      }
+
+      Object.keys(rawBarangays).forEach((barangay) => resolvedOptions.push(barangay));
+    });
+
+    return createUniqueSortedOptions(resolvedOptions);
+  };
+
+  const resolveZipValue = (groupKey) => {
+    const controls = addressControls[groupKey];
+    if (!controls) {
+      return '';
+    }
+
+    const cityField = controls.city;
+    const barangayField = controls.barangay;
+    if (!(cityField instanceof HTMLInputElement || cityField instanceof HTMLSelectElement) || !(barangayField instanceof HTMLInputElement || barangayField instanceof HTMLSelectElement)) {
+      return '';
+    }
+
+    const cityKey = normalizeLookup(cityField.value);
+    const barangayKey = normalizeLookup(barangayField.value);
+    if (!cityKey || !barangayKey) {
+      return '';
+    }
+
+    const zipOptions = zipLookupByCityBarangay[cityKey]?.[barangayKey];
+    if (!Array.isArray(zipOptions) || zipOptions.length === 0) {
+      return '';
+    }
+
+    return (zipOptions[0] || '').toString().trim();
+  };
+
+  const autofillZip = (groupKey) => {
+    const controls = addressControls[groupKey];
+    if (!controls || !(controls.zip instanceof HTMLInputElement)) {
+      return;
+    }
+
+    const resolvedZip = resolveZipValue(groupKey);
+    if (resolvedZip !== '') {
+      controls.zip.value = resolvedZip;
+      lastAutofilledZipByGroup[groupKey] = resolvedZip;
+      return;
+    }
+
+    const lastAutofilled = lastAutofilledZipByGroup[groupKey] || '';
+    if (lastAutofilled !== '' && controls.zip.value === lastAutofilled) {
+      controls.zip.value = '';
+      lastAutofilledZipByGroup[groupKey] = '';
+    }
+  };
+
+  const renderAddressGroup = (groupKey) => {
+    const controls = addressControls[groupKey];
+    if (!controls) {
+      return;
+    }
+
+    const resolvedBarangays = resolveBarangayOptions(groupKey);
+    const datalistId = groupKey === 'residential' ? 'profileResidentialBarangayList' : 'profilePermanentBarangayList';
+    setDatalistOptions(datalistId, resolvedBarangays);
+
+    if (controls.province instanceof HTMLInputElement) {
+      const cityKey = controls.city instanceof HTMLInputElement || controls.city instanceof HTMLSelectElement
+        ? normalizeLookup(controls.city.value)
+        : '';
+      controls.province.value = cityKey && provinceByCityLookup[cityKey]
+        ? provinceByCityLookup[cityKey]
+        : controls.province.value;
+    }
+
+    autofillZip(groupKey);
   };
 
   buildModernSearch(document.getElementById('profilePlaceOfBirth'), () => placeOfBirthOptions);
@@ -849,24 +1026,25 @@ const wireModernProfileSearch = async () => {
   buildModernSearch(document.getElementById('profilePermanentProvince'), () => provinceOptions);
   buildModernSearch(document.getElementById('profileResidentialBarangay'), () => resolveBarangayOptions('residential'));
   buildModernSearch(document.getElementById('profilePermanentBarangay'), () => resolveBarangayOptions('permanent'));
-  buildModernSearch(document.getElementById('profileResidentialZipCode'), () => resolveZipOptions('residential'));
-  buildModernSearch(document.getElementById('profilePermanentZipCode'), () => resolveZipOptions('permanent'));
 
   Object.entries(cityInputs).forEach(([groupKey, cityInput]) => {
-    if (!(cityInput instanceof HTMLInputElement)) {
+    if (!(cityInput instanceof HTMLInputElement || cityInput instanceof HTMLSelectElement)) {
       return;
     }
-    cityInput.addEventListener('input', () => autofillZip(groupKey));
-    cityInput.addEventListener('change', () => autofillZip(groupKey));
+    cityInput.addEventListener('input', () => renderAddressGroup(groupKey));
+    cityInput.addEventListener('change', () => renderAddressGroup(groupKey));
   });
 
   Object.entries(barangayInputs).forEach(([groupKey, barangayInput]) => {
-    if (!(barangayInput instanceof HTMLInputElement)) {
+    if (!(barangayInput instanceof HTMLInputElement || barangayInput instanceof HTMLSelectElement)) {
       return;
     }
     barangayInput.addEventListener('input', () => autofillZip(groupKey));
     barangayInput.addEventListener('change', () => autofillZip(groupKey));
   });
+
+  renderAddressGroup('residential');
+  renderAddressGroup('permanent');
 };
 
 window.initializeEmployeePersonalInformationFlatpickr = function (scope) {

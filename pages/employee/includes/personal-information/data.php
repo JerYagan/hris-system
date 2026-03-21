@@ -9,14 +9,138 @@ $pdsEducationLevels = ['elementary', 'secondary', 'vocational', 'college', 'grad
 $civilStatusOptions = ['Single', 'Married', 'Widowed', 'Separated', 'Divorced'];
 $bloodTypeOptions = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 $placeOfBirthOptions = [];
+$placeOfBirthOptionMap = [];
 $cityMunicipalityOptions = [];
 $provinceOptions = [];
 $barangayOptions = [];
 $barangayByCityLookup = [];
 $zipLookupByCityBarangay = [];
+$cityLabelByLookup = [];
+$provinceByCityLookup = [];
 
 $normalizeLookup = static function (string $value): string {
     return strtolower(trim((string)preg_replace('/\s+/', ' ', $value)));
+};
+
+$normalizeLookupVariants = static function (string $value, bool $isBarangay = false) use ($normalizeLookup): array {
+    $seed = $normalizeLookup($value);
+    if ($seed === '') {
+        return [];
+    }
+
+    $variants = [];
+    $queue = [$seed];
+
+    while (!empty($queue)) {
+        $current = array_shift($queue);
+        if (!is_string($current) || $current === '' || isset($variants[$current])) {
+            continue;
+        }
+
+        $variants[$current] = true;
+
+        $withoutParen = $normalizeLookup((string)preg_replace('/\s*\(.*?\)\s*/', ' ', $current));
+        if ($withoutParen !== '' && !isset($variants[$withoutParen])) {
+            $queue[] = $withoutParen;
+        }
+
+        $withoutSuffix = $normalizeLookup((string)preg_replace('/\s*,\s*.*$/', '', $current));
+        if ($withoutSuffix !== '' && !isset($variants[$withoutSuffix])) {
+            $queue[] = $withoutSuffix;
+        }
+
+        if ($isBarangay) {
+            $withoutBarangayPrefix = $normalizeLookup((string)preg_replace('/^(barangay|brgy\.?|brg\.?|bgy\.?)\s+/i', '', $current));
+            if ($withoutBarangayPrefix !== '' && !isset($variants[$withoutBarangayPrefix])) {
+                $queue[] = $withoutBarangayPrefix;
+            }
+        } else {
+            $withoutCityPrefix = $normalizeLookup((string)preg_replace('/^(city|city of|municipality|municipality of|mun\.?|municipio de)\s+/i', '', $current));
+            if ($withoutCityPrefix !== '' && !isset($variants[$withoutCityPrefix])) {
+                $queue[] = $withoutCityPrefix;
+            }
+
+            $withoutCitySuffix = $normalizeLookup((string)preg_replace('/\s+city$/i', '', $current));
+            if ($withoutCitySuffix !== '' && !isset($variants[$withoutCitySuffix])) {
+                $queue[] = $withoutCitySuffix;
+            }
+        }
+    }
+
+    return array_keys($variants);
+};
+
+$resolveCanonicalMappedValue = static function (string $value, array $lookup, bool $isBarangay = false) use ($normalizeLookupVariants): ?string {
+    $valueVariants = $normalizeLookupVariants($value, $isBarangay);
+    if (empty($valueVariants)) {
+        return null;
+    }
+
+    foreach ($valueVariants as $variant) {
+        if (isset($lookup[$variant]) && is_string($lookup[$variant])) {
+            return $lookup[$variant];
+        }
+    }
+
+    foreach ($lookup as $lookupValue) {
+        if (!is_string($lookupValue)) {
+            continue;
+        }
+
+        foreach ($normalizeLookupVariants($lookupValue, $isBarangay) as $lookupVariant) {
+            if (in_array($lookupVariant, $valueVariants, true)) {
+                return $lookupValue;
+            }
+        }
+    }
+
+    return null;
+};
+
+$resolveCanonicalOption = static function (string $value, array $options, bool $isBarangay = false) use ($normalizeLookupVariants): ?string {
+    $valueVariants = $normalizeLookupVariants($value, $isBarangay);
+    if (empty($valueVariants)) {
+        return null;
+    }
+
+    foreach ($options as $option) {
+        $optionText = cleanText($option);
+        if ($optionText === null) {
+            continue;
+        }
+
+        foreach ($normalizeLookupVariants($optionText, $isBarangay) as $optionVariant) {
+            if (in_array($optionVariant, $valueVariants, true)) {
+                return $optionText;
+            }
+        }
+    }
+
+    return null;
+};
+
+$resolveZipByCityBarangay = static function (string $cityValue, string $barangayValue) use ($normalizeLookupVariants, $zipLookupByCityBarangay): ?string {
+    $cityVariants = $normalizeLookupVariants($cityValue, false);
+    $barangayVariants = $normalizeLookupVariants($barangayValue, true);
+
+    foreach ($cityVariants as $cityVariant) {
+        $barangayGroup = $zipLookupByCityBarangay[$cityVariant] ?? null;
+        if (!is_array($barangayGroup)) {
+            continue;
+        }
+
+        foreach ($barangayVariants as $barangayVariant) {
+            $zipOptions = $barangayGroup[$barangayVariant] ?? null;
+            if (is_array($zipOptions) && count($zipOptions) === 1) {
+                $zipValue = cleanText($zipOptions[0] ?? null);
+                if ($zipValue !== null) {
+                    return $zipValue;
+                }
+            }
+        }
+    }
+
+    return null;
 };
 
 $formatPersonalInfoTimestamp = static function (?string $value, string $format = 'M d, Y h:i A'): string {
@@ -29,7 +153,7 @@ $excludePlaceholderLookupValue = static function (string $value): bool {
     return strtolower(trim($value)) === 'haugafia';
 };
 
-$assetRoot = dirname(__DIR__, 4) . '/assets';
+$assetRoot = dirname(__DIR__, 5) . '/assets';
 $municipalitiesPath = $assetRoot . '/psgc/municipalities.json';
 if (is_file($municipalitiesPath)) {
     $municipalitiesRaw = file_get_contents($municipalitiesPath);
@@ -43,17 +167,28 @@ if (is_file($municipalitiesPath)) {
             $province = cleanText($municipality['province'] ?? null);
 
             if ($name !== null && $name !== '') {
-                $placeOfBirthOptions[] = $name;
+                $cityKey = $normalizeLookup($name);
+                $placeLabel = $province !== null && $province !== ''
+                    ? $name . ', ' . $province
+                    : $name;
+                $placeOfBirthOptionMap[$normalizeLookup($placeLabel)] = $placeLabel;
+                $placeOfBirthOptionMap[$cityKey] = $placeLabel;
                 $citySet[$name] = true;
+                $cityLabelByLookup[$cityKey] = $name;
             }
 
             if ($province !== null && $province !== '') {
                 $provinceSet[$province] = true;
+                if ($name !== null && $name !== '') {
+                    $provinceByCityLookup[$normalizeLookup($name)] = $province;
+                }
             }
         }
 
         $cityMunicipalityOptions = array_keys($citySet);
         $provinceOptions = array_keys($provinceSet);
+        $placeOfBirthOptions = array_values(array_unique(array_values($placeOfBirthOptionMap)));
+        sort($placeOfBirthOptions, SORT_NATURAL | SORT_FLAG_CASE);
     }
 }
 
@@ -69,7 +204,9 @@ if (is_file($zipCodesPath)) {
                 continue;
             }
 
-            $zipLookupByCityBarangay[$cityKey] = [];
+            if (!isset($zipLookupByCityBarangay[$cityKey])) {
+                $zipLookupByCityBarangay[$cityKey] = [];
+            }
             foreach ((array)$barangayGroupRaw as $barangayName => $zipListRaw) {
                 $barangayKey = $normalizeLookup((string)$barangayName);
                 if ($barangayKey === '') {
@@ -81,7 +218,8 @@ if (is_file($zipCodesPath)) {
                     $barangaySet[strtolower($barangayLabel)] = $barangayLabel;
                 }
 
-                $zips = [];
+                $existingZips = $zipLookupByCityBarangay[$cityKey][$barangayKey] ?? [];
+                $zips = is_array($existingZips) ? array_values($existingZips) : [];
                 foreach ((array)$zipListRaw as $zipValue) {
                     $zipText = trim((string)$zipValue);
                     if ($zipText !== '' && !in_array($zipText, $zips, true)) {
@@ -110,6 +248,7 @@ if (is_file($barangaysPath)) {
             $barangay = (array)$barangayRaw;
             $barangayName = cleanText($barangay['name'] ?? null);
             $cityName = cleanText($barangay['citymun'] ?? null);
+            $zipCode = cleanText($barangay['zip_code'] ?? null);
 
             if ($barangayName === null || $barangayName === '') {
                 continue;
@@ -127,6 +266,13 @@ if (is_file($barangaysPath)) {
             }
 
             $barangayByCityLookup[$cityKey][strtolower($barangayName)] = $barangayName;
+
+            if ($zipCode !== null && $zipCode !== '') {
+                if (!isset($zipLookupByCityBarangay[$cityKey])) {
+                    $zipLookupByCityBarangay[$cityKey] = [];
+                }
+                $zipLookupByCityBarangay[$cityKey][strtolower($barangayName)] = [$zipCode];
+            }
         }
 
         foreach ($barangayByCityLookup as $cityKey => $cityBarangays) {
@@ -213,7 +359,11 @@ $employeeProfile = [
     'address_line' => '-',
     'employment_position_title' => (string)($employeePositionTitle ?? ''),
     'employment_office_name' => (string)($employeeOfficeName ?? ''),
+    'employment_type' => '',
     'employment_status' => (string)($employeeEmploymentStatus ?? ''),
+    'has_contractual_application' => false,
+    'contractual_application_label' => '',
+    'contractual_application_job_title' => '',
     'supervisor_name' => '',
 ];
 
@@ -305,6 +455,10 @@ $employeeProfile['mobile_no'] = (string)($personRow['mobile_no'] ?? '');
 $employeeProfile['date_of_birth'] = (string)($personRow['date_of_birth'] ?? '');
 $employeeProfile['profile_photo_url'] = (string)($personRow['profile_photo_url'] ?? '');
 $employeeProfile['place_of_birth'] = (string)($personRow['place_of_birth'] ?? '');
+$canonicalPlaceOfBirth = $resolveCanonicalMappedValue($employeeProfile['place_of_birth'], $placeOfBirthOptionMap, false);
+if ($canonicalPlaceOfBirth !== null) {
+    $employeeProfile['place_of_birth'] = $canonicalPlaceOfBirth;
+}
 $employeeProfile['civil_status'] = (string)($personRow['civil_status'] ?? '');
 $employeeProfile['agency_employee_no'] = (string)($personRow['agency_employee_no'] ?? '');
 
@@ -355,6 +509,55 @@ if (isSuccessful($addressResponse)) {
             $employeeProfile['permanent_country'] = (string)($addressRow['country'] ?? 'Philippines');
         }
     }
+
+    $normalizeEmployeeAddress = static function (array &$address) use ($normalizeLookupVariants, $resolveCanonicalMappedValue, $resolveCanonicalOption, $resolveZipByCityBarangay, $cityLabelByLookup, $provinceByCityLookup, $barangayByCityLookup): void {
+        $canonicalCity = $resolveCanonicalMappedValue((string)($address['city_municipality'] ?? ''), $cityLabelByLookup, false);
+        if ($canonicalCity !== null) {
+            $address['city_municipality'] = $canonicalCity;
+        }
+
+        $cityVariants = $normalizeLookupVariants((string)($address['city_municipality'] ?? ''), false);
+        foreach ($cityVariants as $cityVariant) {
+            if (isset($provinceByCityLookup[$cityVariant])) {
+                $address['province'] = $provinceByCityLookup[$cityVariant];
+                break;
+            }
+        }
+
+        $barangayOptionsForCity = [];
+        foreach ($cityVariants as $cityVariant) {
+            $cityBarangays = $barangayByCityLookup[$cityVariant] ?? null;
+            if (is_array($cityBarangays)) {
+                $barangayOptionsForCity = array_merge($barangayOptionsForCity, $cityBarangays);
+            }
+        }
+
+        $canonicalBarangay = $resolveCanonicalOption((string)($address['barangay'] ?? ''), $barangayOptionsForCity, true);
+        if ($canonicalBarangay !== null) {
+            $address['barangay'] = $canonicalBarangay;
+        }
+
+        if (trim((string)($address['zip_code'] ?? '')) === '') {
+            $resolvedZip = $resolveZipByCityBarangay((string)($address['city_municipality'] ?? ''), (string)($address['barangay'] ?? ''));
+            if ($resolvedZip !== null) {
+                $address['zip_code'] = $resolvedZip;
+            }
+        }
+    };
+
+    $normalizeEmployeeAddress($employeeProfile);
+
+    $permanentAddress = [
+        'barangay' => $employeeProfile['permanent_barangay'],
+        'city_municipality' => $employeeProfile['permanent_city_municipality'],
+        'province' => $employeeProfile['permanent_province'],
+        'zip_code' => $employeeProfile['permanent_zip_code'],
+    ];
+    $normalizeEmployeeAddress($permanentAddress);
+    $employeeProfile['permanent_barangay'] = $permanentAddress['barangay'];
+    $employeeProfile['permanent_city_municipality'] = $permanentAddress['city_municipality'];
+    $employeeProfile['permanent_province'] = $permanentAddress['province'];
+    $employeeProfile['permanent_zip_code'] = $permanentAddress['zip_code'];
 
     $parts = [
         cleanText($employeeProfile['house_no']),
@@ -555,7 +758,7 @@ if (empty($employeeEducationRows)) {
 $employmentResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/employment_records?select=id,employment_status,office:offices(office_name),position:job_positions(position_title),supervisor:people!employment_records_immediate_supervisor_person_id_fkey(first_name,surname)'
+    . '/rest/v1/employment_records?select=id,employment_status,employment_type,office:offices(office_name),position:job_positions(position_title,employment_classification),supervisor:people!employment_records_immediate_supervisor_person_id_fkey(first_name,surname)'
     . '&id=eq.' . rawurlencode((string)$employeeEmploymentId)
     . '&limit=1',
     $headers
@@ -567,6 +770,12 @@ if (isSuccessful($employmentResponse) && !empty((array)($employmentResponse['dat
     $positionRow = (array)($employmentRow['position'] ?? []);
     $supervisorRow = (array)($employmentRow['supervisor'] ?? []);
 
+    $employmentTypeRaw = strtolower(trim((string)($employmentRow['employment_type'] ?? '')));
+    $positionClassification = strtolower(trim((string)($positionRow['employment_classification'] ?? '')));
+    $employeeProfile['employment_type'] = $employmentTypeRaw !== ''
+        ? $employmentTypeRaw
+        : (in_array($positionClassification, ['regular', 'coterminous'], true) ? 'permanent' : ($positionClassification !== '' ? 'contractual' : ''));
+
     $employeeProfile['employment_status'] = (string)($employmentRow['employment_status'] ?? $employeeProfile['employment_status']);
     $employeeProfile['employment_office_name'] = (string)($officeRow['office_name'] ?? $employeeProfile['employment_office_name']);
     $employeeProfile['employment_position_title'] = (string)($positionRow['position_title'] ?? $employeeProfile['employment_position_title']);
@@ -575,6 +784,86 @@ if (isSuccessful($employmentResponse) && !empty((array)($employmentResponse['dat
     $supervisorLastName = cleanText($supervisorRow['surname'] ?? null);
     if ($supervisorFirstName !== null || $supervisorLastName !== null) {
         $employeeProfile['supervisor_name'] = trim(((string)$supervisorFirstName . ' ' . (string)$supervisorLastName));
+    }
+}
+
+$applicantProfileResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/applicant_profiles?select=id'
+    . '&user_id=eq.' . rawurlencode((string)$employeeUserId)
+    . '&limit=1',
+    $headers
+);
+
+if (isSuccessful($applicantProfileResponse) && !empty((array)($applicantProfileResponse['data'] ?? []))) {
+    $applicantProfileId = cleanText($applicantProfileResponse['data'][0]['id'] ?? null) ?? '';
+    if (isValidUuid($applicantProfileId)) {
+        $applicationsResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/applications?select=job_posting_id,application_status,submitted_at'
+            . '&applicant_profile_id=eq.' . rawurlencode($applicantProfileId)
+            . '&order=submitted_at.desc&limit=100',
+            $headers
+        );
+
+        if (isSuccessful($applicationsResponse)) {
+            $applicationRows = (array)($applicationsResponse['data'] ?? []);
+            $postingIds = [];
+            foreach ($applicationRows as $applicationRow) {
+                $postingId = cleanText($applicationRow['job_posting_id'] ?? null) ?? '';
+                if (isValidUuid($postingId)) {
+                    $postingIds[$postingId] = true;
+                }
+            }
+
+            if (!empty($postingIds)) {
+                $postingIdFilter = implode(',', array_map('rawurlencode', array_keys($postingIds)));
+                $jobPostingsResponse = apiRequest(
+                    'GET',
+                    $supabaseUrl
+                    . '/rest/v1/job_postings?select=id,title,position:job_positions(position_title,employment_classification)'
+                    . '&id=in.(' . $postingIdFilter . ')&limit=100',
+                    $headers
+                );
+
+                $jobPostingById = [];
+                if (isSuccessful($jobPostingsResponse)) {
+                    foreach ((array)($jobPostingsResponse['data'] ?? []) as $postingRow) {
+                        $postingId = cleanText($postingRow['id'] ?? null) ?? '';
+                        if (!isValidUuid($postingId)) {
+                            continue;
+                        }
+
+                        $jobPostingById[$postingId] = (array)$postingRow;
+                    }
+                }
+
+                foreach ($applicationRows as $applicationRow) {
+                    $postingId = cleanText($applicationRow['job_posting_id'] ?? null) ?? '';
+                    $status = strtolower(trim((string)(cleanText($applicationRow['application_status'] ?? null) ?? 'submitted')));
+                    $posting = (array)($jobPostingById[$postingId] ?? []);
+                    $position = is_array($posting['position'] ?? null) ? (array)$posting['position'] : [];
+                    $classification = strtolower(trim((string)(cleanText($position['employment_classification'] ?? null) ?? '')));
+
+                    if (in_array($status, ['withdrawn', 'rejected', 'hired'], true)) {
+                        continue;
+                    }
+
+                    if (in_array($classification, ['regular', 'coterminous', ''], true)) {
+                        continue;
+                    }
+
+                    $employeeProfile['has_contractual_application'] = true;
+                    $employeeProfile['contractual_application_label'] = 'Applied to Contractual Job';
+                    $employeeProfile['contractual_application_job_title'] = cleanText($posting['title'] ?? null)
+                        ?? cleanText($position['position_title'] ?? null)
+                        ?? 'Contractual Job';
+                    break;
+                }
+            }
+        }
     }
 }
 

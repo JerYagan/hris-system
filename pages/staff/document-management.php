@@ -9,6 +9,16 @@ $breadcrumbs = ['Document Management'];
 
 $state = cleanText($_GET['state'] ?? null);
 $message = cleanText($_GET['message'] ?? null);
+$requestStatusMeta = static function (string $status): array {
+    $key = strtolower(trim($status));
+    return match ($key) {
+        'fulfilled' => ['Fulfilled', 'bg-emerald-100 text-emerald-800'],
+        'submitted' => ['Submitted', 'bg-amber-100 text-amber-800'],
+        'needs_revision', 'need_revision' => ['Needs Revision', 'bg-orange-100 text-orange-800'],
+        'rejected' => ['Rejected', 'bg-rose-100 text-rose-800'],
+        default => [ucwords($key !== '' ? str_replace('_', ' ', $key) : 'Submitted'), 'bg-slate-100 text-slate-700'],
+    };
+};
 
 ob_start();
 ?>
@@ -19,10 +29,10 @@ ob_start();
             <h1 class="text-2xl font-bold text-gray-800">Document Management</h1>
             <p class="text-sm text-gray-500">Review active documents, submit recommendations to admin for final approval/rejection, manage upload categories, and track HR document requests.</p>
         </div>
-        <button type="button" id="openCategoryCreateModal" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap">
+        <a href="document-category-management.php" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap">
             <span class="material-symbols-outlined text-[18px]">create_new_folder</span>
-            Create Upload Category
-        </button>
+            Manage Categories
+        </a>
     </div>
 </div>
 
@@ -424,6 +434,7 @@ ob_start();
                     </tr>
                 <?php else: ?>
                     <?php foreach ($documentRequestRows as $requestRow): ?>
+                        <?php [$requestStatusLabel, $requestStatusClass] = $requestStatusMeta((string)($requestRow['status_raw'] ?? ($requestRow['status_label'] ?? 'submitted'))); ?>
                         <tr>
                             <td class="px-4 py-3">
                                 <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($requestRow['request_type_label'] ?? 'HR Document Request'), ENT_QUOTES, 'UTF-8') ?></p>
@@ -433,6 +444,9 @@ ob_start();
                                 <?php if (trim((string)($requestRow['notes'] ?? '')) !== ''): ?>
                                     <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars((string)($requestRow['notes'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
                                 <?php endif; ?>
+                                <?php if (trim((string)($requestRow['fulfilled_document_title'] ?? '')) !== ''): ?>
+                                    <p class="text-xs text-gray-500 mt-1">Released file: <?= htmlspecialchars((string)($requestRow['fulfilled_document_title'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
+                                <?php endif; ?>
                             </td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($requestRow['requester_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3">
@@ -441,7 +455,7 @@ ob_start();
                                     <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars((string)($requestRow['other_purpose'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
                                 <?php endif; ?>
                             </td>
-                            <td class="px-4 py-3"><span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800"><?= htmlspecialchars((string)($requestRow['status_label'] ?? 'Submitted'), ENT_QUOTES, 'UTF-8') ?></span></td>
+                            <td class="px-4 py-3"><span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium <?= htmlspecialchars($requestStatusClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($requestStatusLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($requestRow['submitted_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                         </tr>
                     <?php endforeach; ?>
@@ -661,33 +675,6 @@ ob_start();
         <div class="px-6 py-4 border-t flex justify-end">
             <button type="button" id="documentAuditModalCancel" class="px-4 py-2 border rounded-md text-sm text-gray-700 hover:bg-gray-50">Close</button>
         </div>
-    </div>
-</div>
-
-<div id="documentCategoryModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4">
-    <div class="w-full max-w-lg rounded-xl bg-white border shadow-lg">
-        <div class="flex items-center justify-between px-6 py-4 border-b">
-            <h3 class="text-lg font-semibold text-gray-800">Create Upload Category</h3>
-            <button type="button" id="documentCategoryModalClose" class="text-gray-500 hover:text-gray-700" aria-label="Close category modal">
-                <span class="material-symbols-outlined">close</span>
-            </button>
-        </div>
-
-        <form method="POST" action="document-management.php" class="px-6 py-4 space-y-4">
-            <input type="hidden" name="form_action" value="create_document_category">
-            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
-
-            <div>
-                <label for="staffDocumentCategoryName" class="text-sm text-gray-600">Category Name</label>
-                <input id="staffDocumentCategoryName" name="category_name" type="text" maxlength="80" class="w-full mt-1 border rounded-md px-3 py-2 text-sm" placeholder="Examples: Certification, Compliance Letter" required>
-                <p class="text-xs text-gray-500 mt-1">Invalid placeholder values such as haugafia are blocked.</p>
-            </div>
-
-            <div class="flex items-center justify-end gap-3 pt-2">
-                <button type="button" id="documentCategoryModalCancel" class="px-4 py-2 border rounded-md text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
-                <button type="submit" class="px-4 py-2 rounded-md bg-green-700 text-white text-sm hover:bg-green-800">Create Category</button>
-            </div>
-        </form>
     </div>
 </div>
 

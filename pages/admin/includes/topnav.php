@@ -145,20 +145,6 @@ $topnavDisplayInitials = systemTopnavBuildInitials($topnavDisplayName, 'AD');
     </div>
 
     <div class="flex items-center gap-3">
-        <div class="relative hidden lg:block" id="topnavSearchWrapper">
-            <span class="material-symbols-outlined absolute left-3 top-2 text-slate-400 text-sm">search</span>
-            <input id="topnavGlobalSearch" type="text" placeholder="Search records, accounts, documents..." class="admin-top-search pl-9 pr-3 py-1.5 w-72 text-sm placeholder:text-slate-500 focus:outline-none" autocomplete="off">
-            <div id="topnavSearchResults" class="absolute right-0 mt-2 w-[420px] hidden z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
-                <div class="px-4 py-3 border-b border-slate-100 bg-slate-50/70">
-                    <p class="text-sm font-semibold text-slate-800">Search Results</p>
-                    <p id="topnavSearchMeta" class="text-xs text-slate-500">Type to search</p>
-                </div>
-                <div id="topnavSearchResultsBody" class="max-h-[360px] overflow-y-auto">
-                    <div class="px-4 py-6 text-sm text-slate-500 text-center">Start typing to find records in the current module.</div>
-                </div>
-            </div>
-        </div>
-
         <div
             class="relative"
             data-topnav-notifications

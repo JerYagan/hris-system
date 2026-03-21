@@ -1022,14 +1022,12 @@ if ($action === 'review_ob_request') {
         redirectWithState('error', 'This ' . $requestLabelLower . ' is locked after final decision.');
     }
 
-    $persistedDecision = $decision === 'needs_revision' ? 'cancelled' : $decision;
-
     $patchResponse = apiRequest(
         'PATCH',
         $supabaseUrl . '/rest/v1/overtime_requests?id=eq.' . $requestId,
         array_merge($headers, ['Prefer: return=minimal']),
         [
-            'status' => $persistedDecision,
+            'status' => $decision,
             'approved_by' => $adminUserId !== '' ? $adminUserId : null,
             'approved_at' => gmdate('c'),
         ]

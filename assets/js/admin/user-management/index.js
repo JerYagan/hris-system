@@ -1,62 +1,74 @@
-import { bindTableFilters, initAdminShellInteractions, initModalSystem, initStatusChangeConfirmations, openModal } from '/hris-system/assets/js/shared/admin-core.js';
+import {
+  bindTableFilters,
+  initAdminShellInteractions,
+  initModalSystem,
+  initStatusChangeConfirmations,
+  openModal,
+} from '/hris-system/assets/js/shared/admin-core.js';
 
-const initActionMenus = () => {
-  const closeMenus = () => {
-    document.querySelectorAll('[data-person-action-menu]').forEach((menu) => {
-      menu.classList.add('hidden');
-    });
-  };
+let flatpickrPromise = null;
 
-  document.querySelectorAll('[data-person-action-menu-toggle]').forEach((toggle) => {
-    toggle.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
+const ensureFlatpickr = async () => {
+  if (typeof window.flatpickr === 'function') {
+    return window.flatpickr;
+  }
 
-      const scope = toggle.closest('[data-person-action-scope]');
-      const menu = scope?.querySelector('[data-person-action-menu]');
-      if (!menu) {
+  if (!flatpickrPromise) {
+    flatpickrPromise = new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-flatpickr="true"]');
+      if (existing) {
+        existing.addEventListener('load', () => resolve(window.flatpickr), { once: true });
+        existing.addEventListener('error', () => reject(new Error('Failed to load Flatpickr.')), { once: true });
         return;
       }
 
-      const willOpen = menu.classList.contains('hidden');
-      closeMenus();
-      if (willOpen) {
-        menu.classList.remove('hidden');
-      }
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/flatpickr';
+      script.defer = true;
+      script.dataset.flatpickr = 'true';
+      script.onload = () => resolve(window.flatpickr);
+      script.onerror = () => reject(new Error('Failed to load Flatpickr.'));
+      document.head.appendChild(script);
     });
-  });
+  }
 
-  document.querySelectorAll('[data-action-menu-item]').forEach((menuItem) => {
-    menuItem.addEventListener('click', (event) => {
-      event.preventDefault();
-      const action = menuItem.getAttribute('data-action-target') || '';
-      const scope = menuItem.closest('[data-person-action-scope]');
-      const trigger = scope?.querySelector(`[data-action-trigger="${action}"]`);
-      closeMenus();
-      if (trigger instanceof HTMLElement) {
-        trigger.click();
-      }
-    });
-  });
-
-  document.addEventListener('click', (event) => {
-    if (!event.target.closest('[data-person-action-scope]')) {
-      closeMenus();
-    }
-  });
+  return flatpickrPromise;
 };
 
-const initDateInputs = () => {
-  if (typeof window.flatpickr !== 'function') {
+const fetchHtml = async (url) => {
+  const response = await fetch(url, {
+    credentials: 'same-origin',
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Request failed with status ${response.status}`);
+  }
+
+  return response.text();
+};
+
+const buildPartialUrl = (baseUrl, partial) => {
+  const url = new URL(baseUrl, window.location.href);
+  url.searchParams.set('partial', partial);
+  return url.toString();
+};
+
+const initDateInputs = async (root = document) => {
+  const dateInputs = Array.from(root.querySelectorAll('input[type="date"]:not([data-flatpickr="off"])'));
+  if (!dateInputs.length) {
     return;
   }
 
-  document.querySelectorAll('input[type="date"]:not([data-flatpickr="off"])').forEach((input) => {
+  const flatpickr = await ensureFlatpickr();
+  dateInputs.forEach((input) => {
     if (input.dataset.flatpickrInitialized === 'true') {
       return;
     }
 
-    window.flatpickr(input, {
+    flatpickr(input, {
       dateFormat: 'Y-m-d',
       allowInput: true,
     });
@@ -64,28 +76,47 @@ const initDateInputs = () => {
   });
 };
 
-const initAccountPrefill = () => {
+const initUserManagementFilters = (root = document) => {
+  const table = root.querySelector('#usersTable');
+  const searchInput = root.querySelector('#usersSearchInput');
+  const statusFilter = root.querySelector('#usersStatusFilter');
+  if (!table || !searchInput || !statusFilter || table.dataset.userFiltersInitialized === 'true') {
+    return;
+  }
+
+  bindTableFilters({
+    tableId: 'usersTable',
+    searchInputId: 'usersSearchInput',
+    searchDataAttr: 'data-user-search',
+    statusFilterId: 'usersStatusFilter',
+    statusDataAttr: 'data-user-status',
+  });
+  table.dataset.userFiltersInitialized = 'true';
+};
+
+const initAccountPrefill = (root = document) => {
   const quickCreateForm = document.getElementById('quickCreateUserForm');
   const quickCreateNameInput = quickCreateForm?.querySelector('input[name="full_name"]');
   const quickCreateRoleSelect = document.getElementById('quickCreateRoleSelect');
   const quickCreateOfficeSelect = document.getElementById('quickCreateOfficeSelect');
   const quickCreatePositionSelect = document.getElementById('quickCreatePositionSelect');
-  const accountForm = document.getElementById('accountForm');
-  const accountEmailInput = document.getElementById('accountEmailInput');
-  const accountFullNameInput = document.getElementById('accountFullNameInput');
-  const deleteUserForm = document.getElementById('deleteUserForm');
-  const deleteUserIdInput = document.getElementById('deleteUserIdInput');
-  const deleteUserEmailInput = document.getElementById('deleteUserEmailInput');
-  const deleteUserNameInput = document.getElementById('deleteUserNameInput');
-  const roleForm = document.getElementById('roleForm');
-  const roleUserSelect = document.getElementById('roleUserSelect');
-  const roleSelect = document.getElementById('roleSelect');
-  const roleOfficeSelect = document.getElementById('roleOfficeSelect');
-  const roleAdminGuardHint = document.getElementById('roleAdminGuardHint');
-  const credentialForm = document.getElementById('credentialForm');
-  const credentialUserSelect = document.getElementById('credentialUserSelect');
-  const credentialActionSelect = document.getElementById('credentialActionSelect');
-  const credentialActionHelp = document.getElementById('credentialActionHelp');
+
+  const accountForm = root.querySelector('#accountForm');
+  const accountEmailInput = root.querySelector('#accountEmailInput');
+  const accountFullNameInput = root.querySelector('#accountFullNameInput');
+  const deleteUserForm = root.querySelector('#deleteUserForm');
+  const deleteUserIdInput = root.querySelector('#deleteUserIdInput');
+  const deleteUserEmailInput = root.querySelector('#deleteUserEmailInput');
+  const deleteUserNameInput = root.querySelector('#deleteUserNameInput');
+  const roleForm = root.querySelector('#roleForm');
+  const roleUserSelect = root.querySelector('#roleUserSelect');
+  const roleSelect = root.querySelector('#roleSelect');
+  const roleOfficeSelect = root.querySelector('#roleOfficeSelect');
+  const roleAdminGuardHint = root.querySelector('#roleAdminGuardHint');
+  const credentialForm = root.querySelector('#credentialForm');
+  const credentialUserSelect = root.querySelector('#credentialUserSelect');
+  const credentialActionSelect = root.querySelector('#credentialActionSelect');
+  const credentialActionHelp = root.querySelector('#credentialActionHelp');
 
   const getSelectedLabel = (select) => {
     if (!(select instanceof HTMLSelectElement)) {
@@ -276,20 +307,8 @@ const initAccountPrefill = () => {
     }
   };
 
-  document.querySelectorAll('[data-fill-role]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const userId = button.getAttribute('data-user-id') || '';
-      if (!(roleUserSelect instanceof HTMLSelectElement) || userId === '') {
-        return;
-      }
-
-      roleUserSelect.value = userId;
-      roleUserSelect.dispatchEvent(new Event('change'));
-      openModal('roleModal');
-    });
-  });
-
-  if (roleUserSelect instanceof HTMLSelectElement && roleOfficeSelect instanceof HTMLSelectElement) {
+  if (roleUserSelect instanceof HTMLSelectElement && roleOfficeSelect instanceof HTMLSelectElement && roleUserSelect.dataset.prefillBound !== 'true') {
+    roleUserSelect.dataset.prefillBound = 'true';
     roleUserSelect.addEventListener('change', () => {
       const selectedOption = roleUserSelect.options[roleUserSelect.selectedIndex] || null;
       const officeId = selectedOption ? (selectedOption.getAttribute('data-office-id') || '').trim() : '';
@@ -303,73 +322,31 @@ const initAccountPrefill = () => {
     });
   }
 
-  if (roleSelect instanceof HTMLSelectElement) {
+  if (roleSelect instanceof HTMLSelectElement && roleSelect.dataset.prefillBound !== 'true') {
+    roleSelect.dataset.prefillBound = 'true';
     roleSelect.addEventListener('change', updateRoleConfirmation);
   }
 
-  document.querySelectorAll('[data-fill-credential]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const userId = button.getAttribute('data-user-id') || '';
-      if (!(credentialUserSelect instanceof HTMLSelectElement) || userId === '') {
-        return;
-      }
-
-      credentialUserSelect.value = userId;
-      credentialUserSelect.dispatchEvent(new Event('change'));
-      openModal('credentialModal');
-    });
-  });
-
-  if (credentialUserSelect instanceof HTMLSelectElement) {
+  if (credentialUserSelect instanceof HTMLSelectElement && credentialUserSelect.dataset.prefillBound !== 'true') {
+    credentialUserSelect.dataset.prefillBound = 'true';
     credentialUserSelect.addEventListener('change', () => {
       updateCredentialAdminGuard();
       updateCredentialConfirmation();
     });
   }
 
-  if (credentialActionSelect instanceof HTMLSelectElement) {
+  if (credentialActionSelect instanceof HTMLSelectElement && credentialActionSelect.dataset.prefillBound !== 'true') {
+    credentialActionSelect.dataset.prefillBound = 'true';
     credentialActionSelect.addEventListener('change', updateCredentialConfirmation);
   }
 
-  document.querySelectorAll('[data-prepare-archive]').forEach((button) => {
-    button.addEventListener('click', () => {
-      if (!(accountEmailInput instanceof HTMLInputElement)) {
-        return;
-      }
-
-      accountEmailInput.value = button.getAttribute('data-email') || '';
-      if (accountFullNameInput instanceof HTMLInputElement) {
-        accountFullNameInput.value = button.getAttribute('data-display-name') || '';
-      }
-
-      openModal('accountModal');
-      accountEmailInput.focus();
-      updateArchiveConfirmation();
-    });
-  });
-
-  document.querySelectorAll('[data-prepare-delete]').forEach((button) => {
-    button.addEventListener('click', () => {
-      if (deleteUserIdInput instanceof HTMLInputElement) {
-        deleteUserIdInput.value = button.getAttribute('data-user-id') || '';
-      }
-      if (deleteUserEmailInput instanceof HTMLInputElement) {
-        deleteUserEmailInput.value = button.getAttribute('data-email') || '';
-      }
-      if (deleteUserNameInput instanceof HTMLInputElement) {
-        deleteUserNameInput.value = button.getAttribute('data-display-name') || '';
-      }
-
-      openModal('deleteUserModal');
-      updateDeleteConfirmation();
-    });
-  });
-
-  if (quickCreateNameInput instanceof HTMLInputElement) {
+  if (quickCreateNameInput instanceof HTMLInputElement && quickCreateNameInput.dataset.prefillBound !== 'true') {
+    quickCreateNameInput.dataset.prefillBound = 'true';
     quickCreateNameInput.addEventListener('input', updateQuickCreateConfirmation);
   }
 
-  if (quickCreateRoleSelect instanceof HTMLSelectElement) {
+  if (quickCreateRoleSelect instanceof HTMLSelectElement && quickCreateRoleSelect.dataset.prefillBound !== 'true') {
+    quickCreateRoleSelect.dataset.prefillBound = 'true';
     quickCreateRoleSelect.addEventListener('change', () => {
       updateQuickCreateAdminGuard();
       updateQuickCreateEmploymentRequirements();
@@ -377,11 +354,13 @@ const initAccountPrefill = () => {
     });
   }
 
-  if (accountEmailInput instanceof HTMLInputElement) {
+  if (accountEmailInput instanceof HTMLInputElement && accountEmailInput.dataset.prefillBound !== 'true') {
+    accountEmailInput.dataset.prefillBound = 'true';
     accountEmailInput.addEventListener('input', updateArchiveConfirmation);
   }
 
-  if (accountFullNameInput instanceof HTMLInputElement) {
+  if (accountFullNameInput instanceof HTMLInputElement && accountFullNameInput.dataset.prefillBound !== 'true') {
+    accountFullNameInput.dataset.prefillBound = 'true';
     accountFullNameInput.addEventListener('input', updateArchiveConfirmation);
   }
 
@@ -394,15 +373,215 @@ const initAccountPrefill = () => {
   updateRoleConfirmation();
   updateCredentialAdminGuard();
   updateCredentialConfirmation();
+
+  return {
+    prepareRole(userId) {
+      if (!(roleUserSelect instanceof HTMLSelectElement) || !userId) {
+        return;
+      }
+      roleUserSelect.value = userId;
+      roleUserSelect.dispatchEvent(new Event('change'));
+    },
+    prepareCredential(userId) {
+      if (!(credentialUserSelect instanceof HTMLSelectElement) || !userId) {
+        return;
+      }
+      credentialUserSelect.value = userId;
+      credentialUserSelect.dispatchEvent(new Event('change'));
+    },
+    prepareArchive(name, email) {
+      if (accountFullNameInput instanceof HTMLInputElement) {
+        accountFullNameInput.value = name || '';
+      }
+      if (accountEmailInput instanceof HTMLInputElement) {
+        accountEmailInput.value = email || '';
+      }
+      updateArchiveConfirmation();
+    },
+    prepareDelete(userId, name, email) {
+      if (deleteUserIdInput instanceof HTMLInputElement) {
+        deleteUserIdInput.value = userId || '';
+      }
+      if (deleteUserNameInput instanceof HTMLInputElement) {
+        deleteUserNameInput.value = name || '';
+      }
+      if (deleteUserEmailInput instanceof HTMLInputElement) {
+        deleteUserEmailInput.value = email || '';
+      }
+      updateDeleteConfirmation();
+    },
+  };
 };
 
-const initUserManagementFilters = () => {
-  bindTableFilters({
-    tableId: 'usersTable',
-    searchInputId: 'usersSearchInput',
-    searchDataAttr: 'data-user-search',
-    statusFilterId: 'usersStatusFilter',
-    statusDataAttr: 'data-user-status',
+let modalControllers = null;
+
+const ensureModalHub = async () => {
+  const host = document.getElementById('adminUserManagementModalHost');
+  if (!host) {
+    return null;
+  }
+
+  if (host.dataset.loaded === 'true') {
+    return host;
+  }
+
+  const baseUrl = host.getAttribute('data-base-url') || 'user-management.php';
+  const html = await fetchHtml(buildPartialUrl(baseUrl, 'modals'));
+  host.innerHTML = html;
+  host.dataset.loaded = 'true';
+  initModalSystem();
+  initStatusChangeConfirmations();
+  await initDateInputs(host);
+  modalControllers = initAccountPrefill(host);
+  return host;
+};
+
+const initAsyncWorkspace = () => {
+  const region = document.querySelector('[data-admin-user-async-region]');
+  if (!region) {
+    return;
+  }
+
+  const baseUrl = region.getAttribute('data-base-url') || 'user-management.php';
+  const loadingState = region.querySelector('[data-user-async-loading]');
+  const errorState = region.querySelector('[data-user-async-error]');
+  const emptyState = region.querySelector('[data-user-async-empty]');
+  const contentState = region.querySelector('[data-user-async-content]');
+  const trigger = region.querySelector('[data-user-async-trigger="reference"]');
+  let cachedReferenceHtml = '';
+
+  const showLoading = () => {
+    loadingState?.classList.remove('hidden');
+    errorState?.classList.add('hidden');
+    emptyState?.classList.add('hidden');
+    contentState?.classList.add('hidden');
+  };
+
+  const showContent = (html) => {
+    if (!contentState) {
+      return;
+    }
+    contentState.innerHTML = html;
+    loadingState?.classList.add('hidden');
+    errorState?.classList.add('hidden');
+    emptyState?.classList.add('hidden');
+    contentState.classList.remove('hidden');
+  };
+
+  const showError = () => {
+    loadingState?.classList.add('hidden');
+    contentState?.classList.add('hidden');
+    emptyState?.classList.add('hidden');
+    errorState?.classList.remove('hidden');
+  };
+
+  const loadReference = async (forceRefresh = false) => {
+    if (!forceRefresh && cachedReferenceHtml !== '') {
+      showContent(cachedReferenceHtml);
+      return;
+    }
+
+    showLoading();
+    try {
+      const html = await fetchHtml(buildPartialUrl(baseUrl, 'reference'));
+      cachedReferenceHtml = html;
+      showContent(html);
+    } catch (_error) {
+      showError();
+    }
+  };
+
+  trigger?.addEventListener('click', () => {
+    loadReference(false);
+  });
+
+  region.querySelector('[data-user-async-retry]')?.addEventListener('click', () => {
+    loadReference(true);
+  });
+};
+
+const initActionDelegation = () => {
+  if (document.body.dataset.adminUserManagementDelegated === 'true') {
+    return;
+  }
+
+  document.body.dataset.adminUserManagementDelegated = 'true';
+
+  document.addEventListener('click', async (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) {
+      return;
+    }
+
+    const menuItem = target.closest('[data-action-menu-item]');
+    if (menuItem) {
+      event.preventDefault();
+      const action = menuItem.getAttribute('data-action-target') || '';
+      const scope = menuItem.closest('[data-admin-action-scope]');
+      const trigger = scope?.querySelector(`[data-action-trigger="${action}"]`);
+      if (trigger instanceof HTMLElement) {
+        trigger.click();
+      }
+      return;
+    }
+
+    const modalTrigger = target.closest('[data-open-user-management-modal]');
+    if (!modalTrigger) {
+      return;
+    }
+
+    event.preventDefault();
+    const modalKey = modalTrigger.getAttribute('data-open-user-management-modal') || '';
+    if (!modalKey) {
+      return;
+    }
+
+    await ensureModalHub();
+
+    if (!modalControllers) {
+      modalControllers = initAccountPrefill(document.getElementById('adminUserManagementModalHost') || document);
+    }
+
+    if (modalKey === 'role') {
+      modalControllers?.prepareRole?.(modalTrigger.getAttribute('data-user-id') || '');
+      openModal('roleModal');
+      return;
+    }
+
+    if (modalKey === 'credential') {
+      modalControllers?.prepareCredential?.(modalTrigger.getAttribute('data-user-id') || '');
+      openModal('credentialModal');
+      return;
+    }
+
+    if (modalKey === 'archive') {
+      modalControllers?.prepareArchive?.(
+        modalTrigger.getAttribute('data-display-name') || '',
+        modalTrigger.getAttribute('data-email') || '',
+      );
+      openModal('accountModal');
+      return;
+    }
+
+    if (modalKey === 'delete') {
+      modalControllers?.prepareDelete?.(
+        modalTrigger.getAttribute('data-user-id') || '',
+        modalTrigger.getAttribute('data-display-name') || '',
+        modalTrigger.getAttribute('data-email') || '',
+      );
+      openModal('deleteUserModal');
+      return;
+    }
+
+    if (modalKey === 'position') {
+      openModal('positionModal');
+      return;
+    }
+
+    if (modalKey === 'department') {
+      openModal('departmentModal');
+      return;
+    }
   });
 };
 
@@ -418,8 +597,9 @@ export default function initAdminUserManagementPage() {
   initAdminShellInteractions();
   initModalSystem();
   initStatusChangeConfirmations();
-  initActionMenus();
-  initUserManagementFilters();
-  initAccountPrefill();
-  initDateInputs();
+  initUserManagementFilters(document);
+  initAccountPrefill(document);
+  initDateInputs(document).catch(console.error);
+  initAsyncWorkspace();
+  initActionDelegation();
 }

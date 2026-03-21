@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/../../../shared/lib/recruitment-domain.php';
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     return;
 }
@@ -21,6 +23,17 @@ if (!function_exists('ensurePersonalInfoTableExists')) {
 }
 
 $action = (string)($_POST['form_action'] ?? '');
+
+$blockedDirectPdsActions = [
+    'save_family_background',
+    'save_educational_background',
+    'save_civil_service_eligibility',
+    'save_work_experience',
+];
+
+if (in_array($action, $blockedDirectPdsActions, true)) {
+    redirectWithState('error', 'Direct admin editing of employee PDS information has been removed. Review employee-submitted requests instead.');
+}
 
 if ($action === 'create_staff_account' || $action === 'create_user_account') {
     redirectWithState('error', 'Account creation was removed from this module.');
@@ -1901,9 +1914,14 @@ if ($action === 'assign_department_position') {
 
     $currentEmployment = apiRequest(
         'GET',
-        $supabaseUrl . '/rest/v1/employment_records?select=id,office_id,position_id,employment_status&person_id=eq.' . $personId . '&is_current=eq.true&limit=1',
+        $supabaseUrl . '/rest/v1/employment_records?select=id,office_id,position_id,employment_status,employment_type&person_id=eq.' . $personId . '&is_current=eq.true&limit=1',
         $headers
     );
+
+    $employmentType = recruitmentServiceResolveEmploymentType($supabaseUrl, $headers, $positionId);
+    if (!in_array($employmentType, ['permanent', 'contractual'], true)) {
+        $employmentType = 'permanent';
+    }
 
     $currentRow = $currentEmployment['data'][0] ?? null;
     if (is_array($currentRow) && isValidUuid((string)($currentRow['id'] ?? ''))) {
@@ -1914,6 +1932,7 @@ if ($action === 'assign_department_position') {
             [
                 'office_id' => $officeId,
                 'position_id' => $positionId,
+                'employment_type' => $employmentType,
                 'updated_at' => gmdate('c'),
             ]
         );
@@ -1932,6 +1951,7 @@ if ($action === 'assign_department_position') {
                 'position_id' => $positionId,
                 'hire_date' => gmdate('Y-m-d'),
                 'employment_status' => 'active',
+                'employment_type' => $employmentType,
                 'is_current' => true,
             ]]
         );

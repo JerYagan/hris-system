@@ -387,6 +387,7 @@ $requestLogsResponse = apiRequest(
 );
 
 if (isSuccessful($requestLogsResponse)) {
+    $employeeRequestsById = [];
     foreach ((array)($requestLogsResponse['data'] ?? []) as $requestLogRaw) {
         $requestLog = (array)$requestLogRaw;
         $payload = (array)($requestLog['new_data'] ?? []);
@@ -406,8 +407,40 @@ if (isSuccessful($requestLogsResponse)) {
         $otherPurpose = trim((string)($payload['other_purpose'] ?? ''));
         $actor = (array)($requestLog['actor'] ?? []);
 
-        $employeeDocumentRequests[] = [
-            'id' => $requestId,
+        if (!isset($employeeRequestsById[$requestId])) {
+            $employeeRequestsById[$requestId] = [
+                'id' => $requestId,
+                'request_type_key' => $requestTypeKey,
+                'request_type_label' => trim((string)($payload['request_type_label'] ?? ($requestTypeLabels[$requestTypeKey] ?? 'Other HR Document'))),
+                'custom_request_label' => $customRequestLabel,
+                'purpose_key' => $purposeKey,
+                'purpose_label' => trim((string)($payload['purpose_label'] ?? ($requestPurposeLabels[$purposeKey] ?? 'Other'))),
+                'other_purpose' => $otherPurpose,
+                'notes' => trim((string)($payload['notes'] ?? '')),
+                'status_raw' => strtolower(trim((string)($payload['status'] ?? 'submitted'))),
+                'status_label' => ucwords(str_replace('_', ' ', trim((string)($payload['status'] ?? 'submitted')))),
+                'submitted_at' => (string)($requestLog['created_at'] ?? ''),
+                'submitted_label' => formatDateTimeForPhilippines((string)($requestLog['created_at'] ?? ''), 'M d, Y g:i A'),
+                'submitted_by' => $buildAuditActorLabel($actor),
+                'fulfilled_document_title' => '',
+                'fulfilled_notes' => '',
+                'fulfilled_label' => '',
+            ];
+        }
+
+        $submittedAt = trim((string)($payload['submitted_at'] ?? ''));
+        if ($submittedAt !== '') {
+            $employeeRequestsById[$requestId]['submitted_at'] = $submittedAt;
+            $employeeRequestsById[$requestId]['submitted_label'] = formatDateTimeForPhilippines($submittedAt, 'M d, Y g:i A');
+        }
+
+        $submittedBy = trim((string)($payload['submitted_by'] ?? ''));
+        if ($submittedBy !== '') {
+            $employeeRequestsById[$requestId]['submitted_by'] = $submittedBy;
+        }
+
+        $fulfilledAt = trim((string)($payload['fulfilled_at'] ?? ''));
+        $employeeRequestsById[$requestId] = array_merge($employeeRequestsById[$requestId], [
             'request_type_key' => $requestTypeKey,
             'request_type_label' => trim((string)($payload['request_type_label'] ?? ($requestTypeLabels[$requestTypeKey] ?? 'Other HR Document'))),
             'custom_request_label' => $customRequestLabel,
@@ -415,14 +448,17 @@ if (isSuccessful($requestLogsResponse)) {
             'purpose_label' => trim((string)($payload['purpose_label'] ?? ($requestPurposeLabels[$purposeKey] ?? 'Other'))),
             'other_purpose' => $otherPurpose,
             'notes' => trim((string)($payload['notes'] ?? '')),
-            'status' => strtolower(trim((string)($payload['status'] ?? 'submitted'))),
+            'status_raw' => strtolower(trim((string)($payload['status'] ?? 'submitted'))),
             'status_label' => ucwords(str_replace('_', ' ', trim((string)($payload['status'] ?? 'submitted')))),
-            'submitted_at' => (string)($requestLog['created_at'] ?? ''),
-            'submitted_label' => formatDateTimeForPhilippines((string)($requestLog['created_at'] ?? ''), 'M d, Y g:i A'),
-            'submitted_by' => $buildAuditActorLabel($actor),
-        ];
+            'fulfilled_document_title' => trim((string)($payload['fulfilled_document_title'] ?? ($employeeRequestsById[$requestId]['fulfilled_document_title'] ?? ''))),
+            'fulfilled_notes' => trim((string)($payload['fulfilled_notes'] ?? ($employeeRequestsById[$requestId]['fulfilled_notes'] ?? ''))),
+            'fulfilled_label' => $fulfilledAt !== ''
+                ? formatDateTimeForPhilippines($fulfilledAt, 'M d, Y g:i A')
+                : (string)($employeeRequestsById[$requestId]['fulfilled_label'] ?? ''),
+        ]);
     }
 
+    $employeeDocumentRequests = array_values($employeeRequestsById);
     usort($employeeDocumentRequests, static function (array $left, array $right): int {
         return strcmp((string)($right['submitted_at'] ?? ''), (string)($left['submitted_at'] ?? ''));
     });

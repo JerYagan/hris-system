@@ -349,7 +349,7 @@ if (!function_exists('resolveStaffIdentityContext')) {
         $employmentResponse = apiRequest(
             'GET',
             $supabaseUrl
-            . '/rest/v1/employment_records?select=id,employment_status,office_id,position_id,office:offices(id,office_name),position:job_positions(id,position_title)'
+            . '/rest/v1/employment_records?select=id,employment_status,employment_type,office_id,position_id,office:offices(id,office_name),position:job_positions(id,position_title,employment_classification)'
             . '&person_id=eq.' . rawurlencode($personId)
             . '&is_current=eq.true'
             . '&limit=1',
@@ -369,7 +369,15 @@ if (!function_exists('resolveStaffIdentityContext')) {
         }
 
         $context['employment_id'] = $employmentId;
-        $context['employment_status'] = cleanText($employmentRow['employment_status'] ?? null);
+        $rawEmploymentStatus = cleanText($employmentRow['employment_status'] ?? null);
+        $employmentType = strtolower(trim((string)(cleanText($employmentRow['employment_type'] ?? null) ?? '')));
+        $positionClassification = strtolower(trim((string)(cleanText($employmentRow['position']['employment_classification'] ?? null) ?? '')));
+        $context['employment_type'] = $employmentType !== '' ? $employmentType : null;
+        $context['employment_status'] = in_array($employmentType, ['permanent', 'contractual'], true)
+            ? ($employmentType === 'contractual' ? 'contractual' : $rawEmploymentStatus)
+            : (in_array($positionClassification, ['contractual', 'casual', 'job_order', 'job order'], true)
+                ? $positionClassification
+                : $rawEmploymentStatus);
         $context['position_id'] = cleanText($employmentRow['position_id'] ?? null);
         $context['position_title'] = cleanText($employmentRow['position']['position_title'] ?? null);
 
@@ -442,7 +450,7 @@ if (!function_exists('canTransitionStatus')) {
                 'pending' => ['approved', 'rejected', 'needs_revision'],
             ],
             'overtime_requests' => [
-                'pending' => ['approved', 'rejected', 'cancelled'],
+                'pending' => ['approved', 'rejected', 'needs_revision', 'cancelled'],
             ],
             'applications' => [
                 'submitted' => ['screening', 'rejected', 'withdrawn'],

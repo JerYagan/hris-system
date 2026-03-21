@@ -84,6 +84,13 @@ if (!function_exists('normalizeZipLookupPart')) {
     }
 }
 
+if (!function_exists('excludePersonalInfoPlaceholderValue')) {
+    function excludePersonalInfoPlaceholderValue(string $value): bool
+    {
+        return strtolower(trim($value)) === 'haugafia';
+    }
+}
+
 $supportsCivilServiceEligibility = personalInfoTableExists($supabaseUrl, $headers, 'person_civil_service_eligibilities');
 $supportsWorkExperience = personalInfoTableExists($supabaseUrl, $headers, 'person_work_experiences');
 
@@ -104,7 +111,7 @@ $employmentLimit = $isPersonalInfoSelectedPerson ? 1 : $adminPersonalInfoLimits[
 $employmentResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/employment_records?select=id,person_id,office_id,position_id,employment_status,is_current,updated_at,person:people!employment_records_person_id_fkey(id,user_id,first_name,middle_name,surname,name_extension,date_of_birth,place_of_birth,sex_at_birth,civil_status,height_m,weight_kg,blood_type,citizenship,dual_citizenship,dual_citizenship_country,telephone_no,mobile_no,personal_email,agency_employee_no,profile_photo_url),office:offices(office_name),position:job_positions(position_title)'
+    . '/rest/v1/employment_records?select=id,person_id,office_id,position_id,employment_status,employment_type,is_current,updated_at,person:people!employment_records_person_id_fkey(id,user_id,first_name,middle_name,surname,name_extension,date_of_birth,place_of_birth,sex_at_birth,civil_status,height_m,weight_kg,blood_type,citizenship,dual_citizenship,dual_citizenship_country,telephone_no,mobile_no,personal_email,agency_employee_no,profile_photo_url),office:offices(office_name),position:job_positions(position_title,employment_classification)'
     . '&is_current=eq.true'
     . $employmentPersonFilter
     . '&order=updated_at.desc&limit=' . $employmentLimit,
@@ -181,6 +188,102 @@ if ($loadEmployeeRegionData && $userIdFilter !== '') {
             if (!isset($roleKeyByUserId[$userId])) {
                 $roleKeyByUserId[$userId] = $roleKey;
             }
+        }
+    }
+}
+
+$contractualApplicationByUserId = [];
+if ($loadEmployeeRegionData && $userIdFilter !== '') {
+    $applicantProfilesResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/applicant_profiles?select=id,user_id'
+        . '&user_id=in.(' . $userIdFilter . ')&limit=' . $adminPersonalInfoLimits['role_assignments'],
+        $headers
+    );
+    $appendDataError('Applicant profiles', $applicantProfilesResponse);
+
+    $applicantProfileRows = isSuccessful($applicantProfilesResponse) ? (array)($applicantProfilesResponse['data'] ?? []) : [];
+    $applicantProfileIdToUserId = [];
+    foreach ($applicantProfileRows as $profileRow) {
+        $profileId = cleanText($profileRow['id'] ?? null) ?? '';
+        $userId = cleanText($profileRow['user_id'] ?? null) ?? '';
+        if (!isValidUuid($profileId) || !isValidUuid($userId)) {
+            continue;
+        }
+
+        $applicantProfileIdToUserId[$profileId] = strtolower($userId);
+    }
+
+    $applicantProfileIdFilter = sanitizeUuidListForInFilter(array_keys($applicantProfileIdToUserId));
+    if ($applicantProfileIdFilter !== '') {
+        $applicationsResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/applications?select=applicant_profile_id,job_posting_id,application_status,submitted_at'
+            . '&applicant_profile_id=in.(' . $applicantProfileIdFilter . ')'
+            . '&order=submitted_at.desc&limit=5000',
+            $headers
+        );
+        $appendDataError('Employee applications', $applicationsResponse);
+
+        $applicationRows = isSuccessful($applicationsResponse) ? (array)($applicationsResponse['data'] ?? []) : [];
+        $postingIds = [];
+        foreach ($applicationRows as $applicationRow) {
+            $postingId = cleanText($applicationRow['job_posting_id'] ?? null) ?? '';
+            if (isValidUuid($postingId)) {
+                $postingIds[$postingId] = true;
+            }
+        }
+
+        $jobPostingById = [];
+        $postingIdFilter = sanitizeUuidListForInFilter(array_keys($postingIds));
+        if ($postingIdFilter !== '') {
+            $jobPostingsResponse = apiRequest(
+                'GET',
+                $supabaseUrl
+                . '/rest/v1/job_postings?select=id,title,position:job_positions(position_title,employment_classification)'
+                . '&id=in.(' . $postingIdFilter . ')&limit=5000',
+                $headers
+            );
+            $appendDataError('Job postings', $jobPostingsResponse);
+
+            foreach ((array)($jobPostingsResponse['data'] ?? []) as $postingRow) {
+                $postingId = cleanText($postingRow['id'] ?? null) ?? '';
+                if (!isValidUuid($postingId)) {
+                    continue;
+                }
+
+                $jobPostingById[$postingId] = (array)$postingRow;
+            }
+        }
+
+        foreach ($applicationRows as $applicationRow) {
+            $profileId = cleanText($applicationRow['applicant_profile_id'] ?? null) ?? '';
+            $postingId = cleanText($applicationRow['job_posting_id'] ?? null) ?? '';
+            $status = strtolower(trim((string)(cleanText($applicationRow['application_status'] ?? null) ?? 'submitted')));
+            $userId = $applicantProfileIdToUserId[$profileId] ?? '';
+            $posting = (array)($jobPostingById[$postingId] ?? []);
+            $position = is_array($posting['position'] ?? null) ? (array)$posting['position'] : [];
+            $classification = strtolower(trim((string)(cleanText($position['employment_classification'] ?? null) ?? '')));
+            $isContractualPosting = !in_array($classification, ['regular', 'coterminous'], true);
+
+            if ($userId === '' || !$isContractualPosting || in_array($status, ['withdrawn', 'rejected', 'hired'], true)) {
+                continue;
+            }
+
+            if (isset($contractualApplicationByUserId[$userId])) {
+                continue;
+            }
+
+            $postingTitle = cleanText($posting['title'] ?? null)
+                ?? cleanText($position['position_title'] ?? null)
+                ?? 'Contractual Job';
+
+            $contractualApplicationByUserId[$userId] = [
+                'label' => 'Applied to Contractual Job',
+                'job_title' => $postingTitle,
+            ];
         }
     }
 }
@@ -488,6 +591,7 @@ $actorLabelById = [];
 $pendingRecommendationRequestIds = [];
 $allActorIds = [];
 $auditLogRows = [];
+$requestAuditMetaByRequestId = [];
 
 if ($loadShellQueues && $personIdFilter !== '') {
     $recommendationLogsResponse = apiRequest(
@@ -507,7 +611,7 @@ if ($loadShellQueues && $personIdFilter !== '') {
     $reviewedLogsResponse = apiRequest(
         'GET',
         $supabaseUrl
-        . '/rest/v1/activity_logs?select=id,new_data'
+        . '/rest/v1/activity_logs?select=id,actor_user_id,created_at,new_data'
         . '&module_name=eq.personal_information'
         . '&entity_name=eq.people'
         . '&action_name=in.(approve_employee_profile_recommendation,reject_employee_profile_recommendation)'
@@ -518,12 +622,27 @@ if ($loadShellQueues && $personIdFilter !== '') {
     $appendDataError('Reviewed profile requests', $reviewedLogsResponse);
 
     $reviewedRequestIds = [];
+    $reviewedRequestDetails = [];
     if (isSuccessful($reviewedLogsResponse)) {
         foreach ((array)($reviewedLogsResponse['data'] ?? []) as $reviewLog) {
             $newData = is_array($reviewLog['new_data'] ?? null) ? (array)$reviewLog['new_data'] : [];
             $requestId = trim((string)($newData['recommendation_log_id'] ?? ''));
             if ($requestId !== '') {
                 $reviewedRequestIds[$requestId] = true;
+
+                $reviewActorUserId = cleanText($reviewLog['actor_user_id'] ?? null) ?? '';
+                if (isValidUuid($reviewActorUserId)) {
+                    $allActorIds[$reviewActorUserId] = true;
+                }
+
+                if (!isset($reviewedRequestDetails[$requestId])) {
+                    $reviewedRequestDetails[$requestId] = [
+                        'actor_user_id' => $reviewActorUserId,
+                        'decision' => strtolower(trim((string)($newData['decision'] ?? ''))),
+                        'remarks' => trim((string)($newData['remarks'] ?? '')),
+                        'reviewed_at' => cleanText($reviewLog['created_at'] ?? null) ?? '',
+                    ];
+                }
             }
         }
     }
@@ -531,11 +650,9 @@ if ($loadShellQueues && $personIdFilter !== '') {
     foreach ($recommendationLogs as $recommendationLog) {
         $requestId = cleanText($recommendationLog['id'] ?? null) ?? '';
         $personId = cleanText($recommendationLog['entity_id'] ?? null) ?? '';
-        if (!isValidUuid($requestId) || !isValidUuid($personId) || isset($reviewedRequestIds[$requestId])) {
+        if (!isValidUuid($requestId) || !isValidUuid($personId)) {
             continue;
         }
-
-        $pendingRecommendationRequestIds[] = $requestId;
 
         $actorUserId = cleanText($recommendationLog['actor_user_id'] ?? null) ?? '';
         if (isValidUuid($actorUserId)) {
@@ -626,7 +743,25 @@ if ($loadShellQueues && $personIdFilter !== '') {
 
         $submittedAtRaw = cleanText($recommendationLog['created_at'] ?? null) ?? '';
         $dueAtRaw = cleanText($newData['request_due_at'] ?? null) ?? '';
+        $reminderAtRaw = cleanText($newData['reminder_window_starts_at'] ?? null) ?? '';
+        $requestSource = strtolower(trim((string)($newData['request_source'] ?? '')));
+        $requestAuditMetaByRequestId[$requestId] = [
+            'request_id' => $requestId,
+            'submitted_by_user_id' => $actorUserId,
+            'submitted_at' => $submittedAtRaw,
+            'request_due_at' => $dueAtRaw,
+            'reminder_at' => $reminderAtRaw,
+            'request_source' => $requestSource,
+            'review' => $reviewedRequestDetails[$requestId] ?? null,
+        ];
+
+        if (isset($reviewedRequestIds[$requestId])) {
+            continue;
+        }
+
+        $pendingRecommendationRequestIds[] = $requestId;
         $dueAtLabel = '-';
+        $reminderAtLabel = '-';
         $statusLabel = 'Pending';
         $statusClass = 'bg-amber-100 text-amber-800';
         if ($dueAtRaw !== '' && strtotime($dueAtRaw) !== false) {
@@ -638,6 +773,13 @@ if ($loadShellQueues && $personIdFilter !== '') {
                 $statusClass = 'bg-rose-100 text-rose-800';
             }
         }
+        if ($reminderAtRaw !== '' && strtotime($reminderAtRaw) !== false) {
+            $reminderAtLabel = $formatAdminPersonalInfoTimestamp($reminderAtRaw) . ' PST';
+        }
+
+        $notificationSummary = $requestSource === 'employee'
+            ? 'In-app notifications were sent to admin reviewers.'
+            : 'In-app notifications were sent to admin reviewers after staff recommendation.';
 
         $recommendationHistoryRows[] = [
             'recommendation_log_id' => $requestId,
@@ -647,6 +789,8 @@ if ($loadShellQueues && $personIdFilter !== '') {
             'submitted_at_label' => $formatAdminPersonalInfoTimestamp($submittedAtRaw),
             'submitted_at_date' => $submittedAtRaw !== '' && strtotime($submittedAtRaw) !== false ? date('Y-m-d', strtotime($submittedAtRaw)) : '',
             'due_at_label' => $dueAtLabel,
+            'reminder_at_label' => $reminderAtLabel,
+            'notification_summary' => $notificationSummary,
             'status_label' => $statusLabel,
             'status_class' => $statusClass,
             'summary' => $summary,
@@ -833,18 +977,72 @@ if ($loadAuditLogData) {
             ? (string)($personNameById[$personId] ?? 'Unknown Employee')
             : 'System Record';
         $actorUserId = cleanText($auditLogRow['actor_user_id'] ?? null) ?? '';
+        $requestReferenceId = '';
+        if (in_array($actionName, ['recommend_employee_profile_update', 'submit_employee_profile_update_request'], true)) {
+            $requestReferenceId = cleanText($auditLogRow['id'] ?? null) ?? '';
+        } else {
+            $requestReferenceId = cleanText($newData['recommendation_log_id'] ?? null) ?? '';
+        }
+
+        $requestMeta = $requestReferenceId !== '' ? ($requestAuditMetaByRequestId[$requestReferenceId] ?? null) : null;
+        $updatedByUserId = $actorUserId;
+        $approvedByUserId = '';
+        if (is_array($requestMeta)) {
+            $updatedByUserId = cleanText($requestMeta['submitted_by_user_id'] ?? null) ?? $updatedByUserId;
+            $reviewMeta = is_array($requestMeta['review'] ?? null) ? (array)$requestMeta['review'] : null;
+            if (is_array($reviewMeta)) {
+                $approvedByUserId = cleanText($reviewMeta['actor_user_id'] ?? null) ?? '';
+            }
+        }
+        if (in_array($actionName, ['approve_employee_profile_recommendation', 'reject_employee_profile_recommendation'], true)) {
+            $approvedByUserId = $actorUserId;
+        }
+
+        $notesParts = [];
+        if (is_array($requestMeta)) {
+            $dueAtRaw = cleanText($requestMeta['request_due_at'] ?? null) ?? '';
+            $reminderAtRaw = cleanText($requestMeta['reminder_at'] ?? null) ?? '';
+            if ($dueAtRaw !== '' && strtotime($dueAtRaw) !== false) {
+                $notesParts[] = 'Due ' . $formatAdminPersonalInfoTimestamp($dueAtRaw) . ' PST';
+            }
+            if ($reminderAtRaw !== '' && strtotime($reminderAtRaw) !== false) {
+                $notesParts[] = 'Reminder window ' . $formatAdminPersonalInfoTimestamp($reminderAtRaw) . ' PST';
+            }
+
+            $reviewMeta = is_array($requestMeta['review'] ?? null) ? (array)$requestMeta['review'] : null;
+            if (is_array($reviewMeta)) {
+                $reviewDecision = strtolower(trim((string)($reviewMeta['decision'] ?? '')));
+                $reviewRemarks = trim((string)($reviewMeta['remarks'] ?? ''));
+                $reviewedAtRaw = cleanText($reviewMeta['reviewed_at'] ?? null) ?? '';
+                if ($reviewDecision !== '') {
+                    $decisionLabel = ucfirst($reviewDecision);
+                    if ($reviewedAtRaw !== '' && strtotime($reviewedAtRaw) !== false) {
+                        $decisionLabel .= ' on ' . $formatAdminPersonalInfoTimestamp($reviewedAtRaw) . ' PST';
+                    }
+                    $notesParts[] = $decisionLabel;
+                }
+                if ($reviewRemarks !== '') {
+                    $notesParts[] = 'Remarks: ' . $reviewRemarks;
+                }
+            }
+        }
+        if ($notes !== '') {
+            $notesParts[] = $notes;
+        }
 
         $personalInfoAuditRows[] = [
             'log_id' => cleanText($auditLogRow['id'] ?? null) ?? '',
             'created_at_label' => $formatAdminPersonalInfoTimestamp(cleanText($auditLogRow['created_at'] ?? null) ?? ''),
             'created_at_raw' => cleanText($auditLogRow['created_at'] ?? null) ?? '',
             'actor_label' => $actorUserId !== '' ? (string)($actorLabelById[$actorUserId] ?? 'System User') : 'System User',
+            'updated_by_label' => $updatedByUserId !== '' ? (string)($actorLabelById[$updatedByUserId] ?? 'System User') : 'System User',
+            'approved_by_label' => $approvedByUserId !== '' ? (string)($actorLabelById[$approvedByUserId] ?? 'Pending') : 'Pending',
             'employee_name' => $employeeName,
             'entity_name' => cleanText($auditLogRow['entity_name'] ?? null) ?? '',
             'action_name' => $actionName,
             'action_label' => $actionLabel,
             'action_class' => $actionClass,
-            'notes' => $notes,
+            'notes' => implode(' | ', array_values(array_filter($notesParts, static fn ($part): bool => trim((string)$part) !== ''))),
         ];
     }
 }
@@ -945,14 +1143,20 @@ foreach ($addressRows as $addressRow) {
 $addressCityOptions = array_values($addressCityDisplayByKey);
 sort($addressCityOptions, SORT_NATURAL | SORT_FLAG_CASE);
 
+$addressBarangaysByCity = [];
 $addressBarangayOptionsMap = [];
-foreach ($addressBarangayDisplayByCityKey as $barangaysByKey) {
+foreach ($addressBarangayDisplayByCityKey as $cityKey => $barangaysByKey) {
+    $barangayOptions = [];
     foreach ($barangaysByKey as $barangayDisplay) {
         $barangayOptionsKey = trim((string)$barangayDisplay);
         if ($barangayOptionsKey !== '') {
+            $barangayOptions[] = $barangayOptionsKey;
             $addressBarangayOptionsMap[$barangayOptionsKey] = true;
         }
     }
+
+    sort($barangayOptions, SORT_NATURAL | SORT_FLAG_CASE);
+    $addressBarangaysByCity[$cityKey] = $barangayOptions;
 }
 
 $addressBarangayOptions = array_keys($addressBarangayOptionsMap);
@@ -1010,6 +1214,14 @@ foreach ($employmentRows as $employmentRow) {
     }
 
     $statusRaw = strtolower(trim((string)(cleanText($employmentRow['employment_status'] ?? null) ?? 'inactive')));
+    $employmentTypeRaw = strtolower(trim((string)(cleanText($employmentRow['employment_type'] ?? null) ?? '')));
+    $positionClassification = strtolower(trim((string)(cleanText($employmentRow['position']['employment_classification'] ?? null) ?? '')));
+    $employmentType = $employmentTypeRaw !== ''
+        ? $employmentTypeRaw
+        : (in_array($positionClassification, ['regular', 'coterminous'], true) ? 'permanent' : ($positionClassification !== '' ? 'contractual' : ''));
+    $employmentTypeLabel = $employmentType === 'contractual'
+        ? 'Contractual'
+        : ($employmentType === 'permanent' ? 'Permanent' : 'Not provided');
     [$statusLabel, $statusClass, $statusBucket] = $statusPill($statusRaw);
     if ($statusBucket === 'active') {
         $activeEmployees++;
@@ -1037,6 +1249,7 @@ foreach ($employmentRows as $employmentRow) {
         $telephone,
         $officeName,
         $positionName,
+        $employmentTypeLabel,
         $statusLabel,
         $roleKey,
     ], static fn ($part): bool => $part !== ''))));
@@ -1076,11 +1289,16 @@ foreach ($employmentRows as $employmentRow) {
         'mobile' => $mobile,
         'department' => $officeName,
         'position' => $positionName,
+        'employment_type' => $employmentType,
+        'employment_type_label' => $employmentTypeLabel,
         'status_raw' => $statusBucket,
         'status_label' => $statusLabel,
         'status_class' => $statusClass,
         'role_key' => $roleKey,
         'profile_photo_url' => $resolvedProfilePhotoUrl ?? '',
+        'has_contractual_application' => isset($contractualApplicationByUserId[(string)(cleanText($person['user_id'] ?? null) ?? '')]),
+        'contractual_application_label' => (string)($contractualApplicationByUserId[(string)(cleanText($person['user_id'] ?? null) ?? '')]['label'] ?? ''),
+        'contractual_application_job_title' => (string)($contractualApplicationByUserId[(string)(cleanText($person['user_id'] ?? null) ?? '')]['job_title'] ?? ''),
         'search_text' => $searchText,
         'date_of_birth' => cleanText($person['date_of_birth'] ?? null) ?? '',
         'place_of_birth' => cleanText($person['place_of_birth'] ?? null) ?? '',
@@ -1137,6 +1355,7 @@ foreach ($employmentRows as $employmentRow) {
 
 $departmentFilterOptions = array_keys($departmentFilters);
 sort($departmentFilterOptions, SORT_NATURAL | SORT_FLAG_CASE);
+$departmentFilterOptions = array_values(array_filter($departmentFilterOptions, static fn(string $value): bool => !excludePersonalInfoPlaceholderValue($value)));
 
 $placeOfBirthOptionsMap = [];
 foreach ($employeeTableRows as $employeeRow) {
@@ -1154,8 +1373,11 @@ foreach ($addressCityOptions as $cityOption) {
 
 $placeOfBirthOptions = array_keys($placeOfBirthOptionsMap);
 sort($placeOfBirthOptions, SORT_NATURAL | SORT_FLAG_CASE);
+$placeOfBirthOptions = array_values(array_filter($placeOfBirthOptions, static fn(string $value): bool => !excludePersonalInfoPlaceholderValue($value)));
 
 $civilStatusOptions = ['Single', 'Married', 'Widowed', 'Separated', 'Divorced', 'Annulled'];
 $bloodTypeOptions = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+$civilStatusOptions = array_values(array_filter($civilStatusOptions, static fn(string $value): bool => !excludePersonalInfoPlaceholderValue($value)));
+$bloodTypeOptions = array_values(array_filter($bloodTypeOptions, static fn(string $value): bool => !excludePersonalInfoPlaceholderValue($value)));
 
 $needsUpdateCount = max(0, $totalProfiles - $completeRecords);

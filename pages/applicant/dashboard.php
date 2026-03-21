@@ -29,7 +29,7 @@ ob_start();
 <?php endif; ?>
 
 <?php if (!empty($profileCompletionReminder['show_modal'])): ?>
-    <div id="profileCompletionModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div id="profileCompletionModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4" aria-hidden="true">
         <div class="w-full max-w-lg rounded-xl border bg-white p-5 shadow-xl">
             <div class="flex items-start justify-between gap-3">
                 <div>
@@ -69,12 +69,52 @@ ob_start();
                 return;
             }
 
+            var storageKey = <?php echo json_encode('da_hris_profile_completion_modal_' . $applicantUserId, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
+
+            function getTodayLabel() {
+                var today = new Date();
+                var year = today.getFullYear();
+                var month = String(today.getMonth() + 1).padStart(2, '0');
+                var day = String(today.getDate()).padStart(2, '0');
+
+                return year + '-' + month + '-' + day;
+            }
+
+            function rememberShownToday() {
+                try {
+                    window.localStorage.setItem(storageKey, getTodayLabel());
+                } catch (error) {
+                    return;
+                }
+            }
+
+            function shouldShowToday() {
+                try {
+                    return window.localStorage.getItem(storageKey) !== getTodayLabel();
+                } catch (error) {
+                    return true;
+                }
+            }
+
+            function openModal() {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                modal.setAttribute('aria-hidden', 'false');
+                rememberShownToday();
+            }
+
             function closeModal() {
                 modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                modal.setAttribute('aria-hidden', 'true');
             }
 
             var closeButton = document.getElementById('closeProfileCompletionModal');
             var laterButton = document.getElementById('laterProfileCompletionModal');
+
+            if (shouldShowToday()) {
+                openModal();
+            }
 
             if (closeButton) {
                 closeButton.addEventListener('click', closeModal);

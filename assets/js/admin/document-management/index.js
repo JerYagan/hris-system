@@ -12,87 +12,6 @@ const escapeHtml = (value) => String(value || '')
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;');
 
-const ensureFlatpickr = async () => {
-  if (window.flatpickr) {
-    return window.flatpickr;
-  }
-
-  await new Promise((resolve, reject) => {
-    const existing = document.querySelector('script[data-flatpickr="true"]');
-    if (existing) {
-      existing.addEventListener('load', () => resolve(), { once: true });
-      existing.addEventListener('error', () => reject(new Error('Failed to load Flatpickr.')), { once: true });
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/flatpickr';
-    script.defer = true;
-    script.dataset.flatpickr = 'true';
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Failed to load Flatpickr.'));
-    document.head.appendChild(script);
-  });
-
-  return window.flatpickr;
-};
-
-const setValue = (id, value) => {
-  const el = document.getElementById(id);
-  if (el) {
-    el.value = value;
-  }
-};
-
-const setText = (id, value) => {
-  const el = document.getElementById(id);
-  if (el) {
-    el.textContent = value;
-  }
-};
-
-const closeAllActionMenus = () => {
-  document.querySelectorAll('[data-doc-action-menu]').forEach((menu) => {
-    menu.classList.add('hidden');
-  });
-};
-
-const initActionDropdowns = () => {
-  const toggles = Array.from(document.querySelectorAll('[data-doc-action-toggle]'));
-  if (!toggles.length) {
-    return;
-  }
-
-  toggles.forEach((toggle) => {
-    toggle.addEventListener('click', (event) => {
-      event.stopPropagation();
-      const wrap = toggle.closest('[data-doc-action-wrap]');
-      const menu = wrap?.querySelector('[data-doc-action-menu]');
-      if (!menu) {
-        return;
-      }
-
-      const isHidden = menu.classList.contains('hidden');
-      closeAllActionMenus();
-      if (isHidden) {
-        menu.classList.remove('hidden');
-      }
-    });
-  });
-
-  document.addEventListener('click', (event) => {
-    if (!(event.target instanceof Element) || !event.target.closest('[data-doc-action-wrap]')) {
-      closeAllActionMenus();
-    }
-  });
-
-  document.querySelectorAll('[data-doc-action-menu] a, [data-doc-action-menu] button').forEach((item) => {
-    item.addEventListener('click', () => {
-      closeAllActionMenus();
-    });
-  });
-};
-
 const parseJsonArray = (value) => {
   try {
     const parsed = JSON.parse(value || '[]');
@@ -107,13 +26,275 @@ const parseDate = (value) => {
   return Number.isNaN(ts) ? null : ts;
 };
 
+let flatpickrPromise = null;
+
+const ensureFlatpickr = async () => {
+  if (window.flatpickr) {
+    return window.flatpickr;
+  }
+
+  if (!flatpickrPromise) {
+    flatpickrPromise = new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-flatpickr="true"]');
+      if (existing) {
+        existing.addEventListener('load', () => resolve(window.flatpickr), { once: true });
+        existing.addEventListener('error', () => reject(new Error('Failed to load Flatpickr.')), { once: true });
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/flatpickr';
+      script.defer = true;
+      script.dataset.flatpickr = 'true';
+      script.onload = () => resolve(window.flatpickr);
+      script.onerror = () => reject(new Error('Failed to load Flatpickr.'));
+      document.head.appendChild(script);
+    });
+  }
+
+  return flatpickrPromise;
+};
+
+const fetchHtml = async (url) => {
+  const response = await fetch(url, {
+    credentials: 'same-origin',
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Request failed with status ${response.status}`);
+  }
+
+  return response.text();
+};
+
+const buildPartialUrl = (baseUrl, partial, extraParams = {}) => {
+  const url = new URL(baseUrl, window.location.href);
+  url.searchParams.set('partial', partial);
+  Object.entries(extraParams).forEach(([key, value]) => {
+    if (value === null || value === undefined || String(value).trim() === '') {
+      return;
+    }
+    url.searchParams.set(key, value);
+  });
+  return url.toString();
+};
+
+const setValue = (id, value) => {
+  const element = document.getElementById(id);
+  if (element) {
+    element.value = value;
+  }
+};
+
+const setText = (id, value) => {
+  const element = document.getElementById(id);
+  if (element) {
+    element.textContent = value;
+  }
+};
+
+const initManagedTables = (root = document) => {
+  root.querySelectorAll('[data-managed-table]').forEach((container) => {
+    if (container.dataset.dmTableInitialized === 'true') {
+      return;
+    }
+
+    const rows = Array.from(container.querySelectorAll('tbody [data-table-row]'));
+    container.dataset.dmTableInitialized = 'true';
+
+    if (!rows.length) {
+      return;
+    }
+
+    let currentPage = 1;
+    const pageSize = 10;
+    let activeAccount = 'all';
+
+    const searchInput = container.querySelector('[data-table-search]');
+    const statusSelect = container.querySelector('[data-table-status]');
+    const categorySelect = container.querySelector('[data-table-category]');
+    const dateFromInput = container.querySelector('[data-table-date-from]');
+    const dateToInput = container.querySelector('[data-table-date-to]');
+    const prevButton = container.querySelector('[data-page-prev]');
+    const nextButton = container.querySelector('[data-page-next]');
+    const pageInfo = container.querySelector('[data-page-info]');
+    const tableMeta = container.querySelector('[data-table-meta]');
+    const accountTabs = container.closest('section')?.querySelector('[data-account-tabs]');
+
+    const filterRows = () => {
+      const query = String(searchInput?.value || '').toLowerCase().trim();
+      const status = String(statusSelect?.value || '').toLowerCase().trim();
+      const category = String(categorySelect?.value || '').toLowerCase().trim();
+      const dateFrom = parseDate(dateFromInput?.value || '');
+      const dateToRaw = parseDate(dateToInput?.value || '');
+      const dateTo = dateToRaw === null ? null : (dateToRaw + (24 * 60 * 60 * 1000) - 1);
+
+      const filtered = rows.filter((row) => {
+        const rowSearch = String(row.getAttribute('data-search') || '').toLowerCase();
+        const rowStatus = String(row.getAttribute('data-status') || '').toLowerCase();
+        const rowCategory = String(row.getAttribute('data-category') || '').toLowerCase();
+        const rowAccount = String(row.getAttribute('data-account') || '').toLowerCase();
+        const rowDate = parseDate(row.getAttribute('data-date') || '');
+
+        if (query && !rowSearch.includes(query)) {
+          return false;
+        }
+
+        if (status && rowStatus !== status) {
+          return false;
+        }
+
+        if (category && rowCategory !== category) {
+          return false;
+        }
+
+        if (activeAccount !== 'all' && rowAccount !== activeAccount) {
+          return false;
+        }
+
+        if (dateFrom !== null && (rowDate === null || rowDate < dateFrom)) {
+          return false;
+        }
+
+        if (dateTo !== null && (rowDate === null || rowDate > dateTo)) {
+          return false;
+        }
+
+        return true;
+      });
+
+      const total = filtered.length;
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      if (currentPage > totalPages) {
+        currentPage = totalPages;
+      }
+
+      const start = (currentPage - 1) * pageSize;
+      const visibleSet = new Set(filtered.slice(start, start + pageSize));
+
+      rows.forEach((row) => {
+        row.style.display = visibleSet.has(row) ? '' : 'none';
+      });
+
+      if (tableMeta) {
+        tableMeta.textContent = total === 0
+          ? 'Showing 0 to 0 of 0 entries'
+          : `Showing ${start + 1} to ${Math.min(start + pageSize, total)} of ${total} entries`;
+      }
+
+      if (pageInfo) {
+        pageInfo.textContent = `Page ${total === 0 ? 1 : currentPage} of ${totalPages}`;
+      }
+
+      if (prevButton) {
+        prevButton.disabled = currentPage <= 1;
+        prevButton.classList.toggle('opacity-50', prevButton.disabled);
+      }
+
+      if (nextButton) {
+        nextButton.disabled = currentPage >= totalPages;
+        nextButton.classList.toggle('opacity-50', nextButton.disabled);
+      }
+    };
+
+    const run = () => {
+      currentPage = 1;
+      filterRows();
+    };
+
+    searchInput?.addEventListener('input', run);
+    statusSelect?.addEventListener('change', run);
+    categorySelect?.addEventListener('change', run);
+    dateFromInput?.addEventListener('change', run);
+    dateToInput?.addEventListener('change', run);
+
+    prevButton?.addEventListener('click', () => {
+      if (currentPage <= 1) {
+        return;
+      }
+      currentPage -= 1;
+      filterRows();
+    });
+
+    nextButton?.addEventListener('click', () => {
+      currentPage += 1;
+      filterRows();
+    });
+
+    if (accountTabs && accountTabs.dataset.dmAccountTabsInitialized !== 'true') {
+      accountTabs.dataset.dmAccountTabsInitialized = 'true';
+      accountTabs.querySelectorAll('[data-account-tab]').forEach((button) => {
+        button.addEventListener('click', () => {
+          activeAccount = (button.getAttribute('data-account-tab') || 'all').toLowerCase();
+          accountTabs.querySelectorAll('[data-account-tab]').forEach((item) => {
+            const active = item === button;
+            item.classList.toggle('bg-white', active);
+            item.classList.toggle('border', active);
+            item.classList.toggle('border-slate-200', active);
+            item.classList.toggle('text-slate-700', active);
+            item.classList.toggle('text-slate-600', !active);
+          });
+          run();
+        });
+      });
+    }
+
+    filterRows();
+  });
+};
+
+const initSectionTabs = (root = document) => {
+  root.querySelectorAll('[data-section-toggle]').forEach((toggle) => {
+    if (toggle.dataset.dmSectionTabsInitialized === 'true') {
+      return;
+    }
+
+    const buttons = Array.from(toggle.querySelectorAll('[data-section-tab]'));
+    if (!buttons.length) {
+      return;
+    }
+
+    const activate = (key) => {
+      buttons.forEach((button) => {
+        const active = (button.getAttribute('data-section-tab') || '') === key;
+        button.classList.toggle('bg-white', active);
+        button.classList.toggle('border', active);
+        button.classList.toggle('border-slate-200', active);
+        button.classList.toggle('text-slate-700', active);
+        button.classList.toggle('text-slate-600', !active);
+      });
+
+      const parent = toggle.closest('section');
+      if (!parent) {
+        return;
+      }
+
+      parent.querySelectorAll('[data-section-panel]').forEach((panel) => {
+        panel.classList.toggle('hidden', panel.getAttribute('data-section-panel') !== key);
+      });
+    };
+
+    buttons.forEach((button) => {
+      button.addEventListener('click', () => {
+        activate(button.getAttribute('data-section-tab') || '');
+      });
+    });
+
+    toggle.dataset.dmSectionTabsInitialized = 'true';
+    activate(buttons[0].getAttribute('data-section-tab') || '');
+  });
+};
+
 const initUploadOwnerSearch = () => {
   const ownerInput = document.getElementById('uploadOwnerSearch');
   const ownerHiddenInput = document.getElementById('uploadOwnerPersonId');
   const ownerResults = document.getElementById('uploadOwnerResults');
   const ownerDatasetEl = document.getElementById('uploadOwnerDataset');
   const uploadForm = document.getElementById('adminUploadDocumentForm');
-  if (!ownerInput || !ownerHiddenInput || !ownerResults || !ownerDatasetEl || !uploadForm) {
+  if (!ownerInput || !ownerHiddenInput || !ownerResults || !ownerDatasetEl || !uploadForm || uploadForm.dataset.dmOwnerSearchInitialized === 'true') {
     return;
   }
 
@@ -138,6 +319,7 @@ const initUploadOwnerSearch = () => {
   })();
 
   if (!ownerList.length) {
+    uploadForm.dataset.dmOwnerSearchInitialized = 'true';
     return;
   }
 
@@ -199,17 +381,9 @@ const initUploadOwnerSearch = () => {
     syncOwnerFromInput();
   };
 
-  ownerInput.addEventListener('focus', () => {
-    filterAndRender();
-  });
-
-  ownerInput.addEventListener('input', () => {
-    filterAndRender();
-  });
-
-  ownerInput.addEventListener('change', () => {
-    syncOwnerFromInput();
-  });
+  ownerInput.addEventListener('focus', filterAndRender);
+  ownerInput.addEventListener('input', filterAndRender);
+  ownerInput.addEventListener('change', syncOwnerFromInput);
 
   ownerResults.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target.closest('[data-owner-result]') : null;
@@ -252,13 +426,15 @@ const initUploadOwnerSearch = () => {
       window.alert('Please choose a valid owner from the searchable list before uploading.');
     }
   });
+
+  uploadForm.dataset.dmOwnerSearchInitialized = 'true';
 };
 
 const initUploadFileInputUI = () => {
   const fileInput = document.getElementById('adminDocumentFileInput');
   const dropzone = document.getElementById('adminDocumentDropzone');
   const fileNameLabel = document.getElementById('adminDocumentFileName');
-  if (!fileInput || !dropzone || !fileNameLabel) {
+  if (!fileInput || !dropzone || !fileNameLabel || dropzone.dataset.dmUploadUiInitialized === 'true') {
     return;
   }
 
@@ -306,348 +482,15 @@ const initUploadFileInputUI = () => {
       fileInput.click();
     }
   });
-};
 
-const initUploadModalTrigger = () => {
-  const trigger = document.querySelector('[data-open-upload-modal]');
-  if (!trigger) {
-    return;
-  }
-
-  trigger.addEventListener('click', () => {
-    openModal('adminUploadDocumentModal');
-  });
-};
-
-const initCategoryModalTrigger = () => {
-  const trigger = document.getElementById('openDocumentCategoryModal');
-  if (!trigger) {
-    return;
-  }
-
-  trigger.addEventListener('click', () => {
-    openModal('documentCategoryModal');
-  });
-};
-
-const initSectionTabs = () => {
-  document.querySelectorAll('[data-section-toggle]').forEach((toggle) => {
-    const buttons = Array.from(toggle.querySelectorAll('[data-section-tab]'));
-    if (!buttons.length) {
-      return;
-    }
-
-    const activate = (key) => {
-      buttons.forEach((button) => {
-        const active = (button.getAttribute('data-section-tab') || '') === key;
-        button.classList.toggle('bg-white', active);
-        button.classList.toggle('border', active);
-        button.classList.toggle('border-slate-200', active);
-        button.classList.toggle('text-slate-700', active);
-        button.classList.toggle('text-slate-600', !active);
-      });
-
-      const parent = toggle.closest('section');
-      if (!parent) {
-        return;
-      }
-
-      parent.querySelectorAll('[data-section-panel]').forEach((panel) => {
-        panel.classList.toggle('hidden', panel.getAttribute('data-section-panel') !== key);
-      });
-    };
-
-    const first = buttons[0].getAttribute('data-section-tab') || '';
-    buttons.forEach((button) => {
-      button.addEventListener('click', () => {
-        activate(button.getAttribute('data-section-tab') || '');
-      });
-    });
-
-    activate(first);
-  });
-};
-
-const initManagedTables = () => {
-  document.querySelectorAll('[data-managed-table]').forEach((container) => {
-    const rows = Array.from(container.querySelectorAll('tbody [data-table-row]'));
-    if (!rows.length) {
-      return;
-    }
-
-    let currentPage = 1;
-    const pageSize = 10;
-    let activeAccount = 'all';
-
-    const searchInput = container.querySelector('[data-table-search]');
-    const statusSelect = container.querySelector('[data-table-status]');
-    const categorySelect = container.querySelector('[data-table-category]');
-    const dateFromInput = container.querySelector('[data-table-date-from]');
-    const dateToInput = container.querySelector('[data-table-date-to]');
-    const prevButton = container.querySelector('[data-page-prev]');
-    const nextButton = container.querySelector('[data-page-next]');
-    const pageInfo = container.querySelector('[data-page-info]');
-    const tableMeta = container.querySelector('[data-table-meta]');
-
-    const accountTabs = container.closest('section')?.querySelector('[data-account-tabs]');
-
-    const filterRows = () => {
-      const query = String(searchInput?.value || '').toLowerCase().trim();
-      const status = String(statusSelect?.value || '').toLowerCase().trim();
-      const category = String(categorySelect?.value || '').toLowerCase().trim();
-      const dateFrom = parseDate(dateFromInput?.value || '');
-      const dateToRaw = parseDate(dateToInput?.value || '');
-      const dateTo = dateToRaw === null ? null : (dateToRaw + (24 * 60 * 60 * 1000) - 1);
-
-      const filtered = rows.filter((row) => {
-        const rowSearch = String(row.getAttribute('data-search') || '').toLowerCase();
-        const rowStatus = String(row.getAttribute('data-status') || '').toLowerCase();
-        const rowCategory = String(row.getAttribute('data-category') || '').toLowerCase();
-
-      document.querySelectorAll('[data-doc-audit]').forEach((button) => {
-        button.addEventListener('click', () => {
-          closeAllActionMenus();
-          const title = button.getAttribute('data-document-title') || 'Document';
-          const auditEntries = parseJsonArray(button.getAttribute('data-audit-trail') || '[]');
-
-          setText('documentAuditTitle', title);
-
-          const body = document.getElementById('documentAuditBody');
-          if (!body) {
-            return;
-          }
-
-          if (!auditEntries.length) {
-            body.innerHTML = '<p class="text-slate-500">No audit trail entries available.</p>';
-          } else {
-            body.innerHTML = auditEntries.map((entry) => {
-              const actionLabel = escapeHtml(entry.action_label || 'Updated');
-              const actorLabel = escapeHtml(entry.actor_label || 'System');
-              const createdLabel = escapeHtml(entry.created_label || '-');
-              const notes = escapeHtml(entry.notes || '');
-
-              return `
-                <article class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                  <p class="font-medium text-slate-800">${actionLabel}</p>
-                  <p class="text-xs text-slate-500 mt-1">${actorLabel} • ${createdLabel}</p>
-                  ${notes ? `<p class="text-sm text-slate-600 mt-2">${notes}</p>` : ''}
-                </article>
-              `;
-            }).join('');
-          }
-
-          openModal('documentAuditModal');
-        });
-      });
-        const rowAccount = String(row.getAttribute('data-account') || '').toLowerCase();
-        const rowDate = parseDate(row.getAttribute('data-date') || '');
-
-        if (query && !rowSearch.includes(query)) {
-          return false;
-        }
-      initCategoryModalTrigger();
-
-        if (status && rowStatus !== status) {
-          return false;
-        }
-
-        if (category && rowCategory !== category) {
-          return false;
-        }
-
-        if (activeAccount !== 'all' && rowAccount !== activeAccount) {
-          return false;
-        }
-
-        if (dateFrom !== null && (rowDate === null || rowDate < dateFrom)) {
-          return false;
-        }
-
-        if (dateTo !== null && (rowDate === null || rowDate > dateTo)) {
-          return false;
-        }
-
-        return true;
-      });
-
-      const total = filtered.length;
-      const totalPages = Math.max(1, Math.ceil(total / pageSize));
-      if (currentPage > totalPages) {
-        currentPage = totalPages;
-      }
-
-      const start = (currentPage - 1) * pageSize;
-      const visibleSet = new Set(filtered.slice(start, start + pageSize));
-
-      rows.forEach((row) => {
-        row.style.display = visibleSet.has(row) ? '' : 'none';
-      });
-
-      if (tableMeta) {
-        if (total === 0) {
-          tableMeta.textContent = 'Showing 0 to 0 of 0 entries';
-        } else {
-          tableMeta.textContent = `Showing ${start + 1} to ${Math.min(start + pageSize, total)} of ${total} entries`;
-        }
-      }
-
-      if (pageInfo) {
-        pageInfo.textContent = `Page ${total === 0 ? 1 : currentPage} of ${totalPages}`;
-      }
-
-      if (prevButton) {
-        prevButton.disabled = currentPage <= 1;
-        prevButton.classList.toggle('opacity-50', prevButton.disabled);
-      }
-
-      if (nextButton) {
-        nextButton.disabled = currentPage >= totalPages;
-        nextButton.classList.toggle('opacity-50', nextButton.disabled);
-      }
-    };
-
-    const run = () => {
-      currentPage = 1;
-      filterRows();
-    };
-
-    searchInput?.addEventListener('input', run);
-    statusSelect?.addEventListener('change', run);
-    categorySelect?.addEventListener('change', run);
-    dateFromInput?.addEventListener('change', run);
-    dateToInput?.addEventListener('change', run);
-
-    prevButton?.addEventListener('click', () => {
-      if (currentPage <= 1) {
-        return;
-      }
-      currentPage -= 1;
-      filterRows();
-    });
-
-    nextButton?.addEventListener('click', () => {
-      currentPage += 1;
-      filterRows();
-    });
-
-    if (accountTabs) {
-      accountTabs.querySelectorAll('[data-account-tab]').forEach((button) => {
-        button.addEventListener('click', () => {
-          activeAccount = (button.getAttribute('data-account-tab') || 'all').toLowerCase();
-          accountTabs.querySelectorAll('[data-account-tab]').forEach((item) => {
-            const active = item === button;
-            item.classList.toggle('bg-white', active);
-            item.classList.toggle('border', active);
-            item.classList.toggle('border-slate-200', active);
-            item.classList.toggle('text-slate-700', active);
-            item.classList.toggle('text-slate-600', !active);
-          });
-          run();
-        });
-      });
-    }
-
-    filterRows();
-  });
-};
-
-const initDatePickers = async () => {
-  const dateInputs = Array.from(document.querySelectorAll('[data-table-date-from], [data-table-date-to], [data-upload-document-date]'));
-  if (!dateInputs.length) {
-    return;
-  }
-
-  const flatpickr = await ensureFlatpickr();
-  dateInputs.forEach((input) => {
-    if (input.dataset.flatpickrInitialized === 'true') {
-      return;
-    }
-
-    flatpickr(input, {
-      dateFormat: 'Y-m-d',
-      allowInput: true,
-    });
-    input.dataset.flatpickrInitialized = 'true';
-  });
-};
-
-const initDocumentActions = () => {
-  document.querySelectorAll('[data-doc-review]').forEach((button) => {
-    button.addEventListener('click', () => {
-      closeAllActionMenus();
-      setValue('reviewDocumentId', button.getAttribute('data-document-id') || '');
-      setValue('reviewDocumentTitle', button.getAttribute('data-document-title') || '-');
-      setValue('reviewCurrentStatus', button.getAttribute('data-current-status') || '-');
-      setValue('reviewStatusSelect', button.getAttribute('data-review-default') || 'approved');
-      openModal('reviewDocumentModal');
-    });
-  });
-
-  document.querySelectorAll('[data-doc-archive]').forEach((button) => {
-    button.addEventListener('click', () => {
-      closeAllActionMenus();
-      setValue('archiveDocumentId', button.getAttribute('data-document-id') || '');
-      setValue('archiveDocumentTitle', button.getAttribute('data-document-title') || '-');
-      setValue('archiveCurrentStatus', button.getAttribute('data-current-status') || '-');
-      openModal('archiveDocumentModal');
-    });
-  });
-
-  document.querySelectorAll('[data-doc-uploader-open]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const email = button.getAttribute('data-uploader-email') || 'Uploader';
-      const type = button.getAttribute('data-uploader-type') || 'Unknown';
-      const documents = parseJsonArray(button.getAttribute('data-uploader-documents') || '[]');
-
-      setText('uploaderDocumentsTitle', `Uploaded Documents - ${email}`);
-      setText('uploaderDocumentsMeta', `${type} • ${documents.length} file(s)`);
-
-      const body = document.getElementById('uploaderDocumentsBody');
-      if (!body) {
-        return;
-      }
-
-      if (!documents.length) {
-        body.innerHTML = '<tr><td class="px-4 py-3 text-slate-500" colspan="5">No documents found for this uploader.</td></tr>';
-      } else {
-        body.innerHTML = documents.map((item) => {
-          const title = escapeHtml(item.title || '-');
-          const category = escapeHtml(item.category || '-');
-          const status = escapeHtml(item.status || '-');
-          const updated = escapeHtml(item.updated || '-');
-          const previewUrl = escapeHtml(item.preview_url || '#');
-          const downloadUrl = escapeHtml(item.download_url || item.url || '#');
-          return `
-            <tr>
-              <td class="px-4 py-3">${title}</td>
-              <td class="px-4 py-3">${category}</td>
-              <td class="px-4 py-3">${status}</td>
-              <td class="px-4 py-3">${updated}</td>
-              <td class="px-4 py-3">
-                <div class="inline-flex items-center gap-2">
-                  <a href="${previewUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">
-                    <span class="material-symbols-outlined text-[14px]">visibility</span>View
-                  </a>
-                  <a href="${downloadUrl}" download class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
-                    <span class="material-symbols-outlined text-[14px]">download</span>Download
-                  </a>
-                </div>
-              </td>
-            </tr>
-          `;
-        }).join('');
-      }
-
-      openModal('uploaderDocumentsModal');
-    });
-  });
+  dropzone.dataset.dmUploadUiInitialized = 'true';
 };
 
 const initReviewValidation = () => {
   const form = document.getElementById('reviewDocumentForm');
   const statusSelect = document.getElementById('reviewStatusSelect');
   const notesInput = document.getElementById('reviewNotesInput');
-  if (!form || !statusSelect || !notesInput) {
+  if (!form || !statusSelect || !notesInput || form.dataset.dmReviewValidationInitialized === 'true') {
     return;
   }
 
@@ -659,18 +502,18 @@ const initReviewValidation = () => {
       window.alert('Review notes are required for rejected or needs revision decisions.');
     }
   });
+
+  form.dataset.dmReviewValidationInitialized = 'true';
 };
 
-const initRestoreConfirmations = async () => {
-  const forms = Array.from(document.querySelectorAll('[data-restore-form]'));
+const initRestoreConfirmations = async (root = document) => {
+  const forms = Array.from(root.querySelectorAll('[data-restore-form]')).filter((form) => form.dataset.dmRestoreConfirmationInitialized !== 'true');
   if (!forms.length) {
     return;
   }
 
-  let Swal = null;
-  if (window.Swal) {
-    Swal = window.Swal;
-  } else {
+  let Swal = window.Swal || null;
+  if (!Swal) {
     try {
       await new Promise((resolve, reject) => {
         const existing = document.querySelector('script[data-swal="true"]');
@@ -688,13 +531,14 @@ const initRestoreConfirmations = async () => {
         script.onerror = () => reject(new Error('Failed to load SweetAlert2.'));
         document.head.appendChild(script);
       });
-      Swal = window.Swal;
+      Swal = window.Swal || null;
     } catch (_error) {
       Swal = null;
     }
   }
 
   forms.forEach((form) => {
+    form.dataset.dmRestoreConfirmationInitialized = 'true';
     form.addEventListener('submit', async (event) => {
       if (form.dataset.confirmedSubmit === 'true') {
         return;
@@ -727,18 +571,324 @@ const initRestoreConfirmations = async () => {
   });
 };
 
+const initDatePickers = async (root = document) => {
+  const dateInputs = Array.from(root.querySelectorAll('[data-table-date-from], [data-table-date-to], [data-upload-document-date]'));
+  if (!dateInputs.length) {
+    return;
+  }
+
+  const flatpickr = await ensureFlatpickr();
+  dateInputs.forEach((input) => {
+    if (input.dataset.flatpickrInitialized === 'true') {
+      return;
+    }
+
+    flatpickr(input, {
+      dateFormat: 'Y-m-d',
+      allowInput: true,
+    });
+    input.dataset.flatpickrInitialized = 'true';
+  });
+};
+
+const initializeDynamicScope = (root = document) => {
+  initSectionTabs(root);
+  initManagedTables(root);
+  initUploadOwnerSearch();
+  initUploadFileInputUI();
+  initReviewValidation();
+  initRestoreConfirmations(root).catch(console.error);
+  initDatePickers(root).catch(console.error);
+};
+
+const ensureModalHub = async () => {
+  const host = document.getElementById('adminDocumentManagementModalHost');
+  if (!host) {
+    return null;
+  }
+
+  if (host.dataset.loaded === 'true') {
+    return host;
+  }
+
+  const baseUrl = host.getAttribute('data-base-url') || 'document-management.php';
+  host.innerHTML = '<div class="hidden"></div>';
+  const html = await fetchHtml(buildPartialUrl(baseUrl, 'modals'));
+  host.innerHTML = html;
+  host.dataset.loaded = 'true';
+  initModalSystem();
+  initStatusChangeConfirmations();
+  initializeDynamicScope(host);
+  return host;
+};
+
+const populateUploaderDocuments = (button) => {
+  const email = button.getAttribute('data-uploader-email') || 'Uploader';
+  const type = button.getAttribute('data-uploader-type') || 'Unknown';
+  const documents = parseJsonArray(button.getAttribute('data-uploader-documents') || '[]');
+  const body = document.getElementById('uploaderDocumentsBody');
+  if (!body) {
+    return;
+  }
+
+  setText('uploaderDocumentsTitle', `Uploaded Documents - ${email}`);
+  setText('uploaderDocumentsMeta', `${type} • ${documents.length} file(s)`);
+
+  if (!documents.length) {
+    body.innerHTML = '<tr><td class="px-4 py-3 text-slate-500" colspan="5">No documents found for this uploader.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = documents.map((item) => {
+    const title = escapeHtml(item.title || '-');
+    const category = escapeHtml(item.category || '-');
+    const status = escapeHtml(item.status || '-');
+    const updated = escapeHtml(item.updated || '-');
+    const previewUrl = escapeHtml(item.preview_url || '#');
+    const downloadUrl = escapeHtml(item.download_url || item.url || '#');
+    return `
+      <tr>
+        <td class="px-4 py-3">${title}</td>
+        <td class="px-4 py-3">${category}</td>
+        <td class="px-4 py-3">${status}</td>
+        <td class="px-4 py-3">${updated}</td>
+        <td class="px-4 py-3">
+          <div class="inline-flex items-center gap-2">
+            <a href="${previewUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">
+              <span class="material-symbols-outlined text-[14px]">visibility</span>View
+            </a>
+            <a href="${downloadUrl}" download class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
+              <span class="material-symbols-outlined text-[14px]">download</span>Download
+            </a>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+};
+
+const initAsyncWorkspace = () => {
+  const region = document.querySelector('[data-admin-doc-async-region]');
+  if (!region) {
+    return;
+  }
+
+  const baseUrl = region.getAttribute('data-base-url') || 'document-management.php';
+  const loadingState = region.querySelector('[data-doc-async-loading]');
+  const errorState = region.querySelector('[data-doc-async-error]');
+  const emptyState = region.querySelector('[data-doc-async-empty]');
+  const contentState = region.querySelector('[data-doc-async-content]');
+  const triggers = Array.from(region.querySelectorAll('[data-doc-async-trigger]'));
+  const cache = new Map();
+  let lastSection = '';
+
+  const setButtonState = (activeSection) => {
+    triggers.forEach((button) => {
+      const active = (button.getAttribute('data-doc-async-trigger') || '') === activeSection;
+      button.classList.toggle('bg-slate-900', active);
+      button.classList.toggle('text-white', active);
+      button.classList.toggle('border-slate-900', active);
+      button.classList.toggle('bg-white', !active);
+      button.classList.toggle('text-slate-700', !active);
+      button.classList.toggle('border-slate-300', !active);
+    });
+  };
+
+  const showLoading = () => {
+    loadingState?.classList.remove('hidden');
+    errorState?.classList.add('hidden');
+    emptyState?.classList.add('hidden');
+    contentState?.classList.add('hidden');
+  };
+
+  const showContent = (html) => {
+    if (!contentState) {
+      return;
+    }
+
+    contentState.innerHTML = html;
+    loadingState?.classList.add('hidden');
+    errorState?.classList.add('hidden');
+    emptyState?.classList.add('hidden');
+    contentState.classList.remove('hidden');
+    initializeDynamicScope(contentState);
+  };
+
+  const showError = () => {
+    loadingState?.classList.add('hidden');
+    contentState?.classList.add('hidden');
+    emptyState?.classList.add('hidden');
+    errorState?.classList.remove('hidden');
+  };
+
+  const loadSection = async (section, forceRefresh = false) => {
+    if (!section) {
+      return;
+    }
+
+    lastSection = section;
+    setButtonState(section);
+
+    if (!forceRefresh && cache.has(section)) {
+      showContent(cache.get(section));
+      return;
+    }
+
+    showLoading();
+
+    try {
+      const html = await fetchHtml(buildPartialUrl(baseUrl, section));
+      cache.set(section, html);
+      showContent(html);
+    } catch (_error) {
+      showError();
+    }
+  };
+
+  triggers.forEach((button) => {
+    button.addEventListener('click', () => {
+      loadSection(button.getAttribute('data-doc-async-trigger') || '');
+    });
+  });
+
+  region.querySelector('[data-doc-async-retry]')?.addEventListener('click', () => {
+    if (lastSection) {
+      loadSection(lastSection, true);
+    }
+  });
+};
+
+const loadAuditTrail = async (button) => {
+  const host = document.getElementById('adminDocumentManagementModalHost');
+  const baseUrl = host?.getAttribute('data-base-url') || 'document-management.php';
+  const documentId = button.getAttribute('data-document-id') || '';
+  const title = button.getAttribute('data-document-title') || 'Document';
+  if (!documentId) {
+    return;
+  }
+
+  await ensureModalHub();
+  const body = document.getElementById('documentAuditBody');
+  if (!body) {
+    return;
+  }
+
+  body.dataset.documentId = documentId;
+  body.dataset.documentTitle = title;
+  setText('documentAuditTitle', title);
+  body.innerHTML = '<p class="text-slate-500">Loading audit trail...</p>';
+  openModal('documentAuditModal');
+
+  try {
+    const html = await fetchHtml(buildPartialUrl(baseUrl, 'audit', { document_id: documentId }));
+    body.innerHTML = html;
+  } catch (_error) {
+    body.innerHTML = '<div class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"><p>Unable to load audit trail.</p><button type="button" data-doc-audit-retry class="mt-3 inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-xs text-white hover:bg-slate-800">Retry</button></div>';
+  }
+};
+
+const initDelegatedActions = () => {
+  if (document.body.dataset.dmDelegatedActionsInitialized === 'true') {
+    return;
+  }
+
+  document.body.dataset.dmDelegatedActionsInitialized = 'true';
+
+  document.addEventListener('click', async (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) {
+      return;
+    }
+
+    const uploadTrigger = target.closest('[data-open-upload-modal]');
+    if (uploadTrigger) {
+      event.preventDefault();
+      await ensureModalHub();
+      openModal('adminUploadDocumentModal');
+      return;
+    }
+
+    const categoryTrigger = target.closest('#openDocumentCategoryModal');
+    if (categoryTrigger) {
+      event.preventDefault();
+      await ensureModalHub();
+      openModal('documentCategoryModal');
+      return;
+    }
+
+    const reviewTrigger = target.closest('[data-doc-review]');
+    if (reviewTrigger) {
+      event.preventDefault();
+      await ensureModalHub();
+      setValue('reviewDocumentId', reviewTrigger.getAttribute('data-document-id') || '');
+      setValue('reviewDocumentTitle', reviewTrigger.getAttribute('data-document-title') || '-');
+      setValue('reviewCurrentStatus', reviewTrigger.getAttribute('data-current-status') || '-');
+      setValue('reviewStatusSelect', reviewTrigger.getAttribute('data-review-default') || 'approved');
+      openModal('reviewDocumentModal');
+      return;
+    }
+
+    const fulfillRequestTrigger = target.closest('[data-doc-request-fulfill]');
+    if (fulfillRequestTrigger) {
+      event.preventDefault();
+      await ensureModalHub();
+      setValue('fulfillRequestId', fulfillRequestTrigger.getAttribute('data-request-id') || '');
+      setValue('fulfillRequestTitle', fulfillRequestTrigger.getAttribute('data-request-title') || '-');
+      setValue('fulfillRequesterLabel', fulfillRequestTrigger.getAttribute('data-requester-label') || '-');
+      setValue('fulfillPurposeLabel', fulfillRequestTrigger.getAttribute('data-purpose-label') || '-');
+      setValue('fulfillDocumentTitle', fulfillRequestTrigger.getAttribute('data-default-title') || '');
+      setValue('fulfillNotesInput', '');
+      openModal('fulfillDocumentRequestModal');
+      return;
+    }
+
+    const archiveTrigger = target.closest('[data-doc-archive]');
+    if (archiveTrigger) {
+      event.preventDefault();
+      await ensureModalHub();
+      setValue('archiveDocumentId', archiveTrigger.getAttribute('data-document-id') || '');
+      setValue('archiveDocumentTitle', archiveTrigger.getAttribute('data-document-title') || '-');
+      setValue('archiveCurrentStatus', archiveTrigger.getAttribute('data-current-status') || '-');
+      openModal('archiveDocumentModal');
+      return;
+    }
+
+    const uploaderTrigger = target.closest('[data-doc-uploader-open]');
+    if (uploaderTrigger) {
+      event.preventDefault();
+      await ensureModalHub();
+      populateUploaderDocuments(uploaderTrigger);
+      openModal('uploaderDocumentsModal');
+      return;
+    }
+
+    const auditTrigger = target.closest('[data-doc-audit]');
+    if (auditTrigger) {
+      event.preventDefault();
+      await loadAuditTrail(auditTrigger);
+      return;
+    }
+
+    const auditRetry = target.closest('[data-doc-audit-retry]');
+    if (auditRetry) {
+      event.preventDefault();
+      const body = document.getElementById('documentAuditBody');
+      if (!body) {
+        return;
+      }
+      const retryButton = document.createElement('button');
+      retryButton.setAttribute('data-document-id', body.dataset.documentId || '');
+      retryButton.setAttribute('data-document-title', body.dataset.documentTitle || 'Document');
+      await loadAuditTrail(retryButton);
+    }
+  });
+};
+
 export default function initAdminDocumentManagementPage() {
   initAdminShellInteractions();
   initModalSystem();
   initStatusChangeConfirmations();
-  initUploadModalTrigger();
-  initUploadOwnerSearch();
-  initUploadFileInputUI();
-  initSectionTabs();
-  initManagedTables();
-  initActionDropdowns();
-  initDocumentActions();
-  initReviewValidation();
-  initRestoreConfirmations().catch(console.error);
-  initDatePickers().catch(console.error);
+  initializeDynamicScope(document);
+  initAsyncWorkspace();
+  initDelegatedActions();
 }

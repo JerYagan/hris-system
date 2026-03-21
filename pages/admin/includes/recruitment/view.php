@@ -251,7 +251,7 @@ $renderRecruitmentModals = !array_key_exists('renderRecruitmentModals', get_defi
 <div id="recruitmentPostingViewModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-slate-900/60" data-modal-close="recruitmentPostingViewModal"></div>
     <div class="relative min-h-full flex items-center justify-center p-4">
-        <div class="w-full max-w-5xl max-h-[calc(100vh-2rem)] bg-white rounded-2xl border border-slate-200 shadow-xl flex flex-col overflow-hidden">
+        <div class="w-full max-w-7xl max-h-[calc(100vh-2rem)] bg-white rounded-2xl border border-slate-200 shadow-xl flex flex-col overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
                 <h3 class="text-lg font-semibold text-slate-800">View Position</h3>
                 <button type="button" id="recruitmentViewModalClose" data-modal-close="recruitmentPostingViewModal" class="text-slate-500 hover:text-slate-700">✕</button>

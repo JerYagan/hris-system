@@ -309,10 +309,10 @@ if (!function_exists('payrollNormalizeEmployeeLookupKey')) {
 }
 
 if (!function_exists('payrollIsCosEmploymentStatus')) {
-    function payrollIsCosEmploymentStatus(?string $employmentStatus): bool
+    function payrollIsCosEmploymentStatus(?string $employmentStatus, ?string $positionClassification = null): bool
     {
         $delegate = 'payrollServiceIsCosEmploymentStatus';
-        return $delegate($employmentStatus);
+        return $delegate($employmentStatus, $positionClassification);
     }
 }
 
@@ -573,7 +573,7 @@ if ($action === 'import_payroll_deduction_workbook') {
     $employmentResponse = apiRequest(
         'GET',
         $supabaseUrl
-        . '/rest/v1/employment_records?select=person_id,employment_status,person:people!employment_records_person_id_fkey(id,first_name,middle_name,surname)'
+        . '/rest/v1/employment_records?select=person_id,employment_status,employment_type,person:people!employment_records_person_id_fkey(id,first_name,middle_name,surname),position:job_positions(employment_classification)'
         . '&is_current=eq.true&limit=10000',
         $headers
     );
@@ -589,6 +589,9 @@ if ($action === 'import_payroll_deduction_workbook') {
         }
 
         $employmentStatus = trim((string)(cleanText($employmentRow['employment_status'] ?? null) ?? ''));
+        $employmentType = trim((string)(cleanText($employmentRow['employment_type'] ?? null) ?? ''));
+        $positionClassification = trim((string)(cleanText($employmentRow['position']['employment_classification'] ?? null) ?? ''));
+        $effectiveEmploymentMarker = $employmentType !== '' ? $employmentType : $positionClassification;
         $statusKey = strtolower($employmentStatus);
         if (in_array($statusKey, ['inactive', 'separated', 'terminated', 'resigned', 'retired'], true)) {
             continue;
@@ -618,8 +621,8 @@ if ($action === 'import_payroll_deduction_workbook') {
             $lookup[$key] = [
                 'person_id' => $personId,
                 'employee_name' => $employeeName !== '' ? $employeeName : 'Unknown Employee',
-                'employment_status' => $employmentStatus,
-                'is_cos_employee' => payrollIsCosEmploymentStatus($employmentStatus),
+                'employment_status' => payrollIsCosEmploymentStatus($employmentStatus, $effectiveEmploymentMarker) && $effectiveEmploymentMarker !== '' ? $effectiveEmploymentMarker : $employmentStatus,
+                'is_cos_employee' => payrollIsCosEmploymentStatus($employmentStatus, $effectiveEmploymentMarker),
             ];
         }
     }
@@ -817,7 +820,7 @@ if ($action === 'generate_payroll_batch') {
 
     $employmentResponse = apiRequest(
         'GET',
-        $supabaseUrl . '/rest/v1/employment_records?select=person_id,office_id,employment_status&is_current=eq.true&limit=5000',
+        $supabaseUrl . '/rest/v1/employment_records?select=person_id,office_id,employment_status,employment_type,position:job_positions(employment_classification)&is_current=eq.true&limit=5000',
         $headers
     );
 

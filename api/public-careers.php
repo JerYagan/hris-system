@@ -22,12 +22,14 @@ if ($supabaseUrl === '' || !$serviceRoleKey) {
 $today = date('Y-m-d');
 $headers = (array)($supabase['headers'] ?? []);
 
-$select = 'id,title,description,open_date,close_date,plantilla_item_no';
+$select = 'id,title,description,open_date,close_date,plantilla_item_no,office:offices!inner(office_name,is_active),position:job_positions!inner(position_title,employment_classification,is_active)';
 $response = authHttpJsonRequest(
     'GET',
     $supabaseUrl
         . '/rest/v1/job_postings?select=' . rawurlencode($select)
         . '&posting_status=eq.published'
+        . '&office.is_active=eq.true'
+        . '&position.is_active=eq.true'
         . '&open_date=lte.' . rawurlencode($today)
         . '&close_date=gte.' . rawurlencode($today)
         . '&order=close_date.asc'
@@ -36,7 +38,8 @@ $response = authHttpJsonRequest(
 );
 
 $items = [];
-if (($response['status'] ?? 0) >= 200 && ($response['status'] ?? 0) < 300) {
+$requestSucceeded = (($response['status'] ?? 0) >= 200 && ($response['status'] ?? 0) < 300);
+if ($requestSucceeded) {
     foreach ((array)($response['data'] ?? []) as $row) {
         $title = trim((string)($row['title'] ?? ''));
         if ($title === '') {
@@ -48,9 +51,15 @@ if (($response['status'] ?? 0) >= 200 && ($response['status'] ?? 0) < 300) {
             $description = 'Please log in to view the full posting details and application requirements.';
         }
 
+        $office = is_array($row['office'] ?? null) ? (array)$row['office'] : [];
+        $position = is_array($row['position'] ?? null) ? (array)$row['position'] : [];
+
         $items[] = [
             'id' => (string)($row['id'] ?? ''),
             'title' => $title,
+            'position_title' => trim((string)($position['position_title'] ?? '')),
+            'office_name' => trim((string)($office['office_name'] ?? '')),
+            'employment_type' => trim((string)($position['employment_classification'] ?? '')),
             'description' => $description,
             'open_date' => trim((string)($row['open_date'] ?? '')),
             'close_date' => trim((string)($row['close_date'] ?? '')),
@@ -60,7 +69,8 @@ if (($response['status'] ?? 0) >= 200 && ($response['status'] ?? 0) < 300) {
 }
 
 echo json_encode([
-    'success' => true,
+    'success' => $requestSucceeded,
+    'message' => $requestSucceeded ? '' : 'Unable to load live career postings right now.',
     'items' => $items,
 ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 exit;

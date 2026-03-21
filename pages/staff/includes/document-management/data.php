@@ -651,12 +651,13 @@ $requestLogsResponse = apiRequest(
     . '/rest/v1/activity_logs?select=entity_id,action_name,new_data,created_at,actor:user_accounts(username,email)'
     . '&module_name=eq.document_management'
     . '&entity_name=eq.document_requests'
-    . '&order=created_at.desc&limit=2000',
+    . '&order=created_at.asc&limit=2000',
     $headers
 );
 $appendDataError('Document requests', $requestLogsResponse);
 
 if (isSuccessful($requestLogsResponse)) {
+    $requestRowsById = [];
     foreach ((array)($requestLogsResponse['data'] ?? []) as $requestLogRaw) {
         $requestLog = (array)$requestLogRaw;
         $payload = (array)($requestLog['new_data'] ?? []);
@@ -666,19 +667,55 @@ if (isSuccessful($requestLogsResponse)) {
         }
 
         $actor = (array)($requestLog['actor'] ?? []);
-        $documentRequestRows[] = [
-            'id' => $requestId,
+        if (!isset($requestRowsById[$requestId])) {
+            $requestRowsById[$requestId] = [
+                'id' => $requestId,
+                'request_type_label' => 'HR Document Request',
+                'custom_request_label' => '',
+                'purpose_label' => 'Other',
+                'other_purpose' => '',
+                'notes' => '',
+                'status_raw' => 'submitted',
+                'status_label' => 'Submitted',
+                'requester_label' => $buildActorLabel($actor),
+                'submitted_at' => (string)($requestLog['created_at'] ?? ''),
+                'submitted_label' => formatDateTimeForPhilippines((string)($requestLog['created_at'] ?? ''), 'M d, Y g:i A'),
+                'fulfilled_document_title' => '',
+                'fulfilled_label' => '',
+            ];
+        }
+
+        $submittedAt = trim((string)($payload['submitted_at'] ?? ''));
+        if ($submittedAt !== '') {
+            $requestRowsById[$requestId]['submitted_at'] = $submittedAt;
+            $requestRowsById[$requestId]['submitted_label'] = formatDateTimeForPhilippines($submittedAt, 'M d, Y g:i A');
+        }
+
+        $requesterLabel = trim((string)($payload['requester_label'] ?? ''));
+        if ($requesterLabel !== '') {
+            $requestRowsById[$requestId]['requester_label'] = $requesterLabel;
+        }
+
+        $fulfilledAt = trim((string)($payload['fulfilled_at'] ?? ''));
+        $requestRowsById[$requestId] = array_merge($requestRowsById[$requestId], [
             'request_type_label' => trim((string)($payload['request_type_label'] ?? 'HR Document Request')),
             'custom_request_label' => trim((string)($payload['custom_request_label'] ?? '')),
             'purpose_label' => trim((string)($payload['purpose_label'] ?? 'Other')),
             'other_purpose' => trim((string)($payload['other_purpose'] ?? '')),
             'notes' => trim((string)($payload['notes'] ?? '')),
+            'status_raw' => strtolower(trim((string)($payload['status'] ?? 'submitted'))),
             'status_label' => ucwords(str_replace('_', ' ', trim((string)($payload['status'] ?? 'submitted')))),
-            'requester_label' => $buildActorLabel($actor),
-            'submitted_at' => (string)($requestLog['created_at'] ?? ''),
-            'submitted_label' => formatDateTimeForPhilippines((string)($requestLog['created_at'] ?? ''), 'M d, Y g:i A'),
-        ];
+            'fulfilled_document_title' => trim((string)($payload['fulfilled_document_title'] ?? ($requestRowsById[$requestId]['fulfilled_document_title'] ?? ''))),
+            'fulfilled_label' => $fulfilledAt !== ''
+                ? formatDateTimeForPhilippines($fulfilledAt, 'M d, Y g:i A')
+                : (string)($requestRowsById[$requestId]['fulfilled_label'] ?? ''),
+        ]);
     }
+
+    $documentRequestRows = array_values($requestRowsById);
+    usort($documentRequestRows, static function (array $left, array $right): int {
+        return strcmp((string)($right['submitted_at'] ?? ''), (string)($left['submitted_at'] ?? ''));
+    });
 }
 
 $applicantRoleUserIdMap = fetchActiveRoleUserIdMap($supabaseUrl, $headers, 'applicant');

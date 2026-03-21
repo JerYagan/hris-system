@@ -369,7 +369,12 @@ const wireSpecialRequestModalData = () => {
   const attachmentField = document.getElementById('specialAttachmentField');
   const attachmentLabel = document.getElementById('specialAttachmentLabel');
   const attachmentInput = document.getElementById('specialAttachmentInput');
+  const startTimeInput = document.querySelector('#specialRequestModal input[name="start_time"]');
   const endTimeInput = document.querySelector('#specialRequestModal input[name="end_time"]');
+  const hoursRequestedInput = document.querySelector('#specialRequestModal input[name="hours_requested"]');
+  const timeGrid = document.getElementById('specialRequestTimeGrid');
+  const cosWeeklyField = document.getElementById('specialCosWeeklyField');
+  const weeklyScheduleInputs = Array.from(document.querySelectorAll('#specialCosWeeklyField input'));
 
   const configByType = {
     official_business: {
@@ -397,6 +402,7 @@ const wireSpecialRequestModalData = () => {
       showAttachment: false,
       requireAttachment: false,
       maxEndTime: '22:00',
+      useWeeklySchedule: true,
     },
     travel_order: {
       action: 'create_travel_order_request',
@@ -410,6 +416,7 @@ const wireSpecialRequestModalData = () => {
       showAttachment: true,
       requireAttachment: true,
       maxEndTime: '',
+      useWeeklySchedule: false,
     },
     travel_abroad: {
       action: 'create_travel_abroad_request',
@@ -423,6 +430,7 @@ const wireSpecialRequestModalData = () => {
       showAttachment: true,
       requireAttachment: true,
       maxEndTime: '',
+      useWeeklySchedule: false,
     },
   };
 
@@ -441,6 +449,8 @@ const wireSpecialRequestModalData = () => {
     destinationField?.classList.toggle('hidden', !config.showDestination);
     referenceField?.classList.toggle('hidden', !config.showReference);
     attachmentField?.classList.toggle('hidden', !config.showAttachment);
+    timeGrid?.classList.toggle('hidden', !!config.useWeeklySchedule);
+    cosWeeklyField?.classList.toggle('hidden', !config.useWeeklySchedule);
 
     if (destinationInput) {
       destinationInput.required = config.showDestination;
@@ -462,13 +472,55 @@ const wireSpecialRequestModalData = () => {
       attachmentLabel.textContent = config.requireAttachment ? 'Supporting Attachment (required)' : 'Supporting Attachment';
     }
 
+    if (startTimeInput instanceof HTMLInputElement) {
+      startTimeInput.required = !config.useWeeklySchedule;
+      if (config.useWeeklySchedule) {
+        startTimeInput.value = '';
+      }
+    }
+
     if (endTimeInput instanceof HTMLInputElement) {
+      endTimeInput.required = !config.useWeeklySchedule;
+      if (config.useWeeklySchedule) {
+        endTimeInput.value = '';
+      }
       if (config.maxEndTime) {
         endTimeInput.max = config.maxEndTime;
       } else {
         endTimeInput.removeAttribute('max');
       }
     }
+
+    if (hoursRequestedInput instanceof HTMLInputElement) {
+      hoursRequestedInput.required = !config.useWeeklySchedule;
+      if (config.useWeeklySchedule) {
+        hoursRequestedInput.value = '';
+      }
+    }
+
+    weeklyScheduleInputs.forEach((input) => {
+      if (!(input instanceof HTMLInputElement) || config.useWeeklySchedule) {
+        return;
+      }
+
+      if (input.type === 'checkbox') {
+        input.checked = false;
+      } else if (input.name !== 'weekly_schedule_day[]') {
+        input.value = '';
+      }
+    });
+
+    document.querySelectorAll('#specialCosWeeklyField input[name="weekly_schedule_end[]"]').forEach((input) => {
+      if (!(input instanceof HTMLInputElement)) {
+        return;
+      }
+
+      if (config.maxEndTime) {
+        input.max = config.maxEndTime;
+      } else {
+        input.removeAttribute('max');
+      }
+    });
   };
 };
 

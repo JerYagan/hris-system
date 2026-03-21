@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/../../../shared/lib/rfid-attendance.php';
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     return;
 }
@@ -88,6 +90,285 @@ $writeActivityLog = static function (string $entityName, string $entityId, strin
     );
 };
 
+$resolvePersonByEmployeeCode = static function (string $employeeCode) use ($supabaseUrl, $headers): array {
+    $normalizedCode = strtoupper(trim($employeeCode));
+    if ($normalizedCode === '') {
+        return [];
+    }
+
+    $personResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/people?select=id,first_name,surname,agency_employee_no,user_id'
+        . '&agency_employee_no=eq.' . rawurlencode($normalizedCode)
+        . '&limit=1',
+        $headers
+    );
+
+    $person = rfidApiFirstRow($personResponse);
+    if ($person === []) {
+        return [];
+    }
+
+    $personId = cleanText($person['id'] ?? null) ?? '';
+    if (!isValidUuid($personId)) {
+        return [];
+    }
+
+    $employmentResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/employment_records?select=person_id,office:offices(office_name),position:job_positions(position_title)'
+        . '&person_id=eq.' . rawurlencode($personId)
+        . '&is_current=eq.true'
+        . '&limit=1',
+        $headers
+    );
+
+    $employment = rfidApiFirstRow($employmentResponse);
+    if ($employment === []) {
+        return [];
+    }
+
+    return [
+        'person_id' => $personId,
+        'employee_code' => $normalizedCode,
+        'employee_name' => trim((string)($person['first_name'] ?? '') . ' ' . (string)($person['surname'] ?? '')),
+        'office_name' => cleanText($employment['office']['office_name'] ?? null) ?? 'Unassigned Division',
+        'position_title' => cleanText($employment['position']['position_title'] ?? null) ?? 'Unassigned Position',
+        'user_id' => cleanText($person['user_id'] ?? null),
+    ];
+};
+
+$resolveCardRecordByUid = static function (?string $cardUid) use ($supabaseUrl, $headers): array {
+    $normalizedUid = rfidNormalizeCardUid($cardUid);
+    if ($normalizedUid === '') {
+        return [];
+    }
+
+    $response = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/rfid_cards?select=id,person_id,card_uid,card_label,status,issued_at,deactivated_at'
+        . '&card_uid=ilike.' . rawurlencode($normalizedUid)
+        . '&limit=1',
+        $headers
+    );
+
+    return rfidApiFirstRow($response);
+};
+
+$updateRfidCard = static function (string $cardId, array $payload) use ($supabaseUrl, $headers): array {
+    if (!isValidUuid($cardId)) {
+        return [];
+    }
+
+    $response = apiRequest(
+        'PATCH',
+        $supabaseUrl . '/rest/v1/rfid_cards?id=eq.' . rawurlencode($cardId),
+        array_merge($headers, ['Prefer: return=representation']),
+        $payload
+    );
+
+    return rfidApiFirstRow($response);
+};
+
+$createRfidCard = static function (array $payload) use ($supabaseUrl, $headers): array {
+    $response = apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/rfid_cards',
+        array_merge($headers, ['Prefer: return=representation']),
+        [$payload]
+    );
+
+    return rfidApiFirstRow($response);
+};
+
+if ($action === 'assign_rfid_card') {
+    $employeeCode = strtoupper((string)(cleanText($_POST['employee_id'] ?? null) ?? ''));
+    $cardUid = rfidNormalizeCardUid(cleanText($_POST['card_uid'] ?? null));
+    $cardLabel = cleanText($_POST['card_label'] ?? null);
+
+    if ($employeeCode === '') {
+        redirectWithState('error', 'Employee ID is required for RFID assignment.');
+    }
+
+    if ($cardUid === '') {
+        redirectWithState('error', 'RFID card UID is required.');
+    }
+
+    $employee = $resolvePersonByEmployeeCode($employeeCode);
+    $personId = cleanText($employee['person_id'] ?? null) ?? '';
+    if (!isValidUuid($personId) || !$isPersonInScope($personId)) {
+        redirectWithState('error', 'Employee was not found in the active staff scope.');
+    }
+
+    $existingCardForPerson = rfidResolveActiveCardForPerson($supabaseUrl, $headers, $personId);
+    $existingCardByUid = $resolveCardRecordByUid($cardUid);
+    $existingUidPersonId = cleanText($existingCardByUid['person_id'] ?? null) ?? '';
+    $existingUidStatus = strtolower((string)(cleanText($existingCardByUid['status'] ?? null) ?? ''));
+
+    if ($existingCardByUid !== [] && $existingUidStatus === 'active' && $existingUidPersonId !== $personId) {
+        redirectWithState('error', 'RFID card UID is already assigned to another employee.');
+    }
+
+    $nowIso = gmdate('c');
+    $existingPersonCardId = cleanText($existingCardForPerson['id'] ?? null) ?? '';
+    $existingUidCardId = cleanText($existingCardByUid['id'] ?? null) ?? '';
+    if (isValidUuid($existingPersonCardId) && $existingPersonCardId !== $existingUidCardId) {
+        $updateRfidCard($existingPersonCardId, [
+            'status' => 'replaced',
+            'deactivated_at' => $nowIso,
+            'updated_at' => $nowIso,
+        ]);
+    }
+
+    $savedCard = [];
+    $oldData = $existingCardByUid !== [] ? $existingCardByUid : $existingCardForPerson;
+    if (isValidUuid($existingUidCardId)) {
+        $savedCard = $updateRfidCard($existingUidCardId, [
+            'person_id' => $personId,
+            'card_uid' => $cardUid,
+            'card_label' => $cardLabel,
+            'status' => 'active',
+            'issued_at' => $nowIso,
+            'deactivated_at' => null,
+            'updated_at' => $nowIso,
+        ]);
+    } else {
+        $savedCard = $createRfidCard([
+            'person_id' => $personId,
+            'card_uid' => $cardUid,
+            'card_label' => $cardLabel,
+            'status' => 'active',
+            'issued_at' => $nowIso,
+        ]);
+    }
+
+    $savedCardId = cleanText($savedCard['id'] ?? null) ?? '';
+    if (!isValidUuid($savedCardId)) {
+        redirectWithState('error', 'Unable to save the RFID card assignment. Verify that the RFID schema migration is applied.');
+    }
+
+    $employeeName = trim((string)($employee['employee_name'] ?? 'Employee'));
+    if ($employeeName === '') {
+        $employeeName = 'Employee';
+    }
+
+    $writeActivityLog(
+        'rfid_cards',
+        $savedCardId,
+        'assign_rfid_card',
+        is_array($oldData) ? $oldData : [],
+        [
+            'person_id' => $personId,
+            'employee_code' => $employeeCode,
+            'employee_name' => $employeeName,
+            'card_uid_masked' => rfidMaskCardUid($cardUid),
+            'card_label' => $cardLabel,
+            'status' => 'active',
+        ]
+    );
+
+    redirectWithState('success', 'RFID card assigned to ' . $employeeName . '.');
+}
+
+if ($action === 'deactivate_rfid_card') {
+    $cardId = cleanText($_POST['card_id'] ?? null) ?? '';
+    if (!isValidUuid($cardId)) {
+        redirectWithState('error', 'Invalid RFID card selected.');
+    }
+
+    $cardResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/rfid_cards?select=id,person_id,card_uid,card_label,status'
+        . '&id=eq.' . rawurlencode($cardId)
+        . '&limit=1',
+        $headers
+    );
+    $card = rfidApiFirstRow($cardResponse);
+    $personId = cleanText($card['person_id'] ?? null) ?? '';
+    if ($card === [] || !isValidUuid($personId) || !$isPersonInScope($personId)) {
+        redirectWithState('error', 'RFID card was not found in the current staff scope.');
+    }
+
+    $savedCard = $updateRfidCard($cardId, [
+        'status' => 'inactive',
+        'deactivated_at' => gmdate('c'),
+        'updated_at' => gmdate('c'),
+    ]);
+    if ($savedCard === []) {
+        redirectWithState('error', 'Unable to deactivate the RFID card.');
+    }
+
+    $writeActivityLog(
+        'rfid_cards',
+        $cardId,
+        'deactivate_rfid_card',
+        $card,
+        [
+            'status' => 'inactive',
+            'card_uid_masked' => rfidMaskCardUid((string)($card['card_uid'] ?? '')),
+        ]
+    );
+
+    redirectWithState('success', 'RFID card deactivated successfully.');
+}
+
+if ($action === 'staff_rfid_attendance_assist') {
+    $employeeCode = strtoupper((string)(cleanText($_POST['employee_id'] ?? null) ?? ''));
+    $scannedAt = cleanText($_POST['scanned_at'] ?? null);
+
+    if ($employeeCode === '') {
+        redirectWithState('error', 'Employee ID is required to process an RFID tap.');
+    }
+
+    $employee = $resolvePersonByEmployeeCode($employeeCode);
+    $personId = cleanText($employee['person_id'] ?? null) ?? '';
+    if (!isValidUuid($personId) || !$isPersonInScope($personId)) {
+        redirectWithState('error', 'Employee was not found in the active staff scope.');
+    }
+
+    $activeCard = rfidResolveActiveCardForPerson($supabaseUrl, $headers, $personId);
+    $cardUid = cleanText($activeCard['card_uid'] ?? null) ?? '';
+    if ($cardUid === '') {
+        redirectWithState('error', 'Employee has no active RFID card assignment yet.');
+    }
+
+    $result = rfidProcessAttendanceTap($supabaseUrl, $headers, [
+        'request_source' => 'employee_simulation',
+        'employee_person_id' => $personId,
+        'actor_user_id' => $actorUserId,
+        'card_uid' => $cardUid,
+        'scanned_at' => $scannedAt,
+        'raw_payload' => [
+            'source_page' => 'staff_timekeeping',
+            'source_action' => 'staff_rfid_attendance_assist',
+            'employee_code' => $employeeCode,
+        ],
+    ]);
+
+    if (!(bool)($result['success'] ?? false)) {
+        redirectWithState('error', (string)($result['message'] ?? 'Unable to process the RFID tap.'));
+    }
+
+    $employeeName = trim((string)($employee['employee_name'] ?? 'Employee'));
+    if ($employeeName === '') {
+        $employeeName = 'Employee';
+    }
+
+    $actionLabel = strtolower((string)($result['action'] ?? ''));
+    $message = match ($actionLabel) {
+        'time_in' => 'RFID time-in logged for ' . $employeeName . '.',
+        'time_out' => 'RFID time-out logged for ' . $employeeName . '.',
+        'duplicate_ignored' => 'Rapid duplicate RFID tap ignored for ' . $employeeName . '.',
+        default => (string)($result['message'] ?? 'RFID tap processed successfully.'),
+    };
+
+    redirectWithState('success', $message);
+}
+
 if ($action === 'review_leave_request') {
     $requestId = cleanText($_POST['request_id'] ?? null) ?? '';
     $decision = strtolower((string)(cleanText($_POST['decision'] ?? null) ?? ''));
@@ -164,7 +445,7 @@ if ($action === 'review_ob_request') {
         redirectWithState('error', 'Invalid special timekeeping request selected.');
     }
 
-    if (!in_array($decision, ['approved', 'rejected', 'cancelled'], true)) {
+    if (!in_array($decision, ['approved', 'rejected', 'needs_revision'], true)) {
         redirectWithState('error', 'Invalid special timekeeping decision selected.');
     }
 

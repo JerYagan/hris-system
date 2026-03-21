@@ -18,7 +18,7 @@ $resolveScopedEmployment = static function (string $employmentId, string $person
     $response = apiRequest(
         'GET',
         $supabaseUrl
-        . '/rest/v1/employment_records?select=id,person_id,office_id,position_id,employment_status,is_current,separation_date,separation_reason'
+        . '/rest/v1/employment_records?select=id,person_id,office_id,position_id,employment_status,employment_type,is_current,separation_date,separation_reason'
         . '&id=eq.' . rawurlencode($employmentId)
         . '&person_id=eq.' . rawurlencode($personId)
         . '&is_current=eq.true&limit=1',

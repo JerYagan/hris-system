@@ -142,12 +142,12 @@ $personalInfoShowProfileCards = !empty($personalInfoShowProfileCards);
         <table id="personalInfoPendingReviewTable" data-simple-table="true" class="w-full text-sm table-fixed">
             <thead class="bg-slate-50 text-slate-600">
                 <tr>
-                    <th class="text-left px-4 py-3 w-[24%]">Employee</th>
-                    <th class="text-left px-4 py-3 w-[20%]">Submitted By</th>
-                    <th class="text-left px-4 py-3 w-[18%]">Submitted On</th>
-                    <th class="text-left px-4 py-3 w-[18%]">Due Date</th>
+                    <th class="text-left px-4 py-3 w-[20%]">Employee</th>
+                    <th class="text-left px-4 py-3 w-[18%]">Submitted By</th>
+                    <th class="text-left px-4 py-3 w-[16%]">Submitted On</th>
+                    <th class="text-left px-4 py-3 w-[24%]">Tracker</th>
                     <th class="text-left px-4 py-3 w-[10%]">Status</th>
-                    <th class="text-left px-4 py-3 w-[10%]">Actions</th>
+                    <th class="text-left px-4 py-3 w-[12%]">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
@@ -171,7 +171,13 @@ $personalInfoShowProfileCards = !empty($personalInfoShowProfileCards);
                             <td class="px-4 py-3 font-medium text-slate-700 align-top break-words"><?= htmlspecialchars((string)($recommendationRow['employee_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3 text-slate-600 align-top break-words"><?= htmlspecialchars((string)($recommendationRow['submitted_by'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3 text-slate-600 align-top"><?= htmlspecialchars((string)($recommendationRow['submitted_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3 text-slate-600 align-top"><?= htmlspecialchars((string)($recommendationRow['due_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-600 align-top">
+                                <div class="space-y-1">
+                                    <p><span class="font-medium text-slate-700">Due:</span> <?= htmlspecialchars((string)($recommendationRow['due_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                                    <p><span class="font-medium text-slate-700">Reminder:</span> <?= htmlspecialchars((string)($recommendationRow['reminder_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                                    <p class="text-xs text-slate-500"><?= htmlspecialchars((string)($recommendationRow['notification_summary'] ?? 'Notifications pending sync.'), ENT_QUOTES, 'UTF-8') ?></p>
+                                </div>
+                            </td>
                             <td class="px-4 py-3">
                                 <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs <?= htmlspecialchars((string)($recommendationRow['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>">
                                     <?= htmlspecialchars((string)($recommendationRow['status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?>
@@ -187,6 +193,9 @@ $personalInfoShowProfileCards = !empty($personalInfoShowProfileCards);
                                     data-submitted-by="<?= htmlspecialchars((string)($recommendationRow['submitted_by'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
                                     data-submitted-at="<?= htmlspecialchars((string)($recommendationRow['submitted_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
                                     data-summary="<?= htmlspecialchars((string)($recommendationRow['summary'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
+                                    data-due-at="<?= htmlspecialchars((string)($recommendationRow['due_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
+                                    data-reminder-at="<?= htmlspecialchars((string)($recommendationRow['reminder_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
+                                    data-notification-summary="<?= htmlspecialchars((string)($recommendationRow['notification_summary'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
                                     data-details="<?= $recommendationDetailsJson ?>"
                                     class="px-3 py-1.5 text-xs rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                                 >
@@ -309,9 +318,23 @@ $personalInfoShowProfileCards = !empty($personalInfoShowProfileCards);
                     <label class="text-slate-600">Submitted On</label>
                     <input id="recommendationReviewSubmittedAt" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
                 </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-slate-600">Due Date</label>
+                        <input id="recommendationReviewDueAt" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
+                    </div>
+                    <div>
+                        <label class="text-slate-600">Reminder Window</label>
+                        <input id="recommendationReviewReminderAt" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
+                    </div>
+                </div>
                 <div>
                     <label class="text-slate-600">Summary</label>
                     <textarea id="recommendationReviewSummary" rows="2" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly></textarea>
+                </div>
+                <div>
+                    <label class="text-slate-600">Notification Coverage</label>
+                    <input id="recommendationReviewNotificationSummary" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
                 </div>
                 <div>
                     <label class="text-slate-600">Proposed Changes</label>
@@ -486,7 +509,16 @@ $personalInfoShowProfileCards = !empty($personalInfoShowProfileCards);
                         <?php $educationJson = htmlspecialchars((string)json_encode($educationRows, JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8'); ?>
                         <tr data-profile-search="<?= htmlspecialchars((string)$row['search_text'], ENT_QUOTES, 'UTF-8') ?>" data-profile-department="<?= htmlspecialchars((string)$row['department'], ENT_QUOTES, 'UTF-8') ?>" data-profile-status="<?= htmlspecialchars((string)$statusLabel, ENT_QUOTES, 'UTF-8') ?>">
                             <td class="px-4 py-3"><?= htmlspecialchars((string)$row['employee_code'], ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['full_name'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3">
+                                <div class="space-y-1">
+                                    <p><?= htmlspecialchars((string)$row['full_name'], ENT_QUOTES, 'UTF-8') ?></p>
+                                    <?php if (!empty($row['has_contractual_application'])): ?>
+                                        <span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-medium text-amber-800" title="<?= htmlspecialchars((string)($row['contractual_application_job_title'] ?? 'Contractual Job'), ENT_QUOTES, 'UTF-8') ?>">
+                                            <?= htmlspecialchars((string)($row['contractual_application_label'] ?? 'Applied to Contractual Job'), ENT_QUOTES, 'UTF-8') ?>
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['email'] !== '' ? $row['email'] : '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)$row['department'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)$row['position'], ENT_QUOTES, 'UTF-8') ?></td>
@@ -946,6 +978,7 @@ $personalInfoShowProfileCards = !empty($personalInfoShowProfileCards);
     'bloodTypeOptions' => $bloodTypeOptions,
     'addressCityOptions' => $addressCityOptions,
     'addressProvinceOptions' => $addressProvinceOptions,
+    'addressBarangaysByCity' => $addressBarangaysByCity,
     'addressBarangayOptions' => $addressBarangayOptions,
 ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 

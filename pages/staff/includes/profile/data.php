@@ -113,6 +113,20 @@ $loginHistoryResponse = apiRequest(
 
 $loginHistoryRowsRaw = isSuccessful($loginHistoryResponse) ? (array)($loginHistoryResponse['data'] ?? []) : [];
 
+$latestSuccessfulLoginAt = '';
+foreach ($loginHistoryRowsRaw as $loginHistoryRow) {
+    $eventType = strtolower(trim((string)($loginHistoryRow['event_type'] ?? '')));
+    $createdAt = trim((string)($loginHistoryRow['created_at'] ?? ''));
+    if ($eventType === 'login_success' && $createdAt !== '') {
+        $latestSuccessfulLoginAt = $createdAt;
+        break;
+    }
+}
+
+if ($latestSuccessfulLoginAt !== '') {
+    $profileSummary['last_login'] = formatDateTimeForPhilippines($latestSuccessfulLoginAt, 'M d, Y · h:i A');
+}
+
 $resolveDeviceLabel = static function (string $userAgent): string {
     $agent = strtolower(trim($userAgent));
     if ($agent === '' || $agent === '-') {

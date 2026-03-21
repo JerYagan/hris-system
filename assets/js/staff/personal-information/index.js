@@ -788,6 +788,7 @@ import { initFloatingActionMenus } from '../../shared/action-menu.js';
 
     const addressLookupElement = document.getElementById('staffAddressLookupData');
     let addressLookup = {
+        barangayByCity: {},
         zipByCityBarangay: {},
     };
 
@@ -796,11 +797,13 @@ import { initFloatingActionMenus } from '../../shared/action-menu.js';
             const parsed = JSON.parse(addressLookupElement.textContent || '{}');
             if (parsed && typeof parsed === 'object') {
                 addressLookup = {
+                    barangayByCity: parsed.barangayByCity && typeof parsed.barangayByCity === 'object' ? parsed.barangayByCity : {},
                     zipByCityBarangay: parsed.zipByCityBarangay && typeof parsed.zipByCityBarangay === 'object' ? parsed.zipByCityBarangay : {},
                 };
             }
         } catch {
             addressLookup = {
+                barangayByCity: {},
                 zipByCityBarangay: {},
             };
         }
@@ -828,6 +831,27 @@ import { initFloatingActionMenus } from '../../shared/action-menu.js';
     };
 
     const defaultBarangayOptions = extractDatalistValues(barangayDatalistByGroup.residential);
+
+    const resolveLookupKeys = (value, lookup, isBarangay = false) => {
+        if (!lookup || typeof lookup !== 'object') {
+            return [];
+        }
+
+        const valueVariants = normalizeLookupVariants(value, isBarangay);
+        if (valueVariants.length === 0) {
+            return [];
+        }
+
+        const resolved = new Set();
+        Object.keys(lookup).forEach((lookupKey) => {
+            const lookupVariants = normalizeLookupVariants(lookupKey, isBarangay);
+            if (lookupVariants.some((lookupVariant) => valueVariants.includes(lookupVariant))) {
+                resolved.add(lookupKey);
+            }
+        });
+
+        return Array.from(resolved);
+    };
 
     const addressControls = {
         residential: {
@@ -882,6 +906,9 @@ import { initFloatingActionMenus } from '../../shared/action-menu.js';
     };
 
     const zipLookupMap = buildZipLookupMap();
+    const barangayByCityLookup = addressLookup.barangayByCity && typeof addressLookup.barangayByCity === 'object'
+        ? addressLookup.barangayByCity
+        : {};
     const buildCityZipLookupMap = () => {
         const lookupMap = new Map();
         const zipMap = addressLookup.zipByCityBarangay || {};
@@ -946,7 +973,35 @@ import { initFloatingActionMenus } from '../../shared/action-menu.js';
         });
     };
 
-    const resolveBarangayOptions = () => defaultBarangayOptions;
+    const resolveBarangayOptions = (groupKey) => {
+        const controls = addressControls[groupKey];
+        if (!controls || !(controls.city instanceof HTMLInputElement)) {
+            return defaultBarangayOptions;
+        }
+
+        const cityKeys = resolveLookupKeys(controls.city.value, barangayByCityLookup, false);
+        if (cityKeys.length === 0) {
+            return defaultBarangayOptions;
+        }
+
+        const resolvedOptions = [];
+        cityKeys.forEach((cityKey) => {
+            const mappedBarangays = barangayByCityLookup[cityKey];
+            if (Array.isArray(mappedBarangays) && mappedBarangays.length > 0) {
+                mappedBarangays.forEach((barangay) => resolvedOptions.push(barangay));
+                return;
+            }
+
+            const rawBarangays = addressLookup.zipByCityBarangay[cityKey];
+            if (!rawBarangays || typeof rawBarangays !== 'object') {
+                return;
+            }
+
+            Object.keys(rawBarangays).forEach((barangay) => resolvedOptions.push(barangay));
+        });
+
+        return createUniqueSortedOptions(resolvedOptions);
+    };
 
     const requestZipFallback = async (groupKey, cityValue, barangayValue) => {
         const controls = addressControls[groupKey];
@@ -1058,8 +1113,8 @@ import { initFloatingActionMenus } from '../../shared/action-menu.js';
         }
 
         const datalistElement = barangayDatalistByGroup[groupKey];
-        if (datalistElement instanceof HTMLDataListElement && datalistElement.options.length === 0) {
-            setDatalistOptions(datalistElement, resolveBarangayOptions());
+        if (datalistElement instanceof HTMLDataListElement) {
+            setDatalistOptions(datalistElement, resolveBarangayOptions(groupKey));
         }
 
         autofillZip(groupKey);
@@ -1085,6 +1140,45 @@ import { initFloatingActionMenus } from '../../shared/action-menu.js';
         if (!(inputElement instanceof HTMLInputElement) || typeof optionsResolver !== 'function') {
             return;
         }
+
+        const inferLookupMode = () => {
+            const addressRole = (inputElement.dataset.addressRole || '').toLowerCase();
+            if (addressRole === 'barangay') {
+                return 'barangay';
+            }
+            if (addressRole === 'city') {
+                return 'city';
+            }
+
+            const identifier = `${inputElement.id || ''} ${inputElement.name || ''}`.toLowerCase();
+            if (identifier.includes('barangay')) {
+                return 'barangay';
+            }
+            if (identifier.includes('city') || identifier.includes('municipality')) {
+                return 'city';
+            }
+
+            return 'generic';
+        };
+
+        const matchesQuery = (option, query) => {
+            if (query === '') {
+                return true;
+            }
+
+            const lookupMode = inferLookupMode();
+            if (lookupMode === 'generic') {
+                return normalize(option).includes(query);
+            }
+
+            const isBarangay = lookupMode === 'barangay';
+            const queryVariants = normalizeLookupVariants(query, isBarangay);
+            const optionVariants = normalizeLookupVariants(option, isBarangay);
+
+            return optionVariants.some((optionVariant) => {
+                return queryVariants.some((queryVariant) => optionVariant.includes(queryVariant) || queryVariant.includes(optionVariant));
+            });
+        };
 
         const originalListId = inputElement.getAttribute('list') || '';
         if (originalListId !== '') {
@@ -1129,9 +1223,9 @@ import { initFloatingActionMenus } from '../../shared/action-menu.js';
         };
 
         const renderOptions = () => {
-            const query = normalize(inputElement.value || '');
+            const query = normalizeLookup(inputElement.value || '');
             const options = createUniqueSortedOptions(optionsResolver()).filter((option) => {
-                return query === '' || normalize(option).includes(query);
+                return matchesQuery(option, query);
             }).slice(0, 30);
 
             container.innerHTML = '';
@@ -1249,8 +1343,8 @@ import { initFloatingActionMenus } from '../../shared/action-menu.js';
         buildModernSearch(byId('profilePlaceOfBirth'), () => datalistOptions('profilePlaceOfBirthList'));
         buildModernSearch(byId('profileCivilStatus'), () => datalistOptions('profileCivilStatusList'));
         buildModernSearch(byId('profileBloodType'), () => datalistOptions('profileBloodTypeList'));
-        buildModernSearch(byId('profileResidentialBarangay'), () => datalistOptions('profileResidentialBarangayList'));
-        buildModernSearch(byId('profilePermanentBarangay'), () => datalistOptions('profilePermanentBarangayList'));
+        buildModernSearch(byId('profileResidentialBarangay'), () => resolveBarangayOptions('residential'));
+        buildModernSearch(byId('profilePermanentBarangay'), () => resolveBarangayOptions('permanent'));
         buildModernSearch(byId('profileResidentialCity'), () => datalistOptions('profileCityList'));
         buildModernSearch(byId('profilePermanentCity'), () => datalistOptions('profileCityList'));
         buildModernSearch(byId('profileResidentialProvince'), () => datalistOptions('profileProvinceList'));
@@ -1277,6 +1371,9 @@ import { initFloatingActionMenus } from '../../shared/action-menu.js';
                 });
             }
         });
+
+        renderAddressGroup('residential');
+        renderAddressGroup('permanent');
     };
 
     const hydrateAddressSelections = (groupKey, cityValue, barangayValue, zipValue) => {
@@ -1297,7 +1394,7 @@ import { initFloatingActionMenus } from '../../shared/action-menu.js';
             controls.zip.value = zipValue || '';
         }
 
-        autofillZip(groupKey);
+        renderAddressGroup(groupKey);
     };
 
     const residentialAddressFields = [

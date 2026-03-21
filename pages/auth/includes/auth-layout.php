@@ -3,6 +3,8 @@
  * Auth Layout
  * Used for login, forgot password, reset password
  */
+
+require_once __DIR__ . '/auth-support.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">

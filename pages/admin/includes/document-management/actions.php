@@ -6,6 +6,129 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $action = (string)($_POST['form_action'] ?? '');
 
+$buildActorLabel = static function (array $actor): string {
+    $username = trim((string)($actor['username'] ?? ''));
+    if ($username !== '') {
+        return $username;
+    }
+
+    $email = trim((string)($actor['email'] ?? ''));
+    return $email !== '' ? $email : 'System';
+};
+
+$storeUploadedDocument = static function (array $upload, string $personId, string $suffix): array {
+    $allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv'];
+    $allowedMime = [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'text/plain',
+        'text/csv',
+        'application/csv',
+    ];
+
+    if ((int)($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        return ['ok' => false, 'message' => 'Please select a valid file.'];
+    }
+
+    $tmpPath = (string)($upload['tmp_name'] ?? '');
+    if ($tmpPath === '' || !is_uploaded_file($tmpPath)) {
+        return ['ok' => false, 'message' => 'Uploaded file was not found.'];
+    }
+
+    $originalName = (string)($upload['name'] ?? 'document');
+    $sizeBytes = (int)($upload['size'] ?? 0);
+    if ($sizeBytes <= 0 || $sizeBytes > 10 * 1024 * 1024) {
+        return ['ok' => false, 'message' => 'File must be between 1 byte and 10 MB.'];
+    }
+
+    $extension = strtolower((string)pathinfo($originalName, PATHINFO_EXTENSION));
+    if ($extension === '' || !in_array($extension, $allowedExtensions, true)) {
+        return ['ok' => false, 'message' => 'File extension is not supported.'];
+    }
+
+    $year = gmdate('Y');
+    $month = gmdate('m');
+    $safePersonId = preg_replace('/[^a-zA-Z0-9\-_]/', '', $personId);
+    $hash = substr((string)sha1($tmpPath . '|' . $originalName . '|' . (string)$sizeBytes . '|' . microtime(true)), 0, 20);
+    $fileName = gmdate('YmdHis') . '-' . $suffix . '-' . $hash . '.' . $extension;
+
+    $relativeDir = $safePersonId . '/' . $year . '/' . $month;
+    $relativePath = $relativeDir . '/' . $fileName;
+    $storageRoot = dirname(__DIR__, 4) . '/storage/document';
+    $targetDir = $storageRoot . '/' . $relativeDir;
+    if (!is_dir($targetDir) && !mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
+        return ['ok' => false, 'message' => 'Unable to prepare document storage directory.'];
+    }
+
+    $targetPath = $targetDir . '/' . $fileName;
+    if (!move_uploaded_file($tmpPath, $targetPath)) {
+        return ['ok' => false, 'message' => 'Failed to save uploaded file.'];
+    }
+
+    $mimeType = (string)(mime_content_type($targetPath) ?: 'application/octet-stream');
+    if (!in_array($mimeType, $allowedMime, true)) {
+        @unlink($targetPath);
+        return ['ok' => false, 'message' => 'Uploaded file MIME type is not allowed.'];
+    }
+
+    return [
+        'ok' => true,
+        'original_name' => $originalName,
+        'size_bytes' => $sizeBytes,
+        'mime_type' => $mimeType,
+        'checksum' => (string)(hash_file('sha256', $targetPath) ?: ''),
+        'storage_path' => $relativePath,
+    ];
+};
+
+$resolveCategoryId = static function (string $categoryName) use ($supabaseUrl, $headers): string {
+    $label = trim($categoryName);
+    if ($label === '') {
+        return '';
+    }
+
+    $categoryKey = strtolower(trim((string)preg_replace('/[^a-z0-9]+/i', '_', $label), '_'));
+    if ($categoryKey === '') {
+        return '';
+    }
+
+    $existingResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/document_categories?select=id,category_name'
+        . '&or=(category_key.eq.' . rawurlencode($categoryKey) . ',category_name.eq.' . rawurlencode($label) . ')'
+        . '&limit=1',
+        $headers
+    );
+
+    if (isSuccessful($existingResponse)) {
+        $existingId = trim((string)($existingResponse['data'][0]['id'] ?? ''));
+        if ($existingId !== '') {
+            return $existingId;
+        }
+    }
+
+    $createResponse = apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/document_categories',
+        array_merge($headers, ['Prefer: return=representation']),
+        [[
+            'category_key' => $categoryKey,
+            'category_name' => $label,
+            'requires_approval' => true,
+        ]]
+    );
+
+    return trim((string)($createResponse['data'][0]['id'] ?? ''));
+};
+
 if ($action === 'create_document_category') {
     $categoryName = trim((string)(cleanText($_POST['category_name'] ?? null) ?? ''));
     if ($categoryName === '') {
@@ -460,6 +583,234 @@ if ($action === 'review_document') {
     );
 
     redirectWithState('success', 'Document review saved successfully.');
+}
+
+if ($action === 'fulfill_document_request') {
+    $requestId = cleanText($_POST['request_id'] ?? null) ?? '';
+    $fulfilledTitle = trim((string)(cleanText($_POST['fulfilled_document_title'] ?? null) ?? ''));
+    $fulfilledNotes = trim((string)(cleanText($_POST['fulfilled_notes'] ?? null) ?? ''));
+    $upload = $_FILES['fulfilled_document_file'] ?? null;
+
+    if (!isValidUuid($requestId)) {
+        redirectWithState('error', 'A valid HR request identifier is required.');
+    }
+
+    if ($fulfilledTitle === '') {
+        redirectWithState('error', 'Released document title is required.');
+    }
+
+    if ($upload === null || !is_array($upload)) {
+        redirectWithState('error', 'A released document file is required.');
+    }
+
+    $requestLogsResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/activity_logs?select=entity_id,action_name,new_data,created_at,actor:user_accounts(username,email)'
+        . '&module_name=eq.document_management'
+        . '&entity_name=eq.document_requests'
+        . '&entity_id=eq.' . rawurlencode($requestId)
+        . '&order=created_at.asc&limit=100',
+        $headers
+    );
+
+    if (!isSuccessful($requestLogsResponse) || empty((array)($requestLogsResponse['data'] ?? []))) {
+        redirectWithState('error', 'HR document request was not found.');
+    }
+
+    $requestState = [];
+    $submittedAt = '';
+    $requesterLabel = '';
+    foreach ((array)($requestLogsResponse['data'] ?? []) as $requestLogRaw) {
+        $requestLog = (array)$requestLogRaw;
+        $payload = (array)($requestLog['new_data'] ?? []);
+        $requestState = array_merge($requestState, $payload);
+
+        if ($submittedAt === '') {
+            $submittedAt = (string)($requestLog['created_at'] ?? '');
+        }
+
+        if ($requesterLabel === '') {
+            $requesterLabel = trim((string)($requestState['requester_label'] ?? ''));
+            if ($requesterLabel === '') {
+                $requesterLabel = $buildActorLabel((array)($requestLog['actor'] ?? []));
+            }
+        }
+    }
+
+    $currentStatus = strtolower(trim((string)($requestState['status'] ?? 'submitted')));
+    if ($currentStatus === 'fulfilled') {
+        redirectWithState('success', 'This HR document request is already fulfilled.');
+    }
+
+    $requesterPersonId = trim((string)($requestState['requester_person_id'] ?? ''));
+    $requesterUserId = trim((string)($requestState['requester_user_id'] ?? ''));
+    $requestType = strtolower(trim((string)($requestState['request_type'] ?? 'other_hr_document')));
+    $requestTypeLabel = trim((string)($requestState['request_type_label'] ?? 'HR Document Request'));
+    $customRequestLabel = trim((string)($requestState['custom_request_label'] ?? ''));
+
+    if (!isValidUuid($requesterPersonId)) {
+        redirectWithState('error', 'The request is missing a valid requester person record.');
+    }
+
+    $categoryLabel = match ($requestType) {
+        'coe' => 'COE',
+        'service_record' => 'Service Record',
+        'certificate_of_foreign_travel' => 'Certificate of Foreign Travel',
+        default => ($customRequestLabel !== '' ? $customRequestLabel : 'Other HR Document'),
+    };
+    $categoryId = $resolveCategoryId($categoryLabel);
+    if ($categoryId === '') {
+        redirectWithState('error', 'Unable to resolve a category for the fulfilled HR document.');
+    }
+
+    $storedUpload = $storeUploadedDocument($upload, $requesterPersonId, 'fulfilled-request');
+    if (!(bool)($storedUpload['ok'] ?? false)) {
+        redirectWithState('error', (string)($storedUpload['message'] ?? 'Unable to store the fulfilled request document.'));
+    }
+
+    $releasedAt = gmdate('c');
+    $documentDescriptionParts = ['Released from HR request: ' . $requestTypeLabel];
+    $originalNotes = trim((string)($requestState['notes'] ?? ''));
+    if ($originalNotes !== '') {
+        $documentDescriptionParts[] = 'Request notes: ' . $originalNotes;
+    }
+    if ($fulfilledNotes !== '') {
+        $documentDescriptionParts[] = 'Fulfillment notes: ' . $fulfilledNotes;
+    }
+
+    $documentInsertResponse = apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/documents',
+        array_merge($headers, ['Prefer: return=representation']),
+        [[
+            'owner_person_id' => $requesterPersonId,
+            'category_id' => $categoryId,
+            'title' => $fulfilledTitle,
+            'description' => implode("\n", $documentDescriptionParts),
+            'storage_bucket' => 'local_documents',
+            'storage_path' => (string)$storedUpload['storage_path'],
+            'current_version_no' => 1,
+            'document_status' => 'approved',
+            'uploaded_by' => $adminUserId,
+            'created_at' => $releasedAt,
+            'updated_at' => $releasedAt,
+        ]]
+    );
+
+    if (!isSuccessful($documentInsertResponse)) {
+        redirectWithState('error', 'Released file was stored, but the fulfilled document record could not be created.');
+    }
+
+    $documentId = trim((string)($documentInsertResponse['data'][0]['id'] ?? ''));
+    if ($documentId === '') {
+        redirectWithState('error', 'Fulfilled document record did not return a document id.');
+    }
+
+    $versionInsertResponse = apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/document_versions',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'document_id' => $documentId,
+            'version_no' => 1,
+            'file_name' => (string)$storedUpload['original_name'],
+            'mime_type' => (string)$storedUpload['mime_type'],
+            'size_bytes' => (int)($storedUpload['size_bytes'] ?? 0),
+            'checksum_sha256' => (string)$storedUpload['checksum'],
+            'storage_path' => (string)$storedUpload['storage_path'],
+            'uploaded_by' => $adminUserId,
+            'uploaded_at' => $releasedAt,
+        ]]
+    );
+
+    if (!isSuccessful($versionInsertResponse)) {
+        redirectWithState('error', 'Fulfilled document was created, but version metadata could not be saved.');
+    }
+
+    apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $adminUserId,
+            'module_name' => 'document_management',
+            'entity_name' => 'documents',
+            'entity_id' => $documentId,
+            'action_name' => 'upload_document_file',
+            'old_data' => null,
+            'new_data' => [
+                'title' => $fulfilledTitle,
+                'storage_bucket' => 'local_documents',
+                'storage_path' => (string)$storedUpload['storage_path'],
+                'size_bytes' => (int)($storedUpload['size_bytes'] ?? 0),
+                'mime_type' => (string)$storedUpload['mime_type'],
+                'source' => 'fulfilled_document_request',
+                'request_id' => $requestId,
+            ],
+            'ip_address' => clientIp(),
+        ]]
+    );
+
+    $requestPayload = array_merge($requestState, [
+        'request_id' => $requestId,
+        'request_type' => $requestType,
+        'request_type_label' => $requestTypeLabel,
+        'custom_request_label' => $customRequestLabel,
+        'purpose_key' => (string)($requestState['purpose_key'] ?? 'other'),
+        'purpose_label' => (string)($requestState['purpose_label'] ?? 'Other'),
+        'other_purpose' => (string)($requestState['other_purpose'] ?? ''),
+        'notes' => (string)($requestState['notes'] ?? ''),
+        'requester_user_id' => $requesterUserId,
+        'requester_person_id' => $requesterPersonId,
+        'requester_role' => (string)($requestState['requester_role'] ?? 'employee'),
+        'requester_label' => $requesterLabel,
+        'submitted_at' => $submittedAt,
+        'submitted_by' => $requesterLabel,
+        'status' => 'fulfilled',
+        'fulfilled_document_id' => $documentId,
+        'fulfilled_document_title' => $fulfilledTitle,
+        'fulfilled_notes' => $fulfilledNotes,
+        'fulfilled_at' => $releasedAt,
+        'fulfilled_by_label' => 'Admin',
+    ]);
+
+    $requestUpdateResponse = apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=minimal']),
+        [[
+            'actor_user_id' => $adminUserId,
+            'module_name' => 'document_management',
+            'entity_name' => 'document_requests',
+            'entity_id' => $requestId,
+            'action_name' => 'fulfill_document_request',
+            'old_data' => ['status' => $currentStatus],
+            'new_data' => $requestPayload,
+            'ip_address' => clientIp(),
+        ]]
+    );
+
+    if (!isSuccessful($requestUpdateResponse)) {
+        redirectWithState('error', 'Fulfilled document was uploaded, but the request status could not be updated.');
+    }
+
+    if (isValidUuid($requesterUserId)) {
+        apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/notifications',
+            array_merge($headers, ['Prefer: return=minimal']),
+            [[
+                'recipient_user_id' => $requesterUserId,
+                'category' => 'documents',
+                'title' => 'HR document request fulfilled',
+                'body' => 'Your request for ' . $requestTypeLabel . ' has been fulfilled and uploaded as "' . $fulfilledTitle . '".',
+                'link_url' => '/hris-system/pages/employee/document-management.php',
+            ]]
+        );
+    }
+
+    redirectWithState('success', 'HR document request fulfilled and uploaded successfully.');
 }
 
 if ($action === 'archive_document') {

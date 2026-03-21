@@ -22,14 +22,32 @@ $firstName = (string)authCleanText($_POST['first_name'] ?? '');
 $surname = (string)authCleanText($_POST['surname'] ?? '');
 $mobileNo = (string)($_POST['mobile'] ?? '');
 
-if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-  if (!authIsValidEmailAddress($email)) {
-    redirect_with_error('invalid_email');
-  }
+if ($firstName === '') {
+  redirect_with_error('missing_first_name');
+}
+
+if ($surname === '') {
+  redirect_with_error('missing_surname');
+}
+
+if ($email === '') {
+  redirect_with_error('missing_email');
+}
+
+if ($mobileNo === '' || authCleanText($mobileNo) === null) {
+  redirect_with_error('missing_mobile');
 }
 
 if ($password === '') {
-  redirect_with_error('weak_password');
+  redirect_with_error('missing_password');
+}
+
+if ($confirmPassword === '') {
+  redirect_with_error('missing_confirm_password');
+}
+
+if (!authIsValidEmailAddress($email)) {
+  redirect_with_error('invalid_email');
 }
 
 $passwordValidationMessage = authValidateStrongPassword($password);
@@ -81,19 +99,21 @@ if (!empty($existingAccountResponse['data'])) {
   redirect_with_error('email_exists');
 }
 
-$result = authCreateApplicantAccount([
+$otpResult = authIssueEmailOtpChallenge([
+  'purpose' => 'register',
   'email' => $email,
-  'password' => $password,
-  'first_name' => $firstName,
-  'surname' => $surname,
-  'mobile' => $normalizedMobileNo,
+  'registration' => [
+    'email' => $email,
+    'password' => $password,
+    'first_name' => $firstName,
+    'surname' => $surname,
+    'mobile' => $normalizedMobileNo,
+  ],
 ]);
 
-unset($_SESSION[authPendingMfaSessionKey()]);
-
-if (!($result['ok'] ?? false)) {
-  redirect_with_error((string)($result['code'] ?? 'create_failed'));
+if (!($otpResult['ok'] ?? false)) {
+  redirect_with_error((string)($otpResult['code'] ?? 'create_failed'));
 }
 
-header('Location: login.php?registered=1');
+header('Location: mfa-verify.php?mode=register&sent=1');
 exit;

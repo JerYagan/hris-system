@@ -335,9 +335,90 @@ if (isset($specialRequestActionMap[$action])) {
     $reason = $toNullable($_POST['reason'] ?? null, 500);
     $destination = $toNullable($_POST['destination'] ?? null, 255);
     $referenceNumber = $toNullable($_POST['reference_number'] ?? null, 120);
+    $weeklyScheduleDays = (array)($_POST['weekly_schedule_day'] ?? []);
+    $weeklyScheduleStarts = (array)($_POST['weekly_schedule_start'] ?? []);
+    $weeklyScheduleEnds = (array)($_POST['weekly_schedule_end'] ?? []);
+    $weeklyScheduleEnabled = (array)($_POST['weekly_schedule_enabled'] ?? []);
+    $cosWeekRangeLabel = null;
+    $cosWeeklyScheduleRows = [];
 
-    if (!$isValidDate($overtimeDate) || $startTime === null || $endTime === null || $hoursRequestedRaw === null || $reason === null) {
+    $requiresBaseWindow = $requestType !== 'cos_schedule';
+    if (
+        !$isValidDate($overtimeDate)
+        || ($requiresBaseWindow && $startTime === null)
+        || ($requiresBaseWindow && $endTime === null)
+        || ($requiresBaseWindow && $hoursRequestedRaw === null)
+        || $reason === null
+    ) {
         redirectWithState('error', $requestLabel . ' requires date, schedule window, hours, and reason.', 'timekeeping.php');
+    }
+
+    if ($requestType === 'cos_schedule') {
+        $catalog = timekeepingCosWeeklyDayCatalog();
+        $rowCount = max(count($weeklyScheduleDays), count($weeklyScheduleStarts), count($weeklyScheduleEnds));
+        $earliestStart = null;
+        $latestEnd = null;
+        $totalMinutes = 0;
+
+        for ($index = 0; $index < $rowCount; $index++) {
+            if (!isset($weeklyScheduleEnabled[$index])) {
+                continue;
+            }
+
+            $dayKey = strtolower(trim((string)($weeklyScheduleDays[$index] ?? '')));
+            $rowStart = trim((string)($weeklyScheduleStarts[$index] ?? ''));
+            $rowEnd = trim((string)($weeklyScheduleEnds[$index] ?? ''));
+
+            if (!isset($catalog[$dayKey])) {
+                redirectWithState('error', 'COS weekly schedule contains an invalid day entry.', 'timekeeping.php');
+            }
+
+            if (!preg_match('/^\d{2}:\d{2}$/', $rowStart) || !preg_match('/^\d{2}:\d{2}$/', $rowEnd)) {
+                redirectWithState('error', 'Each selected COS day requires a valid HH:MM start and end time.', 'timekeeping.php');
+            }
+
+            if (strcmp($rowEnd, '22:00') > 0) {
+                redirectWithState('error', 'COS flexible schedule cannot extend beyond 22:00.', 'timekeeping.php');
+            }
+
+            if ($rowEnd <= $rowStart) {
+                redirectWithState('error', 'Each selected COS day must end later than it starts.', 'timekeeping.php');
+            }
+
+            $startMinutes = ((int)substr($rowStart, 0, 2) * 60) + (int)substr($rowStart, 3, 2);
+            $endMinutes = ((int)substr($rowEnd, 0, 2) * 60) + (int)substr($rowEnd, 3, 2);
+            $totalMinutes += ($endMinutes - $startMinutes);
+
+            if ($earliestStart === null || $rowStart < $earliestStart) {
+                $earliestStart = $rowStart;
+            }
+
+            if ($latestEnd === null || $rowEnd > $latestEnd) {
+                $latestEnd = $rowEnd;
+            }
+
+            $cosWeeklyScheduleRows[] = [
+                'day_key' => $dayKey,
+                'day_label' => $catalog[$dayKey],
+                'start_time' => $rowStart,
+                'end_time' => $rowEnd,
+            ];
+        }
+
+        if ($cosWeeklyScheduleRows === []) {
+            redirectWithState('error', 'Select at least one COS weekly schedule day before submitting.', 'timekeeping.php');
+        }
+
+        $weekStart = DateTimeImmutable::createFromFormat('Y-m-d', $overtimeDate, new DateTimeZone('Asia/Manila'));
+        if (!($weekStart instanceof DateTimeImmutable)) {
+            redirectWithState('error', 'COS weekly schedule requires a valid week start date.', 'timekeeping.php');
+        }
+
+        $weekEnd = $weekStart->modify('+6 days');
+        $cosWeekRangeLabel = $weekStart->format('M d, Y') . ' - ' . $weekEnd->format('M d, Y');
+        $startTime = $earliestStart ?? '08:00';
+        $endTime = $latestEnd ?? '17:00';
+        $hoursRequestedRaw = number_format($totalMinutes / 60, 2, '.', '');
     }
 
     if (strtotime($overtimeDate) < strtotime($todayManila)) {
@@ -435,6 +516,8 @@ if (isset($specialRequestActionMap[$action])) {
                 'destination' => $destination,
                 'reference_number' => $referenceNumber,
                 'is_cos_employee' => $employeeIsCos,
+                'week_range_label' => $cosWeekRangeLabel,
+                'weekly_schedule' => $cosWeeklyScheduleRows,
                 'attachment' => $attachmentMeta,
             ],
         ]]

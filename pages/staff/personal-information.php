@@ -99,7 +99,7 @@ ob_start();
                     <th class="text-left px-4 py-3">Type</th>
                     <th class="text-left px-4 py-3">Submitted By</th>
                     <th class="text-left px-4 py-3">Submitted On</th>
-                    <th class="text-left px-4 py-3">Due Date</th>
+                    <th class="text-left px-4 py-3">Tracker</th>
                     <th class="text-left px-4 py-3">Status</th>
                     <th class="text-left px-4 py-3">Action</th>
                 </tr>
@@ -127,7 +127,12 @@ ob_start();
                             <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)($recommendationRow['recommendation_type'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)($recommendationRow['submitted_by'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)($recommendationRow['submitted_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars((string)($recommendationRow['due_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 text-slate-600">
+                                <div class="space-y-1">
+                                    <p><span class="font-medium text-slate-700">Due:</span> <?= htmlspecialchars((string)($recommendationRow['due_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                                    <p><span class="font-medium text-slate-700">Reminder:</span> <?= htmlspecialchars((string)($recommendationRow['reminder_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                                </div>
+                            </td>
                             <td class="px-4 py-3">
                                 <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs <?= htmlspecialchars((string)($recommendationRow['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>">
                                     <?= htmlspecialchars((string)($recommendationRow['status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?>
@@ -216,7 +221,16 @@ ob_start();
                             data-profile-status="<?= htmlspecialchars((string)$row['status_label'], ENT_QUOTES, 'UTF-8') ?>"
                         >
                             <td class="px-4 py-3"><?= htmlspecialchars((string)$row['employee_code'], ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><?= htmlspecialchars((string)$row['full_name'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3">
+                                <div class="space-y-1">
+                                    <p><?= htmlspecialchars((string)$row['full_name'], ENT_QUOTES, 'UTF-8') ?></p>
+                                    <?php if (!empty($row['has_contractual_application'])): ?>
+                                        <span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-medium text-amber-800" title="<?= htmlspecialchars((string)($row['contractual_application_job_title'] ?? 'Contractual Job'), ENT_QUOTES, 'UTF-8') ?>">
+                                            <?= htmlspecialchars((string)($row['contractual_application_label'] ?? 'Applied to Contractual Job'), ENT_QUOTES, 'UTF-8') ?>
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['email'] !== '' ? $row['email'] : '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)$row['department'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)$row['position'], ENT_QUOTES, 'UTF-8') ?></td>
@@ -746,6 +760,7 @@ ob_start();
 </datalist>
 
 <script id="staffAddressLookupData" type="application/json"><?= (string)json_encode([
+    'barangayByCity' => $addressBarangaysByCity,
     'zipByCityBarangay' => $addressZipByCityBarangay,
 ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 

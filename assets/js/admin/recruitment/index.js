@@ -446,8 +446,8 @@ const initRecruitmentActions = () => {
       const screeningLabel = escapeHtml(applicant && applicant.initial_screening_label ? applicant.initial_screening_label : 'Applied');
       const screeningClass = applicant && applicant.initial_screening_class ? applicant.initial_screening_class : 'bg-slate-100 text-slate-700';
       const recommendationScore = Number.isFinite(Number(applicant && applicant.score)) ? Number(applicant.score) : 0;
-      const recommendationLabel = escapeHtml(applicant && applicant.score_label ? applicant.score_label : 'Low');
-      const recommendationClass = applicant && applicant.score_class ? applicant.score_class : 'bg-slate-200 text-slate-700';
+      const recommendationLabel = escapeHtml(applicant && applicant.score_label ? applicant.score_label : 'Not Qualified');
+      const recommendationClass = applicant && applicant.score_class ? applicant.score_class : 'bg-rose-100 text-rose-800';
       const basis = escapeHtml(applicant && applicant.basis ? applicant.basis : '-');
       const viewProfileUrl = escapeHtml(applicant && applicant.view_profile_url ? applicant.view_profile_url : '#');
 
@@ -461,8 +461,10 @@ const initRecruitmentActions = () => {
           <td class="px-3 py-2 text-slate-700">${submittedLabel}</td>
           <td class="px-3 py-2"><span class="inline-flex px-2 py-1 text-xs rounded-full ${screeningClass}">${screeningLabel}</span></td>
           <td class="px-3 py-2">
-            <div class="font-medium text-slate-800">${recommendationScore}%</div>
-            <div class="mt-1"><span class="inline-flex px-2 py-0.5 text-[11px] rounded-full ${recommendationClass}">${recommendationLabel}</span></div>
+            <div class="inline-flex items-center gap-2 whitespace-nowrap">
+              <span class="font-medium text-slate-800">${recommendationScore}%</span>
+              <span class="inline-flex px-2 py-0.5 text-[11px] rounded-full ${recommendationClass}">${recommendationLabel}</span>
+            </div>
           </td>
           <td class="px-3 py-2 text-slate-700">${basis}</td>
           <td class="px-3 py-2">

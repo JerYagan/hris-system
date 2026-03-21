@@ -134,7 +134,7 @@ authLogLoginAuditEvent($supabaseUrl, $supabaseServiceRoleKey, [
   'event_type' => 'login_success',
   'metadata' => [
     'role_key' => $roleKey,
-    'mfa_bypassed' => true,
+    'mfa_enabled' => false,
   ],
 ]);
 

@@ -56,6 +56,27 @@ $deleteWorkExperiences = static function (string $personId) use ($supabaseUrl, $
     );
 };
 
+$hasSubmittedWorkExperienceRows = static function (array $positions, array $companies, array $starts, array $ends, array $responsibilities): bool {
+    $rowCount = max(count($positions), count($companies), count($starts), count($ends), count($responsibilities));
+    for ($index = 0; $index < $rowCount; $index++) {
+        $values = [
+            cleanText($positions[$index] ?? null),
+            cleanText($companies[$index] ?? null),
+            cleanText($starts[$index] ?? null),
+            cleanText($ends[$index] ?? null),
+            cleanText($responsibilities[$index] ?? null),
+        ];
+
+        foreach ($values as $value) {
+            if ($value !== null && $value !== '') {
+                return true;
+            }
+        }
+    }
+
+    return false;
+};
+
 $verifyCurrentPassword = static function (string $email, string $currentPassword) use ($supabaseUrl): bool {
     loadEnvFile(dirname(__DIR__, 4) . '/.env');
     $anonKey = trim((string)($_ENV['SUPABASE_ANON_KEY'] ?? $_SERVER['SUPABASE_ANON_KEY'] ?? ''));
@@ -542,6 +563,13 @@ $email = cleanText($_POST['email'] ?? null);
 $mobileNo = cleanText($_POST['mobile_no'] ?? null);
 $currentAddress = cleanText($_POST['current_address'] ?? null);
 $trainingHoursRaw = cleanText($_POST['training_hours_completed'] ?? null);
+$dateOfBirth = trim((string)(cleanText($_POST['date_of_birth'] ?? null) ?? ''));
+$placeOfBirth = cleanText($_POST['place_of_birth'] ?? null);
+$sexAtBirth = strtolower(trim((string)(cleanText($_POST['sex_at_birth'] ?? null) ?? '')));
+$civilStatus = cleanText($_POST['civil_status'] ?? null);
+$citizenshipStatus = strtolower(trim((string)(cleanText($_POST['citizenship_status'] ?? null) ?? 'filipino')));
+$citizenshipAcquisition = strtolower(trim((string)(cleanText($_POST['citizenship_acquisition'] ?? null) ?? '')));
+$dualCitizenshipCountry = cleanText($_POST['dual_citizenship_country'] ?? null);
 
 $normalizedEmail = strtolower(trim((string)$email));
 
@@ -564,6 +592,29 @@ if ($email === null || !filter_var($normalizedEmail, FILTER_VALIDATE_EMAIL)) {
 
 if ($mobileNo !== null && !preg_match('/^[0-9+()\-\s]{7,20}$/', $mobileNo)) {
     redirectWithState('error', 'Please provide a valid mobile number format.', 'profile.php?edit=true');
+}
+
+if ($dateOfBirth !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateOfBirth)) {
+    redirectWithState('error', 'Date of birth must be a valid date.', 'profile.php?edit=true');
+}
+
+if ($sexAtBirth !== '' && !in_array($sexAtBirth, ['male', 'female'], true)) {
+    redirectWithState('error', 'Sex must be either male or female.', 'profile.php?edit=true');
+}
+
+if (!in_array($citizenshipStatus, ['filipino', 'dual'], true)) {
+    $citizenshipStatus = 'filipino';
+}
+
+if ($citizenshipAcquisition !== '' && !in_array($citizenshipAcquisition, ['birth', 'naturalization'], true)) {
+    redirectWithState('error', 'Citizenship acquisition must be either by birth or by naturalization.', 'profile.php?edit=true');
+}
+
+$citizenshipLabel = $citizenshipStatus === 'dual' ? 'Dual Citizenship' : 'Filipino';
+if ($citizenshipAcquisition === 'birth') {
+    $citizenshipLabel .= ' - By Birth';
+} elseif ($citizenshipAcquisition === 'naturalization') {
+    $citizenshipLabel .= ' - By Naturalization';
 }
 
 $nameParts = preg_split('/\s+/', trim($fullName)) ?: [];
@@ -636,8 +687,16 @@ $peopleUpsertResponse = apiRequest(
         'user_id' => $applicantUserId,
         'first_name' => $firstName,
         'surname' => $surname,
+        'date_of_birth' => $dateOfBirth !== '' ? $dateOfBirth : null,
+        'place_of_birth' => $placeOfBirth,
+        'sex_at_birth' => $sexAtBirth !== '' ? $sexAtBirth : null,
+        'civil_status' => $civilStatus,
+        'citizenship' => $citizenshipLabel,
+        'dual_citizenship' => $citizenshipStatus === 'dual',
+        'dual_citizenship_country' => $citizenshipStatus === 'dual' ? $dualCitizenshipCountry : null,
         'mobile_no' => $mobileNo,
         'personal_email' => $normalizedEmail,
+        'updated_at' => gmdate('c'),
     ]]
 );
 
@@ -823,17 +882,32 @@ if (isValidUuid($personId)) {
         }
     }
 
-    $existingWorkDelete = $deleteWorkExperiences($personId);
-
-    if (!isSuccessful($existingWorkDelete)) {
-        redirectWithState('error', 'Failed to refresh work experience records.', 'profile.php?edit=true');
-    }
-
     $workPositionEntries = (array)($_POST['work_position_title_entry'] ?? []);
     $workCompanyEntries = (array)($_POST['work_company_name_entry'] ?? []);
     $workStartEntries = (array)($_POST['work_start_date_entry'] ?? []);
     $workEndEntries = (array)($_POST['work_end_date_entry'] ?? []);
     $workResponsibilityEntries = (array)($_POST['work_responsibilities_entry'] ?? []);
+
+    $supportsWorkExperience = function_exists('applicantProfileTableExists')
+        ? applicantProfileTableExists($supabaseUrl, $headers, 'person_work_experiences')
+        : true;
+    if (!$supportsWorkExperience && $hasSubmittedWorkExperienceRows(
+        $workPositionEntries,
+        $workCompanyEntries,
+        $workStartEntries,
+        $workEndEntries,
+        $workResponsibilityEntries
+    )) {
+        redirectWithState('error', 'Work experience entries cannot be saved because the required table is not available in the current deployment.', 'profile.php?edit=true');
+    }
+
+    if ($supportsWorkExperience) {
+        $existingWorkDelete = $deleteWorkExperiences($personId);
+
+        if (!isSuccessful($existingWorkDelete)) {
+            redirectWithState('error', 'Failed to refresh work experience records.', 'profile.php?edit=true');
+        }
+    }
 
     $workRows = [];
     $workCount = max(
@@ -878,7 +952,7 @@ if (isValidUuid($personId)) {
         ];
     }
 
-    if (!empty($workRows)) {
+    if ($supportsWorkExperience && !empty($workRows)) {
         $workInsertResponse = apiRequest(
             'POST',
             $supabaseUrl . '/rest/v1/person_work_experiences',
@@ -915,6 +989,12 @@ apiRequest(
             'email' => $normalizedEmail,
             'mobile_no' => $mobileNo,
             'current_address' => $currentAddress,
+            'date_of_birth' => $dateOfBirth !== '' ? $dateOfBirth : null,
+            'place_of_birth' => $placeOfBirth,
+            'sex_at_birth' => $sexAtBirth !== '' ? $sexAtBirth : null,
+            'civil_status' => $civilStatus,
+            'citizenship' => $citizenshipLabel,
+            'dual_citizenship_country' => $citizenshipStatus === 'dual' ? $dualCitizenshipCountry : null,
             'spouse_entries' => count((array)($_POST['spouse_first_name'] ?? [])),
             'education_entries' => count((array)($_POST['education_level'] ?? [])),
             'work_entries' => count((array)($_POST['work_position_title_entry'] ?? [])),

@@ -587,12 +587,152 @@ if ($action === 'update_profile') {
 
     $personLookupResponse = apiRequest(
         'GET',
-        $supabaseUrl . '/rest/v1/people?select=id,first_name,middle_name,surname,name_extension,user_id&id=eq.' . rawurlencode((string)$employeePersonId) . '&limit=1',
+        $supabaseUrl . '/rest/v1/people?select=id,first_name,middle_name,surname,name_extension,user_id,place_of_birth&id=eq.' . rawurlencode((string)$employeePersonId) . '&limit=1',
+        $headers
+    );
+
+    $currentAddressLookupResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/person_addresses?select=address_type,barangay,city_municipality,zip_code'
+        . '&person_id=eq.' . rawurlencode((string)$employeePersonId)
+        . '&limit=20',
         $headers
     );
 
     $accountRow = isSuccessful($accountLookupResponse) ? (array)($accountLookupResponse['data'][0] ?? []) : [];
     $personRow = isSuccessful($personLookupResponse) ? (array)($personLookupResponse['data'][0] ?? []) : [];
+    $currentAddressByType = [];
+    if (isSuccessful($currentAddressLookupResponse)) {
+        foreach ((array)($currentAddressLookupResponse['data'] ?? []) as $addressRaw) {
+            $addressRow = (array)$addressRaw;
+            $addressType = strtolower((string)($addressRow['address_type'] ?? ''));
+            if ($addressType === '') {
+                $addressType = empty($currentAddressByType['residential']) ? 'residential' : 'permanent';
+            }
+
+            if (!isset($currentAddressByType[$addressType])) {
+                $currentAddressByType[$addressType] = [
+                    'barangay' => cleanText($addressRow['barangay'] ?? null) ?? '',
+                    'city_municipality' => cleanText($addressRow['city_municipality'] ?? null) ?? '',
+                    'zip_code' => cleanText($addressRow['zip_code'] ?? null) ?? '',
+                ];
+            }
+        }
+    }
+
+    $normalizeLookupValue = static function (?string $value): string {
+        return strtolower(trim((string)preg_replace('/\s+/', ' ', (string)$value)));
+    };
+
+    $lookupAssetRoot = dirname(__DIR__, 5) . '/assets';
+    $placeOfBirthLabelByKey = [];
+    $cityLabelByKey = [];
+    $provinceByCityKey = [];
+    $barangayLabelByCityKey = [];
+    $zipByCityBarangayKey = [];
+
+    $municipalitiesPath = $lookupAssetRoot . '/psgc/municipalities.json';
+    if (is_file($municipalitiesPath)) {
+        $municipalitiesRaw = file_get_contents($municipalitiesPath);
+        $municipalitiesData = is_string($municipalitiesRaw) ? json_decode($municipalitiesRaw, true) : null;
+        if (is_array($municipalitiesData)) {
+            foreach ($municipalitiesData as $municipalityRaw) {
+                $municipality = (array)$municipalityRaw;
+                $cityName = cleanText($municipality['name'] ?? null);
+                $provinceName = cleanText($municipality['province'] ?? null);
+                if ($cityName === null || $cityName === '') {
+                    continue;
+                }
+
+                $cityKey = $normalizeLookupValue($cityName);
+                $canonicalPlace = $provinceName !== null && $provinceName !== ''
+                    ? $cityName . ', ' . $provinceName
+                    : $cityName;
+
+                $cityLabelByKey[$cityKey] = $cityName;
+                $placeOfBirthLabelByKey[$cityKey] = $canonicalPlace;
+                $placeOfBirthLabelByKey[$normalizeLookupValue($canonicalPlace)] = $canonicalPlace;
+
+                if ($provinceName !== null && $provinceName !== '') {
+                    $provinceByCityKey[$cityKey] = $provinceName;
+                }
+            }
+        }
+    }
+
+    $zipCodesPath = $lookupAssetRoot . '/zip-codes.json';
+    if (is_file($zipCodesPath)) {
+        $zipCodesRaw = file_get_contents($zipCodesPath);
+        $zipCodesData = is_string($zipCodesRaw) ? json_decode($zipCodesRaw, true) : null;
+        if (is_array($zipCodesData)) {
+            foreach ($zipCodesData as $cityName => $barangayGroupRaw) {
+                $cityKey = $normalizeLookupValue((string)$cityName);
+                if ($cityKey === '') {
+                    continue;
+                }
+
+                if (!isset($zipByCityBarangayKey[$cityKey])) {
+                    $zipByCityBarangayKey[$cityKey] = [];
+                }
+
+                foreach ((array)$barangayGroupRaw as $barangayName => $zipListRaw) {
+                    $barangayKey = $normalizeLookupValue((string)$barangayName);
+                    if ($barangayKey === '') {
+                        continue;
+                    }
+
+                    if (!isset($zipByCityBarangayKey[$cityKey][$barangayKey])) {
+                        $zipByCityBarangayKey[$cityKey][$barangayKey] = [];
+                    }
+
+                    foreach ((array)$zipListRaw as $zipValue) {
+                        $zipText = trim((string)$zipValue);
+                        if ($zipText !== '' && !in_array($zipText, $zipByCityBarangayKey[$cityKey][$barangayKey], true)) {
+                            $zipByCityBarangayKey[$cityKey][$barangayKey][] = $zipText;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    $barangaysPath = $lookupAssetRoot . '/psgc/barangays.json';
+    if (is_file($barangaysPath)) {
+        $barangaysRaw = file_get_contents($barangaysPath);
+        $barangaysData = is_string($barangaysRaw) ? json_decode($barangaysRaw, true) : null;
+        if (is_array($barangaysData)) {
+            foreach ($barangaysData as $barangayRaw) {
+                $barangay = (array)$barangayRaw;
+                $barangayName = cleanText($barangay['name'] ?? null);
+                $cityName = cleanText($barangay['citymun'] ?? null);
+                $zipCode = cleanText($barangay['zip_code'] ?? null);
+
+                if ($barangayName === null || $barangayName === '' || $cityName === null || $cityName === '') {
+                    continue;
+                }
+
+                $cityKey = $normalizeLookupValue($cityName);
+                $barangayKey = $normalizeLookupValue($barangayName);
+                if (!isset($barangayLabelByCityKey[$cityKey])) {
+                    $barangayLabelByCityKey[$cityKey] = [];
+                }
+                $barangayLabelByCityKey[$cityKey][$barangayKey] = $barangayName;
+
+                if ($zipCode !== null && $zipCode !== '') {
+                    if (!isset($zipByCityBarangayKey[$cityKey])) {
+                        $zipByCityBarangayKey[$cityKey] = [];
+                    }
+                    if (!isset($zipByCityBarangayKey[$cityKey][$barangayKey])) {
+                        $zipByCityBarangayKey[$cityKey][$barangayKey] = [];
+                    }
+                    if (!in_array($zipCode, $zipByCityBarangayKey[$cityKey][$barangayKey], true)) {
+                        $zipByCityBarangayKey[$cityKey][$barangayKey][] = $zipCode;
+                    }
+                }
+            }
+        }
+    }
 
     $firstName = $toNullableRequestValue($_POST['first_name'] ?? null, 120);
     $middleName = $toNullableRequestValue($_POST['middle_name'] ?? null, 120);
@@ -748,6 +888,69 @@ if ($action === 'update_profile') {
         }
     }
 
+    $currentPlaceOfBirth = cleanText($personRow['place_of_birth'] ?? null) ?? '';
+    $placeOfBirthChanged = $normalizeLookupValue($placeOfBirth ?? '') !== $normalizeLookupValue($currentPlaceOfBirth);
+    if ($placeOfBirthChanged && $placeOfBirth !== null && trim($placeOfBirth) !== '') {
+        $canonicalPlaceOfBirth = $placeOfBirthLabelByKey[$normalizeLookupValue($placeOfBirth)] ?? null;
+        if ($canonicalPlaceOfBirth !== null) {
+            $placeOfBirth = $canonicalPlaceOfBirth;
+        }
+    }
+
+    $validateAddressRecommendation = static function (array &$address, string $label, bool $shouldValidate) use ($normalizeLookupValue, $cityLabelByKey, $provinceByCityKey, $barangayLabelByCityKey, $zipByCityBarangayKey): void {
+        $cityKey = $normalizeLookupValue($address['city_municipality'] ?? '');
+        $barangayKey = $normalizeLookupValue($address['barangay'] ?? '');
+        $zipCode = trim((string)($address['zip_code'] ?? ''));
+
+        if ($cityKey === '') {
+            return;
+        }
+
+        if (!$shouldValidate) {
+            return;
+        }
+
+        if (isset($cityLabelByKey[$cityKey])) {
+            $address['city_municipality'] = $cityLabelByKey[$cityKey];
+        }
+        if (isset($provinceByCityKey[$cityKey])) {
+            $address['province'] = $provinceByCityKey[$cityKey];
+        }
+
+        if ($barangayKey === '') {
+            return;
+        }
+
+        $barangayMap = $barangayLabelByCityKey[$cityKey] ?? [];
+        if (isset($barangayMap[$barangayKey])) {
+            $address['barangay'] = $barangayMap[$barangayKey];
+        }
+
+        $zipOptions = $zipByCityBarangayKey[$cityKey][$barangayKey] ?? [];
+        if (empty($zipOptions)) {
+            return;
+        }
+
+        if ($zipCode === '' && count($zipOptions) === 1) {
+            $address['zip_code'] = (string)$zipOptions[0];
+        }
+    };
+
+    $currentResidentialAddress = $currentAddressByType['residential'] ?? ['barangay' => '', 'city_municipality' => '', 'zip_code' => ''];
+    $currentPermanentAddress = $currentAddressByType['permanent'] ?? ['barangay' => '', 'city_municipality' => '', 'zip_code' => ''];
+    $residentialSelectionChanged = $normalizeLookupValue($residentialRecommendation['barangay'] ?? '') !== $normalizeLookupValue($currentResidentialAddress['barangay'] ?? '')
+        || $normalizeLookupValue($residentialRecommendation['city_municipality'] ?? '') !== $normalizeLookupValue($currentResidentialAddress['city_municipality'] ?? '')
+        || trim((string)($residentialRecommendation['zip_code'] ?? '')) !== trim((string)($currentResidentialAddress['zip_code'] ?? ''));
+    $validateAddressRecommendation($residentialRecommendation, 'Residential address', $residentialSelectionChanged);
+    if ($permanentSameAsResidential) {
+        $permanentRecommendation = $residentialRecommendation;
+    } else {
+        $permanentSelectionChanged = $normalizeLookupValue($permanentRecommendation['barangay'] ?? '') !== $normalizeLookupValue($currentPermanentAddress['barangay'] ?? '')
+            || $normalizeLookupValue($permanentRecommendation['city_municipality'] ?? '') !== $normalizeLookupValue($currentPermanentAddress['city_municipality'] ?? '')
+            || trim((string)($permanentRecommendation['zip_code'] ?? '')) !== trim((string)($currentPermanentAddress['zip_code'] ?? ''));
+        $validateAddressRecommendation($permanentRecommendation, 'Permanent address', $permanentSelectionChanged);
+    }
+
     $assertNoPlaceholderValue([
         $firstName,
         $middleName,
@@ -819,47 +1022,7 @@ if ($action === 'update_profile') {
         ? formatDateTimeForPhilippines($dueAtIso, 'M d, Y h:i A') . ' PST'
         : $dueAt->format('M d, Y h:i A') . ' PST';
 
-    $requestLogResponse = apiRequest(
-        'POST',
-        $supabaseUrl . '/rest/v1/activity_logs',
-        array_merge($headers, ['Prefer: return=representation']),
-        [[
-            'actor_user_id' => $employeeUserId,
-            'module_name' => 'personal_information',
-            'entity_name' => 'people',
-            'entity_id' => $employeePersonId,
-            'action_name' => 'submit_employee_profile_update_request',
-            'old_data' => [
-                'submitted_by_email' => (string)($accountRow['email'] ?? ''),
-                'submitted_by_username' => (string)($accountRow['username'] ?? ''),
-            ],
-            'new_data' => [
-                'review_status' => 'pending_admin_review',
-                'request_source' => 'employee',
-                'submitted_at' => $manilaNow->format(DATE_ATOM),
-                'request_due_at' => $dueAtIso,
-                'reminder_window_starts_at' => $reminderAtIso,
-                'submitted_by_email' => (string)($accountRow['email'] ?? ''),
-                'submitted_by_username' => (string)($accountRow['username'] ?? ''),
-                'recommended_profile' => $requestProfilePayload,
-                'recommended_addresses' => [
-                    'residential' => $residentialRecommendation,
-                    'permanent' => $permanentRecommendation,
-                ],
-                'recommended_government_ids' => $governmentRecommendation,
-                'recommended_family' => array_merge($familyRecommendation, [
-                    'children' => $childrenRecommendation,
-                ]),
-                'recommended_educational_backgrounds' => $educationRecommendation,
-            ],
-            'ip_address' => clientIp(),
-        ]]
-    );
-
-    if (!isSuccessful($requestLogResponse)) {
-        redirectWithState('error', 'Unable to submit your personal information update request right now.', 'personal-information.php');
-    }
-
+    $adminRecipientIds = [];
     $adminRoleResponse = apiRequest(
         'GET',
         $supabaseUrl . '/rest/v1/roles?select=id&role_key=eq.admin&limit=1',
@@ -881,34 +1044,124 @@ if ($action === 'update_profile') {
         );
 
         if (isSuccessful($adminAssignmentsResponse)) {
-            $notificationPayload = [];
-            $recipientSet = [];
             foreach ((array)($adminAssignmentsResponse['data'] ?? []) as $assignmentRaw) {
                 $assignment = (array)$assignmentRaw;
                 $recipientId = cleanText($assignment['user_id'] ?? null);
-                if ($recipientId === null || isset($recipientSet[$recipientId])) {
-                    continue;
+                if ($recipientId !== null && $recipientId !== '' && strcasecmp($recipientId, (string)$employeeUserId) !== 0) {
+                    $adminRecipientIds[$recipientId] = true;
                 }
-
-                $recipientSet[$recipientId] = true;
-                $notificationPayload[] = [
-                    'recipient_user_id' => $recipientId,
-                    'category' => 'employee_profile',
-                    'title' => 'Personal Information Update Request',
-                    'body' => $employeeName . ' submitted a personal information update request. Target completion: ' . $dueAtLabel . '.',
-                    'link_url' => '/hris-system/pages/admin/personal-information.php',
-                ];
-            }
-
-            if (!empty($notificationPayload)) {
-                apiRequest(
-                    'POST',
-                    $supabaseUrl . '/rest/v1/notifications',
-                    array_merge($headers, ['Prefer: return=minimal']),
-                    $notificationPayload
-                );
             }
         }
+    }
+
+    $staffRecipientIds = [];
+    $employmentScopeResponse = apiRequest(
+        'GET',
+        $supabaseUrl . '/rest/v1/employment_records?select=office_id&person_id=eq.' . rawurlencode((string)$employeePersonId) . '&is_current=eq.true&limit=1',
+        $headers
+    );
+    $employeeOfficeId = isSuccessful($employmentScopeResponse)
+        ? cleanText($employmentScopeResponse['data'][0]['office_id'] ?? null)
+        : null;
+
+    if ($employeeOfficeId !== null && $employeeOfficeId !== '') {
+        $staffAssignmentsResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/user_role_assignments?select=user_id,roles!inner(role_key)'
+            . '&office_id=eq.' . rawurlencode($employeeOfficeId)
+            . '&roles.role_key=in.(staff,hr_officer,supervisor)'
+            . '&expires_at=is.null&limit=500',
+            $headers
+        );
+
+        if (isSuccessful($staffAssignmentsResponse)) {
+            foreach ((array)($staffAssignmentsResponse['data'] ?? []) as $assignmentRaw) {
+                $assignment = (array)$assignmentRaw;
+                $recipientId = cleanText($assignment['user_id'] ?? null);
+                if ($recipientId !== null && $recipientId !== '' && strcasecmp($recipientId, (string)$employeeUserId) !== 0) {
+                    $staffRecipientIds[$recipientId] = true;
+                }
+            }
+        }
+    }
+
+    $notificationTargets = ['admin'];
+    if (!empty($staffRecipientIds)) {
+        $notificationTargets[] = 'staff';
+    }
+
+    $requestLogResponse = apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/activity_logs',
+        array_merge($headers, ['Prefer: return=representation']),
+        [[
+            'actor_user_id' => $employeeUserId,
+            'module_name' => 'personal_information',
+            'entity_name' => 'people',
+            'entity_id' => $employeePersonId,
+            'action_name' => 'submit_employee_profile_update_request',
+            'old_data' => [
+                'submitted_by_email' => (string)($accountRow['email'] ?? ''),
+                'submitted_by_username' => (string)($accountRow['username'] ?? ''),
+            ],
+            'new_data' => [
+                'review_status' => 'pending_admin_review',
+                'request_source' => 'employee',
+                'submitted_at' => $manilaNow->format(DATE_ATOM),
+                'request_due_at' => $dueAtIso,
+                'reminder_window_starts_at' => $reminderAtIso,
+                'notification_targets' => $notificationTargets,
+                'notification_recipient_count' => count($adminRecipientIds) + count($staffRecipientIds),
+                'submitted_by_email' => (string)($accountRow['email'] ?? ''),
+                'submitted_by_username' => (string)($accountRow['username'] ?? ''),
+                'recommended_profile' => $requestProfilePayload,
+                'recommended_addresses' => [
+                    'residential' => $residentialRecommendation,
+                    'permanent' => $permanentRecommendation,
+                ],
+                'recommended_government_ids' => $governmentRecommendation,
+                'recommended_family' => array_merge($familyRecommendation, [
+                    'children' => $childrenRecommendation,
+                ]),
+                'recommended_educational_backgrounds' => $educationRecommendation,
+            ],
+            'ip_address' => clientIp(),
+        ]]
+    );
+
+    if (!isSuccessful($requestLogResponse)) {
+        redirectWithState('error', 'Unable to submit your personal information update request right now.', 'personal-information.php');
+    }
+
+    $notificationPayload = [];
+    foreach (array_keys($adminRecipientIds) as $recipientId) {
+        $notificationPayload[] = [
+            'recipient_user_id' => $recipientId,
+            'category' => 'employee_profile',
+            'title' => 'Personal Information Update Request',
+            'body' => $employeeName . ' submitted a personal information update request. Target completion: ' . $dueAtLabel . '.',
+            'link_url' => '/hris-system/pages/admin/personal-information.php',
+        ];
+    }
+
+    foreach (array_keys($staffRecipientIds) as $recipientId) {
+        $notificationPayload[] = [
+            'recipient_user_id' => $recipientId,
+            'category' => 'employee_profile',
+            'title' => 'Employee Personal Information Request',
+            'body' => $employeeName . ' submitted a personal information request within your scope. Admin target completion: ' . $dueAtLabel . '.',
+            'link_url' => '/hris-system/pages/staff/personal-information.php',
+        ];
+    }
+
+    if (!empty($notificationPayload)) {
+        apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/notifications',
+            array_merge($headers, ['Prefer: return=minimal']),
+            $notificationPayload
+        );
     }
 
     redirectWithState('success', 'Your personal information request was submitted for review. Target completion: ' . $dueAtLabel . '.', 'personal-information.php');

@@ -30,7 +30,7 @@ ob_start();
     </div>
 <?php endif; ?>
 
-<section class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+<section class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
     <article class="rounded-xl border bg-white px-4 py-3">
         <p class="text-xs text-gray-500 uppercase tracking-wide">Attendance Records</p>
         <p class="text-2xl font-semibold text-gray-800 mt-1"><?= (int)($timekeepingMetrics['attendance_logs'] ?? 0) ?></p>
@@ -47,6 +47,50 @@ ob_start();
         <p class="text-xs text-gray-500 uppercase tracking-wide">Pending Adjustments</p>
         <p class="text-2xl font-semibold text-amber-700 mt-1"><?= (int)($timekeepingMetrics['pending_adjustments'] ?? 0) ?></p>
     </article>
+    <article class="rounded-xl border bg-white px-4 py-3">
+        <p class="text-xs text-gray-500 uppercase tracking-wide">Active RFID Cards</p>
+        <p class="text-2xl font-semibold text-emerald-700 mt-1"><?= (int)($timekeepingMetrics['active_rfid_cards'] ?? 0) ?></p>
+    </article>
+    <article class="rounded-xl border bg-white px-4 py-3">
+        <p class="text-xs text-gray-500 uppercase tracking-wide">RFID Scan Exceptions</p>
+        <p class="text-2xl font-semibold text-rose-700 mt-1"><?= (int)($timekeepingMetrics['rfid_event_failures'] ?? 0) ?></p>
+    </article>
+</section>
+
+<section class="bg-white border rounded-xl mb-6">
+    <header class="px-6 py-4 border-b">
+        <h2 class="text-lg font-semibold text-gray-800">Contractual Employees (COS)</h2>
+        <p class="text-sm text-gray-500 mt-1">Use this roster to identify COS employees quickly before reviewing weekly flexible schedule proposals and travel-related requests.</p>
+    </header>
+
+    <div class="p-6 overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-gray-600">
+                <tr>
+                    <th class="text-left px-4 py-3">Employee</th>
+                    <th class="text-left px-4 py-3">Division</th>
+                    <th class="text-left px-4 py-3">Position</th>
+                    <th class="text-left px-4 py-3">Employment Status</th>
+                    <th class="text-left px-4 py-3">Latest COS Proposal</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y">
+                <?php if (empty($cosEmployeeRows)): ?>
+                    <tr><td class="px-4 py-3 text-gray-500" colspan="5">No active COS employees found in the current scope.</td></tr>
+                <?php else: ?>
+                    <?php foreach ($cosEmployeeRows as $row): ?>
+                        <tr>
+                            <td class="px-4 py-3 font-medium text-gray-800"><?= htmlspecialchars((string)($row['employee_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['office_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['position_title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['employment_status'] ?? 'COS'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['latest_cos_status'] ?? '-'), ENT_QUOTES, 'UTF-8') ?><?php if (!empty($row['latest_cos_requested_label']) && $row['latest_cos_requested_label'] !== '-'): ?><span class="block text-xs text-gray-500 mt-1">Requested: <?= htmlspecialchars((string)$row['latest_cos_requested_label'], ENT_QUOTES, 'UTF-8') ?></span><?php endif; ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
 </section>
 
 <section class="bg-white border rounded-xl mb-6">
@@ -55,34 +99,102 @@ ob_start();
         <p class="text-sm text-gray-500 mt-1">Use employee ID to auto-fill employee name, division, and position before generating the RFID card record.</p>
     </header>
 
-    <form id="rfidRegistrationForm" class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+    <form id="rfidRegistrationForm" method="POST" action="timekeeping.php" class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        <input type="hidden" name="form_action" value="assign_rfid_card">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
         <div>
             <label for="rfidEmployeeId" class="text-gray-600">Employee ID</label>
-            <input id="rfidEmployeeId" type="text" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="EMP-0001" required>
+            <input id="rfidEmployeeId" name="employee_id" type="text" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="EMP-0001" required>
         </div>
         <div>
             <label for="rfidEmployeeName" class="text-gray-600">Employee Name</label>
-            <input id="rfidEmployeeName" type="text" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Juan Dela Cruz" required>
+            <input id="rfidEmployeeName" type="text" class="w-full mt-1 border rounded-md px-3 py-2 bg-gray-50" placeholder="Juan Dela Cruz" readonly>
         </div>
         <div>
             <label for="rfidDepartment" class="text-gray-600">Division</label>
-            <input id="rfidDepartment" type="text" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="HR Division" required>
+            <input id="rfidDepartment" type="text" class="w-full mt-1 border rounded-md px-3 py-2 bg-gray-50" placeholder="HR Division" readonly>
         </div>
         <div>
             <label for="rfidPosition" class="text-gray-600">Position</label>
-            <input id="rfidPosition" type="text" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="HR Assistant I" required>
+            <input id="rfidPosition" type="text" class="w-full mt-1 border rounded-md px-3 py-2 bg-gray-50" placeholder="HR Assistant I" readonly>
         </div>
         <div>
             <label for="rfidCardUid" class="text-gray-600">RFID Card UID</label>
-            <input id="rfidCardUid" type="text" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Auto-generate if blank">
+            <input id="rfidCardUid" name="card_uid" type="text" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="04AABBCC11" required>
+        </div>
+        <div>
+            <label for="rfidCardLabel" class="text-gray-600">Card Label</label>
+            <input id="rfidCardLabel" name="card_label" type="text" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Main Office Badge">
         </div>
         <div class="md:col-span-3 flex justify-end">
             <button type="submit" id="rfidGenerateButton" class="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-green-700 text-white hover:bg-green-800">
                 <span class="material-symbols-outlined text-sm">contactless</span>
-                Generate RFID Card
+                Assign / Replace RFID Card
             </button>
         </div>
     </form>
+</section>
+
+<section class="bg-white border rounded-xl mb-6">
+    <header class="px-6 py-4 border-b">
+        <h2 class="text-lg font-semibold text-gray-800">RFID Card Assignments</h2>
+        <p class="text-sm text-gray-500 mt-1">Active and recent card assignments for employees in scope.</p>
+    </header>
+
+    <div class="p-6 overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-gray-600">
+                <tr>
+                    <th class="text-left px-4 py-3">Employee</th>
+                    <th class="text-left px-4 py-3">Division</th>
+                    <th class="text-left px-4 py-3">Card UID</th>
+                    <th class="text-left px-4 py-3">Label</th>
+                    <th class="text-left px-4 py-3">Issued</th>
+                    <th class="text-left px-4 py-3">Status</th>
+                    <th class="text-left px-4 py-3">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y">
+                <?php if (empty($rfidAssignedCardRows)): ?>
+                    <tr><td class="px-4 py-3 text-gray-500" colspan="7">No RFID card assignments found.</td></tr>
+                <?php else: ?>
+                    <?php foreach ($rfidAssignedCardRows as $row): ?>
+                        <tr>
+                            <td class="px-4 py-3">
+                                <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($row['employee_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                                <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars((string)($row['employee_code'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                            </td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['office_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 font-medium text-gray-800"><?= htmlspecialchars((string)($row['card_uid_masked'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['card_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3">
+                                <p><?= htmlspecialchars((string)($row['issued_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                                <?php if (($row['deactivated_at_label'] ?? '-') !== '-'): ?>
+                                    <p class="text-xs text-gray-500 mt-1">Ended: <?= htmlspecialchars((string)$row['deactivated_at_label'], ENT_QUOTES, 'UTF-8') ?></p>
+                                <?php endif; ?>
+                            </td>
+                            <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)($row['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($row['status_label'] ?? 'Unknown'), ENT_QUOTES, 'UTF-8') ?></span></td>
+                            <td class="px-4 py-3">
+                                <?php if (($row['status_raw'] ?? '') === 'active'): ?>
+                                    <form method="POST" action="timekeeping.php" class="inline-flex">
+                                        <input type="hidden" name="form_action" value="deactivate_rfid_card">
+                                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                                        <input type="hidden" name="card_id" value="<?= htmlspecialchars((string)($row['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                                        <button type="submit" class="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-md border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">
+                                            <span class="material-symbols-outlined text-sm">block</span>
+                                            Deactivate
+                                        </button>
+                                    </form>
+                                <?php else: ?>
+                                    <span class="text-xs text-gray-400">No action</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
 </section>
 
 <section class="bg-white border rounded-xl mb-6">
@@ -96,22 +208,76 @@ ob_start();
         </div>
     </header>
 
-    <form id="rfidAttendanceAssistForm" class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+    <form id="rfidAttendanceAssistForm" method="POST" action="timekeeping.php" class="p-6 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+        <input type="hidden" name="form_action" value="staff_rfid_attendance_assist">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
         <div>
             <label for="rfidAttendanceEmployeeId" class="text-gray-600">Employee ID</label>
-            <input id="rfidAttendanceEmployeeId" type="text" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="EMP-0001" required>
+            <input id="rfidAttendanceEmployeeId" name="employee_id" type="text" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="EMP-0001" required>
         </div>
         <div>
             <label for="rfidAttendanceEmployeeName" class="text-gray-600">Employee Name</label>
-            <input id="rfidAttendanceEmployeeName" type="text" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Juan Dela Cruz" required>
+            <input id="rfidAttendanceEmployeeName" type="text" class="w-full mt-1 border rounded-md px-3 py-2 bg-gray-50" placeholder="Juan Dela Cruz" readonly>
+        </div>
+        <div>
+            <label for="rfidAttendanceScannedAt" class="text-gray-600">Tap Timestamp</label>
+            <input id="rfidAttendanceScannedAt" name="scanned_at" type="datetime-local" class="w-full mt-1 border rounded-md px-3 py-2">
         </div>
         <div class="md:col-span-1 flex items-end">
             <button type="submit" id="rfidLogAttendanceButton" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-green-700 text-white hover:bg-green-800">
                 <span class="material-symbols-outlined text-sm">fact_check</span>
-                Log Attendance
+                Process Assigned RFID Tap
             </button>
         </div>
     </form>
+</section>
+
+<section class="bg-white border rounded-xl mb-6">
+    <header class="px-6 py-4 border-b">
+        <h2 class="text-lg font-semibold text-gray-800">Recent RFID Scan Events</h2>
+        <p class="text-sm text-gray-500 mt-1">Review successful taps, duplicates, and scan failures without leaving the staff timekeeping page.</p>
+    </header>
+
+    <div class="p-6 overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-gray-600">
+                <tr>
+                    <th class="text-left px-4 py-3">Scanned At</th>
+                    <th class="text-left px-4 py-3">Employee</th>
+                    <th class="text-left px-4 py-3">Card UID</th>
+                    <th class="text-left px-4 py-3">Source</th>
+                    <th class="text-left px-4 py-3">Device</th>
+                    <th class="text-left px-4 py-3">Result</th>
+                    <th class="text-left px-4 py-3">Message</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y">
+                <?php if (empty($rfidRecentEventRows)): ?>
+                    <tr><td class="px-4 py-3 text-gray-500" colspan="7">No RFID scan events found.</td></tr>
+                <?php else: ?>
+                    <?php foreach ($rfidRecentEventRows as $row): ?>
+                        <tr>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['scanned_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3">
+                                <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($row['employee_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                                <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars((string)($row['employee_code'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                            </td>
+                            <td class="px-4 py-3 font-medium text-gray-800"><?= htmlspecialchars((string)($row['card_uid_masked'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['request_source_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['device_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3">
+                                <span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)($row['result_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($row['result_label'] ?? 'Unknown'), ENT_QUOTES, 'UTF-8') ?></span>
+                                <?php if (!empty($row['attendance_linked'])): ?>
+                                    <span class="block text-xs text-emerald-700 mt-1">Linked to attendance log</span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row['result_message'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
 </section>
 
 <section class="bg-white border rounded-xl mb-6">
@@ -164,7 +330,12 @@ ob_start();
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['date_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['time_in_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['time_out_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)($row['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($row['status_label'] ?? 'Unknown'), ENT_QUOTES, 'UTF-8') ?></span></td>
+                            <td class="px-4 py-3">
+                                <span class="px-2 py-1 text-xs rounded-full <?= htmlspecialchars((string)($row['status_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($row['status_label'] ?? 'Unknown'), ENT_QUOTES, 'UTF-8') ?></span>
+                                <?php if (!empty($row['source_label'])): ?>
+                                    <span class="block text-xs text-gray-500 mt-1">Source: <?= htmlspecialchars((string)$row['source_label'], ENT_QUOTES, 'UTF-8') ?></span>
+                                <?php endif; ?>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -270,6 +441,7 @@ ob_start();
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
                 <option value="rejected">Rejected</option>
+                <option value="needs_revision">Needs Revision</option>
                 <option value="cancelled">Cancelled</option>
             </select>
         </div>
@@ -525,7 +697,7 @@ ob_start();
                     <option value="">Select recommendation</option>
                     <option value="approved">Recommend Approval</option>
                     <option value="rejected">Recommend Rejection</option>
-                    <option value="cancelled">Recommend Cancellation</option>
+                    <option value="needs_revision">Recommend Request Changes</option>
                 </select>
             </div>
             <div>

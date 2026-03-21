@@ -622,36 +622,14 @@
 
     if (rfidForm) {
         rfidForm.addEventListener('submit', (event) => {
-            event.preventDefault();
-
             if (typeof rfidForm.reportValidity === 'function' && !rfidForm.reportValidity()) {
+                event.preventDefault();
                 return;
             }
 
-            const employeeId = (document.getElementById('rfidEmployeeId')?.value || '').trim();
-            const employeeName = (document.getElementById('rfidEmployeeName')?.value || '').trim();
-            const uidInput = (document.getElementById('rfidCardUid')?.value || '').trim();
-            const generatedUid = uidInput !== ''
-                ? uidInput
-                : `RFID-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
-
-            const successText = `RFID card prepared for ${employeeName || 'employee'} (${employeeId || 'N/A'}). Card UID: ${generatedUid}.`;
-
-            if (window.Swal && typeof window.Swal.fire === 'function') {
-                window.Swal.fire({
-                    title: 'RFID generated',
-                    text: successText,
-                    icon: 'success',
-                    confirmButtonText: 'OK',
-                    confirmButtonColor: '#166534',
-                });
-            } else {
-                window.alert(successText);
-            }
-
             if (rfidSubmit) {
-                rfidSubmit.classList.remove('opacity-60', 'cursor-not-allowed');
-                rfidSubmit.disabled = false;
+                rfidSubmit.disabled = true;
+                rfidSubmit.classList.add('opacity-60', 'cursor-not-allowed');
             }
         });
     }
@@ -683,35 +661,15 @@
 
     if (rfidAttendanceAssistForm) {
         rfidAttendanceAssistForm.addEventListener('submit', (event) => {
-            event.preventDefault();
-
             if (typeof rfidAttendanceAssistForm.reportValidity === 'function' && !rfidAttendanceAssistForm.reportValidity()) {
+                event.preventDefault();
                 return;
             }
 
-            const employeeId = (document.getElementById('rfidAttendanceEmployeeId')?.value || '').trim();
-            const employeeName = (document.getElementById('rfidAttendanceEmployeeName')?.value || '').trim();
-            const loggedAt = new Date().toLocaleString('en-PH', {
-                timeZone: 'Asia/Manila',
-                month: 'short',
-                day: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-            });
-
-            const successText = `Attendance logged for ${employeeName || 'employee'} (${employeeId || 'N/A'}) on ${loggedAt}. Static RFID flow only.`;
-
-            if (window.Swal && typeof window.Swal.fire === 'function') {
-                window.Swal.fire({
-                    title: 'Attendance logged',
-                    text: successText,
-                    icon: 'success',
-                    confirmButtonText: 'OK',
-                    confirmButtonColor: '#166534',
-                });
-            } else {
-                window.alert(successText);
+            const submitButton = document.getElementById('rfidLogAttendanceButton');
+            if (submitButton instanceof HTMLButtonElement) {
+                submitButton.disabled = true;
+                submitButton.classList.add('opacity-60', 'cursor-not-allowed');
             }
         });
     }

@@ -1,15 +1,21 @@
 <?php
 
+require_once __DIR__ . '/../../../shared/lib/rfid-attendance.php';
+
 $attendanceRows = [];
 $leaveRequestRows = [];
 $officialBusinessRequestRows = [];
 $adjustmentRequestRows = [];
+$rfidAssignedCardRows = [];
+$rfidRecentEventRows = [];
 $timekeepingMetrics = [
     'attendance_logs' => 0,
     'pending_leave' => 0,
     'pending_cto' => 0,
     'pending_official_business' => 0,
     'pending_adjustments' => 0,
+    'active_rfid_cards' => 0,
+    'rfid_event_failures' => 0,
 ];
 $dataLoadError = null;
 
@@ -31,7 +37,7 @@ $appendDataError = static function (string $label, array $response) use (&$dataL
 $scopeResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/employment_records?select=person_id,person:people!employment_records_person_id_fkey(first_name,surname,user_id,agency_employee_no),office:offices(office_name),position:job_positions(position_title)'
+    . '/rest/v1/employment_records?select=person_id,employment_status,employment_type,person:people!employment_records_person_id_fkey(first_name,surname,user_id,agency_employee_no),office:offices(office_name),position:job_positions(position_title,employment_classification)'
     . '&is_current=eq.true'
     . '&limit=5000',
     $headers
@@ -41,6 +47,7 @@ $appendDataError('Employment scope', $scopeResponse);
 $employmentScopeRows = isSuccessful($scopeResponse) ? (array)($scopeResponse['data'] ?? []) : [];
 $scopedPersonMap = [];
 $rfidEmployeeLookup = [];
+$cosEmployeeRows = [];
 
 foreach ($employmentScopeRows as $scopeRow) {
     $personId = cleanText($scopeRow['person_id'] ?? null) ?? '';
@@ -56,10 +63,21 @@ foreach ($employmentScopeRows as $scopeRow) {
         $employeeName = 'Unknown Employee';
     }
 
+    $employmentType = cleanText($scopeRow['employment_type'] ?? null) ?? '';
+    $positionClassification = cleanText($scopeRow['position']['employment_classification'] ?? null) ?? '';
+    $effectiveEmploymentMarker = $employmentType !== '' ? $employmentType : $positionClassification;
+
     $scopedPersonMap[$personId] = [
         'employee_name' => $employeeName,
         'office_name' => cleanText($scopeRow['office']['office_name'] ?? null) ?? 'Unassigned Division',
         'position_title' => cleanText($scopeRow['position']['position_title'] ?? null) ?? 'Unassigned Position',
+        'employee_code' => strtoupper(trim((string)(cleanText($scopeRow['person']['agency_employee_no'] ?? null) ?? ''))),
+        'employment_status' => timekeepingIsCosEmploymentStatus(
+            cleanText($scopeRow['employment_status'] ?? null) ?? '',
+            $effectiveEmploymentMarker
+        )
+            ? ($effectiveEmploymentMarker !== '' ? $effectiveEmploymentMarker : (cleanText($scopeRow['employment_status'] ?? null) ?? ''))
+            : (cleanText($scopeRow['employment_status'] ?? null) ?? ''),
         'user_id' => $userId,
     ];
 
@@ -74,6 +92,21 @@ foreach ($employmentScopeRows as $scopeRow) {
     }
 }
 
+foreach ($scopedPersonMap as $personId => $employee) {
+    if (!timekeepingIsCosEmploymentStatus((string)($employee['employment_status'] ?? ''))) {
+        continue;
+    }
+
+    $cosEmployeeRows[$personId] = [
+        'employee_name' => (string)($employee['employee_name'] ?? 'Unknown Employee'),
+        'office_name' => (string)($employee['office_name'] ?? 'Unassigned Division'),
+        'position_title' => (string)($employee['position_title'] ?? 'Unassigned Position'),
+        'employment_status' => (string)($employee['employment_status'] ?? 'COS'),
+        'latest_cos_status' => '-',
+        'latest_cos_requested_label' => '-',
+    ];
+}
+
 $personIds = array_keys($scopedPersonMap);
 if (empty($personIds)) {
     return;
@@ -86,7 +119,7 @@ $personFilter = !empty($personIds)
 $attendanceResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/attendance_logs?select=id,person_id,attendance_date,time_in,time_out,attendance_status,created_at'
+    . '/rest/v1/attendance_logs?select=id,person_id,attendance_date,time_in,time_out,attendance_status,source,created_at'
     . $personFilter
     . '&order=attendance_date.desc&limit=500',
     $headers
@@ -126,6 +159,37 @@ $adjustmentResponse = apiRequest(
 );
 $appendDataError('Time adjustment requests', $adjustmentResponse);
 $adjustmentRows = isSuccessful($adjustmentResponse) ? (array)($adjustmentResponse['data'] ?? []) : [];
+
+$rfidCardsResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/rfid_cards?select=id,person_id,card_uid,card_label,status,issued_at,deactivated_at'
+    . $personFilter
+    . '&order=issued_at.desc&limit=500',
+    $headers
+);
+$appendDataError('RFID cards', $rfidCardsResponse);
+$rfidCardRows = isSuccessful($rfidCardsResponse) ? (array)($rfidCardsResponse['data'] ?? []) : [];
+
+$rfidDevicesResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/rfid_devices?select=id,device_code,device_name,status,last_seen_at'
+    . '&limit=200',
+    $headers
+);
+$appendDataError('RFID devices', $rfidDevicesResponse);
+$rfidDeviceRows = isSuccessful($rfidDevicesResponse) ? (array)($rfidDevicesResponse['data'] ?? []) : [];
+
+$rfidEventsResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/rfid_scan_events?select=id,person_id,device_id,card_uid,scanned_at,request_source,result_code,result_message,attendance_log_id'
+    . '&order=scanned_at.desc&limit=200',
+    $headers
+);
+$appendDataError('RFID scan events', $rfidEventsResponse);
+$rfidEventRows = isSuccessful($rfidEventsResponse) ? (array)($rfidEventsResponse['data'] ?? []) : [];
 
 $approvedTravelByPersonDate = [];
 $approvedTravelResponse = apiRequest(
@@ -255,6 +319,94 @@ foreach ($attendanceLogs as $log) {
         'time_out_label' => formatDateTimeForPhilippines(cleanText($log['time_out'] ?? null), 'h:i A'),
         'status_label' => $statusLabel,
         'status_class' => $statusClass,
+        'source_label' => ucfirst(str_replace('_', ' ', strtolower((string)(cleanText($log['source'] ?? null) ?? '')))),
+    ];
+}
+
+$rfidDeviceMap = [];
+foreach ($rfidDeviceRows as $deviceRaw) {
+    $device = (array)$deviceRaw;
+    $deviceId = cleanText($device['id'] ?? null) ?? '';
+    if (!isValidUuid($deviceId)) {
+        continue;
+    }
+
+    $rfidDeviceMap[$deviceId] = [
+        'device_name' => cleanText($device['device_name'] ?? null) ?? 'Unnamed Device',
+        'device_code' => cleanText($device['device_code'] ?? null) ?? 'Unknown',
+    ];
+}
+
+foreach ($rfidCardRows as $cardRaw) {
+    $card = (array)$cardRaw;
+    $personId = cleanText($card['person_id'] ?? null) ?? '';
+    if (!isset($scopedPersonMap[$personId])) {
+        continue;
+    }
+
+    $employee = $scopedPersonMap[$personId];
+    $statusRaw = strtolower((string)(cleanText($card['status'] ?? null) ?? 'inactive'));
+    $statusLabel = ucfirst(str_replace('_', ' ', $statusRaw));
+    $statusClass = match ($statusRaw) {
+        'active' => 'bg-emerald-50 text-emerald-700',
+        'replaced' => 'bg-amber-50 text-amber-700',
+        default => 'bg-slate-100 text-slate-700',
+    };
+
+    if ($statusRaw === 'active') {
+        $timekeepingMetrics['active_rfid_cards']++;
+    }
+
+    $rfidAssignedCardRows[] = [
+        'id' => cleanText($card['id'] ?? null) ?? '',
+        'employee_name' => (string)($employee['employee_name'] ?? 'Unknown Employee'),
+        'employee_code' => (string)($employee['employee_code'] ?? '-'),
+        'office_name' => (string)($employee['office_name'] ?? 'Unassigned Division'),
+        'card_uid_masked' => rfidMaskCardUid((string)($card['card_uid'] ?? '')),
+        'card_label' => cleanText($card['card_label'] ?? null) ?? '-',
+        'issued_at_label' => formatDateTimeForPhilippines(cleanText($card['issued_at'] ?? null), 'M d, Y h:i A'),
+        'deactivated_at_label' => formatDateTimeForPhilippines(cleanText($card['deactivated_at'] ?? null), 'M d, Y h:i A'),
+        'status_label' => $statusLabel,
+        'status_class' => $statusClass,
+        'status_raw' => $statusRaw,
+    ];
+}
+
+foreach ($rfidEventRows as $eventRaw) {
+    $event = (array)$eventRaw;
+    $personId = cleanText($event['person_id'] ?? null) ?? '';
+    if ($personId !== '' && !isset($scopedPersonMap[$personId])) {
+        continue;
+    }
+
+    $resultCode = strtolower((string)(cleanText($event['result_code'] ?? null) ?? 'unknown'));
+    $isSuccess = in_array($resultCode, ['time_in_logged', 'time_out_logged', 'duplicate_ignored', 'attendance_processed'], true);
+    if (!$isSuccess) {
+        $timekeepingMetrics['rfid_event_failures']++;
+    }
+
+    $deviceId = cleanText($event['device_id'] ?? null) ?? '';
+    $device = $deviceId !== '' ? ($rfidDeviceMap[$deviceId] ?? null) : null;
+    $employee = $personId !== '' ? ($scopedPersonMap[$personId] ?? null) : null;
+    $requestSource = strtolower((string)(cleanText($event['request_source'] ?? null) ?? 'device'));
+    $requestSourceLabel = match ($requestSource) {
+        'employee_simulation' => 'Employee Simulation',
+        default => 'Device',
+    };
+
+    $rfidRecentEventRows[] = [
+        'scanned_at_label' => formatDateTimeForPhilippines(cleanText($event['scanned_at'] ?? null), 'M d, Y h:i A'),
+        'employee_name' => is_array($employee) ? (string)($employee['employee_name'] ?? 'Unknown Employee') : 'Unmapped Card',
+        'employee_code' => is_array($employee) ? (string)($employee['employee_code'] ?? '-') : '-',
+        'card_uid_masked' => rfidMaskCardUid((string)($event['card_uid'] ?? '')),
+        'request_source_label' => $requestSourceLabel,
+        'device_label' => is_array($device)
+            ? trim((string)($device['device_name'] ?? 'Unnamed Device') . ' (' . (string)($device['device_code'] ?? 'Unknown') . ')')
+            : 'No Device',
+        'result_label' => ucfirst(str_replace('_', ' ', $resultCode)),
+        'result_class' => $isSuccess ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700',
+        'result_message' => cleanText($event['result_message'] ?? null) ?? '-',
+        'attendance_linked' => isValidUuid((string)(cleanText($event['attendance_log_id'] ?? null) ?? '')),
     ];
 }
 
@@ -347,6 +499,15 @@ foreach ($overtimeRows as $row) {
         $detailParts[] = 'Attachment: ' . $attachmentName;
     }
 
+    $weekRangeLabel = cleanText($createMeta['week_range_label'] ?? null);
+    $weeklyScheduleSummary = timekeepingFormatCosWeeklyScheduleSummary((array)($createMeta['weekly_schedule'] ?? []));
+    if ($weekRangeLabel !== null) {
+        $detailParts[] = 'Week: ' . $weekRangeLabel;
+    }
+    if ($weeklyScheduleSummary !== '') {
+        $detailParts[] = 'Weekly Schedule: ' . $weeklyScheduleSummary;
+    }
+
     $requestRow = [
         'id' => $requestId,
         'employee_name' => $employee['employee_name'],
@@ -367,8 +528,18 @@ foreach ($overtimeRows as $row) {
         'search_text' => strtolower(trim($employee['employee_name'] . ' ' . $employee['office_name'] . ' ' . ($parsedRequest['label'] ?? '') . ' ' . $reason . ' ' . implode(' ', $detailParts) . ' ' . $statusLabel)),
     ];
 
+    if ((string)($requestRow['request_type'] ?? '') === 'cos_schedule' && isset($cosEmployeeRows[$personId])) {
+        $cosEmployeeRows[$personId]['latest_cos_status'] = (string)$requestRow['status_label'];
+        $cosEmployeeRows[$personId]['latest_cos_requested_label'] = (string)$requestRow['requested_label'];
+    }
+
     $officialBusinessRequestRows[] = $requestRow;
 }
+
+$cosEmployeeRows = array_values($cosEmployeeRows);
+usort($cosEmployeeRows, static function (array $left, array $right): int {
+    return strcasecmp((string)($left['employee_name'] ?? ''), (string)($right['employee_name'] ?? ''));
+});
 
 foreach ($adjustmentRows as $row) {
     $requestId = cleanText($row['id'] ?? null) ?? '';

@@ -760,10 +760,18 @@ if (isSuccessful($overtimeResponse)) {
         $detailParts = [];
         $destination = cleanText($createMeta['destination'] ?? null);
         $referenceNumber = cleanText($createMeta['reference_number'] ?? null);
+        $weekRangeLabel = cleanText($createMeta['week_range_label'] ?? null);
+        $weeklyScheduleSummary = timekeepingFormatCosWeeklyScheduleSummary((array)($createMeta['weekly_schedule'] ?? []));
         $attachmentMeta = is_array($createMeta['attachment'] ?? null) ? (array)$createMeta['attachment'] : [];
         $attachmentPath = cleanText($attachmentMeta['relative_path'] ?? null);
         $attachmentName = cleanText($attachmentMeta['original_name'] ?? null);
 
+        if ($weekRangeLabel !== null) {
+            $detailParts[] = 'Week: ' . $weekRangeLabel;
+        }
+        if ($weeklyScheduleSummary !== '') {
+            $detailParts[] = 'Weekly Schedule: ' . $weeklyScheduleSummary;
+        }
         if ($destination !== null) {
             $detailParts[] = 'Destination: ' . $destination;
         }

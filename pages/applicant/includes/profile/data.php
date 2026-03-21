@@ -9,6 +9,15 @@ $profileData = [
 	'email' => cleanText($_SESSION['user']['email'] ?? null) ?? '-',
 	'mobile_no' => '-',
 	'current_address' => '-',
+	'date_of_birth' => '',
+	'place_of_birth' => '',
+	'sex_at_birth' => '',
+	'civil_status' => '',
+	'citizenship' => '',
+	'dual_citizenship' => '0',
+	'dual_citizenship_country' => '',
+	'citizenship_status' => 'filipino',
+	'citizenship_acquisition' => '',
 	'profile_photo_url' => '',
 	'profile_photo_public_url' => '',
 	'training_hours_completed' => 0.0,
@@ -26,6 +35,7 @@ $passwordChangeStatus = [
 ];
 
 $dataLoadError = null;
+$profileSupportsWorkExperience = applicantProfileTableExists($supabaseUrl, $headers, 'person_work_experiences');
 
 if ($applicantUserId === '') {
 	$dataLoadError = 'Applicant session is missing. Please login again.';
@@ -45,7 +55,7 @@ $accountResponse = apiRequest(
 
 $peopleResponse = apiRequest(
 	'GET',
-	$supabaseUrl . '/rest/v1/people?select=id,first_name,middle_name,surname,mobile_no,personal_email,profile_photo_url&user_id=eq.' . rawurlencode($applicantUserId) . '&limit=1',
+	$supabaseUrl . '/rest/v1/people?select=id,first_name,middle_name,surname,mobile_no,personal_email,profile_photo_url,date_of_birth,place_of_birth,sex_at_birth,civil_status,citizenship,dual_citizenship,dual_citizenship_country&user_id=eq.' . rawurlencode($applicantUserId) . '&limit=1',
 	$headers
 );
 
@@ -132,6 +142,25 @@ if ($profileData['current_address'] === '') {
 
 $profileData['training_hours_completed'] = max(0.0, (float)($applicantProfileRow['training_hours_completed'] ?? 0));
 $profileData['profile_photo_url'] = (string)($peopleRow['profile_photo_url'] ?? '');
+$profileData['date_of_birth'] = trim((string)($peopleRow['date_of_birth'] ?? ''));
+$profileData['place_of_birth'] = trim((string)($peopleRow['place_of_birth'] ?? ''));
+$profileData['sex_at_birth'] = strtolower(trim((string)($peopleRow['sex_at_birth'] ?? '')));
+$profileData['civil_status'] = trim((string)($peopleRow['civil_status'] ?? ''));
+$profileData['citizenship'] = trim((string)($peopleRow['citizenship'] ?? ''));
+$profileData['dual_citizenship'] = !empty($peopleRow['dual_citizenship']) ? '1' : '0';
+$profileData['dual_citizenship_country'] = trim((string)($peopleRow['dual_citizenship_country'] ?? ''));
+
+$rawCitizenship = strtolower($profileData['citizenship']);
+if ($rawCitizenship !== '') {
+	$profileData['citizenship_status'] = str_contains($rawCitizenship, 'dual') ? 'dual' : 'filipino';
+	if (str_contains($rawCitizenship, 'natural')) {
+		$profileData['citizenship_acquisition'] = 'naturalization';
+	} elseif (str_contains($rawCitizenship, 'birth')) {
+		$profileData['citizenship_acquisition'] = 'birth';
+	}
+} elseif ($profileData['dual_citizenship'] === '1') {
+	$profileData['citizenship_status'] = 'dual';
+}
 
 if ($profileData['email'] === '') {
 	$profileData['email'] = '-';
@@ -189,17 +218,19 @@ if ($personId !== null && isValidUuid($personId)) {
 			$profileEducations = (array)($educationsResponse['data'] ?? []);
 		}
 
-		$workExperienceResponse = apiRequest(
-			'GET',
-			$supabaseUrl
-			. '/rest/v1/person_work_experiences?select=id,inclusive_date_from,inclusive_date_to,position_title,office_company,achievements,sequence_no'
-			. '&person_id=eq.' . rawurlencode($personId)
-			. '&order=sequence_no.asc&limit=100',
-			$headers
-		);
+		if ($profileSupportsWorkExperience) {
+			$workExperienceResponse = apiRequest(
+				'GET',
+				$supabaseUrl
+				. '/rest/v1/person_work_experiences?select=id,inclusive_date_from,inclusive_date_to,position_title,office_company,achievements,sequence_no'
+				. '&person_id=eq.' . rawurlencode($personId)
+				. '&order=sequence_no.asc&limit=100',
+				$headers
+			);
 
-		if (isSuccessful($workExperienceResponse)) {
-			$profileWorkExperiences = (array)($workExperienceResponse['data'] ?? []);
+			if (isSuccessful($workExperienceResponse)) {
+				$profileWorkExperiences = (array)($workExperienceResponse['data'] ?? []);
+			}
 		}
 	}
 }

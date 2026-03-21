@@ -63,30 +63,37 @@ ob_start();
         <table class="w-full text-sm table-fixed">
             <thead class="bg-slate-50 text-slate-600">
                 <tr>
-                    <th class="text-left px-4 py-3 w-[20%]">Date</th>
-                    <th class="text-left px-4 py-3 w-[22%]">Actor</th>
-                    <th class="text-left px-4 py-3 w-[24%]">Employee</th>
-                    <th class="text-left px-4 py-3 w-[20%]">Action</th>
-                    <th class="text-left px-4 py-3 w-[14%]">Entity</th>
+                    <th class="text-left px-4 py-3 w-[16%]">Date</th>
+                    <th class="text-left px-4 py-3 w-[16%]">Updated By</th>
+                    <th class="text-left px-4 py-3 w-[16%]">Approved By</th>
+                    <th class="text-left px-4 py-3 w-[18%]">Employee</th>
+                    <th class="text-left px-4 py-3 w-[14%]">Action</th>
+                    <th class="text-left px-4 py-3 w-[20%]">Notes</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
                 <?php if (empty($personalInfoAuditRows)): ?>
                     <tr>
-                        <td class="px-4 py-3 text-slate-500" colspan="5">No profile audit records are available yet.</td>
+                        <td class="px-4 py-3 text-slate-500" colspan="6">No profile audit records are available yet.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($personalInfoAuditRows as $auditRow): ?>
                         <tr>
                             <td class="px-4 py-3 align-top text-slate-600"><?= htmlspecialchars((string)($auditRow['created_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3 align-top font-medium text-slate-700"><?= htmlspecialchars((string)($auditRow['actor_label'] ?? 'System User'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 align-top text-slate-700"><?= htmlspecialchars((string)($auditRow['updated_by_label'] ?? $auditRow['actor_label'] ?? 'System User'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 align-top text-slate-700"><?= htmlspecialchars((string)($auditRow['approved_by_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3 align-top text-slate-700"><?= htmlspecialchars((string)($auditRow['employee_name'] ?? 'Unknown Employee'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3 align-top">
                                 <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs <?= htmlspecialchars((string)($auditRow['action_class'] ?? 'bg-slate-100 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>">
                                     <?= htmlspecialchars((string)($auditRow['action_label'] ?? 'Activity Logged'), ENT_QUOTES, 'UTF-8') ?>
                                 </span>
                             </td>
-                            <td class="px-4 py-3 align-top text-slate-600"><?= htmlspecialchars((string)($auditRow['entity_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td class="px-4 py-3 align-top text-slate-600">
+                                <div class="space-y-1">
+                                    <p><?= htmlspecialchars((string)($auditRow['notes'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                                    <p class="text-xs text-slate-500">Entity: <?= htmlspecialchars((string)($auditRow['entity_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                                </div>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>

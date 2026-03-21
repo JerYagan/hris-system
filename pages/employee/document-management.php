@@ -19,7 +19,6 @@ ob_start();
 $escape = static function (mixed $value): string {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 };
-
 $formatDate = static function (?string $value): string {
     if ($value === null || $value === '') {
         return '-';
@@ -53,6 +52,17 @@ $statusMeta = static function (string $status): array {
         default => ['Draft', 'bg-blue-50 text-blue-700'],
     };
 };
+
+    $requestStatusMeta = static function (string $status): array {
+      $key = strtolower(trim($status));
+      return match ($key) {
+        'fulfilled' => ['Fulfilled', 'bg-emerald-100 text-emerald-800'],
+        'submitted' => ['Submitted', 'bg-amber-100 text-amber-800'],
+        'needs_revision', 'need_revision' => ['Needs Revision', 'bg-orange-100 text-orange-800'],
+        'rejected' => ['Rejected', 'bg-rose-100 text-rose-800'],
+        default => [ucwords($key !== '' ? str_replace('_', ' ', $key) : 'Submitted'), 'bg-slate-100 text-slate-700'],
+      };
+    };
 
 $fileTypeMeta = static function (string $extension): array {
     $ext = strtolower(trim($extension));
@@ -227,6 +237,7 @@ foreach ($employeeDocuments as $documentCountRow) {
       <?php else: ?>
         <div class="space-y-3 max-h-[420px] overflow-y-auto pr-1">
           <?php foreach ($employeeDocumentRequests as $requestRow): ?>
+            <?php [$requestStatusLabel, $requestStatusClass] = $requestStatusMeta((string)($requestRow['status_raw'] ?? ($requestRow['status_label'] ?? 'submitted'))); ?>
             <article class="rounded-lg border border-slate-200 bg-white p-4">
               <div class="flex items-start justify-between gap-3">
                 <div>
@@ -235,12 +246,18 @@ foreach ($employeeDocuments as $documentCountRow) {
                     <p class="text-xs text-slate-500 mt-1">Custom request: <?= $escape($requestRow['custom_request_label']) ?></p>
                   <?php endif; ?>
                 </div>
-                <span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800"><?= $escape($requestRow['status_label'] ?? 'Submitted') ?></span>
+                <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium <?= $escape($requestStatusClass) ?>"><?= $escape($requestStatusLabel) ?></span>
               </div>
               <p class="text-xs text-slate-500 mt-3">Purpose: <?= $escape($requestRow['purpose_label'] ?? '-') ?><?php if (!empty($requestRow['other_purpose'])): ?> · <?= $escape($requestRow['other_purpose']) ?><?php endif; ?></p>
               <p class="text-xs text-slate-500 mt-1">Submitted by <?= $escape($requestRow['submitted_by'] ?? '-') ?> on <?= $escape($requestRow['submitted_label'] ?? '-') ?></p>
+              <?php if (!empty($requestRow['fulfilled_document_title'])): ?>
+                <p class="text-xs text-emerald-700 mt-1">Released file: <?= $escape($requestRow['fulfilled_document_title']) ?><?php if (!empty($requestRow['fulfilled_label'])): ?> · <?= $escape($requestRow['fulfilled_label']) ?><?php endif; ?></p>
+              <?php endif; ?>
               <?php if (!empty($requestRow['notes'])): ?>
                 <p class="text-sm text-slate-600 mt-3"><?= $escape($requestRow['notes']) ?></p>
+              <?php endif; ?>
+              <?php if (!empty($requestRow['fulfilled_notes'])): ?>
+                <p class="text-sm text-slate-600 mt-2">Release notes: <?= $escape($requestRow['fulfilled_notes']) ?></p>
               <?php endif; ?>
             </article>
           <?php endforeach; ?>
@@ -542,15 +559,22 @@ foreach ($employeeDocuments as $documentCountRow) {
 <section class="mt-6 mb-6 bg-white border rounded-xl p-6">
   <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between mb-5">
     <div>
-      <h2 class="text-lg font-semibold text-gray-800">HR Templates and Forms</h2>
-      <p class="text-sm text-gray-500 mt-1">Open the approved HR forms for document requests, travel, leave, overtime, clearance, and other employee paperwork.</p>
+      <h2 class="text-lg font-semibold text-gray-800">HR Template Downloads</h2>
+      <p class="text-sm text-gray-500 mt-1">Download or open the approved HR forms for document requests, travel, leave, overtime, clearance, and other employee paperwork from the shared template source.</p>
     </div>
     <?php if (!empty($sharedHrTemplateDriveUrl)): ?>
       <a href="<?= $escape($sharedHrTemplateDriveUrl) ?>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-        <span class="material-icons text-sm">open_in_new</span>Open Template Source
+        <span class="material-icons text-sm">folder_open</span>Open Approved Shared Template Folder
       </a>
     <?php endif; ?>
   </div>
+
+  <?php if (!empty($sharedHrTemplateDriveUrl)): ?>
+    <div class="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+      Approved shared template folder:
+      <a href="<?= $escape($sharedHrTemplateDriveUrl) ?>" target="_blank" rel="noopener noreferrer" class="font-medium underline underline-offset-2 hover:text-emerald-900">Open HR template repository</a>
+    </div>
+  <?php endif; ?>
 
   <div class="employee-doc-template-list">
     <?php foreach ($hrTemplateDownloadCards as $templateCard): ?>
@@ -565,7 +589,7 @@ foreach ($employeeDocuments as $documentCountRow) {
         </div>
         <?php if ($templateUrl !== ''): ?>
           <a href="<?= $escape($templateUrl) ?>" target="_blank" rel="noopener noreferrer" class="employee-doc-template-action">
-            <span class="material-icons text-sm">download</span>Open Template
+            <span class="material-icons text-sm">download</span>Open / Download
           </a>
         <?php else: ?>
           <div class="employee-doc-template-action border-dashed text-slate-400">

@@ -188,7 +188,12 @@ $formatTime = static function (?string $raw): string {
                             <td class="px-4 py-3"><?= htmlspecialchars($formatDate((string)($log['attendance_date'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($formatTime((string)($log['time_in'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars($formatTime((string)($log['time_out'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td class="px-4 py-3"><span class="inline-flex px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
+                            <td class="px-4 py-3">
+                                <span class="inline-flex px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span>
+                                <?php if (!empty($log['source_label'])): ?>
+                                    <span class="block text-xs text-slate-500 mt-1">Source: <?= htmlspecialchars((string)$log['source_label'], ENT_QUOTES, 'UTF-8') ?></span>
+                                <?php endif; ?>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -201,6 +206,102 @@ $formatTime = static function (?string $raw): string {
             <button type="button" id="attendancePrevPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Previous</button>
             <span id="attendancePageLabel" class="text-xs text-slate-500 min-w-[88px] text-center">Page 1 of 1</span>
             <button type="button" id="attendanceNextPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Next</button>
+        </div>
+    </div>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-800">RFID Attendance Review</h2>
+        <p class="text-sm text-slate-500 mt-1">Monitor assigned RFID coverage, kiosk readiness, and recent scan outcomes from one admin surface.</p>
+    </header>
+    <div class="px-6 py-4 grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
+        <div class="rounded-lg border border-slate-200 p-3 bg-slate-50">
+            <p class="text-slate-500 text-xs uppercase tracking-wide">Active RFID Cards</p>
+            <p class="font-semibold text-emerald-700 mt-1"><?= (int)($rfidSummaryToday['active_cards'] ?? 0) ?></p>
+        </div>
+        <div class="rounded-lg border border-slate-200 p-3 bg-slate-50">
+            <p class="text-slate-500 text-xs uppercase tracking-wide">Active Devices</p>
+            <p class="font-semibold text-sky-700 mt-1"><?= (int)($rfidSummaryToday['active_devices'] ?? 0) ?></p>
+        </div>
+        <div class="rounded-lg border border-slate-200 p-3 bg-slate-50">
+            <p class="text-slate-500 text-xs uppercase tracking-wide">Successful Taps Today</p>
+            <p class="font-semibold text-emerald-700 mt-1"><?= (int)($rfidSummaryToday['tap_success'] ?? 0) ?></p>
+        </div>
+        <div class="rounded-lg border border-slate-200 p-3 bg-slate-50">
+            <p class="text-slate-500 text-xs uppercase tracking-wide">RFID Exceptions Today</p>
+            <p class="font-semibold text-rose-700 mt-1"><?= (int)($rfidSummaryToday['tap_failures'] ?? 0) ?></p>
+        </div>
+    </div>
+
+    <div class="px-6 pb-6 grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <div class="xl:col-span-2 overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-slate-600">
+                    <tr>
+                        <th class="text-left px-4 py-3">Scanned At</th>
+                        <th class="text-left px-4 py-3">Employee</th>
+                        <th class="text-left px-4 py-3">Card UID</th>
+                        <th class="text-left px-4 py-3">Source</th>
+                        <th class="text-left px-4 py-3">Device</th>
+                        <th class="text-left px-4 py-3">Result</th>
+                        <th class="text-left px-4 py-3">Message</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    <?php if (empty($rfidRecentEventRows)): ?>
+                        <tr><td class="px-4 py-3 text-slate-500" colspan="7">No RFID scan events found.</td></tr>
+                    <?php else: ?>
+                        <?php foreach ($rfidRecentEventRows as $row): ?>
+                            <tr>
+                                <td class="px-4 py-3"><?= htmlspecialchars((string)($row['scanned_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                                <td class="px-4 py-3">
+                                    <p class="font-medium text-slate-800"><?= htmlspecialchars((string)($row['employee_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                                    <p class="text-xs text-slate-500 mt-1"><?= htmlspecialchars((string)($row['employee_code'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                                </td>
+                                <td class="px-4 py-3 font-medium text-slate-800"><?= htmlspecialchars((string)($row['card_uid_masked'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                                <td class="px-4 py-3"><?= htmlspecialchars((string)($row['request_source_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                                <td class="px-4 py-3"><?= htmlspecialchars((string)($row['device_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                                <td class="px-4 py-3">
+                                    <span class="inline-flex px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars((string)($row['result_class'] ?? 'bg-slate-200 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($row['result_label'] ?? 'Unknown'), ENT_QUOTES, 'UTF-8') ?></span>
+                                    <?php if (!empty($row['attendance_linked'])): ?>
+                                        <span class="block text-xs text-emerald-700 mt-1">Linked to attendance log</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="px-4 py-3"><?= htmlspecialchars((string)($row['result_message'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-slate-600">
+                    <tr>
+                        <th class="text-left px-4 py-3">Device</th>
+                        <th class="text-left px-4 py-3">Status</th>
+                        <th class="text-left px-4 py-3">Last Seen</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    <?php if (empty($rfidDeviceRows)): ?>
+                        <tr><td class="px-4 py-3 text-slate-500" colspan="3">No RFID devices found.</td></tr>
+                    <?php else: ?>
+                        <?php foreach ($rfidDeviceRows as $row): ?>
+                            <tr>
+                                <td class="px-4 py-3">
+                                    <p class="font-medium text-slate-800"><?= htmlspecialchars((string)($row['device_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                                    <p class="text-xs text-slate-500 mt-1"><?= htmlspecialchars((string)($row['device_code'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                                </td>
+                                <td class="px-4 py-3"><span class="inline-flex px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars((string)($row['status_class'] ?? 'bg-slate-200 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($row['status_label'] ?? 'Unknown'), ENT_QUOTES, 'UTF-8') ?></span></td>
+                                <td class="px-4 py-3"><?= htmlspecialchars((string)($row['last_seen_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
         </div>
     </div>
 </section>

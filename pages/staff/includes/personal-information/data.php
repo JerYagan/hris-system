@@ -30,6 +30,10 @@ $appendDataError = static function (string $label, array $response) use (&$dataL
     $dataLoadError = $dataLoadError ? ($dataLoadError . ' ' . $message) : $message;
 };
 
+$excludePersonalInfoPlaceholderValue = static function (string $value): bool {
+    return strtolower(trim($value)) === 'haugafia';
+};
+
 $formatStaffPersonalInfoTimestamp = static function (?string $value, string $format = 'M d, Y h:i A'): string {
     return function_exists('formatDateTimeForPhilippines')
         ? formatDateTimeForPhilippines($value, $format)
@@ -39,7 +43,7 @@ $formatStaffPersonalInfoTimestamp = static function (?string $value, string $for
 $employmentResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/employment_records?select=id,person_id,office_id,position_id,employment_status,is_current,hire_date,separation_reason,updated_at,person:people!employment_records_person_id_fkey(id,user_id,first_name,middle_name,surname,name_extension,date_of_birth,place_of_birth,sex_at_birth,civil_status,height_m,weight_kg,blood_type,citizenship,dual_citizenship,dual_citizenship_country,telephone_no,mobile_no,personal_email,agency_employee_no),office:offices(office_name),position:job_positions(position_title)'
+    . '/rest/v1/employment_records?select=id,person_id,office_id,position_id,employment_status,employment_type,is_current,hire_date,separation_reason,updated_at,person:people!employment_records_person_id_fkey(id,user_id,first_name,middle_name,surname,name_extension,date_of_birth,place_of_birth,sex_at_birth,civil_status,height_m,weight_kg,blood_type,citizenship,dual_citizenship,dual_citizenship_country,telephone_no,mobile_no,personal_email,agency_employee_no),office:offices(office_name),position:job_positions(position_title,employment_classification)'
     . '&is_current=eq.true'
     . '&order=updated_at.desc&limit=' . $staffPersonalInformationLimits['employment_records'],
     $headers
@@ -48,13 +52,116 @@ $appendDataError('Employment records', $employmentResponse);
 $employmentRows = isSuccessful($employmentResponse) ? (array)($employmentResponse['data'] ?? []) : [];
 
 $personIds = [];
+$userIds = [];
 foreach ($employmentRows as $employmentRow) {
     $personId = cleanText($employmentRow['person_id'] ?? null) ?? cleanText(($employmentRow['person']['id'] ?? null)) ?? '';
     if (isValidUuid($personId)) {
         $personIds[] = $personId;
     }
+
+    $userId = cleanText(($employmentRow['person']['user_id'] ?? null)) ?? '';
+    if (isValidUuid($userId)) {
+        $userIds[] = $userId;
+    }
 }
 $personIdFilter = sanitizeUuidListForInFilter($personIds);
+$userIdFilter = sanitizeUuidListForInFilter($userIds);
+
+$contractualApplicationByUserId = [];
+if ($userIdFilter !== '') {
+    $applicantProfilesResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/applicant_profiles?select=id,user_id'
+        . '&user_id=in.(' . $userIdFilter . ')&limit=' . $staffPersonalInformationLimits['employment_records'],
+        $headers
+    );
+    $appendDataError('Applicant profiles', $applicantProfilesResponse);
+
+    $applicantProfileRows = isSuccessful($applicantProfilesResponse) ? (array)($applicantProfilesResponse['data'] ?? []) : [];
+    $applicantProfileIdToUserId = [];
+    foreach ($applicantProfileRows as $profileRow) {
+        $profileId = cleanText($profileRow['id'] ?? null) ?? '';
+        $userId = cleanText($profileRow['user_id'] ?? null) ?? '';
+        if (!isValidUuid($profileId) || !isValidUuid($userId)) {
+            continue;
+        }
+
+        $applicantProfileIdToUserId[$profileId] = strtolower($userId);
+    }
+
+    $applicantProfileIdFilter = sanitizeUuidListForInFilter(array_keys($applicantProfileIdToUserId));
+    if ($applicantProfileIdFilter !== '') {
+        $applicationsResponse = apiRequest(
+            'GET',
+            $supabaseUrl
+            . '/rest/v1/applications?select=applicant_profile_id,job_posting_id,application_status,submitted_at'
+            . '&applicant_profile_id=in.(' . $applicantProfileIdFilter . ')'
+            . '&order=submitted_at.desc&limit=5000',
+            $headers
+        );
+        $appendDataError('Employee applications', $applicationsResponse);
+
+        $applicationRows = isSuccessful($applicationsResponse) ? (array)($applicationsResponse['data'] ?? []) : [];
+        $postingIds = [];
+        foreach ($applicationRows as $applicationRow) {
+            $postingId = cleanText($applicationRow['job_posting_id'] ?? null) ?? '';
+            if (isValidUuid($postingId)) {
+                $postingIds[$postingId] = true;
+            }
+        }
+
+        $jobPostingById = [];
+        $postingIdFilter = sanitizeUuidListForInFilter(array_keys($postingIds));
+        if ($postingIdFilter !== '') {
+            $jobPostingsResponse = apiRequest(
+                'GET',
+                $supabaseUrl
+                . '/rest/v1/job_postings?select=id,title,position:job_positions(position_title,employment_classification)'
+                . '&id=in.(' . $postingIdFilter . ')&limit=5000',
+                $headers
+            );
+            $appendDataError('Job postings', $jobPostingsResponse);
+
+            foreach ((array)($jobPostingsResponse['data'] ?? []) as $postingRow) {
+                $postingId = cleanText($postingRow['id'] ?? null) ?? '';
+                if (!isValidUuid($postingId)) {
+                    continue;
+                }
+
+                $jobPostingById[$postingId] = (array)$postingRow;
+            }
+        }
+
+        foreach ($applicationRows as $applicationRow) {
+            $profileId = cleanText($applicationRow['applicant_profile_id'] ?? null) ?? '';
+            $postingId = cleanText($applicationRow['job_posting_id'] ?? null) ?? '';
+            $status = strtolower(trim((string)(cleanText($applicationRow['application_status'] ?? null) ?? 'submitted')));
+            $userId = $applicantProfileIdToUserId[$profileId] ?? '';
+            $posting = (array)($jobPostingById[$postingId] ?? []);
+            $position = is_array($posting['position'] ?? null) ? (array)$posting['position'] : [];
+            $classification = strtolower(trim((string)(cleanText($position['employment_classification'] ?? null) ?? '')));
+            $isContractualPosting = !in_array($classification, ['regular', 'coterminous'], true);
+
+            if ($userId === '' || !$isContractualPosting || in_array($status, ['withdrawn', 'rejected', 'hired'], true)) {
+                continue;
+            }
+
+            if (isset($contractualApplicationByUserId[$userId])) {
+                continue;
+            }
+
+            $postingTitle = cleanText($posting['title'] ?? null)
+                ?? cleanText($position['position_title'] ?? null)
+                ?? 'Contractual Job';
+
+            $contractualApplicationByUserId[$userId] = [
+                'label' => 'Applied to Contractual Job',
+                'job_title' => $postingTitle,
+            ];
+        }
+    }
+}
 
 $recommendationHistoryRows = [];
 $pendingAdminApprovalRows = [];
@@ -411,6 +518,11 @@ if ($personIdFilter !== '') {
             $deadlineLabel = $dueAtDate instanceof DateTimeImmutable
                 ? $formatStaffPersonalInfoTimestamp($dueAtDate->format(DATE_ATOM)) . ' PST'
                 : '-';
+            $reminderAtRaw = (string)($newData['reminder_window_starts_at'] ?? '');
+            $reminderAtDate = $reminderAtRaw !== '' && strtotime($reminderAtRaw) !== false ? new DateTimeImmutable($reminderAtRaw) : null;
+            $reminderAtLabel = $reminderAtDate instanceof DateTimeImmutable
+                ? $formatStaffPersonalInfoTimestamp($reminderAtDate->format(DATE_ATOM)) . ' PST'
+                : '-';
             $deadlineStatusLabel = 'Pending';
             $deadlineStatusClass = 'bg-amber-100 text-amber-800';
             if ($dueAtDate instanceof DateTimeImmutable) {
@@ -471,6 +583,7 @@ if ($personIdFilter !== '') {
                 'review_pairs' => [
                     ['field' => 'Source', 'current' => 'Employee', 'proposed' => 'Pending admin review'],
                     ['field' => 'Deadline', 'current' => '-', 'proposed' => $deadlineLabel],
+                    ['field' => 'Reminder Window', 'current' => '-', 'proposed' => $reminderAtLabel],
                     ['field' => 'Reminder Status', 'current' => '-', 'proposed' => $deadlineStatusLabel],
                 ],
                 'recommendation_type' => 'Profile Update Request',
@@ -478,6 +591,7 @@ if ($personIdFilter !== '') {
                 'person_id' => $personId,
                 'request_id' => $requestId,
                 'due_at_label' => $deadlineLabel,
+                'reminder_at_label' => $reminderAtLabel,
                 'search_text' => strtolower(trim($personNameById[$personId] . ' ' . $submittedBy . ' ' . implode(' ', $summaryParts) . ' ' . $deadlineLabel)),
             ];
         }
@@ -1004,6 +1118,14 @@ foreach ($employmentRows as $employment) {
     }
 
     $statusRaw = strtolower((string)(cleanText($employment['employment_status'] ?? null) ?? 'inactive'));
+    $employmentTypeRaw = strtolower((string)(cleanText($employment['employment_type'] ?? null) ?? ''));
+    $positionClassification = strtolower((string)(cleanText($employment['position']['employment_classification'] ?? null) ?? ''));
+    $employmentType = $employmentTypeRaw !== ''
+        ? $employmentTypeRaw
+        : (in_array($positionClassification, ['regular', 'coterminous'], true) ? 'permanent' : ($positionClassification !== '' ? 'contractual' : ''));
+    $employmentTypeLabel = $employmentType === 'contractual'
+        ? 'Contractual'
+        : ($employmentType === 'permanent' ? 'Permanent' : 'Not provided');
     [$statusLabel, $statusClass, $statusBucket] = $statusPill($statusRaw);
 
     if ($statusBucket === 'active') {
@@ -1039,6 +1161,7 @@ foreach ($employmentRows as $employment) {
         $telephone,
         $officeName,
         $positionName,
+        $employmentTypeLabel,
         $statusLabel,
     ])));
 
@@ -1065,9 +1188,14 @@ foreach ($employmentRows as $employment) {
         'mobile' => $mobile,
         'department' => $officeName,
         'position' => $positionName,
+        'employment_type' => $employmentType,
+        'employment_type_label' => $employmentTypeLabel,
         'status_raw' => $statusBucket,
         'status_label' => $statusLabel,
         'status_class' => $statusClass,
+        'has_contractual_application' => isset($contractualApplicationByUserId[(string)(cleanText($person['user_id'] ?? null) ?? '')]),
+        'contractual_application_label' => (string)($contractualApplicationByUserId[(string)(cleanText($person['user_id'] ?? null) ?? '')]['label'] ?? ''),
+        'contractual_application_job_title' => (string)($contractualApplicationByUserId[(string)(cleanText($person['user_id'] ?? null) ?? '')]['job_title'] ?? ''),
         'search_text' => $searchText,
 
         'date_of_birth' => cleanText($person['date_of_birth'] ?? null) ?? '',
@@ -1126,6 +1254,7 @@ foreach ($employmentRows as $employment) {
 
 $departmentFilterOptions = array_keys($departmentFilters);
 sort($departmentFilterOptions, SORT_NATURAL | SORT_FLAG_CASE);
+$departmentFilterOptions = array_values(array_filter($departmentFilterOptions, static fn(string $value): bool => !$excludePersonalInfoPlaceholderValue($value)));
 
 $placeOfBirthOptionsMap = [];
 foreach ($employeeTableRows as $employeeTableRow) {
@@ -1145,9 +1274,12 @@ foreach ($addressCityOptions as $addressCityOption) {
 
 $placeOfBirthOptions = array_keys($placeOfBirthOptionsMap);
 sort($placeOfBirthOptions, SORT_NATURAL | SORT_FLAG_CASE);
+$placeOfBirthOptions = array_values(array_filter($placeOfBirthOptions, static fn(string $value): bool => !$excludePersonalInfoPlaceholderValue($value)));
 
 $civilStatusOptions = ['Single', 'Married', 'Widowed', 'Separated', 'Divorced', 'Annulled'];
 $bloodTypeOptions = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+$civilStatusOptions = array_values(array_filter($civilStatusOptions, static fn(string $value): bool => !$excludePersonalInfoPlaceholderValue($value)));
+$bloodTypeOptions = array_values(array_filter($bloodTypeOptions, static fn(string $value): bool => !$excludePersonalInfoPlaceholderValue($value)));
 
 $needsUpdateCount = max(0, $totalProfiles - $completeRecords);
 

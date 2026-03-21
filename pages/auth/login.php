@@ -83,10 +83,8 @@ ob_start();
   <!-- RIGHT: LOGIN FORM -->
   <div class="p-10">
 
-    <a href="../../index.html"
-      <a href="<?= htmlspecialchars(authAppPath('/index.html'), ENT_QUOTES, 'UTF-8') ?>"
-       class="inline-flex items-center gap-2 mb-6 text-sm text-gray-600
-              hover:text-daGreen transition font-medium">
+    <a href="<?= htmlspecialchars(authAppPath('/index.html'), ENT_QUOTES, 'UTF-8') ?>"
+       class="inline-flex items-center gap-2 mb-6 text-sm text-gray-600 hover:text-daGreen transition font-medium">
       <span class="material-icons text-base">arrow_back</span>
       Back
     </a>
@@ -213,7 +211,7 @@ ob_start();
         class="w-full bg-daGreen text-white py-3 rounded-md font-semibold
                hover:bg-daGreenLight transition flex items-center justify-center gap-2">
         <span class="material-icons text-sm">login</span>
-        Sign In
+        LOGIN
       </button>
 
     </form>
@@ -231,18 +229,12 @@ ob_start();
 <script>
   const togglePassword = document.getElementById("togglePassword");
   const passwordInput = document.getElementById("password");
-  const loginError = document.getElementById("loginError");
-
   togglePassword?.addEventListener("click", () => {
     const isHidden = passwordInput.type === "password";
     passwordInput.type = isHidden ? "text" : "password";
     togglePassword.innerHTML = `<span class="material-icons text-base">
       ${isHidden ? "visibility_off" : "visibility"}
     </span>`;
-  });
-
-  // Demo only
-  document.querySelector("form")?.addEventListener("submit", e => {
   });
 </script>
 

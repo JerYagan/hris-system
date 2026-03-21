@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/../../../shared/lib/recruitment-domain.php';
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     return;
 }
@@ -1133,6 +1135,15 @@ if ($action === 'convert_hired_to_employee') {
         $officeName = 'Assigned Division';
     }
 
+    $employmentType = recruitmentServiceResolveEmploymentType($supabaseUrl, $headers, $positionId);
+    $employmentClassification = $employmentType !== null
+        ? recruitmentServiceResolveEmploymentClassification($employmentType)
+        : null;
+
+    if (!in_array($employmentType, ['permanent', 'contractual'], true) || !in_array($employmentClassification, ['regular', 'contractual'], true)) {
+        redirectWithState('error', 'Unable to resolve employment classification for the hired position.');
+    }
+
     $feedbackRows = (array)($applicationRow['feedback'] ?? []);
     $feedbackText = '';
     if (!empty($feedbackRows)) {
@@ -1359,7 +1370,7 @@ if ($action === 'convert_hired_to_employee') {
 
     $employmentResponse = apiRequest(
         'GET',
-        $supabaseUrl . '/rest/v1/employment_records?select=id,is_current,office_id,position_id,employment_status&person_id=eq.' . $personId . '&is_current=eq.true&limit=1',
+        $supabaseUrl . '/rest/v1/employment_records?select=id,is_current,office_id,position_id,employment_status,employment_type&person_id=eq.' . $personId . '&is_current=eq.true&limit=1',
         $headers
     );
     $currentEmployment = $employmentResponse['data'][0] ?? null;
@@ -1376,6 +1387,7 @@ if ($action === 'convert_hired_to_employee') {
                 'position_id' => $positionId,
                 'hire_date' => gmdate('Y-m-d'),
                 'employment_status' => 'active',
+                'employment_type' => $employmentType,
                 'is_current' => true,
             ]]
         );
@@ -1384,6 +1396,36 @@ if ($action === 'convert_hired_to_employee') {
             redirectWithState('error', 'Employee profile created but failed to initialize employment record.');
         }
         $employmentCreated = true;
+    } else {
+        $employmentId = trim((string)($currentEmployment['id'] ?? ''));
+        $employmentUpdates = [];
+
+        if ((string)($currentEmployment['office_id'] ?? '') !== $officeId) {
+            $employmentUpdates['office_id'] = $officeId;
+        }
+        if ((string)($currentEmployment['position_id'] ?? '') !== $positionId) {
+            $employmentUpdates['position_id'] = $positionId;
+        }
+        if (strtolower(trim((string)($currentEmployment['employment_status'] ?? ''))) !== 'active') {
+            $employmentUpdates['employment_status'] = 'active';
+        }
+        if (strtolower(trim((string)($currentEmployment['employment_type'] ?? ''))) !== $employmentType) {
+            $employmentUpdates['employment_type'] = $employmentType;
+        }
+
+        if (!empty($employmentUpdates) && adminApplicantsIsValidUuid($employmentId)) {
+            $employmentUpdates['updated_at'] = gmdate('c');
+            $employmentUpdateResponse = apiRequest(
+                'PATCH',
+                $supabaseUrl . '/rest/v1/employment_records?id=eq.' . rawurlencode($employmentId),
+                array_merge($headers, ['Prefer: return=minimal']),
+                $employmentUpdates
+            );
+
+            if (!isSuccessful($employmentUpdateResponse)) {
+                redirectWithState('error', 'Employee account was created but the employment classification could not be updated.');
+            }
+        }
     }
 
     if ($pdsSummary !== '') {

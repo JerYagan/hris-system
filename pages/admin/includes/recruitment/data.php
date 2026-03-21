@@ -559,6 +559,15 @@ if (!empty($postingIds) && in_array($recruitmentDataStage, ['full', 'posting-vie
                 $headers
             );
 
+            $personWorkExperiencesResponse = apiRequest(
+                'GET',
+                $supabaseUrl
+                . '/rest/v1/person_work_experiences?select=person_id,inclusive_date_from,inclusive_date_to'
+                . '&person_id=in.' . rawurlencode('(' . $personIdList . ')')
+                . '&limit=20000',
+                $headers
+            );
+
             if (isSuccessful($educationResponse)) {
                 $highestByPersonId = [];
 
@@ -582,6 +591,64 @@ if (!empty($postingIds) && in_array($recruitmentDataStage, ['full', 'posting-vie
                     }
 
                     $peopleByUserId[$userId]['highest_education_level'] = (string)$highestByPersonId[$personId];
+                }
+            }
+
+            if (isSuccessful($personWorkExperiencesResponse)) {
+                $experienceYearsByPersonId = [];
+                $todayDate = new DateTimeImmutable('today');
+
+                foreach ((array)($personWorkExperiencesResponse['data'] ?? []) as $workRow) {
+                    $personId = strtolower(trim((string)($workRow['person_id'] ?? '')));
+                    if ($personId === '') {
+                        continue;
+                    }
+
+                    $fromRaw = trim((string)($workRow['inclusive_date_from'] ?? ''));
+                    if ($fromRaw === '') {
+                        continue;
+                    }
+
+                    try {
+                        $fromDate = new DateTimeImmutable($fromRaw);
+                    } catch (Throwable) {
+                        continue;
+                    }
+
+                    $toRaw = trim((string)($workRow['inclusive_date_to'] ?? ''));
+                    if ($toRaw !== '') {
+                        try {
+                            $toDate = new DateTimeImmutable($toRaw);
+                        } catch (Throwable) {
+                            $toDate = $todayDate;
+                        }
+                    } else {
+                        $toDate = $todayDate;
+                    }
+
+                    if ($toDate < $fromDate) {
+                        continue;
+                    }
+
+                    if (!isset($experienceYearsByPersonId[$personId])) {
+                        $experienceYearsByPersonId[$personId] = 0.0;
+                    }
+
+                    $days = (int)$fromDate->diff($toDate)->days + 1;
+                    $experienceYearsByPersonId[$personId] += ((float)$days / 365);
+                }
+
+                foreach ($experienceYearsByPersonId as $personId => $years) {
+                    $experienceYearsByPersonId[$personId] = round((float)$years, 2);
+                }
+
+                foreach ($peopleByUserId as $userId => $personData) {
+                    $personId = strtolower(trim((string)($personData['person_id'] ?? '')));
+                    if ($personId === '' || !array_key_exists($personId, $experienceYearsByPersonId)) {
+                        continue;
+                    }
+
+                    $peopleByUserId[$userId]['applicant_profile_experience_years'] = (float)$experienceYearsByPersonId[$personId];
                 }
             }
         }
@@ -929,6 +996,49 @@ $matchEligibility = static function (string $required, string $actual): bool {
     return false;
 };
 
+$eligibilityInputToOption = static function (string $value) use ($normalizeEligibilityOption): string {
+    $key = strtolower(trim($value));
+    if ($key === '' || in_array($key, ['n/a', 'na', 'none', 'not provided', 'not required', 'not_applicable', 'not applicable'], true)) {
+        return 'none';
+    }
+
+    $hasCsc = str_contains($key, 'csc')
+        || str_contains($key, 'career service')
+        || str_contains($key, 'sub professional')
+        || str_contains($key, 'sub-professional');
+    $hasPrc = str_contains($key, 'prc')
+        || str_contains($key, 'board')
+        || str_contains($key, 'license')
+        || str_contains($key, 'licensure');
+
+    if ($hasCsc && $hasPrc) {
+        return 'csc_prc';
+    }
+    if ($hasCsc) {
+        return 'csc';
+    }
+    if ($hasPrc) {
+        return 'prc';
+    }
+
+    return $normalizeEligibilityOption($key);
+};
+
+$eligibilityOptionMeetsRequirement = static function (string $requiredOption, string $actualOption) use ($normalizeEligibilityOption): bool {
+    $required = $normalizeEligibilityOption($requiredOption);
+    $actual = $normalizeEligibilityOption($actualOption);
+
+    if ($required === 'none') {
+        return true;
+    }
+
+    return match ($required) {
+        'csc' => in_array($actual, ['csc', 'csc_prc'], true),
+        'prc' => in_array($actual, ['prc', 'csc_prc'], true),
+        default => in_array($actual, ['csc', 'prc', 'csc_prc'], true),
+    };
+};
+
 $extractStructuredInputs = static function (string $feedbackText): array {
     if ($feedbackText === '') {
         return [];
@@ -1001,7 +1111,9 @@ $evaluationScoreForApplication = static function (string $applicationId, array $
     $interviewsByApplicationId,
     $extractStructuredInputs,
     $estimateSignalInputs,
-    $matchEligibility,
+    $eligibilityInputToOption,
+    $eligibilityOptionMeetsRequirement,
+    $normalizeEligibilityOption,
     $normalizeEducationLevel,
     $educationYearsToLevel,
     $educationLevelRank,
@@ -1013,11 +1125,12 @@ $evaluationScoreForApplication = static function (string $applicationId, array $
 ): array {
     $criteriaInput = is_array($application['criteria'] ?? null) ? (array)$application['criteria'] : [];
     $requiredEligibility = strtolower(trim((string)($criteriaInput['eligibility_requirement'] ?? 'none')));
+    $requiredEligibilityOption = $normalizeEligibilityOption((string)($criteriaInput['eligibility_option'] ?? $requiredEligibility));
     $requiredEducationLevel = $normalizeEducationLevel((string)($criteriaInput['minimum_education_level'] ?? $educationYearsToLevel((float)($criteriaInput['minimum_education_years'] ?? 0))));
     $requiredEducationYears = max(0, (float)($criteriaInput['minimum_education_years'] ?? 0));
     $requiredTrainingHours = max(0, (float)($criteriaInput['minimum_training_hours'] ?? 0));
     $requiredExperienceYears = max(0, (float)($criteriaInput['minimum_experience_years'] ?? 0));
-    $eligibilityRequired = !in_array($requiredEligibility, ['none', 'n/a', 'na', 'not applicable', 'not_applicable', ''], true);
+    $eligibilityRequired = $requiredEligibilityOption !== 'none';
 
     $feedbackText = (string)($feedbackTextByApplicationId[$applicationId] ?? '');
     $structured = $extractStructuredInputs($feedbackText);
@@ -1025,17 +1138,55 @@ $evaluationScoreForApplication = static function (string $applicationId, array $
     $interviews = (array)($interviewsByApplicationId[$applicationId] ?? []);
     $signals = $estimateSignalInputs($application, $documents, $interviews);
     $profileEducationRaw = trim((string)($application['applicant_highest_education_level'] ?? ''));
+    $profileExperienceValue = $application['applicant_profile_experience_years'] ?? null;
 
-    $eligibilityInput = strtolower(trim((string)($structured['eligibility'] ?? $signals['eligibility'] ?? 'n/a')));
+    $hasCscDocument = false;
+    $hasPrcDocument = false;
+    foreach ($documents as $document) {
+        $documentType = strtolower(trim((string)($document['document_type'] ?? '')));
+        $fileName = strtolower(trim((string)($document['file_name'] ?? '')));
+
+        if (
+            $documentType === 'eligibility'
+            || str_contains($fileName, 'csc')
+            || str_contains($fileName, 'career service')
+            || str_contains($fileName, 'eligibility')
+        ) {
+            $hasCscDocument = true;
+        }
+
+        if (
+            $documentType === 'license'
+            || str_contains($fileName, 'prc')
+            || str_contains($fileName, 'board')
+            || str_contains($fileName, 'licensure')
+        ) {
+            $hasPrcDocument = true;
+        }
+    }
+
+    $structuredEligibilityInput = strtolower(trim((string)($structured['eligibility'] ?? '')));
+    $structuredEligibilityOption = $eligibilityInputToOption($structuredEligibilityInput);
+    $documentEligibilityOption = $hasCscDocument && $hasPrcDocument
+        ? 'csc_prc'
+        : ($hasCscDocument ? 'csc' : ($hasPrcDocument ? 'prc' : 'none'));
+    $eligibilityInputOption = $structuredEligibilityOption !== 'none'
+        ? $structuredEligibilityOption
+        : $documentEligibilityOption;
     $educationLevelSource = trim((string)($structured['education_level'] ?? $profileEducationRaw));
     $educationLevel = $educationLevelSource !== ''
         ? $normalizeEducationLevel($educationLevelSource)
         : $normalizeEducationLevel($educationYearsToLevel((float)($structured['education_years'] ?? $signals['education_years'] ?? 0)));
     $educationYears = (float)($structured['education_years'] ?? $signals['education_years'] ?? 0);
     $trainingHours = (float)($structured['training_hours'] ?? $signals['training_hours'] ?? 0);
-    $experienceYears = (float)($structured['experience_years'] ?? $signals['experience_years'] ?? 0);
+    $hasProfileExperience = $profileExperienceValue !== null && $profileExperienceValue !== '';
+    $experienceYears = $hasProfileExperience
+        ? (float)$profileExperienceValue
+        : (float)($structured['experience_years'] ?? $signals['experience_years'] ?? 0);
 
-    $eligibilityMeets = $eligibilityRequired ? $matchEligibility($requiredEligibility, $eligibilityInput) : true;
+    $eligibilityMeets = $eligibilityRequired
+        ? $eligibilityOptionMeetsRequirement($requiredEligibilityOption, $eligibilityInputOption)
+        : true;
     $educationMeets = $educationLevelRank($educationLevel) >= $educationLevelRank($requiredEducationLevel);
     $trainingMeets = $trainingHours >= $requiredTrainingHours;
     $experienceMeets = $experienceYears >= $requiredExperienceYears;
@@ -1073,18 +1224,18 @@ $evaluationScoreForApplication = static function (string $applicationId, array $
     return [
         'score' => $totalScore,
         'is_qualified' => $isQualified,
+        'rule_result' => $isQualified ? 'Qualified for Evaluation' : 'Not Qualified',
+        'threshold' => (int)round($threshold),
     ];
 };
 
-$recommendationLabel = static function (int $score): array {
-    if ($score >= 80) {
-        return ['High', 'bg-emerald-100 text-emerald-800'];
-    }
-    if ($score >= 55) {
-        return ['Medium', 'bg-amber-100 text-amber-800'];
+$recommendationLabel = static function (string $result): array {
+    $key = strtolower(trim($result));
+    if ($key === 'qualified for evaluation') {
+        return ['Qualified for Evaluation', 'bg-emerald-100 text-emerald-800'];
     }
 
-    return ['Low', 'bg-slate-200 text-slate-700'];
+    return ['Not Qualified', 'bg-rose-100 text-rose-800'];
 };
 
 $formatNumber = static function (float $value): string {
@@ -1283,20 +1434,23 @@ foreach ($postings as $posting) {
         $applicantUserId = strtolower(trim((string)($applicant['user_id'] ?? '')));
         $profilePhotoUrl = (string)($peopleByUserId[$applicantUserId]['profile_photo_url'] ?? '');
         $applicantHighestEducationLevel = (string)($peopleByUserId[$applicantUserId]['highest_education_level'] ?? '');
+        $applicantProfileExperienceYears = $peopleByUserId[$applicantUserId]['applicant_profile_experience_years'] ?? null;
 
         $applicationWithCriteria = $application;
         $applicationWithCriteria['criteria'] = [
             'eligibility_requirement' => $effectiveEligibilityRequirement,
+            'eligibility_option' => $eligibilityOption,
             'minimum_education_level' => $minimumEducationLevel,
             'minimum_education_years' => $minimumEducationYears,
             'minimum_training_hours' => $minimumTrainingHours,
             'minimum_experience_years' => $minimumExperienceYears,
         ];
         $applicationWithCriteria['applicant_highest_education_level'] = $applicantHighestEducationLevel;
+        $applicationWithCriteria['applicant_profile_experience_years'] = $applicantProfileExperienceYears;
 
         $applicationEvaluation = $evaluationScoreForApplication($applicationId, $applicationWithCriteria);
         $score = (int)($applicationEvaluation['score'] ?? 0);
-        [$scoreLabel, $scoreClass] = $recommendationLabel($score);
+        [$scoreLabel, $scoreClass] = $recommendationLabel((string)($applicationEvaluation['rule_result'] ?? 'Not Qualified'));
         [$documentStatusLabel, $documentStatusClass] = $documentStatusPill($applicationStatusRaw);
 
         $feedbackText = (string)($feedbackTextByApplicationId[$applicationId] ?? '');
@@ -1315,7 +1469,9 @@ foreach ($postings as $posting) {
         $educationLevelValue = $normalizeEducationLevel($educationLevelValue);
         $educationYears = (float)($structuredInputs['education_years'] ?? $signalInputs['education_years'] ?? 0);
         $trainingHours = (float)($structuredInputs['training_hours'] ?? $signalInputs['training_hours'] ?? 0);
-        $experienceYears = (float)($structuredInputs['experience_years'] ?? $signalInputs['experience_years'] ?? 0);
+        $experienceYears = $applicantProfileExperienceYears !== null && $applicantProfileExperienceYears !== ''
+            ? (float)$applicantProfileExperienceYears
+            : (float)($structuredInputs['experience_years'] ?? $signalInputs['experience_years'] ?? 0);
 
         $workExperience = [];
         if ($experienceYears > 0) {

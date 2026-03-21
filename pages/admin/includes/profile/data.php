@@ -29,6 +29,16 @@ $personRow = (isSuccessful($personResponse) ? ($personResponse['data'][0] ?? nul
 $roleRow = (isSuccessful($roleResponse) ? ($roleResponse['data'][0] ?? null) : null);
 $loginHistoryRowsRaw = isSuccessful($loginHistoryResponse) ? (array)($loginHistoryResponse['data'] ?? []) : [];
 
+$latestSuccessfulLoginAt = '';
+foreach ($loginHistoryRowsRaw as $loginHistoryRow) {
+    $eventType = strtolower(trim((string)($loginHistoryRow['event_type'] ?? '')));
+    $createdAt = trim((string)($loginHistoryRow['created_at'] ?? ''));
+    if ($eventType === 'login_success' && $createdAt !== '') {
+        $latestSuccessfulLoginAt = $createdAt;
+        break;
+    }
+}
+
 $firstName = (string)($personRow['first_name'] ?? '');
 $middleName = (string)($personRow['middle_name'] ?? '');
 $surname = (string)($personRow['surname'] ?? '');
@@ -59,7 +69,9 @@ $profileSummary = [
     'office_name' => $officeName,
     'account_status' => $accountStatusLabel,
     'account_status_class' => $accountStatusClass,
-    'last_login_at' => !empty($accountRow['last_login_at']) ? formatDateTimeForPhilippines((string)$accountRow['last_login_at'], 'M d, Y h:i A') . ' PST' : 'No login activity yet',
+    'last_login_at' => $latestSuccessfulLoginAt !== ''
+        ? formatDateTimeForPhilippines($latestSuccessfulLoginAt, 'M d, Y h:i A') . ' PST'
+        : (!empty($accountRow['last_login_at']) ? formatDateTimeForPhilippines((string)$accountRow['last_login_at'], 'M d, Y h:i A') . ' PST' : 'No login activity yet'),
     'member_since' => !empty($accountRow['created_at']) ? formatDateTimeForPhilippines((string)$accountRow['created_at'], 'M d, Y') : '-',
 ];
 

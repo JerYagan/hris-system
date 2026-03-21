@@ -4631,6 +4631,7 @@
       bloodTypeOptions: [],
       addressCityOptions: [],
       addressProvinceOptions: [],
+      addressBarangaysByCity: {},
       addressBarangayOptions: []
     };
 
@@ -4643,6 +4644,7 @@
           bloodTypeOptions: Array.isArray(parsed.bloodTypeOptions) ? parsed.bloodTypeOptions : [],
           addressCityOptions: Array.isArray(parsed.addressCityOptions) ? parsed.addressCityOptions : [],
           addressProvinceOptions: Array.isArray(parsed.addressProvinceOptions) ? parsed.addressProvinceOptions : [],
+          addressBarangaysByCity: parsed.addressBarangaysByCity && typeof parsed.addressBarangaysByCity === 'object' ? parsed.addressBarangaysByCity : {},
           addressBarangayOptions: Array.isArray(parsed.addressBarangayOptions) ? parsed.addressBarangayOptions : []
         };
       } catch (_error) {
@@ -4652,6 +4654,7 @@
           bloodTypeOptions: [],
           addressCityOptions: [],
           addressProvinceOptions: [],
+          addressBarangaysByCity: {},
           addressBarangayOptions: []
         };
       }
@@ -4713,6 +4716,38 @@
       return Array.from(variants);
     };
 
+    const resolveLocationLookupKeys = (value, lookup, isBarangay = false) => {
+      if (!lookup || typeof lookup !== 'object') {
+        return [];
+      }
+
+      const valueVariants = normalizeLocationVariants(value, isBarangay);
+      if (valueVariants.length === 0) {
+        return [];
+      }
+
+      const resolved = new Set();
+      Object.keys(lookup).forEach((lookupKey) => {
+        const lookupVariants = normalizeLocationVariants(lookupKey, isBarangay);
+        if (lookupVariants.some((lookupVariant) => valueVariants.includes(lookupVariant))) {
+          resolved.add(lookupKey);
+        }
+      });
+
+      return Array.from(resolved);
+    };
+
+    const inferLocationLookupMode = (input) => {
+      const identifier = `${input?.id || ''} ${input?.name || ''}`.toLowerCase();
+      if (identifier.includes('barangay')) {
+        return 'barangay';
+      }
+      if (identifier.includes('city') || identifier.includes('municipality')) {
+        return 'city';
+      }
+      return 'generic';
+    };
+
     const initModernSearchInput = (input, optionSource) => {
       if (!input) {
         return;
@@ -4741,13 +4776,21 @@
         const options = Array.from(new Set((Array.isArray(source) ? source : [])
           .map((item) => String(item || '').trim())
           .filter((item) => item !== '')));
+        const lookupMode = inferLocationLookupMode(input);
+        const isBarangay = lookupMode === 'barangay';
+        const queryVariants = lookupMode === 'generic' ? [] : normalizeLocationVariants(query, isBarangay);
 
         const filtered = options
           .filter((item) => {
             if (!query) {
               return true;
             }
-            return normalizeLocationKey(item).includes(query);
+            if (lookupMode === 'generic') {
+              return normalizeLocationKey(item).includes(query);
+            }
+
+            const optionVariants = normalizeLocationVariants(item, isBarangay);
+            return optionVariants.some((optionVariant) => queryVariants.some((queryVariant) => optionVariant.includes(queryVariant) || queryVariant.includes(optionVariant)));
           })
           .slice(0, 12);
 
@@ -4797,11 +4840,29 @@
       });
     };
 
+    const resolveBarangayOptions = (cityValue) => {
+      const lookup = adminPersonalInfoLookupData.addressBarangaysByCity || {};
+      const cityKeys = resolveLocationLookupKeys(cityValue, lookup, false);
+      if (cityKeys.length === 0) {
+        return adminPersonalInfoLookupData.addressBarangayOptions;
+      }
+
+      const options = [];
+      cityKeys.forEach((cityKey) => {
+        const barangays = lookup[cityKey];
+        if (Array.isArray(barangays)) {
+          barangays.forEach((barangay) => options.push(barangay));
+        }
+      });
+
+      return options.length > 0 ? options : adminPersonalInfoLookupData.addressBarangayOptions;
+    };
+
     initModernSearchInput(profilePlaceOfBirth, () => adminPersonalInfoLookupData.placeOfBirthOptions);
     initModernSearchInput(profileCivilStatus, () => adminPersonalInfoLookupData.civilStatusOptions);
     initModernSearchInput(profileBloodType, () => adminPersonalInfoLookupData.bloodTypeOptions);
-    initModernSearchInput(profileResidentialBarangay, () => adminPersonalInfoLookupData.addressBarangayOptions);
-    initModernSearchInput(profilePermanentBarangay, () => adminPersonalInfoLookupData.addressBarangayOptions);
+    initModernSearchInput(profileResidentialBarangay, () => resolveBarangayOptions(profileResidentialCity?.value || ''));
+    initModernSearchInput(profilePermanentBarangay, () => resolveBarangayOptions(profilePermanentCity?.value || ''));
     initModernSearchInput(profileResidentialCity, () => adminPersonalInfoLookupData.addressCityOptions);
     initModernSearchInput(profilePermanentCity, () => adminPersonalInfoLookupData.addressCityOptions);
     initModernSearchInput(profileResidentialProvince, () => adminPersonalInfoLookupData.addressProvinceOptions);

@@ -1121,19 +1121,83 @@ if (!function_exists('timekeepingParseTaggedReason')) {
 }
 
 if (!function_exists('timekeepingIsCosEmploymentStatus')) {
-    function timekeepingIsCosEmploymentStatus(?string $employmentStatus): bool
+    function timekeepingIsCosEmploymentStatus(?string $employmentStatus, ?string $positionClassification = null): bool
     {
-        $normalized = strtolower(trim((string)$employmentStatus));
-        if ($normalized === '') {
-            return false;
-        }
+        foreach ([$employmentStatus, $positionClassification] as $candidate) {
+            $normalized = strtolower(trim((string)$candidate));
+            if ($normalized === '') {
+                continue;
+            }
 
-        foreach (['contract of service', 'cos', 'contractual', 'job order', 'job_order', 'casual'] as $marker) {
-            if (str_contains($normalized, $marker)) {
-                return true;
+            foreach (['contract of service', 'cos', 'contractual', 'job order', 'job_order', 'casual'] as $marker) {
+                if (str_contains($normalized, $marker)) {
+                    return true;
+                }
             }
         }
 
         return false;
+    }
+}
+
+if (!function_exists('timekeepingCosWeeklyDayCatalog')) {
+    function timekeepingCosWeeklyDayCatalog(): array
+    {
+        return [
+            'monday' => 'Monday',
+            'tuesday' => 'Tuesday',
+            'wednesday' => 'Wednesday',
+            'thursday' => 'Thursday',
+            'friday' => 'Friday',
+            'saturday' => 'Saturday',
+            'sunday' => 'Sunday',
+        ];
+    }
+}
+
+if (!function_exists('timekeepingNormalizeCosWeeklyScheduleRows')) {
+    function timekeepingNormalizeCosWeeklyScheduleRows(array $rows): array
+    {
+        $catalog = timekeepingCosWeeklyDayCatalog();
+        $order = array_keys($catalog);
+        $normalizedRows = [];
+
+        foreach ($rows as $rowRaw) {
+            $row = is_array($rowRaw) ? $rowRaw : [];
+            $dayKey = strtolower(trim((string)($row['day_key'] ?? '')));
+            if (!isset($catalog[$dayKey])) {
+                continue;
+            }
+
+            $normalizedRows[] = [
+                'day_key' => $dayKey,
+                'day_label' => $catalog[$dayKey],
+                'start_time' => trim((string)($row['start_time'] ?? '')),
+                'end_time' => trim((string)($row['end_time'] ?? '')),
+            ];
+        }
+
+        usort($normalizedRows, static function (array $left, array $right) use ($order): int {
+            return array_search((string)($left['day_key'] ?? ''), $order, true) <=> array_search((string)($right['day_key'] ?? ''), $order, true);
+        });
+
+        return $normalizedRows;
+    }
+}
+
+if (!function_exists('timekeepingFormatCosWeeklyScheduleSummary')) {
+    function timekeepingFormatCosWeeklyScheduleSummary(array $rows, string $separator = '; '): string
+    {
+        $normalizedRows = timekeepingNormalizeCosWeeklyScheduleRows($rows);
+        if ($normalizedRows === []) {
+            return '';
+        }
+
+        $parts = [];
+        foreach ($normalizedRows as $row) {
+            $parts[] = (string)($row['day_label'] ?? 'Day') . ': ' . (string)($row['start_time'] ?? '-') . ' - ' . (string)($row['end_time'] ?? '-');
+        }
+
+        return implode($separator, $parts);
     }
 }

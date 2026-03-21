@@ -16,14 +16,14 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <!-- Favicon -->
-  <link rel="icon" type="image/png" sizes="32x32" href="/hris-system/assets/images/favicon.png">
-  <link rel="icon" type="image/x-icon" href="/hris-system/assets/images/favicon.ico">
-  <link rel="apple-touch-icon" sizes="180x180" href="/hris-system/assets/images/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="<?= htmlspecialchars(authAppPath('/assets/images/favicon.png'), ENT_QUOTES, 'UTF-8') ?>">
+  <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars(authAppPath('/assets/images/favicon.ico'), ENT_QUOTES, 'UTF-8') ?>">
+  <link rel="apple-touch-icon" sizes="180x180" href="<?= htmlspecialchars(authAppPath('/assets/images/apple-touch-icon.png'), ENT_QUOTES, 'UTF-8') ?>">
 
 
-  <link rel="stylesheet" href="../global.css">
+  <link rel="stylesheet" href="<?= htmlspecialchars(authAppPath('/global.css'), ENT_QUOTES, 'UTF-8') ?>">
 
-  <script src="../assets/js/script.js" defer></script>
+  <script src="<?= htmlspecialchars(authAppPath('/assets/js/script.js'), ENT_QUOTES, 'UTF-8') ?>" defer></script>
 
   <script>
     tailwind.config = {

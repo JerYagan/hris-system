@@ -715,7 +715,7 @@ $payrollManagementLimits = [
 
 $employeesResponse = apiRequest(
     'GET',
-    $supabaseUrl . '/rest/v1/employment_records?select=person_id,employment_status,person:people!employment_records_person_id_fkey(id,user_id,first_name,surname)&is_current=eq.true&limit=' . (int)$payrollManagementLimits['employees'],
+    $supabaseUrl . '/rest/v1/employment_records?select=person_id,employment_status,employment_type,person:people!employment_records_person_id_fkey(id,user_id,first_name,surname),position:job_positions(employment_classification)&is_current=eq.true&limit=' . (int)$payrollManagementLimits['employees'],
     $headers
 );
 
@@ -1153,7 +1153,13 @@ foreach ($employmentRecords as $record) {
         continue;
     }
 
-    $employmentStatusByPerson[$personId] = strtolower(trim((string)($record['employment_status'] ?? 'active')));
+    $employmentStatus = strtolower(trim((string)($record['employment_status'] ?? 'active')));
+    $employmentType = strtolower(trim((string)($record['employment_type'] ?? '')));
+    $positionClassification = strtolower(trim((string)($record['position']['employment_classification'] ?? '')));
+    $effectiveEmploymentMarker = $employmentType !== '' ? $employmentType : $positionClassification;
+    $employmentStatusByPerson[$personId] = payrollServiceIsCosEmploymentStatus($employmentStatus, $effectiveEmploymentMarker) && $effectiveEmploymentMarker !== ''
+        ? $effectiveEmploymentMarker
+        : $employmentStatus;
 }
 
 $employeePickerRows = [];

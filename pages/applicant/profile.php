@@ -12,6 +12,7 @@ $profileSpouses = is_array($profileSpouses ?? null) ? $profileSpouses : [];
 $profileEducations = is_array($profileEducations ?? null) ? $profileEducations : [];
 $profileWorkExperiences = is_array($profileWorkExperiences ?? null) ? $profileWorkExperiences : [];
 $uploadedFiles = is_array($uploadedFiles ?? null) ? $uploadedFiles : [];
+$profileSupportsWorkExperience = (bool)($profileSupportsWorkExperience ?? true);
 
 $editableSpouseRows = !empty($profileSpouses) ? array_values($profileSpouses) : [[]];
 $editableEducationRows = !empty($profileEducations) ? array_values($profileEducations) : [[]];
@@ -37,7 +38,7 @@ $deferredSectionsUrl = 'profile.php?' . http_build_query([
     'edit' => $editMode ? 'true' : null,
 ]);
 
-$renderDeferredProfileViewSections = static function () use ($profileEducations, $profileWorkExperiences): void {
+$renderDeferredProfileViewSections = static function () use ($profileEducations, $profileWorkExperiences, $profileSupportsWorkExperience): void {
 ?>
 <section class="mb-6 rounded-xl border bg-white">
     <header class="border-b px-6 py-4">
@@ -49,10 +50,11 @@ $renderDeferredProfileViewSections = static function () use ($profileEducations,
         <?php else: ?>
             <div class="space-y-3">
                 <?php foreach ($profileEducations as $education): ?>
+                    <?php $educationLevel = strtolower((string)($education['education_level'] ?? '')); ?>
                     <article class="rounded-lg border bg-gray-50 p-4">
                         <p class="font-medium text-gray-800"><?= htmlspecialchars(ucwords((string)($education['education_level'] ?? '')), ENT_QUOTES, 'UTF-8') ?: 'Education Entry' ?></p>
                         <p class="mt-1 text-gray-600">School: <?= htmlspecialchars((string)($education['school_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                        <p class="text-gray-600">Course / Degree: <?= htmlspecialchars((string)($education['course_degree'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                        <p class="text-gray-600">Course / Degree: <?= htmlspecialchars(in_array($educationLevel, ['elementary', 'secondary'], true) ? 'Not applicable' : ((string)($education['course_degree'] ?? '-') !== '' ? (string)$education['course_degree'] : '-'), ENT_QUOTES, 'UTF-8') ?></p>
                         <p class="text-gray-600">Year Graduated: <?= htmlspecialchars((string)($education['year_graduated'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
                     </article>
                 <?php endforeach; ?>
@@ -66,7 +68,11 @@ $renderDeferredProfileViewSections = static function () use ($profileEducations,
         <h2 class="text-lg font-semibold text-gray-800">Work Experience</h2>
     </header>
     <div class="p-4 text-sm sm:p-6">
-        <?php if (empty($profileWorkExperiences)): ?>
+        <?php if (!$profileSupportsWorkExperience): ?>
+            <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
+                Work experience is not available in the current deployment because the required table has not been deployed yet.
+            </div>
+        <?php elseif (empty($profileWorkExperiences)): ?>
             <p class="text-gray-600">No work experience records added yet.</p>
         <?php else: ?>
             <div class="space-y-3">
@@ -91,7 +97,7 @@ $renderDeferredProfileViewSections = static function () use ($profileEducations,
 <?php
 };
 
-$renderDeferredProfileEditSections = static function () use ($editableEducationRows, $editableWorkExperienceRows): void {
+$renderDeferredProfileEditSections = static function () use ($editableEducationRows, $editableWorkExperienceRows, $profileSupportsWorkExperience): void {
 ?>
 <section class="rounded-xl border bg-white">
     <header class="border-b px-6 py-4">
@@ -110,7 +116,7 @@ $renderDeferredProfileEditSections = static function () use ($editableEducationR
                 <div>
                     <label class="text-gray-500">Level</label>
                     <?php $educationLevel = strtolower((string)($educationRow['education_level'] ?? '')); ?>
-                    <select name="education_level[]" class="mt-1 w-full rounded-md border px-3 py-2">
+                    <select name="education_level[]" class="mt-1 w-full rounded-md border px-3 py-2 js-education-level-select">
                         <option value="">Select</option>
                         <?php foreach (['elementary' => 'Elementary', 'secondary' => 'Secondary', 'vocational' => 'Vocational', 'college' => 'College', 'graduate' => 'Graduate / Post Graduate'] as $levelValue => $levelLabel): ?>
                             <option value="<?= htmlspecialchars($levelValue, ENT_QUOTES, 'UTF-8') ?>" <?= $educationLevel === $levelValue ? 'selected' : '' ?>><?= htmlspecialchars($levelLabel, ENT_QUOTES, 'UTF-8') ?></option>
@@ -123,7 +129,8 @@ $renderDeferredProfileEditSections = static function () use ($editableEducationR
                 </div>
                 <div>
                     <label class="text-gray-500">Course / Degree</label>
-                    <input type="text" name="education_course_degree[]" value="<?= htmlspecialchars((string)($educationRow['course_degree'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                    <input type="text" name="education_course_degree[]" value="<?= htmlspecialchars((string)($educationRow['course_degree'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2 js-education-course-degree">
+                    <p class="js-education-course-degree-note mt-1 hidden text-xs text-slate-500">Not applicable for elementary and secondary education.</p>
                 </div>
                 <div>
                     <label class="text-gray-500">Year Graduated</label>
@@ -138,7 +145,7 @@ $renderDeferredProfileEditSections = static function () use ($editableEducationR
                     <input type="text" name="education_period_to[]" value="<?= htmlspecialchars((string)($educationRow['period_to'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2 js-profile-year-picker" placeholder="YYYY" inputmode="numeric">
                 </div>
                 <div>
-                    <label class="text-gray-500">Highest Units</label>
+                    <label class="text-gray-500">Highest Level/Units Earned</label>
                     <input type="text" name="education_units[]" value="<?= htmlspecialchars((string)($educationRow['highest_level_units'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
                 </div>
                 <div>
@@ -165,6 +172,11 @@ $renderDeferredProfileEditSections = static function () use ($editableEducationR
     </header>
 
     <div class="space-y-4 p-4 text-sm sm:p-6">
+        <?php if (!$profileSupportsWorkExperience): ?>
+        <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
+            Work experience is not available in the current deployment because the required table has not been deployed yet.
+        </div>
+        <?php else: ?>
         <div id="workExperienceRows" class="space-y-4">
         <?php foreach ($editableWorkExperienceRows as $workIndex => $workRow): ?>
             <div class="rounded-lg border bg-gray-50 p-4 work-row">
@@ -207,6 +219,7 @@ $renderDeferredProfileEditSections = static function () use ($editableEducationR
                 Add work entry
             </button>
         </div>
+        <?php endif; ?>
     </div>
 </section>
 <?php
@@ -322,6 +335,31 @@ ob_start();
             <div>
                 <p class="text-xs uppercase tracking-wide text-gray-500">Training Hours Completed</p>
                 <p class="mt-1 font-semibold text-gray-800"><?= htmlspecialchars(number_format((float)($profileData['training_hours_completed'] ?? 0), 2), ENT_QUOTES, 'UTF-8') ?> hour(s)</p>
+            </div>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Date of Birth</p>
+                    <p class="mt-1 font-semibold text-gray-800"><?= htmlspecialchars(!empty($profileData['date_of_birth']) ? date('M j, Y', strtotime((string)$profileData['date_of_birth'])) : '-', ENT_QUOTES, 'UTF-8') ?></p>
+                </div>
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Sex</p>
+                    <p class="mt-1 font-semibold text-gray-800"><?= htmlspecialchars($profileData['sex_at_birth'] !== '' ? ucfirst((string)$profileData['sex_at_birth']) : '-', ENT_QUOTES, 'UTF-8') ?></p>
+                </div>
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Civil Status</p>
+                    <p class="mt-1 font-semibold text-gray-800"><?= htmlspecialchars((string)($profileData['civil_status'] !== '' ? $profileData['civil_status'] : '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                </div>
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Place of Birth</p>
+                    <p class="mt-1 font-semibold text-gray-800"><?= htmlspecialchars((string)($profileData['place_of_birth'] !== '' ? $profileData['place_of_birth'] : '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                </div>
+                <div class="sm:col-span-2">
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Citizenship</p>
+                    <p class="mt-1 font-semibold text-gray-800"><?= htmlspecialchars((string)($profileData['citizenship'] !== '' ? $profileData['citizenship'] : '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                    <?php if (!empty($profileData['dual_citizenship_country'])): ?>
+                        <p class="mt-1 text-xs text-gray-500">Dual Citizenship Country: <?= htmlspecialchars((string)$profileData['dual_citizenship_country'], ENT_QUOTES, 'UTF-8') ?></p>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
     </article>
@@ -637,6 +675,7 @@ ob_start();
 <?php else: ?>
 <form action="profile.php?edit=true" method="POST" class="space-y-6">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="action" value="update_profile">
     <input type="hidden" name="deferred_sections_ready" id="applicantDeferredSectionsReady" value="0">
     <section class="rounded-xl border bg-white">
         <header class="border-b px-6 py-4">
@@ -668,6 +707,82 @@ ob_start();
                 <label class="text-gray-500">Training Hours Completed</label>
                 <input type="number" min="0" step="0.1" name="training_hours_completed" value="<?= htmlspecialchars((string)($profileData['training_hours_completed'] ?? 0), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
                 <p class="mt-1 text-xs text-gray-500">Enter your accumulated training hours as reflected in your applicant profile.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="rounded-xl border bg-white">
+        <header class="border-b px-6 py-4">
+            <h2 class="text-lg font-semibold text-gray-800">Personal Details</h2>
+        </header>
+
+        <div class="grid grid-cols-1 gap-6 p-4 text-sm md:grid-cols-2 sm:p-6">
+            <div>
+                <label class="text-gray-500">Date of Birth</label>
+                <input type="date" name="date_of_birth" value="<?= htmlspecialchars((string)($profileData['date_of_birth'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+            </div>
+
+            <div>
+                <label class="text-gray-500">Place of Birth</label>
+                <input type="text" name="place_of_birth" value="<?= htmlspecialchars((string)($profileData['place_of_birth'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+            </div>
+
+            <div>
+                <label class="text-gray-500">Sex</label>
+                <select name="sex_at_birth" class="mt-1 w-full rounded-md border px-3 py-2">
+                    <option value="">Select sex</option>
+                    <option value="male" <?= ($profileData['sex_at_birth'] ?? '') === 'male' ? 'selected' : '' ?>>Male</option>
+                    <option value="female" <?= ($profileData['sex_at_birth'] ?? '') === 'female' ? 'selected' : '' ?>>Female</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="text-gray-500">Civil Status</label>
+                <input type="text" name="civil_status" value="<?= htmlspecialchars((string)($profileData['civil_status'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+            </div>
+        </div>
+    </section>
+
+    <section class="rounded-xl border bg-white">
+        <header class="border-b px-6 py-4">
+            <h2 class="text-lg font-semibold text-gray-800">Citizenship</h2>
+        </header>
+
+        <div class="space-y-5 p-4 text-sm sm:p-6">
+            <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <fieldset>
+                    <legend class="text-gray-500">Citizenship Status</legend>
+                    <div class="mt-2 space-y-2">
+                        <label class="flex items-center gap-2 text-gray-700">
+                            <input type="radio" name="citizenship_status" value="filipino" <?= ($profileData['citizenship_status'] ?? 'filipino') === 'filipino' ? 'checked' : '' ?>>
+                            Filipino
+                        </label>
+                        <label class="flex items-center gap-2 text-gray-700">
+                            <input type="radio" name="citizenship_status" value="dual" <?= ($profileData['citizenship_status'] ?? '') === 'dual' ? 'checked' : '' ?>>
+                            Dual Citizenship
+                        </label>
+                    </div>
+                </fieldset>
+
+                <fieldset>
+                    <legend class="text-gray-500">Citizenship Acquisition</legend>
+                    <div class="mt-2 space-y-2">
+                        <label class="flex items-center gap-2 text-gray-700">
+                            <input type="radio" name="citizenship_acquisition" value="birth" <?= ($profileData['citizenship_acquisition'] ?? '') === 'birth' ? 'checked' : '' ?>>
+                            By Birth
+                        </label>
+                        <label class="flex items-center gap-2 text-gray-700">
+                            <input type="radio" name="citizenship_acquisition" value="naturalization" <?= ($profileData['citizenship_acquisition'] ?? '') === 'naturalization' ? 'checked' : '' ?>>
+                            By Naturalization
+                        </label>
+                    </div>
+                </fieldset>
+            </div>
+
+            <div>
+                <label class="text-gray-500">Dual Citizenship Country</label>
+                <input type="text" id="applicantDualCitizenshipCountry" name="dual_citizenship_country" value="<?= htmlspecialchars((string)($profileData['dual_citizenship_country'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                <p class="mt-1 text-xs text-gray-500">Provide the second country only when dual citizenship applies.</p>
             </div>
         </div>
     </section>
@@ -1181,6 +1296,40 @@ ob_start();
             const addWorkExperienceRowBtn = root.querySelector('#addWorkExperienceRowBtn');
             const profileYearsExperiencePreview = root.querySelector('#profileYearsExperiencePreview');
 
+            const syncEducationRowState = function (row) {
+                if (!(row instanceof Element)) {
+                    return;
+                }
+
+                const levelInput = row.querySelector('.js-education-level-select');
+                const courseInput = row.querySelector('.js-education-course-degree');
+                const note = row.querySelector('.js-education-course-degree-note');
+                if (!(levelInput instanceof HTMLSelectElement) || !(courseInput instanceof HTMLInputElement)) {
+                    return;
+                }
+
+                const isNotApplicable = ['elementary', 'secondary'].includes(levelInput.value);
+                if (isNotApplicable) {
+                    courseInput.value = '';
+                    courseInput.readOnly = true;
+                    courseInput.tabIndex = -1;
+                    courseInput.classList.add('bg-slate-100', 'text-slate-400', 'pointer-events-none');
+                    courseInput.setAttribute('aria-disabled', 'true');
+                    if (note instanceof HTMLElement) {
+                        note.classList.remove('hidden');
+                    }
+                    return;
+                }
+
+                courseInput.readOnly = false;
+                courseInput.tabIndex = 0;
+                courseInput.classList.remove('bg-slate-100', 'text-slate-400', 'pointer-events-none');
+                courseInput.removeAttribute('aria-disabled');
+                if (note instanceof HTMLElement) {
+                    note.classList.add('hidden');
+                }
+            };
+
             const computeProfileExperienceYears = function () {
                 if (!workExperienceRows || !(profileYearsExperiencePreview instanceof HTMLInputElement)) {
                     return;
@@ -1233,6 +1382,7 @@ ob_start();
 
                     educationRows.appendChild(clone);
                     refreshRemoveButtons(educationRows, '.education-row');
+                    syncEducationRowState(clone);
                     if (typeof window.initializeApplicantProfileFlatpickr === 'function') {
                         window.initializeApplicantProfileFlatpickr(clone);
                     }
@@ -1255,10 +1405,20 @@ ob_start();
                     removeBtn.closest('.education-row')?.remove();
                     refreshRemoveButtons(educationRows, '.education-row');
                 });
+
+                educationRows.addEventListener('change', function (event) {
+                    const row = event.target instanceof Element ? event.target.closest('.education-row') : null;
+                    if (!row) {
+                        return;
+                    }
+
+                    syncEducationRowState(row);
+                });
             }
 
             if (educationRows) {
                 refreshRemoveButtons(educationRows, '.education-row');
+                educationRows.querySelectorAll('.education-row').forEach(syncEducationRowState);
             }
 
             if (workExperienceRows && addWorkExperienceRowBtn && !addWorkExperienceRowBtn.dataset.bound) {
@@ -1268,6 +1428,27 @@ ob_start();
                     if (!firstRow) {
                         return;
                     }
+
+                    const dualCitizenshipCountryInput = document.getElementById('applicantDualCitizenshipCountry');
+                    const syncApplicantCitizenshipState = function () {
+                        if (!(dualCitizenshipCountryInput instanceof HTMLInputElement)) {
+                            return;
+                        }
+
+                        const selectedCitizenshipStatus = document.querySelector('input[name="citizenship_status"]:checked');
+                        const isDualCitizenship = selectedCitizenshipStatus instanceof HTMLInputElement && selectedCitizenshipStatus.value === 'dual';
+                        dualCitizenshipCountryInput.readOnly = !isDualCitizenship;
+                        dualCitizenshipCountryInput.classList.toggle('bg-slate-100', !isDualCitizenship);
+                        dualCitizenshipCountryInput.classList.toggle('pointer-events-none', !isDualCitizenship);
+                        if (!isDualCitizenship) {
+                            dualCitizenshipCountryInput.value = '';
+                        }
+                    };
+
+                    document.querySelectorAll('input[name="citizenship_status"]').forEach(function (input) {
+                        input.addEventListener('change', syncApplicantCitizenshipState);
+                    });
+                    syncApplicantCitizenshipState();
 
                     const clone = firstRow.cloneNode(true);
                     clone.querySelectorAll('input').forEach(function (input) {

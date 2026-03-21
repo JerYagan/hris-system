@@ -407,7 +407,7 @@ if ($employeeRoleQuerySuccessful && $employeeUserFilter !== '') {
 $employmentPeopleResponse = apiRequest(
 	'GET',
 	$supabaseUrl
-	. '/rest/v1/employment_records?select=person_id,employment_status,person:people!employment_records_person_id_fkey(id,user_id,first_name,middle_name,surname)'
+	. '/rest/v1/employment_records?select=person_id,employment_status,employment_type,person:people!employment_records_person_id_fkey(id,user_id,first_name,middle_name,surname),position:job_positions(employment_classification)'
 	. '&is_current=eq.true&limit=10000',
 	$headers
 );
@@ -416,6 +416,8 @@ $appendDataError('Employee employment records', $employmentPeopleResponse);
 if (isSuccessful($employmentPeopleResponse)) {
 	foreach ((array)($employmentPeopleResponse['data'] ?? []) as $employmentRow) {
 		$employmentStatus = strtolower((string)(cleanText($employmentRow['employment_status'] ?? null) ?? 'active'));
+		$employmentType = strtolower((string)(cleanText($employmentRow['employment_type'] ?? null) ?? ''));
+		$positionClassification = strtolower((string)(cleanText($employmentRow['position']['employment_classification'] ?? null) ?? ''));
 		if ($employmentStatus !== 'active') {
 			continue;
 		}

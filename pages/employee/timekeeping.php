@@ -7,6 +7,7 @@
 require_once __DIR__ . '/includes/timekeeping/bootstrap.php';
 require_once __DIR__ . '/includes/timekeeping/actions.php';
 require_once __DIR__ . '/includes/timekeeping/data.php';
+require_once __DIR__ . '/../shared/lib/rfid-attendance.php';
 
 $leaveBalanceRows = $leaveBalanceRows ?? [];
 $leavePointSummary = $leavePointSummary ?? ['sl' => 0.0, 'vl' => 0.0, 'cto' => 0.0];
@@ -78,8 +79,19 @@ if (!empty($attendanceTo)) {
 
 $todayManila = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d');
 $attendanceExportFrom = $attendanceFrom ?? date('Y-m-01');
+$rfidSimulatorEnabled = rfidSimulatorEnabled($supabaseUrl, $headers);
 $attendanceExportTo = $attendanceTo ?? date('Y-m-t');
 $attendanceExportYear = $attendanceTo !== null ? date('Y', strtotime($attendanceTo)) : date('Y');
+$attendanceYearlyViewUrl = 'export/attendance.php?' . http_build_query([
+  'report_scope' => 'yearly',
+  'year' => $attendanceExportYear,
+  'disposition' => 'inline',
+]);
+$attendanceYearlyDownloadUrl = 'export/attendance.php?' . http_build_query([
+  'report_scope' => 'yearly',
+  'year' => $attendanceExportYear,
+  'disposition' => 'attachment',
+]);
 $ctoExpiryBucketRows = $ctoExpiryBucketRows ?? [];
 $displayLeaveBalanceRows = $employeeIsCos
     ? array_values(array_filter($leaveBalanceRows, static function (array $row): bool {
@@ -231,7 +243,7 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
   <h1 class="text-2xl font-bold">Timekeeping</h1>
   <p class="text-sm text-gray-500"><?= $employeeIsCos
       ? 'Manage your attendance, track CTO expiry, and submit official business, COS flexible schedule, travel, or record-level time adjustment requests.'
-      : 'Manage your attendance, view the leave card file, and submit official business, COS flexible schedule, travel, or record-level time adjustment requests.' ?></p>
+  : 'Manage your attendance, review synced leave and CTO balances, and submit official business, travel, or record-level time adjustment requests.' ?></p>
 </div>
 
 <?php if (!empty($message)): ?>
@@ -251,9 +263,6 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
   <div class="flex items-center justify-between mb-6">
     <h2 class="text-lg font-bold">Attendance <span class="text-daGreen">Overview</span></h2>
     <div class="flex flex-wrap gap-2">
-      <?php if (!$employeeIsCos && $employeeLeaveCardUrl !== ''): ?>
-        <a href="<?= $escape($employeeLeaveCardUrl) ?>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 bg-daGreen text-white px-5 py-2 rounded-lg text-sm font-medium hover:opacity-90"><span class="material-symbols-outlined text-base">visibility</span>View Leave Card</a>
-      <?php endif; ?>
       <button data-open-special-request data-request-type="official_business" class="inline-flex items-center gap-2 border px-5 py-2 rounded-lg text-sm font-medium"><span class="material-symbols-outlined text-base">work_history</span>File Official Business</button>
       <?php if ($employeeIsCos): ?>
         <button data-open-special-request data-request-type="cos_schedule" class="inline-flex items-center gap-2 border px-5 py-2 rounded-lg text-sm font-medium"><span class="material-symbols-outlined text-base">schedule</span>Request COS Schedule</button>
@@ -269,17 +278,25 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
       <p class="mt-1 text-xs text-slate-600">Permanent flexi windows remain separate. COS flexible schedule requests are reviewed case by case, and approved COS requests may extend up to 10:00 PM.</p>
     </div>
     <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-      <p class="font-semibold text-slate-800"><?= $employeeIsCos ? 'COS attendance and payroll policy' : 'Travel attendance protection' ?></p>
+      <p class="font-semibold text-slate-800"><?= $employeeIsCos ? 'COS attendance and payroll policy' : 'Official attendance and leave record policy' ?></p>
       <p class="mt-1 text-xs text-slate-600"><?= $employeeIsCos
           ? 'COS late, absence, and undertime impact are reflected in payroll integration rules. Leave-card actions stay hidden because COS employees do not maintain leave cards.'
-          : 'Approved Travel Order and Travel Abroad requests are surfaced in attendance history so authorized travel does not appear as missing attendance.' ?></p>
+          : 'The external live-synced leave card remains the official source record. This page keeps the internal synced balance view, yearly attendance reports, and request shortcuts available in one place.' ?></p>
     </div>
   </div>
 
-  <div class="mb-4 grid gap-3 md:grid-cols-3 text-sm">
+  <div class="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4 text-sm">
+    <a href="<?= $escape($attendanceYearlyViewUrl) ?>" target="_blank" rel="noopener noreferrer" class="rounded-lg border border-slate-200 bg-white px-4 py-3 hover:bg-slate-50">
+      <p class="font-semibold text-slate-800">Yearly Attendance Report</p>
+      <p class="mt-1 text-xs text-slate-500">View the yearly PDF with employee acknowledgment and HR Head signature sections.</p>
+    </a>
+    <a href="<?= $escape($attendanceYearlyDownloadUrl) ?>" target="_blank" rel="noopener noreferrer" class="rounded-lg border border-slate-200 bg-white px-4 py-3 hover:bg-slate-50">
+      <p class="font-semibold text-slate-800">Download Yearly Attendance</p>
+      <p class="mt-1 text-xs text-slate-500">Download the signed-yearly attendance layout for the selected year.</p>
+    </a>
     <a href="<?= $escape($officialBusinessTemplateUrl) ?>" target="_blank" rel="noopener noreferrer" class="rounded-lg border border-slate-200 bg-white px-4 py-3 hover:bg-slate-50">
       <p class="font-semibold text-slate-800">Official Business Report</p>
-      <p class="mt-1 text-xs text-slate-500">Open the editable template in a new tab for viewing or browser-based editing.</p>
+      <p class="mt-1 text-xs text-slate-500">Open the approved editable template in a new tab for viewing or browser-based editing.</p>
     </a>
     <a href="<?= $escape($officialBusinessTemplateUrl) ?>" download class="rounded-lg border border-slate-200 bg-white px-4 py-3 hover:bg-slate-50">
       <p class="font-semibold text-slate-800">Download OB Template</p>
@@ -308,7 +325,12 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
 <section class="bg-white rounded-xl shadow p-6 mb-6">
   <div class="flex items-center justify-between mb-4">
     <h2 class="text-lg font-bold">Attendance <span class="text-daGreen">Records</span></h2>
-    <button type="button" data-open-attendance-export class="inline-flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"><span class="material-symbols-outlined text-base">picture_as_pdf</span>View / Export PDF</button>
+    <div class="flex items-center gap-2">
+      <?php if ($rfidSimulatorEnabled): ?>
+        <a href="rfid-simulator.php" class="inline-flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"><span class="material-symbols-outlined text-base">contactless</span>RFID Simulator</a>
+      <?php endif; ?>
+      <button type="button" data-open-attendance-export class="inline-flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"><span class="material-symbols-outlined text-base">picture_as_pdf</span>View / Export PDF</button>
+    </div>
   </div>
 
   <form method="get" action="timekeeping.php" class="grid md:grid-cols-4 gap-3 mb-4 text-sm">
@@ -366,6 +388,9 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
                 <?php if (($row['display_status'] ?? '') === 'travel' && !empty($row['travel_label'])): ?>
                   <p class="text-[11px] text-indigo-700 mt-1"><?= $escape((string)$row['travel_label']) ?></p>
                 <?php endif; ?>
+                <?php if (!empty($row['source'])): ?>
+                  <p class="text-[11px] text-slate-500 mt-1">Source: <?= $escape(ucwords(str_replace('_', ' ', (string)$row['source']))) ?></p>
+                <?php endif; ?>
               </td>
               <td class="py-3">
                 <button
@@ -399,6 +424,28 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
     </div>
   </div>
 </section>
+
+<?php if ($employeeIsCos): ?>
+<section class="bg-white rounded-xl shadow p-6 mb-6">
+  <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <div>
+      <h2 class="text-lg font-bold">COS Weekly <span class="text-daGreen">Schedule Proposal</span></h2>
+      <p class="mt-1 text-sm text-gray-500">Submit your proposed weekly COS schedule here. You can include late shifts up to 10:00 PM, and staff will endorse the request before admin final approval.</p>
+    </div>
+    <button data-open-special-request data-request-type="cos_schedule" class="inline-flex items-center gap-2 border px-5 py-2 rounded-lg text-sm font-medium self-start"><span class="material-symbols-outlined text-base">schedule</span>Propose Weekly COS Schedule</button>
+  </div>
+  <div class="mt-4 grid gap-3 md:grid-cols-2">
+    <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+      <p class="font-semibold text-slate-800">Approval Path</p>
+      <p class="mt-1 text-xs text-slate-600">COS schedule proposals are submitted by the employee, reviewed by staff for operational fit, then approved, rejected, or returned for changes by admin.</p>
+    </div>
+    <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+      <p class="font-semibold text-slate-800">COS Rules</p>
+      <p class="mt-1 text-xs text-slate-600">COS employees do not use the regular leave-card model. Attendance stays flexible, while Official Business, Travel Order, and Travel Abroad requests remain available when needed.</p>
+    </div>
+  </div>
+</section>
+<?php endif; ?>
 
 <?php $renderLeaveBalanceSection(); ?>
 
@@ -593,7 +640,7 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
         <label id="specialRequestDateLabel" class="text-gray-500">Request Date</label>
         <input type="date" name="request_date" min="<?= $escape($todayManila) ?>" class="w-full mt-1 border rounded-lg p-2" required>
       </div>
-      <div class="grid grid-cols-2 gap-3">
+      <div id="specialRequestTimeGrid" class="grid grid-cols-2 gap-3">
         <div>
           <label class="text-gray-500">Start Time</label>
           <input type="time" name="start_time" class="mt-1 w-full border rounded-lg p-2" required>
@@ -606,6 +653,37 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
       <div>
         <label class="text-gray-500">Hours Requested</label>
         <input type="number" name="hours_requested" step="0.25" min="0.25" max="24" class="w-full mt-1 border rounded-lg p-2" placeholder="Total hours" required>
+      </div>
+      <div id="specialCosWeeklyField" class="hidden rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <div>
+          <p class="font-semibold text-slate-800">Weekly COS Schedule</p>
+          <p class="mt-1 text-[11px] text-slate-500">Select the days to propose for the week. Each selected day must end no later than 10:00 PM.</p>
+        </div>
+        <div class="mt-4 overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b text-slate-500">
+                <th class="py-2 text-left">Use</th>
+                <th class="py-2 text-left">Day</th>
+                <th class="py-2 text-left">Start</th>
+                <th class="py-2 text-left">End</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php foreach (timekeepingCosWeeklyDayCatalog() as $dayKey => $dayLabel): ?>
+                <tr class="border-b last:border-b-0">
+                  <td class="py-2 pr-2">
+                    <input type="hidden" name="weekly_schedule_day[]" value="<?= $escape($dayKey) ?>">
+                    <input type="checkbox" name="weekly_schedule_enabled[]" value="<?= $escape($dayKey) ?>" class="rounded border-slate-300 text-daGreen focus:ring-daGreen">
+                  </td>
+                  <td class="py-2 pr-2 font-medium text-slate-700"><?= $escape($dayLabel) ?></td>
+                  <td class="py-2 pr-2"><input type="time" name="weekly_schedule_start[]" class="w-full rounded-lg border p-2"></td>
+                  <td class="py-2"><input type="time" name="weekly_schedule_end[]" class="w-full rounded-lg border p-2"></td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
       </div>
       <div id="specialDestinationField" class="hidden">
         <label id="specialDestinationLabel" class="text-gray-500">Destination / Coverage</label>

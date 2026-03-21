@@ -2,7 +2,7 @@
 $currentPage = basename($_SERVER['PHP_SELF']);
 $recruitmentPages = ['recruitment.php', 'applicants.php', 'applicant-tracking.php', 'evaluation.php'];
 $isRecruitmentSection = in_array($activePage, $recruitmentPages, true);
-$documentPages = ['document-management.php'];
+$documentPages = ['document-management.php', 'document-category-management.php'];
 $isDocumentSection = in_array($activePage, $documentPages, true);
 ?>
 
@@ -51,9 +51,13 @@ $isDocumentSection = in_array($activePage, $documentPages, true);
                     <span class="admin-nav-icon material-symbols-outlined text-[18px]">badge</span>
                     <span class="admin-link-label">Personal Information</span>
                 </a>
-                <a href="document-management.php" class="admin-nav-link <?= $isDocumentSection ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
+                <a href="document-management.php" class="admin-nav-link <?= $activePage === 'document-management.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
                     <span class="admin-nav-icon material-symbols-outlined text-[18px]">folder_open</span>
                     <span class="admin-link-label">Document Management</span>
+                </a>
+                <a href="document-category-management.php" class="admin-nav-link <?= $activePage === 'document-category-management.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
+                    <span class="admin-nav-icon material-symbols-outlined text-[18px]">folder_managed</span>
+                    <span class="admin-link-label">Category Management</span>
                 </a>
                 <a href="user-management.php" class="admin-nav-link <?= $activePage === 'user-management.php' ? 'active text-emerald-100 font-medium' : 'text-slate-300' ?>">
                     <span class="admin-nav-icon material-symbols-outlined text-[18px]">group</span>

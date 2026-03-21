@@ -150,6 +150,7 @@ if (!function_exists('authHttpJsonRequest')) {
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CUSTOMREQUEST => $method,
             CURLOPT_HTTPHEADER => $normalizedHeaders,
+            CURLOPT_CONNECTTIMEOUT => 5,
             CURLOPT_TIMEOUT => 25,
         ]);
 
@@ -386,6 +387,135 @@ if (!function_exists('authMaskEmail')) {
         }
 
         return $maskedLocal . '@' . $domain;
+    }
+}
+
+if (!function_exists('authIssueEmailOtpChallenge')) {
+    function authIssueEmailOtpChallenge(array $challenge, bool $isResend = false): array
+    {
+        authLoadProjectEnv();
+        require_once dirname(__DIR__, 2) . '/admin/includes/notifications/email.php';
+
+        $supabaseUrl = rtrim((string)(authEnvValue('SUPABASE_URL') ?? ''), '/');
+        $supabaseServiceRoleKey = authEnvValue('SUPABASE_SERVICE_ROLE_KEY');
+        if ($supabaseUrl === '' || !$supabaseServiceRoleKey) {
+            return ['ok' => false, 'code' => 'config'];
+        }
+
+        $headers = [
+            'Content-Type: application/json',
+            'apikey: ' . $supabaseServiceRoleKey,
+            'Authorization: Bearer ' . $supabaseServiceRoleKey,
+        ];
+
+        $smtpConfig = [
+            'host' => (string)(authEnvValue('SMTP_HOST') ?? ''),
+            'port' => (int)(authEnvValue('SMTP_PORT') ?? 587),
+            'username' => (string)(authEnvValue('SMTP_USERNAME') ?? ''),
+            'password' => (string)(authEnvValue('SMTP_PASSWORD') ?? ''),
+            'encryption' => (string)(authEnvValue('SMTP_ENCRYPTION') ?? 'tls'),
+            'auth' => (string)(authEnvValue('SMTP_AUTH') ?? '1'),
+        ];
+        $mailFrom = (string)(authEnvValue('MAIL_FROM') ?? '');
+        $mailFromName = (string)(authEnvValue('MAIL_FROM_NAME') ?? 'ATI HRIS Portal');
+
+        $resolvedMail = resolveSmtpMailConfig($supabaseUrl, $headers, $smtpConfig, $mailFrom, $mailFromName);
+        $smtpConfig = (array)($resolvedMail['smtp'] ?? $smtpConfig);
+        $mailFrom = (string)($resolvedMail['from'] ?? $mailFrom);
+        $mailFromName = (string)($resolvedMail['from_name'] ?? $mailFromName);
+
+        $purpose = strtolower(trim((string)($challenge['purpose'] ?? 'login')));
+        $recipientEmail = trim((string)($challenge['email'] ?? ''));
+        $recipientName = trim((string)(
+            ($challenge['user']['name'] ?? '')
+            ?: trim(((string)($challenge['registration']['first_name'] ?? '')) . ' ' . ((string)($challenge['registration']['surname'] ?? '')))
+        ));
+        $previousChallenge = (array)($_SESSION[authPendingMfaSessionKey()] ?? []);
+
+        if ($recipientEmail === '' || !authIsValidEmailAddress($recipientEmail)) {
+            return ['ok' => false, 'code' => 'invalid_email'];
+        }
+
+        if (!smtpConfigIsReady($smtpConfig, $mailFrom)) {
+            authLogLoginAuditEvent($supabaseUrl, $supabaseServiceRoleKey, [
+                'user_id' => $challenge['user_id'] ?? null,
+                'email_attempted' => $recipientEmail,
+                'auth_provider' => 'password',
+                'event_type' => 'mfa_otp_issue_failed',
+                'metadata' => [
+                    'purpose' => $purpose,
+                    'reason' => 'smtp_config_not_ready',
+                    'phase' => $isResend ? 'resend' : 'initial',
+                ],
+            ]);
+
+            return ['ok' => false, 'code' => 'config'];
+        }
+
+        $verificationCode = authGenerateOtpCode();
+        $storedChallenge = authStorePendingMfaChallenge($challenge, $verificationCode);
+        $safeCode = htmlspecialchars($verificationCode, ENT_QUOTES, 'UTF-8');
+        $safeExpiry = htmlspecialchars(authFormatPhilippinesTimestamp((int)($storedChallenge['expires_at'] ?? 0)), ENT_QUOTES, 'UTF-8');
+        $subject = $purpose === 'register'
+            ? 'ATI HRIS Portal Registration Verification Code'
+            : 'ATI HRIS Portal Login Verification Code';
+        $htmlBody = $purpose === 'register'
+            ? '<p>Hello,</p><p>Use the verification code below to complete your ATI HRIS Portal registration.</p>'
+            : '<p>Hello,</p><p>Use the verification code below to complete your ATI HRIS Portal sign-in.</p>';
+        $htmlBody .= '<p><strong>Verification Code</strong><br><span style="display:inline-block;margin-top:8px;font-size:24px;font-weight:700;letter-spacing:2px;">' . $safeCode . '</span></p>'
+            . '<p>This code expires on <strong>' . $safeExpiry . '</strong>.</p>';
+
+        $mailResponse = smtpSendTransactionalEmail(
+            $smtpConfig,
+            $mailFrom,
+            $mailFromName,
+            $recipientEmail,
+            $recipientName,
+            $subject,
+            $htmlBody
+        );
+
+        if (!isSuccessful($mailResponse)) {
+            $mailFailure = trim((string)($mailResponse['raw'] ?? ''));
+            if ($mailFailure !== '') {
+                error_log('MFA code send failed for ' . $recipientEmail . ': ' . $mailFailure);
+            }
+
+            if (!empty($previousChallenge)) {
+                $_SESSION[authPendingMfaSessionKey()] = $previousChallenge;
+            } else {
+                unset($_SESSION[authPendingMfaSessionKey()]);
+            }
+
+            authLogLoginAuditEvent($supabaseUrl, $supabaseServiceRoleKey, [
+                'user_id' => $storedChallenge['user_id'] ?? null,
+                'email_attempted' => $recipientEmail,
+                'auth_provider' => 'password',
+                'event_type' => 'mfa_otp_issue_failed',
+                'metadata' => [
+                    'purpose' => $purpose,
+                    'reason' => 'smtp_send_failed',
+                    'phase' => $isResend ? 'resend' : 'initial',
+                    'mail_response' => $mailFailure,
+                ],
+            ]);
+
+            return ['ok' => false, 'code' => 'send_failed'];
+        }
+
+        authLogLoginAuditEvent($supabaseUrl, $supabaseServiceRoleKey, [
+            'user_id' => $storedChallenge['user_id'] ?? null,
+            'email_attempted' => $recipientEmail,
+            'auth_provider' => 'password',
+            'event_type' => 'mfa_otp_issued',
+            'metadata' => [
+                'purpose' => $purpose,
+                'channel' => (string)($storedChallenge['channel'] ?? 'email'),
+                'resend' => $isResend,
+            ],
+        ]);
+
+        return ['ok' => true, 'code' => null, 'challenge' => $storedChallenge];
     }
 }
 

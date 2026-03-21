@@ -5,7 +5,6 @@ import {
   initModalSystem,
   initStatusChangeConfirmations,
 } from '/hris-system/assets/js/shared/admin-core.js';
-import { initFloatingActionMenus } from '/hris-system/assets/js/shared/action-menu.js';
 
 const PAGE_SIZE = 10;
 
@@ -184,7 +183,10 @@ const initPendingReviewSection = () => {
   const employeeField = document.getElementById('recommendationReviewEmployee');
   const submittedByField = document.getElementById('recommendationReviewSubmittedBy');
   const submittedAtField = document.getElementById('recommendationReviewSubmittedAt');
+  const dueAtField = document.getElementById('recommendationReviewDueAt');
+  const reminderAtField = document.getElementById('recommendationReviewReminderAt');
   const summaryField = document.getElementById('recommendationReviewSummary');
+  const notificationSummaryField = document.getElementById('recommendationReviewNotificationSummary');
   const detailsBox = document.getElementById('recommendationReviewDetails');
   const decisionSelect = document.getElementById('recommendationReviewDecisionSelect');
   const remarksInput = document.getElementById('recommendationReviewRemarksInput');
@@ -207,8 +209,17 @@ const initPendingReviewSection = () => {
       if (submittedAtField) {
         submittedAtField.value = button.getAttribute('data-submitted-at') || '';
       }
+      if (dueAtField) {
+        dueAtField.value = button.getAttribute('data-due-at') || '';
+      }
+      if (reminderAtField) {
+        reminderAtField.value = button.getAttribute('data-reminder-at') || '';
+      }
       if (summaryField) {
         summaryField.value = button.getAttribute('data-summary') || '';
+      }
+      if (notificationSummaryField) {
+        notificationSummaryField.value = button.getAttribute('data-notification-summary') || '';
       }
       if (detailsBox) {
         detailsBox.innerHTML = Array.isArray(details) && details.length > 0
@@ -605,14 +616,6 @@ const initProfileModal = (regionRoot) => {
 };
 
 const initActionMenuDelegation = (regionRoot) => {
-  delete document.body.dataset.adminPersonalInfoActionMenusInitialized;
-  initFloatingActionMenus({
-    scopeSelector: '[data-person-action-scope]',
-    toggleSelector: '[data-admin-action-menu-toggle]',
-    menuSelector: '[data-admin-action-menu]',
-    initFlag: 'adminPersonalInfoActionMenusInitialized',
-  });
-
   regionRoot.querySelectorAll('[data-action-menu-item]').forEach((menuItem) => {
     menuItem.addEventListener('click', () => {
       const target = menuItem.getAttribute('data-action-target') || '';
