@@ -614,6 +614,104 @@ const createUniqueSortedOptions = (values) => {
   return Array.from(deduped.values()).sort((a, b) => a.localeCompare(b));
 };
 
+let awesompleteReadyPromise = null;
+const ensureAwesomplete = async () => {
+  if (window.Awesomplete) {
+    return window.Awesomplete;
+  }
+
+  if (awesompleteReadyPromise) {
+    return awesompleteReadyPromise;
+  }
+
+  awesompleteReadyPromise = new Promise((resolve, reject) => {
+    const styleId = 'employee-awesomplete-style';
+    if (!document.getElementById(styleId)) {
+      const link = document.createElement('link');
+      link.id = styleId;
+      link.rel = 'stylesheet';
+      link.href = 'https://cdn.jsdelivr.net/npm/awesomplete@1.1.7/awesomplete.min.css';
+      document.head.appendChild(link);
+    }
+
+    const patchStyleId = 'employee-awesomplete-patch-style';
+    if (!document.getElementById(patchStyleId)) {
+      const style = document.createElement('style');
+      style.id = patchStyleId;
+      style.textContent = '.awesomplete{display:block}.awesomplete>ul{z-index:90;left:0;right:0;width:100%;max-height:14rem;overflow:auto;border:1px solid rgb(226 232 240);border-radius:.5rem;box-shadow:0 10px 15px -3px rgba(0,0,0,.1);}.awesomplete>ul>li[aria-selected="true"]{background:rgb(241 245 249);color:rgb(15 23 42);}';
+      document.head.appendChild(style);
+    }
+
+    const existing = document.getElementById('employee-awesomplete-script');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(window.Awesomplete));
+      existing.addEventListener('error', () => reject(new Error('Failed to load Awesomplete')));
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.id = 'employee-awesomplete-script';
+    script.src = 'https://cdn.jsdelivr.net/npm/awesomplete@1.1.7/awesomplete.min.js';
+    script.async = true;
+    script.onload = () => resolve(window.Awesomplete);
+    script.onerror = () => reject(new Error('Failed to load Awesomplete'));
+    document.head.appendChild(script);
+  });
+
+  return awesompleteReadyPromise;
+};
+
+const initAwesompleteInput = (inputElement, optionsResolver) => {
+  if (!(inputElement instanceof HTMLInputElement) || typeof optionsResolver !== 'function' || !window.Awesomplete) {
+    return null;
+  }
+
+  const originalListId = inputElement.getAttribute('list') || '';
+  if (originalListId !== '') {
+    inputElement.dataset.nativeListId = originalListId;
+    inputElement.removeAttribute('list');
+  }
+
+  const instance = new window.Awesomplete(inputElement, {
+    list: createUniqueSortedOptions(optionsResolver()),
+    minChars: 0,
+    maxItems: 24,
+    autoFirst: true,
+    sort: false,
+    filter(text, userInput) {
+      const optionVariants = normalizeLookupVariants(text, (inputElement.dataset.addressRole || '') === 'barangay');
+      const inputVariants = normalizeLookupVariants(userInput, (inputElement.dataset.addressRole || '') === 'barangay');
+      if (inputVariants.length === 0) {
+        return true;
+      }
+
+      return optionVariants.some((optionVariant) => inputVariants.some((inputVariant) => optionVariant.includes(inputVariant) || inputVariant.includes(optionVariant)));
+    },
+    item(text, userInput) {
+      return window.Awesomplete.ITEM(text, userInput);
+    },
+    replace(text) {
+      this.input.value = text;
+    },
+  });
+
+  const refresh = () => {
+    instance.list = createUniqueSortedOptions(optionsResolver());
+    instance.evaluate();
+  };
+
+  inputElement.addEventListener('focus', refresh);
+  inputElement.addEventListener('input', refresh);
+  inputElement.addEventListener('awesomplete-selectcomplete', () => {
+    inputElement.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+
+  return {
+    refresh,
+    instance,
+  };
+};
+
 const buildModernSearch = (inputElement, optionsResolver) => {
   if (!(inputElement instanceof HTMLInputElement) || typeof optionsResolver !== 'function') {
     return;
@@ -671,8 +769,9 @@ const buildModernSearch = (inputElement, optionsResolver) => {
   parent.classList.add('relative');
 
   const container = document.createElement('div');
-  container.className = 'hidden absolute left-0 right-0 top-full mt-1 rounded-lg border border-slate-200 bg-white shadow-lg z-40 max-h-52 overflow-y-auto';
-  parent.appendChild(container);
+  container.className = 'hidden rounded-lg border border-slate-200 bg-white shadow-lg z-[120] max-h-52 overflow-y-auto';
+  container.style.position = 'fixed';
+  document.body.appendChild(container);
 
   const triggerButton = document.createElement('button');
   triggerButton.type = 'button';
@@ -683,6 +782,18 @@ const buildModernSearch = (inputElement, optionsResolver) => {
 
   let activeIndex = -1;
   let activeOptions = [];
+
+  const updateContainerPosition = () => {
+    if (!inputElement.isConnected) {
+      container.classList.add('hidden');
+      return;
+    }
+
+    const rect = inputElement.getBoundingClientRect();
+    container.style.left = `${rect.left}px`;
+    container.style.top = `${rect.bottom + 4}px`;
+    container.style.width = `${rect.width}px`;
+  };
 
   const applyActiveOption = () => {
     const optionButtons = Array.from(container.querySelectorAll('button[data-modern-search-option]'));
@@ -732,6 +843,7 @@ const buildModernSearch = (inputElement, optionsResolver) => {
     });
 
     container.appendChild(fragment);
+    updateContainerPosition();
     container.classList.remove('hidden');
     activeIndex = -1;
     applyActiveOption();
@@ -740,6 +852,8 @@ const buildModernSearch = (inputElement, optionsResolver) => {
   container.addEventListener('mousedown', (event) => event.stopPropagation());
   inputElement.addEventListener('focus', renderOptions);
   inputElement.addEventListener('input', renderOptions);
+  window.addEventListener('resize', updateContainerPosition);
+  window.addEventListener('scroll', updateContainerPosition, true);
 
   const selectActiveOption = () => {
     const optionCount = activeOptions.length;
@@ -849,12 +963,13 @@ const wireModernProfileSearch = async () => {
     permanent: document.getElementById(zipInputIds.permanent),
   };
 
-  const cityOptions = extractDatalistValues('profileCityList');
   const provinceOptions = extractDatalistValues('profileProvinceList');
   const placeOfBirthOptions = extractDatalistValues('profilePlaceOfBirthList');
   const civilStatusOptions = extractDatalistValues('profileCivilStatusList');
   const bloodTypeOptions = extractDatalistValues('profileBloodTypeList');
 
+  let cityOptions = [];
+  let barangayOptions = [];
   let barangayByCityLookup = {};
   let provinceByCityLookup = {};
   let zipLookupByCityBarangay = {};
@@ -862,6 +977,12 @@ const wireModernProfileSearch = async () => {
   if (employeeAddressLookupData) {
     try {
       const parsedLookup = JSON.parse(employeeAddressLookupData.textContent || '{}');
+      if (parsedLookup && typeof parsedLookup === 'object' && Array.isArray(parsedLookup.cityOptions)) {
+        cityOptions = parsedLookup.cityOptions.map((value) => (value || '').toString().trim()).filter((value) => value !== '');
+      }
+      if (parsedLookup && typeof parsedLookup === 'object' && Array.isArray(parsedLookup.barangayOptions)) {
+        barangayOptions = parsedLookup.barangayOptions.map((value) => (value || '').toString().trim()).filter((value) => value !== '');
+      }
       if (parsedLookup && typeof parsedLookup === 'object' && parsedLookup.barangayByCity && typeof parsedLookup.barangayByCity === 'object') {
         barangayByCityLookup = parsedLookup.barangayByCity;
       }
@@ -872,13 +993,22 @@ const wireModernProfileSearch = async () => {
         zipLookupByCityBarangay = parsedLookup.zipByCityBarangay;
       }
     } catch {
+      cityOptions = [];
+      barangayOptions = [];
       barangayByCityLookup = {};
       provinceByCityLookup = {};
       zipLookupByCityBarangay = {};
     }
   }
 
-  const defaultBarangayOptions = extractDatalistValues('profileResidentialBarangayList');
+  if (cityOptions.length === 0) {
+    cityOptions = extractDatalistValues('profileCityList');
+  }
+  if (barangayOptions.length === 0) {
+    barangayOptions = extractDatalistValues('profileResidentialBarangayList');
+  }
+
+  const defaultBarangayOptions = createUniqueSortedOptions(barangayOptions);
 
   const addressControls = {
     residential: {
@@ -897,6 +1027,10 @@ const wireModernProfileSearch = async () => {
   const lastAutofilledZipByGroup = {
     residential: '',
     permanent: '',
+  };
+  const lastRenderedBarangayStateByGroup = {
+    residential: document.querySelectorAll('#profileResidentialBarangayList option').length > 0 ? 'default' : '',
+    permanent: document.querySelectorAll('#profilePermanentBarangayList option').length > 0 ? 'default' : '',
   };
 
   const setDatalistOptions = (datalistId, options) => {
@@ -947,6 +1081,30 @@ const wireModernProfileSearch = async () => {
     });
 
     return createUniqueSortedOptions(resolvedOptions);
+  };
+
+  const resolveExactCityKey = (groupKey) => {
+    const controls = addressControls[groupKey];
+    if (!controls || !(controls.city instanceof HTMLInputElement || controls.city instanceof HTMLSelectElement)) {
+      return '';
+    }
+
+    const cityKey = normalizeLookup(controls.city.value);
+    if (cityKey === '') {
+      return '';
+    }
+
+    if (Array.isArray(barangayByCityLookup[cityKey])) {
+      return cityKey;
+    }
+    if (typeof provinceByCityLookup[cityKey] === 'string' && provinceByCityLookup[cityKey] !== '') {
+      return cityKey;
+    }
+    if (zipLookupByCityBarangay[cityKey] && typeof zipLookupByCityBarangay[cityKey] === 'object') {
+      return cityKey;
+    }
+
+    return '';
   };
 
   const resolveZipValue = (groupKey) => {
@@ -1001,17 +1159,31 @@ const wireModernProfileSearch = async () => {
       return;
     }
 
-    const resolvedBarangays = resolveBarangayOptions(groupKey);
-    const datalistId = groupKey === 'residential' ? 'profileResidentialBarangayList' : 'profilePermanentBarangayList';
-    setDatalistOptions(datalistId, resolvedBarangays);
+    const cityValue = controls.city instanceof HTMLInputElement || controls.city instanceof HTMLSelectElement
+      ? controls.city.value
+      : '';
+    const normalizedCityValue = normalizeLookup(cityValue);
+    const exactCityKey = resolveExactCityKey(groupKey);
+    const renderState = exactCityKey !== ''
+      ? `city:${exactCityKey}`
+      : (normalizedCityValue === '' ? 'default' : `pending:${normalizedCityValue}`);
+
+    if (renderState !== lastRenderedBarangayStateByGroup[groupKey]) {
+      if (exactCityKey !== '' || normalizedCityValue === '') {
+        const resolvedBarangays = exactCityKey !== '' ? resolveBarangayOptions(groupKey) : defaultBarangayOptions;
+        const datalistId = groupKey === 'residential' ? 'profileResidentialBarangayList' : 'profilePermanentBarangayList';
+        setDatalistOptions(datalistId, resolvedBarangays);
+      }
+
+      lastRenderedBarangayStateByGroup[groupKey] = renderState;
+    }
 
     if (controls.province instanceof HTMLInputElement) {
-      const cityKey = controls.city instanceof HTMLInputElement || controls.city instanceof HTMLSelectElement
-        ? normalizeLookup(controls.city.value)
-        : '';
-      controls.province.value = cityKey && provinceByCityLookup[cityKey]
-        ? provinceByCityLookup[cityKey]
-        : controls.province.value;
+      if (exactCityKey !== '' && provinceByCityLookup[exactCityKey]) {
+        controls.province.value = provinceByCityLookup[exactCityKey];
+      } else if (normalizedCityValue === '') {
+        controls.province.value = '';
+      }
     }
 
     autofillZip(groupKey);
@@ -1022,10 +1194,10 @@ const wireModernProfileSearch = async () => {
   buildModernSearch(document.getElementById('profileBloodType'), () => bloodTypeOptions);
   buildModernSearch(document.getElementById('profileResidentialCity'), () => cityOptions);
   buildModernSearch(document.getElementById('profilePermanentCity'), () => cityOptions);
-  buildModernSearch(document.getElementById('profileResidentialProvince'), () => provinceOptions);
-  buildModernSearch(document.getElementById('profilePermanentProvince'), () => provinceOptions);
   buildModernSearch(document.getElementById('profileResidentialBarangay'), () => resolveBarangayOptions('residential'));
   buildModernSearch(document.getElementById('profilePermanentBarangay'), () => resolveBarangayOptions('permanent'));
+  buildModernSearch(document.getElementById('profileResidentialProvince'), () => provinceOptions);
+  buildModernSearch(document.getElementById('profilePermanentProvince'), () => provinceOptions);
 
   Object.entries(cityInputs).forEach(([groupKey, cityInput]) => {
     if (!(cityInput instanceof HTMLInputElement || cityInput instanceof HTMLSelectElement)) {

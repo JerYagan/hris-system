@@ -153,7 +153,7 @@ $excludePlaceholderLookupValue = static function (string $value): bool {
     return strtolower(trim($value)) === 'haugafia';
 };
 
-$assetRoot = dirname(__DIR__, 5) . '/assets';
+$assetRoot = dirname(__DIR__, 4) . '/assets';
 $municipalitiesPath = $assetRoot . '/psgc/municipalities.json';
 if (is_file($municipalitiesPath)) {
     $municipalitiesRaw = file_get_contents($municipalitiesPath);

@@ -432,7 +432,7 @@ $canEditPlaceOfBirth = $isBlankProfileValue($employeeProfile['place_of_birth'] ?
                 <div>
                   <label class="text-slate-600">Barangay</label>
                   <div class="relative mt-1">
-                    <input id="profileResidentialBarangay" name="residential_barangay" type="text" list="profileResidentialBarangayList" autocomplete="off" data-address-role="barangay" data-address-group="residential" value="<?= $escape($employeeProfile['barangay'] ?? '') ?>" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" placeholder="Type or search barangay" required>
+                    <input id="profileResidentialBarangay" name="residential_barangay" type="text" list="profileResidentialBarangayList" autocomplete="off" data-address-role="barangay" data-address-group="residential" data-modern-search="residential_barangay" value="<?= $escape($employeeProfile['barangay'] ?? '') ?>" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" placeholder="Type or search barangay" required>
                     <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400"><span class="material-symbols-outlined text-[18px]">expand_more</span></span>
                   </div>
                 </div>
@@ -440,7 +440,7 @@ $canEditPlaceOfBirth = $isBlankProfileValue($employeeProfile['place_of_birth'] ?
                 <div>
                   <label class="text-slate-600">City/Municipality</label>
                   <div class="relative mt-1">
-                    <input id="profileResidentialCity" name="residential_city_municipality" type="text" list="profileCityList" autocomplete="off" data-address-role="city" data-address-group="residential" value="<?= $escape($employeeProfile['city_municipality'] ?? '') ?>" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" placeholder="Type or search city/municipality" required>
+                    <input id="profileResidentialCity" name="residential_city_municipality" type="text" list="profileCityList" autocomplete="off" data-address-role="city" data-address-group="residential" data-modern-search="residential_city" value="<?= $escape($employeeProfile['city_municipality'] ?? '') ?>" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" placeholder="Type or search city/municipality" required>
                     <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400"><span class="material-symbols-outlined text-[18px]">expand_more</span></span>
                   </div>
                 </div>
@@ -467,7 +467,7 @@ $canEditPlaceOfBirth = $isBlankProfileValue($employeeProfile['place_of_birth'] ?
                 <div>
                   <label class="text-slate-600">Barangay</label>
                   <div class="relative mt-1">
-                    <input id="profilePermanentBarangay" name="permanent_barangay" type="text" list="profilePermanentBarangayList" autocomplete="off" data-address-role="barangay" data-address-group="permanent" value="<?= $escape($employeeProfile['permanent_barangay'] ?? '') ?>" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" placeholder="Type or search barangay" required>
+                    <input id="profilePermanentBarangay" name="permanent_barangay" type="text" list="profilePermanentBarangayList" autocomplete="off" data-address-role="barangay" data-address-group="permanent" data-modern-search="permanent_barangay" value="<?= $escape($employeeProfile['permanent_barangay'] ?? '') ?>" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" placeholder="Type or search barangay" required>
                     <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400"><span class="material-symbols-outlined text-[18px]">expand_more</span></span>
                   </div>
                 </div>
@@ -475,7 +475,7 @@ $canEditPlaceOfBirth = $isBlankProfileValue($employeeProfile['place_of_birth'] ?
                 <div>
                   <label class="text-slate-600">City/Municipality</label>
                   <div class="relative mt-1">
-                    <input id="profilePermanentCity" name="permanent_city_municipality" type="text" list="profileCityList" autocomplete="off" data-address-role="city" data-address-group="permanent" value="<?= $escape($employeeProfile['permanent_city_municipality'] ?? '') ?>" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" placeholder="Type or search city/municipality" required>
+                    <input id="profilePermanentCity" name="permanent_city_municipality" type="text" list="profileCityList" autocomplete="off" data-address-role="city" data-address-group="permanent" data-modern-search="permanent_city" value="<?= $escape($employeeProfile['permanent_city_municipality'] ?? '') ?>" class="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 bg-white" placeholder="Type or search city/municipality" required>
                     <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400"><span class="material-symbols-outlined text-[18px]">expand_more</span></span>
                   </div>
                 </div>
@@ -506,7 +506,7 @@ $canEditPlaceOfBirth = $isBlankProfileValue($employeeProfile['place_of_birth'] ?
               <h4 class="text-sm font-semibold text-slate-700">Contact Details</h4>
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div><label class="text-slate-600">Telephone Number</label><input id="profileTelephoneNo" name="telephone_no" type="text" value="<?= $escape($employeeProfile['telephone_no'] ?? '') ?>" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
-                <div><label class="text-slate-600">Mobile Number</label><input id="profileMobile" name="mobile_no" type="text" pattern="[-+0-9 ]{7,20}" value="<?= $escape($employeeProfile['mobile_no'] ?? '') ?>" required class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
+                <div><label class="text-slate-600">Mobile Number</label><input id="profileMobile" name="mobile_no" type="text" pattern="[0-9+ \-]{7,20}" value="<?= $escape($employeeProfile['mobile_no'] ?? '') ?>" required class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
                 <div><label class="text-slate-600">Email Address</label><input id="profileEmail" name="email" type="email" value="<?= $escape($employeeProfile['personal_email'] ?? '') ?>" required class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2"></div>
               </div>
             </section>
@@ -820,6 +820,8 @@ $canEditPlaceOfBirth = $isBlankProfileValue($employeeProfile['place_of_birth'] ?
 </datalist>
 
 <script id="employeeAddressLookupData" type="application/json"><?= (string)json_encode([
+  'cityOptions' => $cityMunicipalityOptions,
+  'barangayOptions' => $barangayOptions,
   'barangayByCity' => $barangayByCityLookup,
   'provinceByCity' => $provinceByCityLookup,
   'zipByCityBarangay' => $zipLookupByCityBarangay,

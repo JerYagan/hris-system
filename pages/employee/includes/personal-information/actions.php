@@ -625,7 +625,7 @@ if ($action === 'update_profile') {
         return strtolower(trim((string)preg_replace('/\s+/', ' ', (string)$value)));
     };
 
-    $lookupAssetRoot = dirname(__DIR__, 5) . '/assets';
+    $lookupAssetRoot = dirname(__DIR__, 4) . '/assets';
     $placeOfBirthLabelByKey = [];
     $cityLabelByKey = [];
     $provinceByCityKey = [];

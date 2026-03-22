@@ -28,6 +28,8 @@ $pendingStaffApprovalRows = [];
 $pendingStaffReviewRows = [];
 $uploaderSummaryRows = [];
 $documentRequestRows = [];
+$fullAuditTrailRows = [];
+$auditTrailActionOptions = [];
 $selectedDocumentAuditTrail = [];
 $dataLoadError = null;
 $invalidCategoryNames = ['haugafia'];
@@ -149,6 +151,36 @@ $resolveAuditNotes = static function (array $payload): string {
         $payload['archive_reason'] ?? null,
         $payload['status_reason'] ?? null,
         $payload['reason'] ?? null,
+    ] as $candidate) {
+        $value = trim((string)$candidate);
+        if ($value !== '') {
+            return $value;
+        }
+    }
+
+    return '';
+};
+
+$resolveRequestAuditActionLabel = static function (string $actionName, array $payload): string {
+    $status = strtolower(trim((string)($payload['status'] ?? '')));
+
+    return match (strtolower(trim($actionName))) {
+        'submit_document_request' => 'Submitted Request',
+        'fulfill_document_request' => 'Fulfilled Request',
+        default => match ($status) {
+            'fulfilled' => 'Fulfilled Request',
+            'submitted' => 'Submitted Request',
+            default => ucwords(str_replace('_', ' ', trim($actionName))),
+        },
+    };
+};
+
+$resolveRequestAuditNotes = static function (array $payload): string {
+    foreach ([
+        $payload['fulfilled_notes'] ?? null,
+        $payload['notes'] ?? null,
+        $payload['other_purpose'] ?? null,
+        $payload['custom_request_label'] ?? null,
     ] as $candidate) {
         $value = trim((string)$candidate);
         if ($value !== '') {
@@ -294,6 +326,18 @@ if ($shouldLoadAudit && $documentManagementSelectedDocumentId !== '') {
         . '&entity_id=eq.' . rawurlencode($documentManagementSelectedDocumentId)
         . '&action_name=in.' . rawurlencode('(upload_document,upload_document_file,upload_document_version,recommend_document,review_document,archive_document,restore_document)')
         . '&order=created_at.desc&limit=200',
+        $headers
+    );
+}
+
+if ($shouldLoadAudit && $documentManagementSelectedDocumentId === '') {
+    $auditLogsResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/activity_logs?select=entity_id,entity_name,action_name,new_data,created_at,actor:user_accounts(username,email)'
+        . '&module_name=eq.document_management'
+        . '&entity_name=in.' . rawurlencode('(documents,document_requests)')
+        . '&order=created_at.desc&limit=4000',
         $headers
     );
 }
@@ -662,6 +706,85 @@ if ($shouldLoadRequests && isSuccessful($requestLogsResponse)) {
 }
 
 if ($shouldLoadAudit && isSuccessful($auditLogsResponse)) {
+    if ($documentManagementSelectedDocumentId === '') {
+        $documentLabelById = [];
+        $requestLabelById = [];
+
+        foreach ((array)($auditLogsResponse['data'] ?? []) as $auditLogRaw) {
+            $auditLog = (array)$auditLogRaw;
+            $payload = (array)($auditLog['new_data'] ?? []);
+            $entityId = trim((string)($auditLog['entity_id'] ?? ''));
+            $entityName = strtolower(trim((string)($auditLog['entity_name'] ?? '')));
+
+            if ($entityId === '') {
+                continue;
+            }
+
+            if ($entityName === 'documents' && !isset($documentLabelById[$entityId])) {
+                $title = trim((string)($payload['title'] ?? ''));
+                if ($title !== '') {
+                    $documentLabelById[$entityId] = $title;
+                }
+            }
+
+            if ($entityName === 'document_requests' && !isset($requestLabelById[$entityId])) {
+                $requestTypeLabel = trim((string)($payload['request_type_label'] ?? ''));
+                if ($requestTypeLabel !== '') {
+                    $requestLabelById[$entityId] = $requestTypeLabel;
+                }
+            }
+        }
+
+        foreach ((array)($auditLogsResponse['data'] ?? []) as $auditLogRaw) {
+            $auditLog = (array)$auditLogRaw;
+            $payload = (array)($auditLog['new_data'] ?? []);
+            $actor = (array)($auditLog['actor'] ?? []);
+            $entityId = trim((string)($auditLog['entity_id'] ?? ''));
+            $entityName = strtolower(trim((string)($auditLog['entity_name'] ?? '')));
+            $actionName = (string)($auditLog['action_name'] ?? '');
+            $actorLabel = $buildActorLabel($actor);
+
+            if ($entityId === '' || !in_array($entityName, ['documents', 'document_requests'], true)) {
+                continue;
+            }
+
+            $recordType = $entityName === 'documents' ? 'Document' : 'Request';
+            $recordLabel = $entityName === 'documents'
+                ? (string)($documentLabelById[$entityId] ?? ('Document ' . substr($entityId, 0, 8)))
+                : (string)($requestLabelById[$entityId] ?? ('Request ' . substr($entityId, 0, 8)));
+            $actionLabel = $entityName === 'documents'
+                ? $resolveAuditActionLabel($actionName, $payload)
+                : $resolveRequestAuditActionLabel($actionName, $payload);
+            $notes = $entityName === 'documents'
+                ? $resolveAuditNotes($payload)
+                : $resolveRequestAuditNotes($payload);
+            $createdAt = (string)($auditLog['created_at'] ?? '');
+
+            $fullAuditTrailRows[] = [
+                'entity_id' => $entityId,
+                'entity_name' => $entityName,
+                'record_type' => $recordType,
+                'record_label' => $recordLabel,
+                'action_label' => $actionLabel,
+                'actor_label' => $actorLabel,
+                'created_at' => $createdAt,
+                'created_label' => formatDateTimeForPhilippines($createdAt, 'M d, Y g:i A'),
+                'notes' => $notes,
+                'search_text' => strtolower(trim($recordType . ' ' . $recordLabel . ' ' . $actionLabel . ' ' . $actorLabel . ' ' . $notes)),
+            ];
+
+            if ($actionLabel !== '' && !in_array($actionLabel, $auditTrailActionOptions, true)) {
+                $auditTrailActionOptions[] = $actionLabel;
+            }
+        }
+
+        usort($auditTrailActionOptions, static function (string $left, string $right): int {
+            return strcmp($left, $right);
+        });
+
+        return;
+    }
+
     foreach ((array)($auditLogsResponse['data'] ?? []) as $auditLogRaw) {
         $auditLog = (array)$auditLogRaw;
         $payload = (array)($auditLog['new_data'] ?? []);

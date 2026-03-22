@@ -7,11 +7,14 @@ $pendingStaffApprovalRows = $pendingStaffApprovalRows ?? [];
 $pendingStaffReviewRows = $pendingStaffReviewRows ?? [];
 $archivedDocumentRows = $archivedDocumentRows ?? [];
 $documentRequestRows = $documentRequestRows ?? [];
+$fullAuditTrailRows = $fullAuditTrailRows ?? [];
+$auditTrailActionOptions = $auditTrailActionOptions ?? [];
 $documentOwnerOptions = $documentOwnerOptions ?? [];
 $selectedDocumentAuditTrail = $selectedDocumentAuditTrail ?? [];
 $state = $state ?? null;
 $message = $message ?? null;
 $documentManagementPartial = $documentManagementPartial ?? '';
+$documentManagementSelectedDocumentId = $documentManagementSelectedDocumentId ?? '';
 
 $docStatusPill = static function (string $status): array {
     $key = strtolower(trim($status));
@@ -982,6 +985,82 @@ $renderAuditEntries = static function () use ($selectedDocumentAuditTrail): void
     }
 };
 
+$renderAuditWorkspaceSection = static function () use ($fullAuditTrailRows, $auditTrailActionOptions): void {
+    ?>
+    <section class="bg-white border border-slate-200 rounded-2xl" data-managed-table="audit-workspace">
+        <header class="px-6 py-4 border-b border-slate-200">
+            <div>
+                <h2 class="text-lg font-semibold text-slate-800">Document Management Audit Trail</h2>
+                <p class="text-sm text-slate-500 mt-1">Combined timeline for document updates and HR document request actions, including usernames when available.</p>
+            </div>
+        </header>
+
+        <div class="px-6 py-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+            <input data-table-search type="search" class="md:col-span-2 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search record, actor, action, or notes">
+            <select data-table-status class="border border-slate-300 rounded-md px-3 py-2 text-sm">
+                <option value="">All Record Types</option>
+                <option value="document">Document</option>
+                <option value="request">Request</option>
+            </select>
+            <select data-table-category class="border border-slate-300 rounded-md px-3 py-2 text-sm">
+                <option value="">All Actions</option>
+                <?php foreach ($auditTrailActionOptions as $actionOption): ?>
+                    <option value="<?= htmlspecialchars(strtolower((string)$actionOption), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$actionOption, ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+
+        <div class="px-6 pb-6 overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-slate-600">
+                    <tr>
+                        <th class="text-left px-4 py-3">Record</th>
+                        <th class="text-left px-4 py-3">Action</th>
+                        <th class="text-left px-4 py-3">Actor</th>
+                        <th class="text-left px-4 py-3">Notes</th>
+                        <th class="text-left px-4 py-3">Occurred</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    <?php if (empty($fullAuditTrailRows)): ?>
+                        <tr><td class="px-4 py-3 text-slate-500" colspan="5">No document-management audit events were found.</td></tr>
+                    <?php else: ?>
+                        <?php foreach ($fullAuditTrailRows as $row): ?>
+                            <tr
+                                data-table-row
+                                data-search="<?= htmlspecialchars((string)($row['search_text'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                data-status="<?= htmlspecialchars(strtolower((string)($row['record_type'] ?? '')), ENT_QUOTES, 'UTF-8') ?>"
+                                data-category="<?= htmlspecialchars(strtolower((string)($row['action_label'] ?? '')), ENT_QUOTES, 'UTF-8') ?>"
+                                data-account="all"
+                                data-date="<?= htmlspecialchars((string)($row['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                            >
+                                <td class="px-4 py-3 align-top">
+                                    <div class="font-medium text-slate-800"><?= htmlspecialchars((string)($row['record_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>
+                                    <div class="text-xs text-slate-500 mt-1"><?= htmlspecialchars((string)($row['record_type'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>
+                                </td>
+                                <td class="px-4 py-3 align-top"><?= htmlspecialchars((string)($row['action_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                                <td class="px-4 py-3 align-top"><?= htmlspecialchars((string)($row['actor_label'] ?? 'System'), ENT_QUOTES, 'UTF-8') ?></td>
+                                <td class="px-4 py-3 align-top text-slate-600"><?= htmlspecialchars((string)($row['notes'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                                <td class="px-4 py-3 align-top"><?= htmlspecialchars((string)($row['created_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+
+            <div class="mt-4 flex items-center justify-between gap-3">
+                <p data-table-meta class="text-xs text-slate-500">Showing 0 to 0 of 0 entries</p>
+                <div class="inline-flex items-center gap-2">
+                    <button type="button" data-page-prev class="px-3 py-1.5 text-xs border border-slate-300 rounded-md text-slate-700">Prev</button>
+                    <span data-page-info class="text-xs text-slate-600">Page 1 of 1</span>
+                    <button type="button" data-page-next class="px-3 py-1.5 text-xs border border-slate-300 rounded-md text-slate-700">Next</button>
+                </div>
+            </div>
+        </div>
+    </section>
+    <?php
+};
+
 if ($documentManagementPartial === 'review-workflows') {
     $renderDataError();
     $renderUploadersSection();
@@ -1009,7 +1088,11 @@ if ($documentManagementPartial === 'modals') {
 
 if ($documentManagementPartial === 'audit') {
     $renderDataError();
-    $renderAuditEntries();
+    if ($documentManagementSelectedDocumentId !== '') {
+        $renderAuditEntries();
+    } else {
+        $renderAuditWorkspaceSection();
+    }
     return;
 }
 ?>
@@ -1054,7 +1137,7 @@ if ($documentManagementPartial === 'audit') {
     <header class="px-6 py-4 border-b border-slate-200 flex flex-wrap items-start justify-between gap-4">
         <div>
             <h2 class="text-lg font-semibold text-slate-800">Deferred Workspaces</h2>
-            <p class="text-sm text-slate-500 mt-1">Open review queues, archived records, or request history only when you need them.</p>
+            <p class="text-sm text-slate-500 mt-1">Open review queues, archived records, request history, or the full audit trail only when you need them.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
             <button type="button" data-doc-async-trigger="review-workflows" class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
@@ -1068,6 +1151,10 @@ if ($documentManagementPartial === 'audit') {
             <button type="button" data-doc-async-trigger="requests" class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
                 <span class="material-symbols-outlined text-[18px]">assignment</span>
                 Request History
+            </button>
+            <button type="button" data-doc-async-trigger="audit" class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                <span class="material-symbols-outlined text-[18px]">history</span>
+                Audit Trail
             </button>
         </div>
     </header>
@@ -1093,7 +1180,7 @@ if ($documentManagementPartial === 'audit') {
     </div>
 
     <div data-doc-async-empty class="px-6 py-10 text-center text-sm text-slate-500">
-        Select a workspace above to load review workflows, archived records, or request history.
+        Select a workspace above to load review workflows, archived records, request history, or the full audit trail.
     </div>
 
     <div data-doc-async-content class="hidden px-6 py-6"></div>
