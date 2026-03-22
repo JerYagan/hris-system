@@ -12,8 +12,8 @@ MFRC522 mfrc522(SS_PIN, RST_PIN);
 WiFiClientSecure client;
 
 // Replace these values per deployed scanner.
-const char* WIFI_SSID = "PrincessChiChi";
-const char* WIFI_PASSWORD = "C@ranyagan8891";
+const char* WIFI_SSID = "HUAWEI-2.4G-8Wcq";
+const char* WIFI_PASSWORD = "ytwFW8Jq";
 const char* HRIS_RFID_ENDPOINT = "https://da-ati.infinityfreeapp.com/hris-system/api/rfid/tap.php";
 const char* RFID_DEVICE_CODE = "SCANNER-ATI-HQ-01";
 const char* RFID_DEVICE_TOKEN = "ATI-HRIS-RFID-2026-DEVICE-01-9f3d2f6c";
