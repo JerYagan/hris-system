@@ -242,8 +242,8 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
 <div class="mb-6">
   <h1 class="text-2xl font-bold">Timekeeping</h1>
   <p class="text-sm text-gray-500"><?= $employeeIsCos
-      ? 'Manage your attendance, track CTO expiry, and submit official business, COS flexible schedule, travel, or record-level time adjustment requests.'
-  : 'Manage your attendance, review synced leave and CTO balances, and submit official business, travel, or record-level time adjustment requests.' ?></p>
+      ? 'Track attendance, CTO, and timekeeping requests.'
+  : 'Track attendance, leave balances, and timekeeping requests.' ?></p>
 </div>
 
 <?php if (!empty($message)): ?>
@@ -272,39 +272,26 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
     </div>
   </div>
 
-  <div class="mb-4 grid gap-3 md:grid-cols-2">
-    <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-      <p class="font-semibold text-slate-800">Flexible schedule policy</p>
-      <p class="mt-1 text-xs text-slate-600">Permanent flexi windows remain separate. COS flexible schedule requests are reviewed case by case, and approved COS requests may extend up to 10:00 PM.</p>
-    </div>
-    <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-      <p class="font-semibold text-slate-800"><?= $employeeIsCos ? 'COS attendance and payroll policy' : 'Official attendance and leave record policy' ?></p>
-      <p class="mt-1 text-xs text-slate-600"><?= $employeeIsCos
-          ? 'COS late, absence, and undertime impact are reflected in payroll integration rules. Leave-card actions stay hidden because COS employees do not maintain leave cards.'
-          : 'The external live-synced leave card remains the official source record. This page keeps the internal synced balance view, yearly attendance reports, and request shortcuts available in one place.' ?></p>
-    </div>
-  </div>
-
-  <div class="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4 text-sm">
+  <div class="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5 text-sm">
     <a href="<?= $escape($attendanceYearlyViewUrl) ?>" target="_blank" rel="noopener noreferrer" class="rounded-lg border border-slate-200 bg-white px-4 py-3 hover:bg-slate-50">
-      <p class="font-semibold text-slate-800">Yearly Attendance Report</p>
-      <p class="mt-1 text-xs text-slate-500">View the yearly PDF with employee acknowledgment and HR Head signature sections.</p>
+      <p class="font-semibold text-slate-800">Yearly Report</p>
+      <p class="mt-1 text-xs text-slate-500">Open the yearly attendance PDF.</p>
     </a>
     <a href="<?= $escape($attendanceYearlyDownloadUrl) ?>" target="_blank" rel="noopener noreferrer" class="rounded-lg border border-slate-200 bg-white px-4 py-3 hover:bg-slate-50">
-      <p class="font-semibold text-slate-800">Download Yearly Attendance</p>
-      <p class="mt-1 text-xs text-slate-500">Download the signed-yearly attendance layout for the selected year.</p>
+      <p class="font-semibold text-slate-800">Download Yearly</p>
+      <p class="mt-1 text-xs text-slate-500">Download the yearly attendance file.</p>
     </a>
     <a href="<?= $escape($officialBusinessTemplateUrl) ?>" target="_blank" rel="noopener noreferrer" class="rounded-lg border border-slate-200 bg-white px-4 py-3 hover:bg-slate-50">
-      <p class="font-semibold text-slate-800">Official Business Report</p>
-      <p class="mt-1 text-xs text-slate-500">Open the approved editable template in a new tab for viewing or browser-based editing.</p>
+      <p class="font-semibold text-slate-800">OB Report</p>
+      <p class="mt-1 text-xs text-slate-500">Open the official business template.</p>
     </a>
     <a href="<?= $escape($officialBusinessTemplateUrl) ?>" download class="rounded-lg border border-slate-200 bg-white px-4 py-3 hover:bg-slate-50">
-      <p class="font-semibold text-slate-800">Download OB Template</p>
-      <p class="mt-1 text-xs text-slate-500">Download a blank Official Business Report template.</p>
+      <p class="font-semibold text-slate-800">Download OB</p>
+      <p class="mt-1 text-xs text-slate-500">Download the blank OB template.</p>
     </a>
     <a href="<?= $escape($applicationForLeaveTemplateUrl) ?>" download class="rounded-lg border border-slate-200 bg-white px-4 py-3 hover:bg-slate-50">
-      <p class="font-semibold text-slate-800">Download Leave Form</p>
-      <p class="mt-1 text-xs text-slate-500">Download the Application for Leave template.</p>
+      <p class="font-semibold text-slate-800">Leave Form</p>
+      <p class="mt-1 text-xs text-slate-500">Download the leave form.</p>
     </a>
   </div>
 
