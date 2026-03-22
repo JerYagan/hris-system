@@ -122,11 +122,11 @@ ob_start();
                 <div>
                     <p class="mb-2 font-medium text-gray-800">Minimum Requirements</p>
                     <?php if (!empty($qualificationList)): ?>
-                        <ul class="list-disc space-y-1 pl-5 text-gray-700">
-                            <?php foreach ($qualificationList as $qualification): ?>
-                                <li><?= htmlspecialchars((string)$qualification, ENT_QUOTES, 'UTF-8') ?></li>
-                            <?php endforeach; ?>
-                        </ul>
+                            <div class="space-y-1 text-gray-700">
+                                <?php foreach ($qualificationList as $qualification): ?>
+                                    <p><?= htmlspecialchars((string)$qualification, ENT_QUOTES, 'UTF-8') ?></p>
+                                <?php endforeach; ?>
+                            </div>
                     <?php else: ?>
                         <p class="text-gray-600">No qualification details were provided.</p>
                     <?php endif; ?>

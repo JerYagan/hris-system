@@ -138,6 +138,61 @@ $formatTime = static function (?string $raw): string {
 </section>
 
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
+    <header class="px-6 py-4 border-b border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-800">Contractual Employees (COS)</h2>
+        <p class="text-sm text-slate-500 mt-1">Review active COS personnel and their latest flexible schedule proposal status before approving related requests.</p>
+    </header>
+    <div class="p-6 overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600">
+                <tr>
+                    <th class="text-left px-4 py-3">Employee</th>
+                    <th class="text-left px-4 py-3">Division</th>
+                    <th class="text-left px-4 py-3">Position</th>
+                    <th class="text-left px-4 py-3">Employment Status</th>
+                    <th class="text-left px-4 py-3">Latest COS Proposal</th>
+                    <th class="text-left px-4 py-3">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                <?php if (empty($cosEmployeeRows)): ?>
+                    <tr><td class="px-4 py-3 text-slate-500" colspan="6">No active COS employees found.</td></tr>
+                <?php else: ?>
+                    <?php foreach ($cosEmployeeRows as $row): ?>
+                        <?php
+                            $cosStatusRaw = strtolower((string)($row["latest_cos_status_raw"] ?? 'pending'));
+                            $cosLocked = !empty($row["latest_cos_request_id"]) && in_array($cosStatusRaw, ['approved', 'rejected', 'cancelled'], true);
+                            $cosWindow = trim((string)($row["latest_cos_window"] ?? '-'));
+                        ?>
+                        <tr>
+                            <td class="px-4 py-3 font-medium text-slate-800"><?= htmlspecialchars((string)($row["employee_name"] ?? "-"), ENT_QUOTES, "UTF-8") ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row["office_name"] ?? "-"), ENT_QUOTES, "UTF-8") ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row["position_title"] ?? "-"), ENT_QUOTES, "UTF-8") ?></td>
+                            <td class="px-4 py-3"><?= htmlspecialchars((string)($row["employment_status"] ?? "COS"), ENT_QUOTES, "UTF-8") ?></td>
+                            <td class="px-4 py-3">
+                                <?= htmlspecialchars((string)($row["latest_cos_status"] ?? "-"), ENT_QUOTES, "UTF-8") ?>
+                                <?php if (!empty($row["latest_cos_requested_label"]) && $row["latest_cos_requested_label"] !== "-"): ?>
+                                    <span class="block text-xs text-slate-500 mt-1">Requested: <?= htmlspecialchars((string)($row["latest_cos_requested_label"] ?? "-"), ENT_QUOTES, "UTF-8") ?></span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="px-4 py-3">
+                                <?php if (!empty($row["latest_cos_request_id"])): ?>
+                                    <button type="button" data-ob-review data-request-id="<?= htmlspecialchars((string)($row["latest_cos_request_id"] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-employee-name="<?= htmlspecialchars((string)($row["employee_name"] ?? 'Unknown Employee'), ENT_QUOTES, 'UTF-8') ?>" data-request-type-label="<?= htmlspecialchars((string)($row["latest_cos_request_label"] ?? 'COS Schedule Proposal'), ENT_QUOTES, 'UTF-8') ?>" data-current-status="<?= htmlspecialchars((string)($row["latest_cos_status"] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?>" data-window="<?= htmlspecialchars($cosWindow !== '' ? $cosWindow : '-', ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50" <?= $cosLocked ? 'disabled' : '' ?>>
+                                        <span class="material-symbols-outlined text-[15px]">rate_review</span><?= $cosLocked ? 'Locked' : 'Review' ?>
+                                    </button>
+                                <?php else: ?>
+                                    <span class="text-xs text-slate-500">No request</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
         <div>
             <h2 class="text-lg font-semibold text-slate-800">Attendance Records</h2>
@@ -574,7 +629,7 @@ $formatTime = static function (?string $raw): string {
     </header>
     <div class="px-6 pt-4 flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
         <div class="w-full md:w-1/2">
-            <label class="text-sm text-slate-600">Search OB Requests</label>
+            <label class="text-sm text-slate-600">Search Special Requests</label>
             <input id="obRequestsSearch" type="search" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 text-sm" placeholder="Search by employee, date, reason, or status">
         </div>
         <div class="w-full md:w-56">
@@ -728,7 +783,9 @@ $formatTime = static function (?string $raw): string {
                     <h3 class="text-lg font-semibold text-slate-800">Employee Attendance Helper</h3>
                     <p class="text-sm text-slate-500 mt-1">Fallback encoder for missed or delayed attendance entries.</p>
                 </div>
-                <button type="button" data-modal-close="attendanceHelperModal" class="text-slate-500 hover:text-slate-700">✕</button>
+                <button type="button" data-modal-close="attendanceHelperModal" class="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close attendance helper modal">
+                    <span class="material-symbols-outlined text-[20px] leading-none">close</span>
+                </button>
             </div>
             <form id="attendanceHelperForm" action="timekeeping.php" method="POST" class="p-6 grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
                 <input type="hidden" name="form_action" value="log_employee_attendance">
@@ -803,7 +860,9 @@ $formatTime = static function (?string $raw): string {
                     <a href="/hris-system/assets/Leave_Card_Template.xlsx" download class="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 whitespace-nowrap">
                         <span class="material-symbols-outlined text-[16px]">download</span>Download Template
                     </a>
-                    <button type="button" data-modal-close="leaveCardLogModal" class="text-slate-500 hover:text-slate-700">✕</button>
+                    <button type="button" data-modal-close="leaveCardLogModal" class="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close leave log modal">
+                        <span class="material-symbols-outlined text-[20px] leading-none">close</span>
+                    </button>
                 </div>
             </div>
             <form id="leaveCardLogForm" action="timekeeping.php" method="POST" class="p-6 grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
@@ -891,13 +950,15 @@ $formatTime = static function (?string $raw): string {
 <div id="holidayConfigModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-slate-900/60" data-modal-close="holidayConfigModal"></div>
     <div class="relative min-h-full flex items-center justify-center p-4">
-        <div class="w-full max-w-6xl bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
+        <div class="w-full max-w-6xl max-h-[90vh] bg-white rounded-2xl border border-slate-200 shadow-xl overflow-y-auto">
             <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
                 <div>
                     <h3 class="text-lg font-semibold text-slate-800">Holiday/Suspension Configuration</h3>
                     <p class="text-sm text-slate-500 mt-1">Configure holiday dates and payroll paid-handling rules from a dedicated modal.</p>
                 </div>
-                <button type="button" data-modal-close="holidayConfigModal" class="text-slate-500 hover:text-slate-700">✕</button>
+                <button type="button" data-modal-close="holidayConfigModal" class="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close holiday configuration modal">
+                    <span class="material-symbols-outlined text-[20px] leading-none">close</span>
+                </button>
             </div>
             <form action="timekeeping.php" method="POST" class="p-6 grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
                 <input type="hidden" name="form_action" value="save_holiday_config">
@@ -998,7 +1059,9 @@ $formatTime = static function (?string $raw): string {
         <div class="w-full max-w-2xl bg-white rounded-2xl border border-slate-200 shadow-xl">
             <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
                 <h3 class="text-lg font-semibold text-slate-800">Review Time Adjustment</h3>
-                <button type="button" data-modal-close="reviewAdjustmentModal" class="text-slate-500 hover:text-slate-700">✕</button>
+                <button type="button" data-modal-close="reviewAdjustmentModal" class="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close time adjustment review modal">
+                    <span class="material-symbols-outlined text-[20px] leading-none">close</span>
+                </button>
             </div>
             <form action="timekeeping.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <input type="hidden" name="form_action" value="review_time_adjustment">
@@ -1020,7 +1083,9 @@ $formatTime = static function (?string $raw): string {
         <div class="w-full max-w-2xl bg-white rounded-2xl border border-slate-200 shadow-xl">
             <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
                 <h3 class="text-lg font-semibold text-slate-800">Review Leave Request</h3>
-                <button type="button" data-modal-close="reviewLeaveModal" class="text-slate-500 hover:text-slate-700">✕</button>
+                <button type="button" data-modal-close="reviewLeaveModal" class="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close leave review modal">
+                    <span class="material-symbols-outlined text-[20px] leading-none">close</span>
+                </button>
             </div>
             <form action="timekeeping.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <input type="hidden" name="form_action" value="review_leave_request">
@@ -1044,7 +1109,9 @@ $formatTime = static function (?string $raw): string {
         <div class="w-full max-w-2xl bg-white rounded-2xl border border-slate-200 shadow-xl">
             <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
                 <h3 class="text-lg font-semibold text-slate-800">Review CTO Request</h3>
-                <button type="button" data-modal-close="reviewCtoModal" class="text-slate-500 hover:text-slate-700">✕</button>
+                <button type="button" data-modal-close="reviewCtoModal" class="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close CTO review modal">
+                    <span class="material-symbols-outlined text-[20px] leading-none">close</span>
+                </button>
             </div>
             <form action="timekeeping.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <input type="hidden" name="form_action" value="review_cto_request">
@@ -1066,7 +1133,9 @@ $formatTime = static function (?string $raw): string {
         <div class="w-full max-w-2xl bg-white rounded-2xl border border-slate-200 shadow-xl">
             <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
                 <h3 id="reviewObModalTitle" class="text-lg font-semibold text-slate-800">Review Special Timekeeping Request</h3>
-                <button type="button" data-modal-close="reviewObModal" class="text-slate-500 hover:text-slate-700">✕</button>
+                <button type="button" data-modal-close="reviewObModal" class="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close special request review modal">
+                    <span class="material-symbols-outlined text-[20px] leading-none">close</span>
+                </button>
             </div>
             <form action="timekeeping.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <input type="hidden" name="form_action" value="review_ob_request">
@@ -1718,7 +1787,7 @@ $formatTime = static function (?string $raw): string {
             `SL: <strong>${manualPoints.sl.toFixed(2)}</strong>`,
             `VL: <strong>${manualPoints.vl.toFixed(2)}</strong>`,
             `CTO: <strong>${manualPoints.cto.toFixed(2)}</strong>`,
-        ].join(' · ');
+        ].join(' -+ ');
 
         const submitForm = () => {
             leaveLogForm.dataset.confirmed = 'true';

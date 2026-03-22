@@ -72,19 +72,47 @@ ob_start();
                     <th class="text-left px-4 py-3">Position</th>
                     <th class="text-left px-4 py-3">Employment Status</th>
                     <th class="text-left px-4 py-3">Latest COS Proposal</th>
+                    <th class="text-left px-4 py-3">Action</th>
                 </tr>
             </thead>
             <tbody class="divide-y">
                 <?php if (empty($cosEmployeeRows)): ?>
-                    <tr><td class="px-4 py-3 text-gray-500" colspan="5">No active COS employees found in the current scope.</td></tr>
+                    <tr><td class="px-4 py-3 text-gray-500" colspan="6">No active COS employees found in the current scope.</td></tr>
                 <?php else: ?>
                     <?php foreach ($cosEmployeeRows as $row): ?>
+                        <?php
+                            $cosStatusRaw = strtolower((string)($row['latest_cos_status_raw'] ?? 'pending'));
+                            $cosLocked = !empty($row['latest_cos_request_id']) && in_array($cosStatusRaw, ['approved', 'rejected', 'cancelled'], true);
+                            $cosHasRequest = !empty($row['latest_cos_request_id']);
+                        ?>
                         <tr>
                             <td class="px-4 py-3 font-medium text-gray-800"><?= htmlspecialchars((string)($row['employee_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['office_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['position_title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['employment_status'] ?? 'COS'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td class="px-4 py-3"><?= htmlspecialchars((string)($row['latest_cos_status'] ?? '-'), ENT_QUOTES, 'UTF-8') ?><?php if (!empty($row['latest_cos_requested_label']) && $row['latest_cos_requested_label'] !== '-'): ?><span class="block text-xs text-gray-500 mt-1">Requested: <?= htmlspecialchars((string)$row['latest_cos_requested_label'], ENT_QUOTES, 'UTF-8') ?></span><?php endif; ?></td>
+                            <td class="px-4 py-3">
+                                <?php if ($cosHasRequest): ?>
+                                    <button
+                                        type="button"
+                                        data-open-ob-modal
+                                        data-request-id="<?= htmlspecialchars((string)($row['latest_cos_request_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-employee-name="<?= htmlspecialchars((string)($row['employee_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-request-type-label="<?= htmlspecialchars((string)($row['latest_cos_request_label'] ?? 'COS Schedule Proposal'), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-current-status="<?= htmlspecialchars($cosStatusRaw, ENT_QUOTES, 'UTF-8') ?>"
+                                        data-current-status-label="<?= htmlspecialchars((string)($row['latest_cos_status'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-requested-window="<?= htmlspecialchars((string)($row['latest_cos_window'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-reason="<?= htmlspecialchars((string)($row['latest_cos_reason'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>"
+                                        class="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-md border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 disabled:opacity-50"
+                                        <?= $cosLocked ? 'disabled' : '' ?>
+                                    >
+                                        <span class="material-symbols-outlined text-sm">fact_check</span>
+                                        <?= $cosLocked ? 'Locked' : 'Review' ?>
+                                    </button>
+                                <?php else: ?>
+                                    <span class="text-xs text-gray-500">No request</span>
+                                <?php endif; ?>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>

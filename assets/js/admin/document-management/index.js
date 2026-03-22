@@ -198,6 +198,8 @@ const initManagedTables = (root = document) => {
         nextButton.disabled = currentPage >= totalPages;
         nextButton.classList.toggle('opacity-50', nextButton.disabled);
       }
+
+      container.dispatchEvent(new CustomEvent('dm:table-filtered'));
     };
 
     const run = () => {
@@ -506,6 +508,87 @@ const initReviewValidation = () => {
   form.dataset.dmReviewValidationInitialized = 'true';
 };
 
+const initBulkReviewValidation = () => {
+  const form = document.getElementById('bulkReviewDocumentForm');
+  const statusSelect = document.getElementById('bulkReviewStatusSelect');
+  const notesInput = document.getElementById('bulkReviewNotesInput');
+  const idsHost = document.getElementById('bulkReviewDocumentIds');
+  if (!form || !statusSelect || !notesInput || !idsHost || form.dataset.dmBulkReviewValidationInitialized === 'true') {
+    return;
+  }
+
+  form.addEventListener('submit', (event) => {
+    const selectedIds = idsHost.querySelectorAll('input[name="document_ids[]"]');
+    const status = String(statusSelect.value || '').toLowerCase();
+    const notes = String(notesInput.value || '').trim();
+
+    if (!selectedIds.length) {
+      event.preventDefault();
+      window.alert('Select at least one document before submitting a bulk review.');
+      return;
+    }
+
+    if (status === 'rejected' && !notes) {
+      event.preventDefault();
+      window.alert('Review notes are required for bulk rejection.');
+    }
+  });
+
+  form.dataset.dmBulkReviewValidationInitialized = 'true';
+};
+
+const initBulkSelectionTables = (root = document) => {
+  root.querySelectorAll('[data-managed-table]').forEach((container) => {
+    if (container.dataset.dmBulkSelectionInitialized === 'true') {
+      return;
+    }
+
+    const toolbar = container.querySelector('[data-bulk-selection-toolbar]');
+    const selectAll = container.querySelector('[data-bulk-select-all]');
+    const checkboxes = Array.from(container.querySelectorAll('[data-bulk-document-checkbox]'));
+    if (!toolbar || !selectAll || !checkboxes.length) {
+      container.dataset.dmBulkSelectionInitialized = 'true';
+      return;
+    }
+
+    const getVisibleCheckboxes = () => checkboxes.filter((checkbox) => checkbox.closest('tr')?.style.display !== 'none');
+
+    const syncToolbar = () => {
+      const selected = checkboxes.filter((checkbox) => checkbox.checked);
+      const selectedCount = selected.length;
+      const countLabel = toolbar.querySelector('[data-bulk-selection-count]');
+      if (countLabel) {
+        countLabel.textContent = String(selectedCount);
+      }
+
+      toolbar.classList.toggle('hidden', selectedCount === 0);
+      toolbar.classList.toggle('flex', selectedCount > 0);
+
+      const visibleCheckboxes = getVisibleCheckboxes();
+      const visibleCheckedCount = visibleCheckboxes.filter((checkbox) => checkbox.checked).length;
+      selectAll.checked = visibleCheckboxes.length > 0 && visibleCheckedCount === visibleCheckboxes.length;
+      selectAll.indeterminate = visibleCheckedCount > 0 && visibleCheckedCount < visibleCheckboxes.length;
+    };
+
+    selectAll.addEventListener('change', () => {
+      const visibleCheckboxes = getVisibleCheckboxes();
+      visibleCheckboxes.forEach((checkbox) => {
+        checkbox.checked = selectAll.checked;
+      });
+      syncToolbar();
+    });
+
+    checkboxes.forEach((checkbox) => {
+      checkbox.addEventListener('change', syncToolbar);
+    });
+
+    container.addEventListener('dm:table-filtered', syncToolbar);
+
+    syncToolbar();
+    container.dataset.dmBulkSelectionInitialized = 'true';
+  });
+};
+
 const initRestoreConfirmations = async (root = document) => {
   const forms = Array.from(root.querySelectorAll('[data-restore-form]')).filter((form) => form.dataset.dmRestoreConfirmationInitialized !== 'true');
   if (!forms.length) {
@@ -594,9 +677,11 @@ const initDatePickers = async (root = document) => {
 const initializeDynamicScope = (root = document) => {
   initSectionTabs(root);
   initManagedTables(root);
+  initBulkSelectionTables(root);
   initUploadOwnerSearch();
   initUploadFileInputUI();
   initReviewValidation();
+  initBulkReviewValidation();
   initRestoreConfirmations(root).catch(console.error);
   initDatePickers(root).catch(console.error);
 };
@@ -825,6 +910,38 @@ const initDelegatedActions = () => {
       setValue('reviewCurrentStatus', reviewTrigger.getAttribute('data-current-status') || '-');
       setValue('reviewStatusSelect', reviewTrigger.getAttribute('data-review-default') || 'approved');
       openModal('reviewDocumentModal');
+      return;
+    }
+
+    const bulkReviewTrigger = target.closest('[data-doc-bulk-open]');
+    if (bulkReviewTrigger) {
+      event.preventDefault();
+      const table = bulkReviewTrigger.closest('[data-managed-table]');
+      if (!table) {
+        return;
+      }
+
+      const selected = Array.from(table.querySelectorAll('[data-bulk-document-checkbox]:checked'));
+      if (!selected.length) {
+        window.alert('Select at least one document first.');
+        return;
+      }
+
+      await ensureModalHub();
+      const idsHost = document.getElementById('bulkReviewDocumentIds');
+      const summaryInput = document.getElementById('bulkReviewSelectionSummary');
+      const statusSelect = document.getElementById('bulkReviewStatusSelect');
+      const notesInput = document.getElementById('bulkReviewNotesInput');
+      const label = table.querySelector('[data-bulk-selection-toolbar]')?.getAttribute('data-bulk-label') || 'document';
+      if (!idsHost || !summaryInput || !statusSelect || !notesInput) {
+        return;
+      }
+
+      idsHost.innerHTML = selected.map((checkbox) => `<input type="hidden" name="document_ids[]" value="${escapeHtml(checkbox.value || '')}">`).join('');
+      summaryInput.value = `${selected.length} ${label}${selected.length === 1 ? '' : 's'} selected`;
+      statusSelect.value = bulkReviewTrigger.getAttribute('data-bulk-review-status') || 'approved';
+      notesInput.value = '';
+      openModal('bulkReviewDocumentModal');
       return;
     }
 

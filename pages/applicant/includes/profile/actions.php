@@ -855,6 +855,10 @@ if (isValidUuid($personId)) {
             $level = 'college';
         }
 
+        if (in_array($level, ['elementary', 'secondary'], true)) {
+            $course = null;
+        }
+
         $educationRows[] = [
             'person_id' => $personId,
             'education_level' => $level,

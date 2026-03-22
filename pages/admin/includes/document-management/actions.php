@@ -446,21 +446,17 @@ if ($action === 'upload_document_file') {
     redirectWithState('success', 'Document uploaded to local storage and saved to database successfully.');
 }
 
-if ($action === 'review_document') {
-    $documentId = cleanText($_POST['document_id'] ?? null) ?? '';
-    $reviewStatus = strtolower((string)(cleanText($_POST['review_status'] ?? null) ?? ''));
-    $reviewNotes = cleanText($_POST['review_notes'] ?? null);
-
+$applyDocumentReview = static function (string $documentId, string $reviewStatus, ?string $reviewNotes) use ($supabaseUrl, $headers, $adminUserId): array {
     if ($documentId === '' || $reviewStatus === '') {
-        redirectWithState('error', 'Document and review status are required.');
+        return ['ok' => false, 'message' => 'Document and review status are required.'];
     }
 
     if (!in_array($reviewStatus, ['approved', 'rejected', 'needs_revision'], true)) {
-        redirectWithState('error', 'Invalid review status selected.');
+        return ['ok' => false, 'message' => 'Invalid review status selected.'];
     }
 
     if (in_array($reviewStatus, ['rejected', 'needs_revision'], true) && trim((string)$reviewNotes) === '') {
-        redirectWithState('error', 'Review notes are required for rejected or needs revision decisions.');
+        return ['ok' => false, 'message' => 'Review notes are required for rejected or needs revision decisions.'];
     }
 
     $documentResponse = apiRequest(
@@ -471,16 +467,17 @@ if ($action === 'review_document') {
 
     $documentRow = $documentResponse['data'][0] ?? null;
     if (!is_array($documentRow)) {
-        redirectWithState('error', 'Document record not found.');
+        return ['ok' => false, 'message' => 'Document record not found.'];
     }
 
+    $title = (string)($documentRow['title'] ?? 'Document');
     $currentStatus = strtolower((string)($documentRow['document_status'] ?? 'draft'));
     if ($currentStatus === 'archived') {
-        redirectWithState('error', 'Archived documents cannot be reviewed.');
+        return ['ok' => false, 'message' => 'Archived documents cannot be reviewed.', 'title' => $title];
     }
 
     if (in_array($currentStatus, ['approved', 'rejected'], true)) {
-        redirectWithState('error', 'Finalized documents cannot be reviewed again.');
+        return ['ok' => false, 'message' => 'Finalized documents cannot be reviewed again.', 'title' => $title];
     }
 
     $mappedStatus = match ($reviewStatus) {
@@ -525,7 +522,7 @@ if ($action === 'review_document') {
     }
 
     if (!isSuccessful($patchResponse)) {
-        redirectWithState('error', 'Failed to update document status.');
+        return ['ok' => false, 'message' => 'Failed to update document status.', 'title' => $title];
     }
 
     apiRequest(
@@ -543,7 +540,7 @@ if ($action === 'review_document') {
 
     $uploadedBy = (string)($documentRow['uploaded_by'] ?? '');
     if ($uploadedBy !== '') {
-        $notificationBody = 'Your document "' . ((string)($documentRow['title'] ?? 'Document')) . '" was marked as ' . str_replace('_', ' ', $reviewStatus) . '.';
+        $notificationBody = 'Your document "' . $title . '" was marked as ' . str_replace('_', ' ', $reviewStatus) . '.';
         if ($reviewStatus === 'rejected' || $reviewStatus === 'needs_revision') {
             $reviewNotesText = trim((string)$reviewNotes);
             if ($reviewNotesText !== '') {
@@ -582,7 +579,67 @@ if ($action === 'review_document') {
         ]
     );
 
+    return ['ok' => true, 'title' => $title];
+};
+
+if ($action === 'review_document') {
+    $documentId = cleanText($_POST['document_id'] ?? null) ?? '';
+    $reviewStatus = strtolower((string)(cleanText($_POST['review_status'] ?? null) ?? ''));
+    $reviewNotes = cleanText($_POST['review_notes'] ?? null);
+
+    $result = $applyDocumentReview($documentId, $reviewStatus, $reviewNotes);
+    if (!(bool)($result['ok'] ?? false)) {
+        redirectWithState('error', (string)($result['message'] ?? 'Failed to save document review.'));
+    }
+
     redirectWithState('success', 'Document review saved successfully.');
+}
+
+if ($action === 'bulk_review_documents') {
+    $documentIds = array_values(array_filter(array_map(
+        static fn($value): string => cleanText($value) ?? '',
+        (array)($_POST['document_ids'] ?? [])
+    ), static fn(string $value): bool => $value !== ''));
+    $documentIds = array_values(array_unique($documentIds));
+    $reviewStatus = strtolower((string)(cleanText($_POST['review_status'] ?? null) ?? ''));
+    $reviewNotes = cleanText($_POST['review_notes'] ?? null);
+
+    if ($documentIds === []) {
+        redirectWithState('error', 'Select at least one document before running a bulk review.');
+    }
+
+    if (!in_array($reviewStatus, ['approved', 'rejected'], true)) {
+        redirectWithState('error', 'Bulk review supports approval or rejection only.');
+    }
+
+    if ($reviewStatus === 'rejected' && trim((string)$reviewNotes) === '') {
+        redirectWithState('error', 'Review notes are required when rejecting documents in bulk.');
+    }
+
+    $successCount = 0;
+    $failures = [];
+    foreach ($documentIds as $documentId) {
+        $result = $applyDocumentReview($documentId, $reviewStatus, $reviewNotes);
+        if ((bool)($result['ok'] ?? false)) {
+            $successCount++;
+            continue;
+        }
+
+        $label = trim((string)($result['title'] ?? $documentId));
+        $failures[] = $label . ': ' . (string)($result['message'] ?? 'Unknown error.');
+    }
+
+    if ($successCount === 0) {
+        redirectWithState('error', $failures !== []
+            ? 'No documents were updated. ' . implode(' ', array_slice($failures, 0, 3))
+            : 'No documents were updated.');
+    }
+
+    if ($failures !== []) {
+        redirectWithState('success', 'Updated ' . $successCount . ' document(s). Some items were skipped: ' . implode(' ', array_slice($failures, 0, 3)));
+    }
+
+    redirectWithState('success', 'Updated ' . $successCount . ' document(s) successfully.');
 }
 
 if ($action === 'fulfill_document_request') {

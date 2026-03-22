@@ -307,10 +307,10 @@ ob_start();
             <?php foreach ($applicationTimeline as $event): ?>
                 <?php $timelineMeta = (array)($statusMeta[strtolower((string)$event['status'])] ?? ['label' => 'Pending', 'timeline' => 'bg-gray-400 text-white']); ?>
                 <article class="flex items-start gap-3 rounded-lg border bg-gray-50 p-4">
-                    <span class="inline-flex h-7 w-7 items-center justify-center rounded-full <?= htmlspecialchars((string)$timelineMeta['timeline'], ENT_QUOTES, 'UTF-8') ?>">
+                    <span class="inline-flex flex-0 h-7 w-7 items-center justify-center rounded-full <?= htmlspecialchars((string)$timelineMeta['timeline'], ENT_QUOTES, 'UTF-8') ?>">
                         <span class="material-symbols-outlined text-[15px]">task_alt</span>
                     </span>
-                    <div>
+                    <div class="flex-1">
                         <h4 class="font-medium text-gray-800"><?= htmlspecialchars((string)$timelineMeta['label'], ENT_QUOTES, 'UTF-8') ?></h4>
                         <p class="text-sm text-gray-600"><?= htmlspecialchars((string)($event['notes'] ?? 'Status updated.'), ENT_QUOTES, 'UTF-8') ?></p>
                         <?php if (!empty($event['created_at'])): ?>

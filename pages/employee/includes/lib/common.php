@@ -94,6 +94,29 @@ if (!function_exists('isValidCsrfToken')) {
     }
 }
 
+if (!function_exists('clientIp')) {
+    function clientIp(): string
+    {
+        $keys = ['HTTP_X_FORWARDED_FOR', 'HTTP_CLIENT_IP', 'REMOTE_ADDR'];
+
+        foreach ($keys as $key) {
+            $raw = $_SERVER[$key] ?? '';
+            if (!is_string($raw) || trim($raw) === '') {
+                continue;
+            }
+
+            if ($key === 'HTTP_X_FORWARDED_FOR') {
+                $parts = explode(',', $raw);
+                return trim((string)($parts[0] ?? ''));
+            }
+
+            return trim($raw);
+        }
+
+        return 'unknown';
+    }
+}
+
 if (!function_exists('redirectWithState')) {
     function redirectWithState(string $state, string $message, ?string $path = null): never
     {

@@ -580,7 +580,8 @@ $trainingHoursCompleted = max(0.0, (float)($trainingFormDefaults['training_hours
 $hasTrainingProof = (bool)($trainingFormDefaults['has_training_proof'] ?? false);
 $hasProfileEducation = ((int)($profileQualificationSnapshot['education_entries_count'] ?? 0)) > 0;
 $hasProfileWork = ((int)($profileQualificationSnapshot['work_entries_count'] ?? 0)) > 0;
-$profileReadyForAutoEvaluation = $hasProfileEducation && $hasProfileWork;
+$experienceRequired = $experienceMinimum > 0;
+$profileReadyForAutoEvaluation = $hasProfileEducation && (!$experienceRequired || $hasProfileWork);
 
 if (!$hasProfileEducation) {
 	$criteriaMissing[] = 'Education';
@@ -593,7 +594,10 @@ if (!$hasProfileEducation) {
 	$criteriaEvaluation['criterion_statuses']['education'] = 'Education requirement appears satisfied from your profile.';
 }
 
-if (!$hasProfileWork) {
+if (!$experienceRequired) {
+	$criteriaMet[] = 'Experience';
+	$criteriaEvaluation['criterion_statuses']['experience'] = 'No work experience minimum for this posting.';
+} elseif (!$hasProfileWork) {
 	$criteriaMissing[] = 'Experience';
 	$criteriaEvaluation['criterion_statuses']['experience'] = 'No work experience entry found in your profile.';
 } elseif ($experienceYearsEstimate < $experienceMinimum) {
@@ -633,7 +637,9 @@ if ($trainingMinimum > 0) {
 }
 
 if (!$profileReadyForAutoEvaluation) {
-	$profileCompletionPrompt = 'Complete your profile education and work experience entries so the system can automatically evaluate your qualifications before submission.';
+	$profileCompletionPrompt = $experienceRequired
+		? 'Complete your profile education and work experience entries so the system can automatically evaluate your qualifications before submission.'
+		: 'Complete your profile education entries so the system can automatically evaluate your qualifications before submission.';
 }
 
 $uniqueMissing = array_values(array_unique($criteriaMissing));

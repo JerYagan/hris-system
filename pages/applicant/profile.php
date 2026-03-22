@@ -1311,7 +1311,7 @@ ob_start();
                 const isNotApplicable = ['elementary', 'secondary'].includes(levelInput.value);
                 if (isNotApplicable) {
                     courseInput.value = '';
-                    courseInput.readOnly = true;
+                    courseInput.disabled = true;
                     courseInput.tabIndex = -1;
                     courseInput.classList.add('bg-slate-100', 'text-slate-400', 'pointer-events-none');
                     courseInput.setAttribute('aria-disabled', 'true');
@@ -1321,7 +1321,7 @@ ob_start();
                     return;
                 }
 
-                courseInput.readOnly = false;
+                courseInput.disabled = false;
                 courseInput.tabIndex = 0;
                 courseInput.classList.remove('bg-slate-100', 'text-slate-400', 'pointer-events-none');
                 courseInput.removeAttribute('aria-disabled');

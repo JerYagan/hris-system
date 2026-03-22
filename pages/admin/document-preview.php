@@ -30,32 +30,63 @@ $documentResponse = apiRequest(
 
 $title = 'Document Preview';
 $fileName = 'document';
-$previewUrl = '';
 $errorMessage = '';
+$streamPreview = (string)(cleanText($_GET['stream'] ?? null) ?? '') === '1';
 
-$resolveDocumentUrl = static function (?string $bucket, ?string $path) use ($supabaseUrl): string {
-    $bucketValue = strtolower(trim((string)$bucket));
-    $pathValue = trim((string)$path);
-    if ($pathValue === '') {
-        return '';
+$resolveRemoteCandidates = static function (string $bucket, string $path, string $supabaseUrl): array {
+    $candidates = [];
+    $normalizedPath = trim(str_replace('\\', '/', $path));
+    if ($normalizedPath === '') {
+        return $candidates;
     }
 
-    if (preg_match('#^https?://#i', $pathValue) === 1 || str_starts_with($pathValue, '/')) {
-        return $pathValue;
+    if (preg_match('#^https?://#i', $normalizedPath) === 1) {
+        $candidates[] = $normalizedPath;
+        $parsedPath = parse_url($normalizedPath, PHP_URL_PATH);
+        $normalizedPath = is_string($parsedPath) ? ltrim($parsedPath, '/') : '';
     }
 
-    if (str_contains($pathValue, '/storage/v1/object/public/')) {
-        return $pathValue;
+    if ($normalizedPath !== '' && str_starts_with($normalizedPath, 'storage/v1/object/')) {
+        $tail = substr($normalizedPath, strlen('storage/v1/object/'));
+        $tail = ltrim((string)$tail, '/');
+        if (str_starts_with($tail, 'public/')) {
+            $tail = substr($tail, strlen('public/'));
+        }
+        $parts = explode('/', (string)$tail, 2);
+        $bucket = trim((string)($parts[0] ?? ''));
+        $normalizedPath = trim((string)($parts[1] ?? ''));
     }
 
-    if ($bucketValue === '' || in_array($bucketValue, ['local_documents', 'local', 'filesystem'], true)) {
-        $normalizedPath = preg_replace('#^document/#i', '', $pathValue);
-        $segments = array_values(array_filter(explode('/', (string)$normalizedPath), static fn(string $segment): bool => $segment !== ''));
-        return '/hris-system/storage/document/' . implode('/', array_map('rawurlencode', $segments));
+    if ($bucket !== '' && $normalizedPath !== '') {
+        $encodedPath = implode('/', array_map('rawurlencode', array_values(array_filter(explode('/', $normalizedPath), static fn(string $segment): bool => $segment !== ''))));
+        $candidates[] = rtrim($supabaseUrl, '/') . '/storage/v1/object/public/' . rawurlencode($bucket) . '/' . $encodedPath;
+        $candidates[] = rtrim($supabaseUrl, '/') . '/storage/v1/object/' . rawurlencode($bucket) . '/' . $encodedPath;
     }
 
-    $segments = array_values(array_filter(explode('/', $pathValue), static fn(string $segment): bool => $segment !== ''));
-    return rtrim($supabaseUrl, '/') . '/storage/v1/object/public/' . rawurlencode($bucketValue) . '/' . implode('/', array_map('rawurlencode', $segments));
+    return array_values(array_unique(array_filter($candidates)));
+};
+
+$streamRemoteObject = static function (string $url, array $headers): ?array {
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 45);
+    $body = curl_exec($ch);
+    $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $contentType = (string)(curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'application/octet-stream');
+    $error = curl_error($ch);
+    curl_close($ch);
+
+    if ($body === false || $error !== '') {
+        return null;
+    }
+
+    return [
+        'status' => $status,
+        'body' => (string)$body,
+        'content_type' => $contentType,
+    ];
 };
 
 if (!isSuccessful($documentResponse) || empty((array)($documentResponse['data'] ?? []))) {
@@ -63,22 +94,67 @@ if (!isSuccessful($documentResponse) || empty((array)($documentResponse['data'] 
 } else {
     $documentRow = (array)$documentResponse['data'][0];
     $title = cleanText($documentRow['title'] ?? null) ?? 'Document Preview';
-    $fileName = basename((string)(cleanText($documentRow['storage_path'] ?? null) ?? $title));
-    $previewUrl = $resolveDocumentUrl(cleanText($documentRow['storage_bucket'] ?? null), cleanText($documentRow['storage_path'] ?? null));
+    $storageBucket = cleanText($documentRow['storage_bucket'] ?? null) ?? '';
+    $storagePath = cleanText($documentRow['storage_path'] ?? null) ?? '';
+    $resolvedFile = resolveStorageFilePath(dirname(__DIR__, 2) . '/storage/document', $storagePath);
+    $absolutePath = is_array($resolvedFile) ? (string)($resolvedFile['absolute_path'] ?? '') : '';
+    $mimeType = '';
+    $remotePayload = null;
+
+    $fileName = basename($storagePath !== '' ? $storagePath : $title);
+
+    if ($absolutePath !== '' && is_file($absolutePath)) {
+        $mimeType = (string)(mime_content_type($absolutePath) ?: 'application/octet-stream');
+        $fileName = basename($absolutePath);
+
+        if ($streamPreview) {
+            header('Content-Type: ' . $mimeType);
+            header('Content-Disposition: inline; filename="' . rawurlencode($fileName) . '"');
+            header('Content-Length: ' . (string)filesize($absolutePath));
+            header('X-Content-Type-Options: nosniff');
+            readfile($absolutePath);
+            exit;
+        }
+    } else {
+        foreach ($resolveRemoteCandidates($storageBucket, $storagePath, $supabaseUrl) as $remoteUrl) {
+            $remotePayload = $streamRemoteObject($remoteUrl, $headers);
+            if (is_array($remotePayload) && (int)($remotePayload['status'] ?? 0) >= 200 && (int)($remotePayload['status'] ?? 0) < 300) {
+                break;
+            }
+            $remotePayload = null;
+        }
+
+        if ($remotePayload === null) {
+            $errorMessage = 'Document file not found.';
+        } else {
+            $mimeType = (string)($remotePayload['content_type'] ?? 'application/octet-stream');
+            $fileName = basename($storagePath) ?: $title;
+
+            if ($streamPreview) {
+                header('Content-Type: ' . $mimeType);
+                header('Content-Disposition: inline; filename="' . rawurlencode($fileName) . '"');
+                header('Content-Length: ' . (string)strlen((string)$remotePayload['body']));
+                header('X-Content-Type-Options: nosniff');
+                echo (string)$remotePayload['body'];
+                exit;
+            }
+        }
+    }
 }
 
 $extension = strtolower((string)pathinfo($fileName, PATHINFO_EXTENSION));
 $previewKind = 'unsupported';
-if (in_array($extension, ['pdf'], true)) {
+if (in_array($extension, ['pdf'], true) || (isset($mimeType) && $mimeType === 'application/pdf')) {
     $previewKind = 'pdf';
-} elseif (in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'], true)) {
+} elseif (in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'], true) || (isset($mimeType) && str_starts_with((string)$mimeType, 'image/'))) {
     $previewKind = 'image';
 }
 
 $pageTitle = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
-$previewUrlEscaped = htmlspecialchars($previewUrl, ENT_QUOTES, 'UTF-8');
 $errorMessageEscaped = htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8');
 $returnToJson = json_encode($returnTo, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+$streamUrl = 'document-preview.php?document_id=' . rawurlencode($documentId) . '&stream=1';
+$streamUrlEscaped = htmlspecialchars($streamUrl, ENT_QUOTES, 'UTF-8');
 ?>
 <!doctype html>
 <html lang="en">
@@ -108,18 +184,11 @@ $returnToJson = json_encode($returnTo, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_S
                     <p><?= $errorMessageEscaped ?></p>
                 </div>
             </div>
-        <?php elseif ($previewUrl === ''): ?>
-            <div class="message-wrap">
-                <div class="message error">
-                    <h2>Preview unavailable</h2>
-                    <p>The document preview could not be prepared.</p>
-                </div>
-            </div>
         <?php elseif ($previewKind === 'pdf'): ?>
-            <iframe class="frame" src="<?= $previewUrlEscaped ?>" title="<?= $pageTitle ?>"></iframe>
+            <iframe class="frame" src="<?= $streamUrlEscaped ?>" title="<?= $pageTitle ?>"></iframe>
         <?php elseif ($previewKind === 'image'): ?>
             <div class="image-wrap">
-                <img src="<?= $previewUrlEscaped ?>" alt="<?= $pageTitle ?>">
+                <img src="<?= $streamUrlEscaped ?>" alt="<?= $pageTitle ?>">
             </div>
         <?php else: ?>
             <div class="message-wrap">

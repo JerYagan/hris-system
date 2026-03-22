@@ -206,16 +206,48 @@ $resolveProfilePhotoUrl = static function (string $rawPath): string {
 
 $buildStoragePublicUrl = static function (string $baseUrl, string $bucket, string $path): string {
     $base = rtrim(trim($baseUrl), '/');
-    $bucketName = trim($bucket, '/');
-    $objectPath = trim($path, '/');
+    $bucketName = strtolower(trim($bucket, '/'));
+    $objectPath = trim(str_replace('\\', '/', $path), '/');
 
-    if ($base === '' || $bucketName === '' || $objectPath === '') {
+    if ($objectPath === '') {
+        return '';
+    }
+
+    if (preg_match('#^https?://#i', $objectPath) === 1 || str_starts_with($objectPath, '/')) {
+        return $objectPath;
+    }
+
+    $localResolved = resolveStorageFilePath(dirname(__DIR__, 4) . '/storage/document', $objectPath);
+    if (is_array($localResolved) && !empty($localResolved['relative_path'])) {
+        return '/hris-system/storage/document/' . implode('/', array_map('rawurlencode', explode('/', (string)$localResolved['relative_path'])));
+    }
+
+    if (str_contains($objectPath, '/storage/v1/object/public/')) {
+        return $objectPath;
+    }
+
+    if (str_starts_with($objectPath, 'storage/v1/object/')) {
+        $tail = substr($objectPath, strlen('storage/v1/object/'));
+        $tail = ltrim((string)$tail, '/');
+        if (str_starts_with($tail, 'public/')) {
+            $tail = substr($tail, strlen('public/'));
+        }
+        $parts = explode('/', (string)$tail, 2);
+        $bucketName = strtolower(trim((string)($parts[0] ?? $bucketName)));
+        $objectPath = trim((string)($parts[1] ?? ''));
+    }
+
+    if ($objectPath === '') {
         return '';
     }
 
     if (in_array(strtolower($bucketName), ['local_documents', 'local', 'filesystem'], true)) {
         $segments = array_values(array_filter(explode('/', preg_replace('#^document/#', '', $objectPath)), static fn(string $segment): bool => $segment !== ''));
         return '/hris-system/storage/document/' . implode('/', array_map('rawurlencode', $segments));
+    }
+
+    if ($base === '' || $bucketName === '') {
+        return '';
     }
 
     $segments = array_values(array_filter(explode('/', $objectPath), static fn(string $segment): bool => $segment !== ''));
@@ -257,10 +289,10 @@ $shouldLoadOwners = $shouldLoadModalSupport;
 $shouldLoadRoleAssignments = $shouldLoadRegistry || $shouldLoadArchived || $shouldLoadModalSupport;
 
 if ($shouldLoadRegistry) {
-    $documentLimit = $documentManagementDataStage === 'queue' ? 25 : 2000;
+    $documentLimit = $documentManagementDataStage === 'queue' ? 25 : 5000;
     $documentsResponse = apiRequest(
         'GET',
-        $supabaseUrl . '/rest/v1/documents?select=id,title,description,document_status,current_version_no,storage_bucket,storage_path,created_at,updated_at,uploaded_by,owner_person_id,category:document_categories(category_name),owner:people(first_name,surname,user_id),uploader:user_accounts(id,email)&order=updated_at.desc&limit=' . $documentLimit,
+        $supabaseUrl . '/rest/v1/documents?select=id,title,description,document_status,current_version_no,storage_bucket,storage_path,created_at,updated_at,uploaded_by,owner_person_id,category:document_categories(category_name),owner:people(first_name,surname,user_id,user:user_accounts(email)),uploader:user_accounts(id,email)&order=updated_at.desc&limit=' . $documentLimit,
         $headers
     );
 }
@@ -268,7 +300,7 @@ if ($shouldLoadRegistry) {
 if ($shouldLoadArchived) {
     $documentsResponse = apiRequest(
         'GET',
-        $supabaseUrl . '/rest/v1/documents?select=id,title,description,document_status,current_version_no,storage_bucket,storage_path,created_at,updated_at,uploaded_by,owner_person_id,category:document_categories(category_name),owner:people(first_name,surname,user_id),uploader:user_accounts(id,email)&document_status=eq.archived&order=updated_at.desc&limit=500',
+        $supabaseUrl . '/rest/v1/documents?select=id,title,description,document_status,current_version_no,storage_bucket,storage_path,created_at,updated_at,uploaded_by,owner_person_id,category:document_categories(category_name),owner:people(first_name,surname,user_id,user:user_accounts(email)),uploader:user_accounts(id,email)&document_status=eq.archived&order=updated_at.desc&limit=2000',
         $headers
     );
 }
@@ -580,16 +612,26 @@ if ($shouldLoadRegistry || $shouldLoadArchived) {
                 }
             }
 
-            if ($uploadedBy !== '') {
-                $uploaderEmail = trim((string)($document['uploader']['email'] ?? ''));
-                if ($uploaderEmail === '') {
-                    $uploaderEmail = 'Unknown Email';
+            $ownerUserId = strtolower(trim((string)($document['owner']['user_id'] ?? '')));
+            $ownerEmail = trim((string)($document['owner']['user']['email'] ?? ''));
+            $uploaderEmail = trim((string)($document['uploader']['email'] ?? ''));
+            $summaryUserId = $uploadedBy;
+            $summaryEmail = $uploaderEmail;
+
+            if (!in_array($uploaderRoleKey, ['employee', 'applicant'], true) && $ownerUserId !== '') {
+                $summaryUserId = $ownerUserId;
+                $summaryEmail = $ownerEmail !== '' ? $ownerEmail : $ownerName;
+            }
+
+            if ($summaryUserId !== '') {
+                if ($summaryEmail === '') {
+                    $summaryEmail = $ownerEmail !== '' ? $ownerEmail : ($uploaderEmail !== '' ? $uploaderEmail : 'Unknown Email');
                 }
 
-                if (!isset($uploaderSummaryMap[$uploadedBy])) {
-                    $uploaderSummaryMap[$uploadedBy] = [
-                        'user_id' => $uploadedBy,
-                        'email' => $uploaderEmail,
+                if (!isset($uploaderSummaryMap[$summaryUserId])) {
+                    $uploaderSummaryMap[$summaryUserId] = [
+                        'user_id' => $summaryUserId,
+                        'email' => $summaryEmail,
                         'account_type' => $accountType,
                         'total_uploads' => 0,
                         'last_uploaded_at' => $updatedAt,
@@ -598,14 +640,14 @@ if ($shouldLoadRegistry || $shouldLoadArchived) {
                     ];
                 }
 
-                $uploaderSummaryMap[$uploadedBy]['total_uploads']++;
-                $lastUploadedAt = (string)($uploaderSummaryMap[$uploadedBy]['last_uploaded_at'] ?? '');
+                $uploaderSummaryMap[$summaryUserId]['total_uploads']++;
+                $lastUploadedAt = (string)($uploaderSummaryMap[$summaryUserId]['last_uploaded_at'] ?? '');
                 if ($lastUploadedAt === '' || ($updatedAt !== '' && strtotime($updatedAt) > strtotime($lastUploadedAt))) {
-                    $uploaderSummaryMap[$uploadedBy]['last_uploaded_at'] = $updatedAt;
-                    $uploaderSummaryMap[$uploadedBy]['last_uploaded_label'] = $updatedLabel;
+                    $uploaderSummaryMap[$summaryUserId]['last_uploaded_at'] = $updatedAt;
+                    $uploaderSummaryMap[$summaryUserId]['last_uploaded_label'] = $updatedLabel;
                 }
 
-                $uploaderSummaryMap[$uploadedBy]['documents'][] = [
+                $uploaderSummaryMap[$summaryUserId]['documents'][] = [
                     'id' => $documentId,
                     'title' => $title,
                     'category' => $categoryName,

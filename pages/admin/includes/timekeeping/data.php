@@ -84,7 +84,7 @@ $leaveRequestsResponse = apiRequest(
 $ctoRequestsResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/overtime_requests?select=id,overtime_date,start_time,end_time,hours_requested,reason,status,created_at,person:people(first_name,surname,user_id)'
+    . '/rest/v1/overtime_requests?select=id,person_id,overtime_date,start_time,end_time,hours_requested,reason,status,created_at,person:people(first_name,surname,user_id)'
     . '&order=created_at.desc&limit=' . (int)$timekeepingQueryLimits['requests'],
     $headers
 );
@@ -242,6 +242,10 @@ if (isSuccessful($employeeOptionsResponse)) {
                 'employment_status' => $effectiveEmploymentStatus !== '' ? $effectiveEmploymentStatus : 'COS',
                 'latest_cos_status' => '-',
                 'latest_cos_requested_label' => '-',
+                'latest_cos_request_id' => '',
+                'latest_cos_request_label' => 'COS Schedule Proposal',
+                'latest_cos_window' => '-',
+                'latest_cos_status_raw' => 'pending',
             ];
         }
     }
@@ -586,6 +590,10 @@ if (isSuccessful($ctoRequestsResponse)) {
                 if ($cosPersonId !== '' && isset($cosEmployeeRows[$cosPersonId])) {
                     $cosEmployeeRows[$cosPersonId]['latest_cos_status'] = ucfirst(str_replace('_', ' ', $statusRaw));
                     $cosEmployeeRows[$cosPersonId]['latest_cos_requested_label'] = $weekRangeLabel ?? (string)($requestRow['overtime_date'] ?? '-');
+                    $cosEmployeeRows[$cosPersonId]['latest_cos_request_id'] = (string)$requestRow['id'];
+                    $cosEmployeeRows[$cosPersonId]['latest_cos_request_label'] = (string)($requestRow['request_label'] ?? 'COS Schedule Proposal');
+                    $cosEmployeeRows[$cosPersonId]['latest_cos_window'] = trim((string)($requestRow['start_time'] ?? '') . ' - ' . (string)($requestRow['end_time'] ?? ''));
+                    $cosEmployeeRows[$cosPersonId]['latest_cos_status_raw'] = $statusRaw;
                 }
             }
 

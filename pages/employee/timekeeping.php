@@ -637,14 +637,14 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
           <input type="time" name="end_time" class="mt-1 w-full border rounded-lg p-2" required>
         </div>
       </div>
-      <div>
+      <div id="specialRequestHoursField">
         <label class="text-gray-500">Hours Requested</label>
         <input type="number" name="hours_requested" step="0.25" min="0.25" max="24" class="w-full mt-1 border rounded-lg p-2" placeholder="Total hours" required>
       </div>
       <div id="specialCosWeeklyField" class="hidden rounded-lg border border-slate-200 bg-slate-50 p-4">
         <div>
           <p class="font-semibold text-slate-800">Weekly COS Schedule</p>
-          <p class="mt-1 text-[11px] text-slate-500">Select the days to propose for the week. Each selected day must end no later than 10:00 PM.</p>
+          <p class="mt-1 text-[11px] text-slate-500">Select the days to propose for the week. Set a preferred start time and working hours to auto-calculate the end time. Each selected day must end no later than 10:00 PM.</p>
         </div>
         <div class="mt-4 overflow-x-auto">
           <table class="w-full text-sm">
@@ -652,7 +652,8 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
               <tr class="border-b text-slate-500">
                 <th class="py-2 text-left">Use</th>
                 <th class="py-2 text-left">Day</th>
-                <th class="py-2 text-left">Start</th>
+                <th class="py-2 text-left">Preferred Start</th>
+                <th class="py-2 text-left">Working Hours</th>
                 <th class="py-2 text-left">End</th>
               </tr>
             </thead>
@@ -664,8 +665,9 @@ if (($_GET['partial'] ?? '') === 'leave-balance') {
                     <input type="checkbox" name="weekly_schedule_enabled[]" value="<?= $escape($dayKey) ?>" class="rounded border-slate-300 text-daGreen focus:ring-daGreen">
                   </td>
                   <td class="py-2 pr-2 font-medium text-slate-700"><?= $escape($dayLabel) ?></td>
-                  <td class="py-2 pr-2"><input type="time" name="weekly_schedule_start[]" class="w-full rounded-lg border p-2"></td>
-                  <td class="py-2"><input type="time" name="weekly_schedule_end[]" class="w-full rounded-lg border p-2"></td>
+                  <td class="py-2 pr-2"><input type="time" name="weekly_schedule_start[<?= $escape($dayKey) ?>]" class="w-full rounded-lg border p-2" data-cos-start></td>
+                  <td class="py-2 pr-2"><input type="number" name="weekly_schedule_hours[<?= $escape($dayKey) ?>]" class="w-full rounded-lg border p-2" min="0.25" max="16" step="0.25" placeholder="8.00" data-cos-hours></td>
+                  <td class="py-2"><input type="time" name="weekly_schedule_end[<?= $escape($dayKey) ?>]" class="w-full rounded-lg border p-2 bg-slate-100" data-cos-end readonly></td>
                 </tr>
               <?php endforeach; ?>
             </tbody>

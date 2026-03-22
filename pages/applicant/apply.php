@@ -222,7 +222,8 @@ ob_start();
                         </div>
                         <div>
                             <label class="text-gray-600">Course / Degree</label>
-                            <input type="text" name="education_course_degree_entry[]" value="<?= htmlspecialchars((string)($educationRow['course_degree'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                            <input type="text" name="education_course_degree_entry[]" value="<?= htmlspecialchars((string)($educationRow['course_degree'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2 js-education-course-degree">
+                            <p class="js-education-course-degree-note mt-1 hidden text-xs text-slate-500">Not applicable for elementary and secondary education</p>
                         </div>
                         <div>
                             <label class="text-gray-600">Year Graduated</label>
@@ -453,7 +454,8 @@ ob_start();
                 </div>
                 <div>
                     <label class="text-gray-600">Course / Degree</label>
-                    <input type="text" name="education_course_degree_entry[]" class="mt-1 w-full rounded-md border px-3 py-2">
+                    <input type="text" name="education_course_degree_entry[]" class="mt-1 w-full rounded-md border px-3 py-2 js-education-course-degree">
+                    <p class="js-education-course-degree-note mt-1 hidden text-xs text-slate-500">Not applicable for elementary, secondary, and college education.</p>
                 </div>
                 <div>
                     <label class="text-gray-600">Year Graduated</label>
@@ -586,6 +588,7 @@ ob_start();
             }
             container.appendChild(template.content.cloneNode(true));
             initializeFlatpickr(container);
+            syncAllEducationRows(container);
         }
 
         function initializeFlatpickr(scope) {
@@ -600,6 +603,47 @@ ob_start();
                     allowInput: false
                 });
                 input.setAttribute('data-flatpickr-initialized', 'true');
+            });
+        }
+
+        function syncEducationRowState(row) {
+            if (!(row instanceof Element)) {
+                return;
+            }
+
+            var levelInput = row.querySelector('.js-education-level');
+            var courseInput = row.querySelector('.js-education-course-degree');
+            var note = row.querySelector('.js-education-course-degree-note');
+            if (!(levelInput instanceof HTMLSelectElement) || !(courseInput instanceof HTMLInputElement)) {
+                return;
+            }
+
+            var isNotApplicable = ['elementary', 'secondary'].indexOf(levelInput.value) !== -1;
+            if (isNotApplicable) {
+                courseInput.value = '';
+                courseInput.disabled = true;
+                courseInput.tabIndex = -1;
+                courseInput.classList.add('bg-slate-100', 'text-slate-400', 'pointer-events-none');
+                courseInput.setAttribute('aria-disabled', 'true');
+                if (note instanceof HTMLElement) {
+                    note.classList.remove('hidden');
+                }
+                return;
+            }
+
+            courseInput.disabled = false;
+            courseInput.tabIndex = 0;
+            courseInput.classList.remove('bg-slate-100', 'text-slate-400', 'pointer-events-none');
+            courseInput.removeAttribute('aria-disabled');
+            if (note instanceof HTMLElement) {
+                note.classList.add('hidden');
+            }
+        }
+
+        function syncAllEducationRows(scope) {
+            var root = scope && scope.querySelectorAll ? scope : document;
+            root.querySelectorAll('.js-education-row').forEach(function (row) {
+                syncEducationRowState(row);
             });
         }
 
@@ -889,7 +933,9 @@ ob_start();
                 : 'You are missing the education requirement based on current entries.');
 
             setCriterionStatus('experience', experienceOk, experienceOk
-                ? 'You meet the experience requirement based on current entries.'
+                ? (minExperienceYears <= 0
+                    ? 'No work experience minimum for this posting.'
+                    : 'You meet the experience requirement based on current entries.')
                 : 'You are missing the required years of experience based on current entries.');
 
             setCriterionStatus('training', trainingOk, trainingOk
@@ -990,6 +1036,14 @@ ob_start();
         });
 
         document.addEventListener('change', function (event) {
+            if (event.target.closest('#educationRowsContainer') && event.target.classList.contains('js-education-level')) {
+                var educationRow = event.target.closest('.js-education-row');
+                if (educationRow) {
+                    syncEducationRowState(educationRow);
+                }
+                updateRecommendation();
+            }
+
             if (event.target.closest('form[action^="apply.php"]')) {
                 writeDraftState();
             }
@@ -1006,6 +1060,7 @@ ob_start();
 
         initializeFlatpickr(document);
         applyDraftState();
+        syncAllEducationRows(document);
 
         updateRecommendation();
     })();

@@ -336,8 +336,9 @@ if (isset($specialRequestActionMap[$action])) {
     $destination = $toNullable($_POST['destination'] ?? null, 255);
     $referenceNumber = $toNullable($_POST['reference_number'] ?? null, 120);
     $weeklyScheduleDays = (array)($_POST['weekly_schedule_day'] ?? []);
-    $weeklyScheduleStarts = (array)($_POST['weekly_schedule_start'] ?? []);
-    $weeklyScheduleEnds = (array)($_POST['weekly_schedule_end'] ?? []);
+    $weeklyScheduleStarts = is_array($_POST['weekly_schedule_start'] ?? null) ? (array)$_POST['weekly_schedule_start'] : [];
+    $weeklyScheduleHours = is_array($_POST['weekly_schedule_hours'] ?? null) ? (array)$_POST['weekly_schedule_hours'] : [];
+    $weeklyScheduleEnds = is_array($_POST['weekly_schedule_end'] ?? null) ? (array)$_POST['weekly_schedule_end'] : [];
     $weeklyScheduleEnabled = (array)($_POST['weekly_schedule_enabled'] ?? []);
     $cosWeekRangeLabel = null;
     $cosWeeklyScheduleRows = [];
@@ -355,22 +356,44 @@ if (isset($specialRequestActionMap[$action])) {
 
     if ($requestType === 'cos_schedule') {
         $catalog = timekeepingCosWeeklyDayCatalog();
-        $rowCount = max(count($weeklyScheduleDays), count($weeklyScheduleStarts), count($weeklyScheduleEnds));
+        $enabledDayMap = [];
+        foreach ($weeklyScheduleEnabled as $enabledDayRaw) {
+            $enabledDayKey = strtolower(trim((string)$enabledDayRaw));
+            if ($enabledDayKey !== '') {
+                $enabledDayMap[$enabledDayKey] = true;
+            }
+        }
+
         $earliestStart = null;
         $latestEnd = null;
         $totalMinutes = 0;
 
-        for ($index = 0; $index < $rowCount; $index++) {
-            if (!isset($weeklyScheduleEnabled[$index])) {
+        foreach ($weeklyScheduleDays as $dayRaw) {
+            $dayKey = strtolower(trim((string)$dayRaw));
+            if ($dayKey === '' || !isset($enabledDayMap[$dayKey])) {
                 continue;
             }
 
-            $dayKey = strtolower(trim((string)($weeklyScheduleDays[$index] ?? '')));
-            $rowStart = trim((string)($weeklyScheduleStarts[$index] ?? ''));
-            $rowEnd = trim((string)($weeklyScheduleEnds[$index] ?? ''));
+            $rowStart = trim((string)($weeklyScheduleStarts[$dayKey] ?? ''));
+            $rowEnd = trim((string)($weeklyScheduleEnds[$dayKey] ?? ''));
+            $rowHoursRaw = trim((string)($weeklyScheduleHours[$dayKey] ?? ''));
 
             if (!isset($catalog[$dayKey])) {
                 redirectWithState('error', 'COS weekly schedule contains an invalid day entry.', 'timekeeping.php');
+            }
+
+            if ($rowStart !== '' && $rowHoursRaw !== '' && $rowEnd === '') {
+                if (!is_numeric($rowHoursRaw) || (float)$rowHoursRaw <= 0) {
+                    redirectWithState('error', 'Each selected COS day requires valid working hours.', 'timekeeping.php');
+                }
+
+                if (!preg_match('/^\d{2}:\d{2}$/', $rowStart)) {
+                    redirectWithState('error', 'Each selected COS day requires a valid HH:MM start and end time.', 'timekeeping.php');
+                }
+
+                $startMinutes = ((int)substr($rowStart, 0, 2) * 60) + (int)substr($rowStart, 3, 2);
+                $rowEndMinutes = $startMinutes + (int)round((float)$rowHoursRaw * 60);
+                $rowEnd = sprintf('%02d:%02d', intdiv($rowEndMinutes, 60), $rowEndMinutes % 60);
             }
 
             if (!preg_match('/^\d{2}:\d{2}$/', $rowStart) || !preg_match('/^\d{2}:\d{2}$/', $rowEnd)) {
@@ -439,8 +462,12 @@ if (isset($specialRequestActionMap[$action])) {
     }
 
     $hoursRequested = (float)$hoursRequestedRaw;
-    if ($hoursRequested <= 0 || $hoursRequested > 24) {
-        redirectWithState('error', $requestLabel . ' hours must be greater than 0 and not more than 24.', 'timekeeping.php');
+    $maxHoursAllowed = $requestType === 'cos_schedule' ? 168 : 24;
+    if ($hoursRequested <= 0 || $hoursRequested > $maxHoursAllowed) {
+        $hoursMessage = $requestType === 'cos_schedule'
+            ? $requestLabel . ' total weekly hours must be greater than 0 and not more than 168.'
+            : $requestLabel . ' hours must be greater than 0 and not more than 24.';
+        redirectWithState('error', $hoursMessage, 'timekeeping.php');
     }
 
     if (($requestMeta['category'] ?? '') === 'travel' && $destination === null) {

@@ -332,3 +332,59 @@ if (!function_exists('logStatusTransition')) {
         );
     }
 }
+
+if (!function_exists('normalizeRelativeStoragePath')) {
+    function normalizeRelativeStoragePath(?string $storagePath): ?string
+    {
+        $value = cleanText($storagePath);
+        if ($value === null) {
+            return null;
+        }
+
+        $value = str_replace('\\', '/', $value);
+        $value = preg_replace('#/+#', '/', $value) ?? $value;
+        $value = ltrim($value, '/');
+
+        if ($value === '' || str_contains($value, "\0") || str_contains($value, '..')) {
+            return null;
+        }
+
+        if (!preg_match('#^[a-zA-Z0-9_./\-]+$#', $value)) {
+            return null;
+        }
+
+        return $value;
+    }
+}
+
+if (!function_exists('resolveStorageFilePath')) {
+    function resolveStorageFilePath(string $storageRoot, ?string $storagePath): ?array
+    {
+        $relativePath = normalizeRelativeStoragePath($storagePath);
+        if ($relativePath === null) {
+            return null;
+        }
+
+        $rootReal = realpath($storageRoot);
+        if ($rootReal === false || !is_dir($rootReal)) {
+            return null;
+        }
+
+        $absolutePath = $rootReal . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+        $fileReal = realpath($absolutePath);
+        if ($fileReal === false || !is_file($fileReal)) {
+            return null;
+        }
+
+        $rootPrefix = rtrim($rootReal, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+        if (!str_starts_with($fileReal, $rootPrefix)) {
+            return null;
+        }
+
+        return [
+            'root' => $rootReal,
+            'relative_path' => str_replace('\\', '/', $relativePath),
+            'absolute_path' => $fileReal,
+        ];
+    }
+}

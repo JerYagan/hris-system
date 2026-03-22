@@ -104,6 +104,11 @@ foreach ($scopedPersonMap as $personId => $employee) {
         'employment_status' => (string)($employee['employment_status'] ?? 'COS'),
         'latest_cos_status' => '-',
         'latest_cos_requested_label' => '-',
+        'latest_cos_request_id' => '',
+        'latest_cos_request_label' => 'COS Schedule Proposal',
+        'latest_cos_window' => '-',
+        'latest_cos_reason' => '-',
+        'latest_cos_status_raw' => 'pending',
     ];
 }
 
@@ -531,6 +536,11 @@ foreach ($overtimeRows as $row) {
     if ((string)($requestRow['request_type'] ?? '') === 'cos_schedule' && isset($cosEmployeeRows[$personId])) {
         $cosEmployeeRows[$personId]['latest_cos_status'] = (string)$requestRow['status_label'];
         $cosEmployeeRows[$personId]['latest_cos_requested_label'] = (string)$requestRow['requested_label'];
+        $cosEmployeeRows[$personId]['latest_cos_request_id'] = (string)$requestRow['id'];
+        $cosEmployeeRows[$personId]['latest_cos_request_label'] = (string)$requestRow['request_label'];
+        $cosEmployeeRows[$personId]['latest_cos_window'] = (string)$requestRow['time_window'];
+        $cosEmployeeRows[$personId]['latest_cos_reason'] = trim((string)$requestRow['reason'] . (!empty($requestRow['detail_summary']) ? ' | ' . (string)$requestRow['detail_summary'] : ''));
+        $cosEmployeeRows[$personId]['latest_cos_status_raw'] = (string)$requestRow['status_raw'];
     }
 
     $officialBusinessRequestRows[] = $requestRow;

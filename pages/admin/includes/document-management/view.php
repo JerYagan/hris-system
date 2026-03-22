@@ -88,7 +88,23 @@ $renderDataError = static function () use ($dataLoadError): void {
     <?php
 };
 
-$renderRegistrySection = static function () use ($documentRegistryRows, $documentCategoryFilterOptions, $docStatusPill, $accountTypePill, $documentTypeMeta, $renderAccountTabs): void {
+$renderBulkSelectionToolbar = static function (string $label): void {
+    ?>
+    <div class="hidden items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3" data-bulk-selection-toolbar data-bulk-label="<?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?>">
+        <p class="text-sm text-slate-600"><span data-bulk-selection-count>0</span> selected</p>
+        <div class="inline-flex items-center gap-2">
+            <button type="button" data-doc-bulk-open data-bulk-review-status="approved" class="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100">
+                <span class="material-symbols-outlined text-[14px]">done_all</span>Bulk Approve
+            </button>
+            <button type="button" data-doc-bulk-open data-bulk-review-status="rejected" class="inline-flex items-center gap-1.5 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 hover:bg-rose-100">
+                <span class="material-symbols-outlined text-[14px]">block</span>Bulk Reject
+            </button>
+        </div>
+    </div>
+    <?php
+};
+
+$renderRegistrySection = static function () use ($documentRegistryRows, $documentCategoryFilterOptions, $docStatusPill, $accountTypePill, $documentTypeMeta, $renderAccountTabs, $renderBulkSelectionToolbar): void {
     ?>
     <section class="bg-white border border-slate-200 rounded-2xl mb-6" data-managed-table="registry">
         <header class="px-6 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
@@ -119,10 +135,17 @@ $renderRegistrySection = static function () use ($documentRegistryRows, $documen
             <input data-table-date-to type="text" placeholder="To date" class="border border-slate-300 rounded-md px-3 py-2 text-sm">
         </div>
 
+        <div class="px-6 pb-4">
+            <?php $renderBulkSelectionToolbar('document'); ?>
+        </div>
+
         <div class="px-6 pb-6 overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-slate-50 text-slate-600">
                     <tr>
+                        <th class="text-left px-4 py-3 w-12">
+                            <input type="checkbox" data-bulk-select-all class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500" aria-label="Select all reviewable documents">
+                        </th>
                         <th class="text-left px-4 py-3">Type</th>
                         <th class="text-left px-4 py-3">Document</th>
                         <th class="text-left px-4 py-3">Owner</th>
@@ -134,7 +157,7 @@ $renderRegistrySection = static function () use ($documentRegistryRows, $documen
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                     <?php if (empty($documentRegistryRows)): ?>
-                        <tr><td class="px-4 py-3 text-slate-500" colspan="7">No active document records found.</td></tr>
+                        <tr><td class="px-4 py-3 text-slate-500" colspan="8">No active document records found.</td></tr>
                     <?php else: ?>
                         <?php foreach ($documentRegistryRows as $row): ?>
                             <?php
@@ -142,6 +165,7 @@ $renderRegistrySection = static function () use ($documentRegistryRows, $documen
                             [$accountLabel, $accountClass] = $accountTypePill((string)($row['account_type'] ?? 'unknown'));
                             [$typeLabel, $typeIcon, $typeClass] = $documentTypeMeta((string)($row['storage_path'] ?? ''));
                             $search = strtolower(trim((string)($row['title'] ?? '') . ' ' . (string)($row['owner_name'] ?? '') . ' ' . (string)($row['category'] ?? '') . ' ' . $accountLabel));
+                            $reviewable = !in_array(strtolower(trim((string)($row['status_raw'] ?? 'draft'))), ['approved', 'rejected', 'archived'], true);
                             ?>
                             <tr
                                 data-table-row
@@ -151,6 +175,13 @@ $renderRegistrySection = static function () use ($documentRegistryRows, $documen
                                 data-account="<?= htmlspecialchars((string)($row['account_type'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                 data-date="<?= htmlspecialchars((string)($row['updated_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                             >
+                                <td class="px-4 py-3 align-top">
+                                    <?php if ($reviewable): ?>
+                                        <input type="checkbox" data-bulk-document-checkbox value="<?= htmlspecialchars((string)($row['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-document-title="<?= htmlspecialchars((string)($row['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500" aria-label="Select <?= htmlspecialchars((string)($row['title'] ?? 'document'), ENT_QUOTES, 'UTF-8') ?>">
+                                    <?php else: ?>
+                                        <span class="text-xs text-slate-300">-</span>
+                                    <?php endif; ?>
+                                </td>
                                 <td class="px-4 py-3"><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs <?= htmlspecialchars($typeClass, ENT_QUOTES, 'UTF-8') ?>"><span class="material-symbols-outlined text-[13px]"><?= htmlspecialchars($typeIcon, ENT_QUOTES, 'UTF-8') ?></span><?= htmlspecialchars($typeLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
                                 <td class="px-4 py-3">
                                     <div class="font-medium text-slate-800"><?= htmlspecialchars((string)($row['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>
@@ -312,7 +343,7 @@ $renderUploadersSection = static function () use ($uploaderSummaryRows, $account
     <?php
 };
 
-$renderPendingQueuesSection = static function () use ($pendingStaffApprovalRows, $pendingStaffReviewRows, $documentCategoryFilterOptions, $docStatusPill): void {
+$renderPendingQueuesSection = static function () use ($pendingStaffApprovalRows, $pendingStaffReviewRows, $documentCategoryFilterOptions, $docStatusPill, $renderBulkSelectionToolbar): void {
     ?>
     <section class="bg-white border border-slate-200 rounded-2xl mb-6">
         <header class="px-6 py-4 border-b border-slate-200">
@@ -346,10 +377,16 @@ $renderPendingQueuesSection = static function () use ($pendingStaffApprovalRows,
                     <input data-table-date-from type="text" placeholder="From date" class="border border-slate-300 rounded-md px-3 py-2 text-sm">
                     <input data-table-date-to type="text" placeholder="To date" class="border border-slate-300 rounded-md px-3 py-2 text-sm">
                 </div>
+                <div class="px-4 py-3 border-b border-slate-200">
+                    <?php $renderBulkSelectionToolbar('forwarded document'); ?>
+                </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead class="bg-slate-50 text-slate-600">
                             <tr>
+                                <th class="text-left px-4 py-3 w-12">
+                                    <input type="checkbox" data-bulk-select-all class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500" aria-label="Select all forwarded documents">
+                                </th>
                                 <th class="text-left px-4 py-3">Document</th>
                                 <th class="text-left px-4 py-3">Owner</th>
                                 <th class="text-left px-4 py-3">Category</th>
@@ -360,7 +397,7 @@ $renderPendingQueuesSection = static function () use ($pendingStaffApprovalRows,
                         </thead>
                         <tbody class="divide-y divide-slate-100">
                             <?php if (empty($pendingStaffApprovalRows)): ?>
-                                <tr><td class="px-4 py-3 text-slate-500" colspan="6">No forwarded document recommendations.</td></tr>
+                                <tr><td class="px-4 py-3 text-slate-500" colspan="7">No forwarded document recommendations.</td></tr>
                             <?php else: ?>
                                 <?php foreach ($pendingStaffApprovalRows as $row): ?>
                                     <?php
@@ -375,6 +412,9 @@ $renderPendingQueuesSection = static function () use ($pendingStaffApprovalRows,
                                         data-account="<?= htmlspecialchars((string)($row['account_type'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                         data-date="<?= htmlspecialchars((string)($row['updated_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                     >
+                                        <td class="px-4 py-3 align-top">
+                                            <input type="checkbox" data-bulk-document-checkbox value="<?= htmlspecialchars((string)($row['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-document-title="<?= htmlspecialchars((string)($row['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500" aria-label="Select <?= htmlspecialchars((string)($row['title'] ?? 'document'), ENT_QUOTES, 'UTF-8') ?>">
+                                        </td>
                                         <td class="px-4 py-3">
                                             <div class="font-medium text-slate-800"><?= htmlspecialchars((string)($row['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>
                                             <div class="text-xs text-slate-500 mt-1"><?= htmlspecialchars((string)($row['updated_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>
@@ -816,6 +856,41 @@ $renderModalPartials = static function () use ($ownerSearchDataset, $documentCat
                     <div class="md:col-span-2 flex justify-end gap-3 mt-2">
                         <button type="button" data-modal-close="reviewDocumentModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button>
                         <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Save Review</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="bulkReviewDocumentModal" data-modal class="fixed inset-0 z-50 hidden" aria-hidden="true">
+        <div class="absolute inset-0 bg-slate-900/60" data-modal-close="bulkReviewDocumentModal"></div>
+        <div class="relative min-h-full flex items-center justify-center p-4">
+            <div class="w-full max-w-2xl bg-white rounded-2xl border border-slate-200 shadow-xl">
+                <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-slate-800">Bulk Review Documents</h3>
+                    <button type="button" data-modal-close="bulkReviewDocumentModal" class="text-slate-500 hover:text-slate-700">✕</button>
+                </div>
+                <form action="document-management.php" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm" id="bulkReviewDocumentForm">
+                    <input type="hidden" name="form_action" value="bulk_review_documents">
+                    <div id="bulkReviewDocumentIds"></div>
+                    <div class="md:col-span-2">
+                        <label class="text-slate-600">Selection</label>
+                        <input id="bulkReviewSelectionSummary" type="text" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2 bg-slate-50" readonly>
+                    </div>
+                    <div>
+                        <label class="text-slate-600">Decision</label>
+                        <select id="bulkReviewStatusSelect" name="review_status" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" required>
+                            <option value="approved">Approve</option>
+                            <option value="rejected">Reject</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="text-slate-600">Review Notes</label>
+                        <textarea id="bulkReviewNotesInput" name="review_notes" rows="3" class="w-full mt-1 border border-slate-300 rounded-md px-3 py-2" placeholder="Required when rejecting documents in bulk."></textarea>
+                    </div>
+                    <div class="md:col-span-2 flex justify-end gap-3 mt-2">
+                        <button type="button" data-modal-close="bulkReviewDocumentModal" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Cancel</button>
+                        <button type="submit" class="px-5 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">Apply Bulk Review</button>
                     </div>
                 </form>
             </div>

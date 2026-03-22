@@ -343,6 +343,10 @@ for ($index = 0; $index < $educationCount; $index++) {
         redirectWithState('error', 'Please select a valid education level for each education entry.', $returnPath);
     }
 
+    if (in_array($level, ['elementary', 'secondary'], true)) {
+        $course = null;
+    }
+
     $educationRows[] = [
         'person_id' => $personId,
         'education_level' => $level,
@@ -396,8 +400,8 @@ for ($index = 0; $index < $workCount; $index++) {
     ];
 }
 
-if (empty($educationRows) || empty($workRows)) {
-    redirectWithState('error', 'Please complete both Education Background and Work Experience in your profile before applying so the system can auto-evaluate your qualifications.', $returnPath);
+if (empty($educationRows)) {
+    redirectWithState('error', 'Please complete your Education Background before applying so the system can auto-evaluate your qualifications.', $returnPath);
 }
 
 $educationDeleteResponse = apiRequest(
@@ -427,15 +431,17 @@ if (!isSuccessful($workDeleteResponse)) {
     redirectWithState('error', 'Failed to refresh work experience entries from apply form.', $returnPath);
 }
 
-$workInsertResponse = apiRequest(
-    'POST',
-    $supabaseUrl . '/rest/v1/person_work_experiences',
-    array_merge($headers, ['Prefer: return=minimal']),
-    $workRows
-);
+if (!empty($workRows)) {
+    $workInsertResponse = apiRequest(
+        'POST',
+        $supabaseUrl . '/rest/v1/person_work_experiences',
+        array_merge($headers, ['Prefer: return=minimal']),
+        $workRows
+    );
 
-if (!isSuccessful($workInsertResponse)) {
-    redirectWithState('error', 'Failed to save work experience entries from apply form.', $returnPath);
+    if (!isSuccessful($workInsertResponse)) {
+        redirectWithState('error', 'Failed to save work experience entries from apply form.', $returnPath);
+    }
 }
 
 $profileQualificationSnapshot['education_entries_count'] = count($educationRows);
@@ -639,6 +645,11 @@ $resolveCriteriaByPosition = static function (string $positionId) use ($supabase
 
 $positionId = cleanText($jobRow['position_id'] ?? null) ?? '';
 $resolvedCriteria = $resolveCriteriaByPosition($positionId);
+$experienceRequirement = (float)($resolvedCriteria['minimum_experience_years'] ?? 0);
+
+if ($experienceRequirement > 0 && empty($workRows)) {
+    redirectWithState('error', 'Please complete your Work Experience before applying because this posting requires prior experience.', $returnPath);
+}
 
 $educationYears = (float)($profileQualificationSnapshot['education_years_estimate'] ?? 0);
 $experienceYears = (float)($profileQualificationSnapshot['experience_years_estimate'] ?? 0);

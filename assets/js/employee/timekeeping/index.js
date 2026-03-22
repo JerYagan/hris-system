@@ -369,12 +369,124 @@ const wireSpecialRequestModalData = () => {
   const attachmentField = document.getElementById('specialAttachmentField');
   const attachmentLabel = document.getElementById('specialAttachmentLabel');
   const attachmentInput = document.getElementById('specialAttachmentInput');
+  const hoursField = document.getElementById('specialRequestHoursField');
   const startTimeInput = document.querySelector('#specialRequestModal input[name="start_time"]');
   const endTimeInput = document.querySelector('#specialRequestModal input[name="end_time"]');
   const hoursRequestedInput = document.querySelector('#specialRequestModal input[name="hours_requested"]');
   const timeGrid = document.getElementById('specialRequestTimeGrid');
   const cosWeeklyField = document.getElementById('specialCosWeeklyField');
   const weeklyScheduleInputs = Array.from(document.querySelectorAll('#specialCosWeeklyField input'));
+  const cosWeeklyRows = Array.from(document.querySelectorAll('#specialCosWeeklyField tbody tr'));
+
+  const parseTimeToMinutes = (value) => {
+    const normalized = String(value || '').trim();
+    const match = normalized.match(/^(\d{2}):(\d{2})$/);
+    if (!match) {
+      return null;
+    }
+
+    const hours = Number.parseInt(match[1], 10);
+    const minutes = Number.parseInt(match[2], 10);
+    if (Number.isNaN(hours) || Number.isNaN(minutes) || hours > 23 || minutes > 59) {
+      return null;
+    }
+
+    return (hours * 60) + minutes;
+  };
+
+  const formatMinutesToTime = (minutes) => {
+    if (!Number.isFinite(minutes) || minutes < 0) {
+      return '';
+    }
+
+    const normalizedMinutes = Math.round(minutes);
+    const hours = Math.floor(normalizedMinutes / 60);
+    const mins = normalizedMinutes % 60;
+    return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+  };
+
+  const syncCosWeeklyRow = (row, source = 'start-hours') => {
+    if (!(row instanceof HTMLElement)) {
+      return;
+    }
+
+    const enabledInput = row.querySelector('input[name="weekly_schedule_enabled[]"]');
+    const startInput = row.querySelector('[data-cos-start]');
+    const hoursInput = row.querySelector('[data-cos-hours]');
+    const endInput = row.querySelector('[data-cos-end]');
+    if (!(enabledInput instanceof HTMLInputElement) || !(startInput instanceof HTMLInputElement) || !(hoursInput instanceof HTMLInputElement) || !(endInput instanceof HTMLInputElement)) {
+      return;
+    }
+
+    const isEnabled = enabledInput.checked;
+    startInput.disabled = !isEnabled;
+    hoursInput.disabled = !isEnabled;
+    endInput.disabled = !isEnabled;
+
+    if (!isEnabled) {
+      startInput.value = '';
+      hoursInput.value = '';
+      endInput.value = '';
+      return;
+    }
+
+    const startMinutes = parseTimeToMinutes(startInput.value);
+    const endMinutes = parseTimeToMinutes(endInput.value);
+    const rawHours = String(hoursInput.value || '').trim();
+    const parsedHours = rawHours === '' ? null : Number.parseFloat(rawHours);
+    const hasValidHours = parsedHours !== null && Number.isFinite(parsedHours) && parsedHours > 0;
+
+    if (source === 'end' && startMinutes !== null && endMinutes !== null && endMinutes > startMinutes) {
+      const computedHours = (endMinutes - startMinutes) / 60;
+      hoursInput.value = computedHours % 1 === 0 ? String(computedHours.toFixed(0)) : computedHours.toFixed(2);
+      return;
+    }
+
+    if (source === 'hours' && startMinutes !== null && hasValidHours) {
+      const computedEnd = startMinutes + Math.round(parsedHours * 60);
+      endInput.value = computedEnd <= (22 * 60) ? formatMinutesToTime(computedEnd) : '';
+      return;
+    }
+
+    if (source === 'start-hours' && startMinutes !== null && hasValidHours) {
+      const computedEnd = startMinutes + Math.round(parsedHours * 60);
+      endInput.value = computedEnd <= (22 * 60) ? formatMinutesToTime(computedEnd) : '';
+      return;
+    }
+
+    if (source === 'start' && startMinutes !== null && hasValidHours) {
+      const computedEnd = startMinutes + Math.round(parsedHours * 60);
+      endInput.value = computedEnd <= (22 * 60) ? formatMinutesToTime(computedEnd) : '';
+      return;
+    }
+
+    if (source === 'start' && startMinutes !== null && endMinutes !== null && endMinutes > startMinutes) {
+      const computedHours = (endMinutes - startMinutes) / 60;
+      hoursInput.value = computedHours % 1 === 0 ? String(computedHours.toFixed(0)) : computedHours.toFixed(2);
+    }
+  };
+
+  const initCosWeeklyScheduleAutomation = () => {
+    if (!cosWeeklyField) {
+      return;
+    }
+
+    cosWeeklyRows.forEach((row) => {
+      const enabledInput = row.querySelector('input[name="weekly_schedule_enabled[]"]');
+      const startInput = row.querySelector('[data-cos-start]');
+      const hoursInput = row.querySelector('[data-cos-hours]');
+      const endInput = row.querySelector('[data-cos-end]');
+
+      enabledInput?.addEventListener('change', () => syncCosWeeklyRow(row));
+      startInput?.addEventListener('input', () => syncCosWeeklyRow(row, 'start'));
+      hoursInput?.addEventListener('input', () => syncCosWeeklyRow(row, 'hours'));
+      endInput?.addEventListener('input', () => syncCosWeeklyRow(row, 'end'));
+
+      syncCosWeeklyRow(row);
+    });
+  };
+
+  initCosWeeklyScheduleAutomation();
 
   const configByType = {
     official_business: {
@@ -449,6 +561,7 @@ const wireSpecialRequestModalData = () => {
     destinationField?.classList.toggle('hidden', !config.showDestination);
     referenceField?.classList.toggle('hidden', !config.showReference);
     attachmentField?.classList.toggle('hidden', !config.showAttachment);
+    hoursField?.classList.toggle('hidden', !!config.useWeeklySchedule);
     timeGrid?.classList.toggle('hidden', !!config.useWeeklySchedule);
     cosWeeklyField?.classList.toggle('hidden', !config.useWeeklySchedule);
 
@@ -495,6 +608,9 @@ const wireSpecialRequestModalData = () => {
       hoursRequestedInput.required = !config.useWeeklySchedule;
       if (config.useWeeklySchedule) {
         hoursRequestedInput.value = '';
+        hoursRequestedInput.removeAttribute('max');
+      } else {
+        hoursRequestedInput.max = '24';
       }
     }
 
@@ -521,6 +637,10 @@ const wireSpecialRequestModalData = () => {
         input.removeAttribute('max');
       }
     });
+
+    if (config.useWeeklySchedule) {
+      cosWeeklyRows.forEach((row) => syncCosWeeklyRow(row));
+    }
   };
 };
 
