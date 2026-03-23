@@ -1,5 +1,35 @@
 <?php
 
+require_once dirname(__DIR__, 3) . '/shared/lib/export-branding.php';
+
+if (!function_exists('reportResponseHasMissingAttendanceDateColumn')) {
+    function reportResponseHasMissingAttendanceDateColumn(array $response): bool
+    {
+        $raw = strtolower((string)($response['raw'] ?? ''));
+        return (int)($response['status'] ?? 0) === 400
+            && str_contains($raw, 'attendance_date')
+            && str_contains($raw, 'does not exist');
+    }
+}
+
+if (!function_exists('reportNormalizeAttendanceRows')) {
+    function reportNormalizeAttendanceRows(array $rows, string $dateKey): array
+    {
+        $normalized = [];
+        foreach ($rows as $row) {
+            $item = (array)$row;
+            if ($dateKey !== 'attendance_date') {
+                $dateValue = trim((string)($item[$dateKey] ?? ''));
+                $timestamp = strtotime($dateValue);
+                $item['attendance_date'] = $timestamp === false ? ($dateValue !== '' ? $dateValue : '-') : gmdate('Y-m-d', $timestamp);
+            }
+            $normalized[] = $item;
+        }
+
+        return $normalized;
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     return;
 }
@@ -253,6 +283,16 @@ if (!function_exists('reportBuildDataset')) {
                 $headers
             );
 
+            if (reportResponseHasMissingAttendanceDateColumn($response)) {
+                $response = reportAnalyticsFetchAll(
+                    $supabaseUrl . '/rest/v1/attendance_logs?select=person_id,created_at,attendance_status,late_minutes,hours_worked,source,person:people(first_name,surname)&created_at=gte.' . $startDateTime . '&created_at=lte.' . $endDateTime . '&order=created_at.desc',
+                    $headers
+                );
+                if (isSuccessful($response)) {
+                    $response['data'] = reportNormalizeAttendanceRows((array)($response['data'] ?? []), 'created_at');
+                }
+            }
+
             if (!isSuccessful($response)) {
                 throw new RuntimeException('Failed to fetch attendance data.');
             }
@@ -332,7 +372,12 @@ if (!function_exists('reportBuildDataset')) {
             }
 
             $columns = ['Employee', 'Gross Pay', 'Net Pay', 'Payroll Period'];
-            $rows = [];
+            $payrollEntries = [];
+            $normalizedCoverage = strtolower(trim($coverage));
+            $effectiveStartDate = $startDate;
+            $effectiveEndDate = $endDate;
+            $latestWindowDate = '';
+            $latestPeriodStart = '';
             foreach ((array)$response['data'] as $item) {
                 $personId = (string)($item['person_id'] ?? '');
                 if (!reportDepartmentMatches($department, $personDepartmentById[$personId] ?? null)) {
@@ -346,7 +391,7 @@ if (!function_exists('reportBuildDataset')) {
                 $periodEnd = (string)($period['period_end'] ?? '');
 
                 $windowDate = $periodEnd !== '' ? $periodEnd : substr((string)($item['created_at'] ?? ''), 0, 10);
-                if ($windowDate === '' || $windowDate < $startDate || $windowDate > $endDate) {
+                if ($windowDate === '') {
                     continue;
                 }
 
@@ -355,7 +400,13 @@ if (!function_exists('reportBuildDataset')) {
                     ? ($periodStart . ' to ' . $periodEnd)
                     : (string)($period['period_code'] ?? '-');
 
-                $rows[] = [
+                if ($latestWindowDate === '' || $windowDate > $latestWindowDate) {
+                    $latestWindowDate = $windowDate;
+                    $latestPeriodStart = $periodStart;
+                }
+
+                $payrollEntries[] = [
+                    'window_date' => $windowDate,
                     $employeeName !== '' ? $employeeName : 'Unknown Employee',
                     (string)($item['gross_pay'] ?? '0'),
                     (string)($item['net_pay'] ?? '0'),
@@ -363,7 +414,34 @@ if (!function_exists('reportBuildDataset')) {
                 ];
             }
 
-            return [$columns, $rows];
+            $rows = array_values(array_map(
+                static fn(array $entry): array => array_slice($entry, 1),
+                array_values(array_filter(
+                    $payrollEntries,
+                    static fn(array $entry): bool => ($entry['window_date'] ?? '') >= $effectiveStartDate && ($entry['window_date'] ?? '') <= $effectiveEndDate
+                ))
+            ));
+
+            if ($rows === [] && $normalizedCoverage !== 'custom_range' && $latestWindowDate !== '') {
+                if ($normalizedCoverage === 'current_cutoff' && $latestPeriodStart !== '') {
+                    $effectiveStartDate = $latestPeriodStart;
+                    $effectiveEndDate = $latestWindowDate;
+                } else {
+                    $windowDays = $normalizedCoverage === 'quarterly' ? 90 : 30;
+                    $effectiveEndDate = $latestWindowDate;
+                    $effectiveStartDate = gmdate('Y-m-d', strtotime($latestWindowDate . ' -' . max(0, $windowDays - 1) . ' days'));
+                }
+
+                $rows = array_values(array_map(
+                    static fn(array $entry): array => array_slice($entry, 1),
+                    array_values(array_filter(
+                        $payrollEntries,
+                        static fn(array $entry): bool => ($entry['window_date'] ?? '') >= $effectiveStartDate && ($entry['window_date'] ?? '') <= $effectiveEndDate
+                    ))
+                ));
+            }
+
+            return [$columns, $rows, ['start_date' => $effectiveStartDate, 'end_date' => $effectiveEndDate]];
         }
 
         if ($reportType === 'performance') {
@@ -726,22 +804,46 @@ if (!function_exists('reportBuildDataset')) {
 }
 
 if (!function_exists('reportWriteSpreadsheet')) {
-    function reportWriteSpreadsheet(string $fileFormat, array $columns, array $rows, string $filePath): void
+    function reportWriteSpreadsheet(string $fileFormat, string $title, array $columns, array $rows, string $filePath, string $projectRoot, array $exportMeta = []): void
     {
         $spreadsheetClass = 'PhpOffice\\PhpSpreadsheet\\Spreadsheet';
+        $coordinateClass = 'PhpOffice\\PhpSpreadsheet\\Cell\\Coordinate';
         $spreadsheet = new $spreadsheetClass();
         $sheet = $spreadsheet->getActiveSheet();
 
-        foreach ($columns as $index => $columnName) {
-            $sheet->setCellValueByColumnAndRow($index + 1, 1, $columnName);
+        $headerRow = 1;
+        if ($fileFormat === 'xlsx') {
+            $headerRow = exportBrandingApplySpreadsheetHeader($sheet, $projectRoot, count($columns), $title, [
+                'Coverage: ' . (string)($exportMeta['coverage'] ?? '-'),
+                'Division: ' . (string)($exportMeta['department_filter'] ?? 'all'),
+                'Date Range: ' . (string)($exportMeta['start_date'] ?? '-') . ' to ' . (string)($exportMeta['end_date'] ?? '-'),
+                'Rows: ' . (string)($exportMeta['row_count'] ?? count($rows)),
+            ]);
         }
 
-        $rowCursor = 2;
+        foreach ($columns as $index => $columnName) {
+            $sheet->setCellValue($coordinateClass::stringFromColumnIndex($index + 1) . $headerRow, $columnName);
+        }
+
+        $lastColumn = $coordinateClass::stringFromColumnIndex(max(1, count($columns)));
+        $sheet->getStyle('A' . $headerRow . ':' . $lastColumn . $headerRow)->getFont()->setBold(true);
+        $sheet->getStyle('A' . $headerRow . ':' . $lastColumn . $headerRow)->getFill()->setFillType('solid');
+        $sheet->getStyle('A' . $headerRow . ':' . $lastColumn . $headerRow)->getFill()->getStartColor()->setARGB('FFF8FAFC');
+
+        $rowCursor = $headerRow + 1;
         foreach ($rows as $row) {
             foreach ($row as $index => $value) {
-                $sheet->setCellValueByColumnAndRow($index + 1, $rowCursor, (string)$value);
+                $sheet->setCellValue($coordinateClass::stringFromColumnIndex($index + 1) . $rowCursor, (string)$value);
             }
             $rowCursor++;
+        }
+
+        if ($fileFormat === 'xlsx') {
+            for ($columnIndex = 1; $columnIndex <= max(1, count($columns)); $columnIndex++) {
+                $sheet->getColumnDimension($coordinateClass::stringFromColumnIndex($columnIndex))->setAutoSize(true);
+            }
+            $sheet->freezePane('A' . ($headerRow + 1));
+            $sheet->setAutoFilter('A' . $headerRow . ':' . $lastColumn . $headerRow);
         }
 
         if ($fileFormat === 'csv') {
@@ -757,9 +859,14 @@ if (!function_exists('reportWriteSpreadsheet')) {
 }
 
 if (!function_exists('reportWritePdf')) {
-    function reportWritePdf(string $title, array $columns, array $rows, string $filePath): void
+    function reportWritePdf(string $title, array $columns, array $rows, string $filePath, string $projectRoot, array $exportMeta = []): void
     {
-        $html = '<h2 style="font-family: Arial, sans-serif; margin-bottom: 10px;">' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</h2>';
+        $html = exportBrandingBuildPdfHeaderHtml($projectRoot, $title, [
+            'Coverage: ' . (string)($exportMeta['coverage'] ?? '-'),
+            'Division: ' . (string)($exportMeta['department_filter'] ?? 'all'),
+            'Date Range: ' . (string)($exportMeta['start_date'] ?? '-') . ' to ' . (string)($exportMeta['end_date'] ?? '-'),
+            'Rows: ' . (string)($exportMeta['row_count'] ?? count($rows)),
+        ]);
         $html .= '<table width="100%" cellspacing="0" cellpadding="6" border="1" style="border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px;">';
         $html .= '<thead><tr>';
         foreach ($columns as $columnName) {
@@ -887,7 +994,10 @@ if ($action === 'export_report') {
     $reportId = (string)($insertResponse['data'][0]['id'] ?? '');
 
     try {
-        [$columns, $rows] = reportBuildDataset($reportType, $coverage, $department, $dateRange, $supabaseUrl, $headers);
+        $dataset = reportBuildDataset($reportType, $coverage, $department, $dateRange, $supabaseUrl, $headers);
+        $columns = is_array($dataset[0] ?? null) ? $dataset[0] : [];
+        $rows = is_array($dataset[1] ?? null) ? $dataset[1] : [];
+        $resolvedDateRange = is_array($dataset[2] ?? null) ? $dataset[2] : $dateRange;
 
         $exportsDir = $projectRoot . '/storage/reports';
         if (!is_dir($exportsDir)) {
@@ -902,9 +1012,21 @@ if ($action === 'export_report') {
 
         $title = strtoupper($reportType) . ' REPORT';
         if ($fileFormat === 'pdf') {
-            reportWritePdf($title, $columns, $rows, $absolutePath);
+            reportWritePdf($title, $columns, $rows, $absolutePath, $projectRoot, [
+                'coverage' => $coverage,
+                'department_filter' => $department,
+                'start_date' => (string)($resolvedDateRange['start_date'] ?? ''),
+                'end_date' => (string)($resolvedDateRange['end_date'] ?? ''),
+                'row_count' => count($rows),
+            ]);
         } else {
-            reportWriteSpreadsheet($fileFormat, $columns, $rows, $absolutePath);
+            reportWriteSpreadsheet($fileFormat, $title, $columns, $rows, $absolutePath, $projectRoot, [
+                'coverage' => $coverage,
+                'department_filter' => $department,
+                'start_date' => (string)($resolvedDateRange['start_date'] ?? ''),
+                'end_date' => (string)($resolvedDateRange['end_date'] ?? ''),
+                'row_count' => count($rows),
+            ]);
         }
 
         reportPatchStatus($supabaseUrl, $headers, $reportId, 'ready', $storagePath);
@@ -925,8 +1047,8 @@ if ($action === 'export_report') {
                     'coverage' => $coverage,
                     'file_format' => $fileFormat,
                     'department_filter' => $department,
-                    'start_date' => (string)($dateRange['start_date'] ?? ''),
-                    'end_date' => (string)($dateRange['end_date'] ?? ''),
+                    'start_date' => (string)($resolvedDateRange['start_date'] ?? ''),
+                    'end_date' => (string)($resolvedDateRange['end_date'] ?? ''),
                     'storage_path' => $storagePath,
                     'row_count' => count($rows),
                 ],

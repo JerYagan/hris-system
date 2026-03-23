@@ -477,7 +477,7 @@ if (isSuccessful($leaveTypesResponse)) {
 $leaveRequestsResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/leave_requests?select=id,leave_type_id,date_from,date_to,days_count,reason,status,created_at,leave_type:leave_types(leave_name)'
+    . '/rest/v1/leave_requests?select=id,leave_type_id,date_from,date_to,days_count,reason,status,created_at'
     . '&person_id=eq.' . rawurlencode((string)$employeePersonId)
     . '&order=created_at.desc&limit=50',
     $headers
@@ -492,12 +492,11 @@ $leaveRequestIds = [];
 if (isSuccessful($leaveRequestsResponse)) {
     foreach ((array)($leaveRequestsResponse['data'] ?? []) as $requestRaw) {
         $request = (array)$requestRaw;
-        $leaveType = (array)($request['leave_type'] ?? []);
         $leaveStatus = strtolower((string)($request['status'] ?? 'pending'));
         $leaveTypeId = (string)($request['leave_type_id'] ?? '');
         $daysCount = (float)($request['days_count'] ?? 0);
-        $leaveName = (string)($leaveType['leave_name'] ?? ($leaveTypeMetaById[$leaveTypeId]['leave_name'] ?? 'Leave'));
-        $leaveCode = (string)($leaveType['leave_code'] ?? ($leaveTypeMetaById[$leaveTypeId]['leave_code'] ?? ''));
+        $leaveName = (string)($leaveTypeMetaById[$leaveTypeId]['leave_name'] ?? 'Leave');
+        $leaveCode = (string)($leaveTypeMetaById[$leaveTypeId]['leave_code'] ?? '');
 
         if ($leaveStatus === 'pending' && $leaveTypeId !== '' && $daysCount > 0) {
             $pendingDeductionByTypeId[$leaveTypeId] = ($pendingDeductionByTypeId[$leaveTypeId] ?? 0.0) + $daysCount;
@@ -595,16 +594,51 @@ if (!empty($leaveRequestIds)) {
 $timeAdjustmentResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/time_adjustment_requests?select=id,attendance_log_id,requested_time_in,requested_time_out,reason,status,created_at,attendance:attendance_logs(attendance_date,time_in,time_out)'
+    . '/rest/v1/time_adjustment_requests?select=id,attendance_log_id,requested_time_in,requested_time_out,reason,status,created_at'
     . '&person_id=eq.' . rawurlencode((string)$employeePersonId)
     . '&order=created_at.desc&limit=50',
     $headers
 );
 
+$attendanceByAdjustmentLogId = [];
+$adjustmentAttendanceLogIds = [];
 if (isSuccessful($timeAdjustmentResponse)) {
     foreach ((array)($timeAdjustmentResponse['data'] ?? []) as $adjustmentRaw) {
         $adjustment = (array)$adjustmentRaw;
-        $attendance = (array)($adjustment['attendance'] ?? []);
+        $attendanceLogId = (string)($adjustment['attendance_log_id'] ?? '');
+        if ($attendanceLogId !== '') {
+            $adjustmentAttendanceLogIds[$attendanceLogId] = true;
+        }
+    }
+}
+
+if (!empty($adjustmentAttendanceLogIds)) {
+    $attendanceAdjustmentResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/attendance_logs?select=id,attendance_date,time_in,time_out'
+        . '&id=in.' . rawurlencode('(' . implode(',', array_keys($adjustmentAttendanceLogIds)) . ')')
+        . '&limit=' . count($adjustmentAttendanceLogIds),
+        $headers
+    );
+
+    if (isSuccessful($attendanceAdjustmentResponse)) {
+        foreach ((array)($attendanceAdjustmentResponse['data'] ?? []) as $attendanceRaw) {
+            $attendance = (array)$attendanceRaw;
+            $attendanceId = (string)($attendance['id'] ?? '');
+            if ($attendanceId === '') {
+                continue;
+            }
+
+            $attendanceByAdjustmentLogId[$attendanceId] = $attendance;
+        }
+    }
+}
+
+if (isSuccessful($timeAdjustmentResponse)) {
+    foreach ((array)($timeAdjustmentResponse['data'] ?? []) as $adjustmentRaw) {
+        $adjustment = (array)$adjustmentRaw;
+        $attendance = (array)($attendanceByAdjustmentLogId[(string)($adjustment['attendance_log_id'] ?? '')] ?? []);
 
         $timeAdjustmentRows[] = [
             'id' => (string)($adjustment['id'] ?? ''),

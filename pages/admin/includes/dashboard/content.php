@@ -31,14 +31,14 @@ $renderSecondarySection = in_array($dashboardContentSection, ['full', 'secondary
             <p class="text-xs text-emerald-700 mt-1">Current active employment records</p>
         </article>
         <article class="bg-white border border-slate-200 rounded-xl p-4 min-h-[130px] flex flex-col justify-between">
-            <p class="text-xs uppercase text-slate-500 tracking-wide">On Leave</p>
-            <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$dashboardSummary['on_leave_today'] ?></p>
-            <p class="text-xs text-amber-700 mt-1">Employees tagged on leave today</p>
+            <p class="text-xs uppercase text-slate-500 tracking-wide">Total Applicants to Review</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$dashboardSummary['total_applicants_to_review'] ?></p>
+            <p class="text-xs text-amber-700 mt-1">Requires admin final screening action</p>
         </article>
         <article class="bg-white border border-slate-200 rounded-xl p-4 min-h-[130px] flex flex-col justify-between">
-            <p class="text-xs uppercase text-slate-500 tracking-wide">Pending Leave Requests</p>
-            <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$dashboardSummary['pending_leave_requests'] ?></p>
-            <p class="text-xs text-amber-700 mt-1">Awaiting admin action</p>
+            <p class="text-xs uppercase text-slate-500 tracking-wide">Pending Support Tickets</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= (int)$dashboardSummary['pending_support_tickets'] ?></p>
+            <p class="text-xs text-amber-700 mt-1">Open employee and applicant tickets awaiting resolution</p>
         </article>
     </section>
 

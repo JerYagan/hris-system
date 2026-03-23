@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/system-helpers.php';
+require_once __DIR__ . '/export-branding.php';
 
 if (!function_exists('payrollServiceFormatInFilterList')) {
     function payrollServiceFormatInFilterList(array $ids): string
@@ -967,10 +968,11 @@ if (!function_exists('payrollServiceGeneratePayslipDocument')) {
             return $htmlRows;
         };
 
-        $html = '<h2 style="font-family: Arial, sans-serif; margin-bottom: 8px;">Employee Payslip</h2>'
-            . '<p style="font-family: Arial, sans-serif; font-size: 12px; margin: 4px 0;"><strong>Payslip No:</strong> ' . htmlspecialchars($payslipNo, ENT_QUOTES, 'UTF-8') . '</p>'
-            . '<p style="font-family: Arial, sans-serif; font-size: 12px; margin: 4px 0;"><strong>Employee:</strong> ' . htmlspecialchars($employeeName, ENT_QUOTES, 'UTF-8') . '</p>'
-            . '<p style="font-family: Arial, sans-serif; font-size: 12px; margin: 4px 0;"><strong>Period:</strong> ' . htmlspecialchars($periodLabel, ENT_QUOTES, 'UTF-8') . '</p>'
+        $html = exportBrandingBuildPdfHeaderHtml($projectRoot, 'Employee Payslip', [
+                'Payslip No: ' . $payslipNo,
+                'Employee: ' . $employeeName,
+                'Period: ' . $periodLabel,
+            ])
             . '<h3 style="font-family: Arial, sans-serif; margin: 14px 0 8px 0;">Earnings Breakdown</h3>'
             . '<table width="100%" cellspacing="0" cellpadding="8" border="1" style="border-collapse: collapse; margin-top: 8px; font-family: Arial, sans-serif; font-size: 12px;">'
             . $renderRows($earningsLines)

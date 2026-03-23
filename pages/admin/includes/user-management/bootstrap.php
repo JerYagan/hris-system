@@ -50,7 +50,6 @@ if (!function_exists('userManagementAssignableRolePolicy')) {
             'admin',
             'staff',
             'employee',
-            'applicant',
         ];
     }
 }

@@ -178,7 +178,11 @@ $runStatusPill = static function (string $status): array {
                         </tr>
                     <?php else: ?>
                         <?php foreach ($batchRows as $batch): ?>
-                            <?php [$statusLabel, $statusClass] = $runStatusPill((string)($batch['status'] ?? 'draft')); ?>
+                            <?php
+                            [$statusLabel, $statusClass] = $runStatusPill((string)($batch['status'] ?? 'draft'));
+                            $normalizedStatusLabel = strtolower(trim($statusLabel));
+                            $isReviewLocked = in_array($normalizedStatusLabel, ['approved', 'released', 'cancelled'], true);
+                            ?>
                             <tr class="hover:bg-slate-100 transition-colors">
                                 <td class="px-4 py-3">
                                     <input type="checkbox" name="run_ids[]" value="<?= htmlspecialchars((string)($batch['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" form="payrollBulkDeleteBatchesForm" data-payroll-batch-select class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500">
@@ -219,7 +223,8 @@ $runStatusPill = static function (string $status): array {
                                             data-staff-recommendation="<?= htmlspecialchars((string)($batch['staff_recommendation'] ?? 'Not yet submitted by Staff'), ENT_QUOTES, 'UTF-8') ?>"
                                             data-staff-submitted="<?= htmlspecialchars(formatDateTimeForPhilippines((string)($batch['staff_submitted_at'] ?? ''), 'M d, Y h:i A'), ENT_QUOTES, 'UTF-8') ?>"
                                             data-admin-reviewed="<?= htmlspecialchars(formatDateTimeForPhilippines((string)($batch['admin_reviewed_at'] ?? ''), 'M d, Y h:i A'), ENT_QUOTES, 'UTF-8') ?>"
-                                            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm"
+                                            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border shadow-sm <?= $isReviewLocked ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50' ?>"
+                                            <?= $isReviewLocked ? 'disabled aria-disabled="true" title="Review is unavailable after the batch is finalized."' : '' ?>
                                         >
                                             <span class="material-symbols-outlined text-[15px]">rule</span>Review
                                         </button>

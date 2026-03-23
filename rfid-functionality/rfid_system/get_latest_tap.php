@@ -1,10 +1,22 @@
 <?php
 include "config.php";
+include "hris-registry.php";
+
+$mapResultCodeToTapType = static function (?string $resultCode): string {
+   $normalized = strtoupper(trim((string)$resultCode));
+   return match ($normalized) {
+      'TIME_IN_LOGGED' => 'LOGIN',
+      'TIME_OUT_LOGGED' => 'LOGOUT',
+      'DUPLICATE_IGNORED' => 'DUPLICATE',
+      'ATTENDANCE_ALREADY_COMPLETE' => 'COMPLETE',
+      default => $normalized,
+   };
+};
 
 /* -------------------------
    GET LAST TAP
 -------------------------*/
-$url = $supabase_url . "attendance_logs?select=uid,time_in,tap_type&order=id.desc&limit=1";
+$url = $supabase_url . "rfid_scan_events?select=card_uid,scanned_at,result_code&order=created_at.desc&limit=1";
 
 $ch = curl_init($url);
 curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
@@ -16,7 +28,7 @@ $data = json_decode($response, true);
 /* -------------------------
    EMPTY TABLE
 -------------------------*/
-if(empty($data) || !isset($data[0]['uid'])){
+if(empty($data) || !isset($data[0]['card_uid'])){
     echo json_encode([
         "uid" => "",
         "name" => "No Tap Yet",
@@ -33,26 +45,18 @@ if(empty($data) || !isset($data[0]['uid'])){
    GET LATEST TAP
 -------------------------*/
 $latest = $data[0];
-$uid = $latest['uid'] ?? "";
-$time = $latest['time_in'] ?? "";
-$tap_type = $latest['tap_type'] ?? "";
+$uid = strtoupper(trim((string)($latest['card_uid'] ?? "")));
+$time = $latest['scanned_at'] ?? "";
+$tap_type = $mapResultCodeToTapType($latest['result_code'] ?? "");
 
-/* -------------------------
-   GET EMPLOYEE INFO
--------------------------*/
-$url2 = $supabase_url . "employees?uid=eq." . $uid;
-
-$ch2 = curl_init($url2);
-curl_setopt($ch2, CURLOPT_HTTPHEADER, $headers);
-curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
-
-$response2 = curl_exec($ch2);
-$emp = json_decode($response2, true);
+$employeeRoster = legacyRfidRegistryBuildRoster($supabase_url, $headers, $api_key, $appBaseUrl);
+$employeesByUid = legacyRfidRegistryIndexByUid($employeeRoster);
+$employee = $employeesByUid[$uid] ?? [];
 
 /* -------------------------
    CARD NOT REGISTERED
 -------------------------*/
-if(empty($emp) || !isset($emp[0]['name'])){
+if($employee === []){
     echo json_encode([
         "uid" => $uid,
         "name" => "CARD NOT REGISTERED",
@@ -70,10 +74,10 @@ if(empty($emp) || !isset($emp[0]['name'])){
 -------------------------*/
 $result = [
     "uid" => $uid,
-    "name" => $emp[0]['name'],
-    "employee_id" => $emp[0]['employee_id'],
-    "birthday" => $emp[0]['birthday'],
-    "photo" => $emp[0]['photo'],
+   "name" => $employee['name'] ?? '',
+   "employee_id" => $employee['employee_id'] ?? '',
+   "birthday" => $employee['birthday'] ?? '',
+   "photo" => $employee['photo'] ?? '',
     "time" => $time,
     "tap_type" => $tap_type
 ];

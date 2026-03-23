@@ -9,12 +9,17 @@ require_once __DIR__ . '/includes/profile/data.php';
 
 $csrfToken = ensureCsrfToken();
 $profileSpouses = is_array($profileSpouses ?? null) ? $profileSpouses : [];
+$profileFather = is_array($profileFather ?? null) ? $profileFather : [];
+$profileMother = is_array($profileMother ?? null) ? $profileMother : [];
+$profileChildren = is_array($profileChildren ?? null) ? $profileChildren : [];
 $profileEducations = is_array($profileEducations ?? null) ? $profileEducations : [];
 $profileWorkExperiences = is_array($profileWorkExperiences ?? null) ? $profileWorkExperiences : [];
 $uploadedFiles = is_array($uploadedFiles ?? null) ? $uploadedFiles : [];
 $profileSupportsWorkExperience = (bool)($profileSupportsWorkExperience ?? true);
+$civilStatusOptions = is_array($civilStatusOptions ?? null) ? $civilStatusOptions : ['Single', 'Married', 'Widowed', 'Separated', 'Divorced', 'Annulled'];
 
 $editableSpouseRows = !empty($profileSpouses) ? array_values($profileSpouses) : [[]];
+$editableChildrenRows = !empty($profileChildren) ? array_values($profileChildren) : [[]];
 $editableEducationRows = !empty($profileEducations) ? array_values($profileEducations) : [[]];
 $editableWorkExperienceRows = !empty($profileWorkExperiences) ? array_values($profileWorkExperiences) : [[
     'position_title' => '',
@@ -367,24 +372,61 @@ ob_start();
 
 <section class="mb-6 rounded-xl border bg-white">
     <header class="border-b px-6 py-4">
-        <h2 class="text-lg font-semibold text-gray-800">Family Background (Spouse)</h2>
+        <h2 class="text-lg font-semibold text-gray-800">Family Background</h2>
     </header>
-    <div class="p-4 text-sm sm:p-6">
-        <?php if (empty($profileSpouses)): ?>
-            <p class="text-gray-600">No spouse records added yet.</p>
-        <?php else: ?>
-            <div class="space-y-3">
-                <?php foreach ($profileSpouses as $spouse): ?>
-                    <article class="rounded-lg border bg-gray-50 p-4">
-                        <p class="font-medium text-gray-800">
-                            <?= htmlspecialchars(trim((string)(($spouse['first_name'] ?? '') . ' ' . ($spouse['middle_name'] ?? '') . ' ' . ($spouse['surname'] ?? ''))), ENT_QUOTES, 'UTF-8') ?: 'Unnamed Spouse Entry' ?>
-                        </p>
-                        <p class="mt-1 text-gray-600">Occupation: <?= htmlspecialchars((string)($spouse['occupation'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                        <p class="text-gray-600">Employer: <?= htmlspecialchars((string)($spouse['employer_business_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                    </article>
-                <?php endforeach; ?>
+    <div class="space-y-6 p-4 text-sm sm:p-6">
+        <div>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-600">Spouse</h3>
+            <div class="mt-3">
+                <?php if (empty($profileSpouses)): ?>
+                    <p class="text-gray-600">No spouse records added yet.</p>
+                <?php else: ?>
+                    <div class="space-y-3">
+                        <?php foreach ($profileSpouses as $spouse): ?>
+                            <article class="rounded-lg border bg-gray-50 p-4">
+                                <p class="font-medium text-gray-800">
+                                    <?= htmlspecialchars(trim((string)(($spouse['first_name'] ?? '') . ' ' . ($spouse['middle_name'] ?? '') . ' ' . ($spouse['surname'] ?? ''))), ENT_QUOTES, 'UTF-8') ?: 'Unnamed Spouse Entry' ?>
+                                </p>
+                                <p class="mt-1 text-gray-600">Occupation: <?= htmlspecialchars((string)($spouse['occupation'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                                <p class="text-gray-600">Employer: <?= htmlspecialchars((string)($spouse['employer_business_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
             </div>
-        <?php endif; ?>
+        </div>
+
+        <div>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-600">Parents</h3>
+            <div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <article class="rounded-lg border bg-gray-50 p-4">
+                    <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Father</p>
+                    <p class="mt-2 font-medium text-gray-800"><?= htmlspecialchars(trim((string)(($profileFather['first_name'] ?? '') . ' ' . ($profileFather['middle_name'] ?? '') . ' ' . ($profileFather['surname'] ?? '') . ' ' . ($profileFather['extension_name'] ?? ''))), ENT_QUOTES, 'UTF-8') ?: 'No father record added yet.' ?></p>
+                </article>
+                <article class="rounded-lg border bg-gray-50 p-4">
+                    <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Mother</p>
+                    <p class="mt-2 font-medium text-gray-800"><?= htmlspecialchars(trim((string)(($profileMother['first_name'] ?? '') . ' ' . ($profileMother['middle_name'] ?? '') . ' ' . ($profileMother['surname'] ?? '') . ' ' . ($profileMother['extension_name'] ?? ''))), ENT_QUOTES, 'UTF-8') ?: 'No mother record added yet.' ?></p>
+                </article>
+            </div>
+        </div>
+
+        <div>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-600">Children</h3>
+            <div class="mt-3">
+                <?php if (empty($profileChildren)): ?>
+                    <p class="text-gray-600">No children records added yet.</p>
+                <?php else: ?>
+                    <div class="space-y-3">
+                        <?php foreach ($profileChildren as $child): ?>
+                            <article class="rounded-lg border bg-gray-50 p-4">
+                                <p class="font-medium text-gray-800"><?= htmlspecialchars((string)($child['full_name'] ?? 'Unnamed Child Entry'), ENT_QUOTES, 'UTF-8') ?></p>
+                                <p class="mt-1 text-gray-600">Birth Date: <?= htmlspecialchars(!empty($child['birth_date']) ? date('M j, Y', strtotime((string)$child['birth_date'])) : '-', ENT_QUOTES, 'UTF-8') ?></p>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
     </div>
 </section>
 
@@ -738,7 +780,12 @@ ob_start();
 
             <div>
                 <label class="text-gray-500">Civil Status</label>
-                <input type="text" name="civil_status" value="<?= htmlspecialchars((string)($profileData['civil_status'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                <select name="civil_status" class="mt-1 w-full rounded-md border px-3 py-2">
+                    <option value="">Select civil status</option>
+                    <?php foreach ($civilStatusOptions as $civilStatusOption): ?>
+                        <option value="<?= htmlspecialchars((string)$civilStatusOption, ENT_QUOTES, 'UTF-8') ?>" <?= (string)($profileData['civil_status'] ?? '') === (string)$civilStatusOption ? 'selected' : '' ?>><?= htmlspecialchars((string)$civilStatusOption, ENT_QUOTES, 'UTF-8') ?></option>
+                    <?php endforeach; ?>
+                </select>
             </div>
         </div>
     </section>
@@ -789,60 +836,141 @@ ob_start();
 
     <section class="rounded-xl border bg-white">
         <header class="border-b px-6 py-4">
-            <h2 class="text-lg font-semibold text-gray-800">Family Background (Spouse)</h2>
+            <h2 class="text-lg font-semibold text-gray-800">Family Background</h2>
         </header>
 
-        <div class="space-y-4 p-4 text-sm sm:p-6">
-            <div id="spouseRows" class="space-y-4">
-            <?php foreach ($editableSpouseRows as $spouseIndex => $spouseRow): ?>
-                <div class="rounded-lg border bg-gray-50 p-4 spouse-row">
-                    <div class="mb-3 flex items-center justify-between">
-                        <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Spouse Entry</p>
-                        <button type="button" class="spouse-remove rounded-md border px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 <?= $spouseIndex === 0 ? 'hidden' : '' ?>">Remove</button>
-                    </div>
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <div>
-                        <label class="text-gray-500">First Name</label>
-                        <input type="text" name="spouse_first_name[]" value="<?= htmlspecialchars((string)($spouseRow['first_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
-                    </div>
-                    <div>
-                        <label class="text-gray-500">Middle Name</label>
-                        <input type="text" name="spouse_middle_name[]" value="<?= htmlspecialchars((string)($spouseRow['middle_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
-                    </div>
-                    <div>
-                        <label class="text-gray-500">Surname</label>
-                        <input type="text" name="spouse_surname[]" value="<?= htmlspecialchars((string)($spouseRow['surname'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
-                    </div>
-                    <div>
-                        <label class="text-gray-500">Extension</label>
-                        <input type="text" name="spouse_extension_name[]" value="<?= htmlspecialchars((string)($spouseRow['extension_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
-                    </div>
-                    <div>
-                        <label class="text-gray-500">Occupation</label>
-                        <input type="text" name="spouse_occupation[]" value="<?= htmlspecialchars((string)($spouseRow['occupation'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
-                    </div>
-                    <div>
-                        <label class="text-gray-500">Employer</label>
-                        <input type="text" name="spouse_employer[]" value="<?= htmlspecialchars((string)($spouseRow['employer_business_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
-                    </div>
-                    <div>
-                        <label class="text-gray-500">Business Address</label>
-                        <input type="text" name="spouse_business_address[]" value="<?= htmlspecialchars((string)($spouseRow['business_address'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
-                    </div>
-                    <div>
-                        <label class="text-gray-500">Telephone No.</label>
-                        <input type="text" name="spouse_telephone_no[]" value="<?= htmlspecialchars((string)($spouseRow['telephone_no'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
-                    </div>
+        <div class="space-y-6 p-4 text-sm sm:p-6">
+            <div>
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-600">Spouse</h3>
+                    <button type="button" id="addSpouseRowBtn" class="inline-flex items-center gap-1 rounded-md border px-3 py-2 text-xs text-gray-700 hover:bg-gray-50">
+                        <span class="material-symbols-outlined text-sm">add</span>
+                        Add spouse entry
+                    </button>
                 </div>
+                <div id="spouseRows" class="mt-3 space-y-4">
+                <?php foreach ($editableSpouseRows as $spouseIndex => $spouseRow): ?>
+                    <div class="rounded-lg border bg-gray-50 p-4 spouse-row">
+                        <div class="mb-3 flex items-center justify-between">
+                            <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Spouse Entry</p>
+                            <button type="button" class="spouse-remove rounded-md border px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 <?= $spouseIndex === 0 ? 'hidden' : '' ?>">Remove</button>
+                        </div>
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <div>
+                            <label class="text-gray-500">First Name</label>
+                            <input type="text" name="spouse_first_name[]" value="<?= htmlspecialchars((string)($spouseRow['first_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="text-gray-500">Middle Name</label>
+                            <input type="text" name="spouse_middle_name[]" value="<?= htmlspecialchars((string)($spouseRow['middle_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="text-gray-500">Surname</label>
+                            <input type="text" name="spouse_surname[]" value="<?= htmlspecialchars((string)($spouseRow['surname'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="text-gray-500">Extension</label>
+                            <input type="text" name="spouse_extension_name[]" value="<?= htmlspecialchars((string)($spouseRow['extension_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="text-gray-500">Occupation</label>
+                            <input type="text" name="spouse_occupation[]" value="<?= htmlspecialchars((string)($spouseRow['occupation'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="text-gray-500">Employer</label>
+                            <input type="text" name="spouse_employer[]" value="<?= htmlspecialchars((string)($spouseRow['employer_business_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="text-gray-500">Business Address</label>
+                            <input type="text" name="spouse_business_address[]" value="<?= htmlspecialchars((string)($spouseRow['business_address'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="text-gray-500">Telephone No.</label>
+                            <input type="text" name="spouse_telephone_no[]" value="<?= htmlspecialchars((string)($spouseRow['telephone_no'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                        </div>
+                    </div>
+                    </div>
+                <?php endforeach; ?>
                 </div>
-            <?php endforeach; ?>
             </div>
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p class="text-xs text-gray-500">You can keep one spouse entry or add more if needed.</p>
-                <button type="button" id="addSpouseRowBtn" class="inline-flex items-center gap-1 rounded-md border px-3 py-2 text-xs text-gray-700 hover:bg-gray-50">
-                    <span class="material-symbols-outlined text-sm">add</span>
-                    Add spouse entry
-                </button>
+
+            <div>
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-600">Children</h3>
+                    <button type="button" id="addChildRowBtn" class="inline-flex items-center gap-1 rounded-md border px-3 py-2 text-xs text-gray-700 hover:bg-gray-50">
+                        <span class="material-symbols-outlined text-sm">add</span>
+                        Add child entry
+                    </button>
+                </div>
+                <div id="childrenRows" class="mt-3 space-y-4">
+                <?php foreach ($editableChildrenRows as $childIndex => $childRow): ?>
+                    <div class="rounded-lg border bg-gray-50 p-4 child-row">
+                        <div class="mb-3 flex items-center justify-between">
+                            <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Child Entry</p>
+                            <button type="button" class="child-remove rounded-md border px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 <?= $childIndex === 0 ? 'hidden' : '' ?>">Remove</button>
+                        </div>
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div>
+                                <label class="text-gray-500">Full Name</label>
+                                <input type="text" name="children_full_name[]" value="<?= htmlspecialchars((string)($childRow['full_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="text-gray-500">Birth Date</label>
+                                <input type="date" name="children_birth_date[]" value="<?= htmlspecialchars((string)($childRow['birth_date'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-600">Parents</h3>
+                <div class="mt-3 grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div class="rounded-lg border bg-gray-50 p-4">
+                        <h4 class="text-sm font-semibold text-gray-800">Father</h4>
+                        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div>
+                                <label class="text-gray-500">First Name</label>
+                                <input type="text" name="father_first_name" value="<?= htmlspecialchars((string)($profileFather['first_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="text-gray-500">Middle Name</label>
+                                <input type="text" name="father_middle_name" value="<?= htmlspecialchars((string)($profileFather['middle_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="text-gray-500">Surname</label>
+                                <input type="text" name="father_surname" value="<?= htmlspecialchars((string)($profileFather['surname'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="text-gray-500">Extension</label>
+                                <input type="text" name="father_name_extension" value="<?= htmlspecialchars((string)($profileFather['extension_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="rounded-lg border bg-gray-50 p-4">
+                        <h4 class="text-sm font-semibold text-gray-800">Mother</h4>
+                        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div>
+                                <label class="text-gray-500">First Name</label>
+                                <input type="text" name="mother_first_name" value="<?= htmlspecialchars((string)($profileMother['first_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="text-gray-500">Middle Name</label>
+                                <input type="text" name="mother_middle_name" value="<?= htmlspecialchars((string)($profileMother['middle_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="text-gray-500">Surname</label>
+                                <input type="text" name="mother_surname" value="<?= htmlspecialchars((string)($profileMother['surname'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="text-gray-500">Extension</label>
+                                <input type="text" name="mother_name_extension" value="<?= htmlspecialchars((string)($profileMother['extension_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="mt-1 w-full rounded-md border px-3 py-2">
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
@@ -987,28 +1115,100 @@ ob_start();
         const deferredSectionsNotice = document.getElementById('applicantDeferredSectionsNotice');
         const applicantProfileSaveButton = document.getElementById('applicantProfileSaveButton');
 
-        window.initializeApplicantProfileFlatpickr = function (scope) {
-            if (!window.flatpickr) {
-                return;
+        const ensureAirDatepicker = function () {
+            if (window.AirDatepicker) {
+                return Promise.resolve(window.AirDatepicker);
             }
 
+            const waitForAirDatepicker = function () {
+                return new Promise(function (resolve) {
+                    let attempts = 0;
+                    const maxAttempts = 160;
+                    const timer = window.setInterval(function () {
+                        attempts += 1;
+                        if (window.AirDatepicker || attempts >= maxAttempts) {
+                            window.clearInterval(timer);
+                            resolve(window.AirDatepicker || null);
+                        }
+                    }, 25);
+                });
+            };
+
+            if (!document.querySelector('link[data-air-datepicker="true"]')) {
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = 'https://cdn.jsdelivr.net/npm/air-datepicker@3.6.0/air-datepicker.css';
+                link.dataset.airDatepicker = 'true';
+                document.head.appendChild(link);
+            }
+
+            const existingScript = document.querySelector('script[data-air-datepicker="true"]');
+            if (existingScript) {
+                return waitForAirDatepicker();
+            }
+
+            return new Promise(function (resolve) {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/air-datepicker@3.6.0/air-datepicker.js';
+                script.defer = true;
+                script.dataset.airDatepicker = 'true';
+                script.onload = function () {
+                    resolve(window.AirDatepicker || null);
+                };
+                script.onerror = function () {
+                    resolve(null);
+                };
+                document.head.appendChild(script);
+            });
+        };
+
+        window.initializeApplicantProfileFlatpickr = function (scope) {
             const root = scope instanceof Element || scope instanceof Document ? scope : document;
 
-            root.querySelectorAll('.js-profile-work-date:not([data-flatpickr-initialized="true"])').forEach(function (input) {
-                window.flatpickr(input, {
-                    dateFormat: 'Y-m-d',
-                    allowInput: true,
+            if (window.flatpickr) {
+                root.querySelectorAll('.js-profile-work-date:not([data-flatpickr-initialized="true"])').forEach(function (input) {
+                    window.flatpickr(input, {
+                        dateFormat: 'Y-m-d',
+                        allowInput: true,
+                    });
+                    input.setAttribute('data-flatpickr-initialized', 'true');
                 });
-                input.setAttribute('data-flatpickr-initialized', 'true');
-            });
+            }
 
-            root.querySelectorAll('.js-profile-year-picker:not([data-flatpickr-initialized="true"])').forEach(function (input) {
-                window.flatpickr(input, {
-                    dateFormat: 'Y',
-                    allowInput: true,
-                    defaultDate: input.value || null,
+            ensureAirDatepicker().then(function (AirDatepicker) {
+                if (!AirDatepicker) {
+                    return;
+                }
+
+                root.querySelectorAll('.js-profile-year-picker:not([data-air-datepicker-initialized="true"])').forEach(function (input) {
+                    const initialYear = (input.value || '').trim();
+                    let selectedDates = [];
+                    if (/^\d{4}$/.test(initialYear)) {
+                        selectedDates = [new Date(Number(initialYear), 0, 1)];
+                    }
+
+                    const picker = new AirDatepicker(input, {
+                        view: 'years',
+                        minView: 'years',
+                        dateFormat: 'yyyy',
+                        autoClose: true,
+                        selectedDates: selectedDates,
+                        position: 'bottom left',
+                    });
+
+                    input.addEventListener('blur', function () {
+                        const normalizedValue = (input.value || '').trim();
+                        if (!/^\d{4}$/.test(normalizedValue)) {
+                            input.value = '';
+                            picker.clear();
+                            return;
+                        }
+
+                        picker.selectDate(new Date(Number(normalizedValue), 0, 1));
+                    });
+
+                    input.setAttribute('data-air-datepicker-initialized', 'true');
                 });
-                input.setAttribute('data-flatpickr-initialized', 'true');
             });
         };
 
@@ -1226,6 +1426,8 @@ ob_start();
     (function () {
         const spouseRows = document.getElementById('spouseRows');
         const addSpouseRowBtn = document.getElementById('addSpouseRowBtn');
+        const childrenRows = document.getElementById('childrenRows');
+        const addChildRowBtn = document.getElementById('addChildRowBtn');
 
         function refreshRemoveButtons(container, selector) {
             if (!container) {
@@ -1237,6 +1439,8 @@ ob_start();
                 let removeSelector = '.education-remove';
                 if (selector === '.spouse-row') {
                     removeSelector = '.spouse-remove';
+                } else if (selector === '.child-row') {
+                    removeSelector = '.child-remove';
                 } else if (selector === '.work-row') {
                     removeSelector = '.work-remove';
                 }
@@ -1286,6 +1490,40 @@ ob_start();
             });
 
             refreshRemoveButtons(spouseRows, '.spouse-row');
+        }
+
+        if (childrenRows && addChildRowBtn) {
+            addChildRowBtn.addEventListener('click', function () {
+                const firstRow = childrenRows.querySelector('.child-row');
+                if (!firstRow) {
+                    return;
+                }
+
+                const clone = firstRow.cloneNode(true);
+                clone.querySelectorAll('input').forEach(function (input) {
+                    input.value = '';
+                });
+
+                childrenRows.appendChild(clone);
+                refreshRemoveButtons(childrenRows, '.child-row');
+            });
+
+            childrenRows.addEventListener('click', function (event) {
+                const removeBtn = event.target.closest('.child-remove');
+                if (!removeBtn) {
+                    return;
+                }
+
+                const rows = childrenRows.querySelectorAll('.child-row');
+                if (rows.length <= 1) {
+                    return;
+                }
+
+                removeBtn.closest('.child-row')?.remove();
+                refreshRemoveButtons(childrenRows, '.child-row');
+            });
+
+            refreshRemoveButtons(childrenRows, '.child-row');
         }
 
         window.initializeApplicantProfileDeferredSections = function (scope) {
@@ -1375,6 +1613,7 @@ ob_start();
                     clone.querySelectorAll('input').forEach(function (input) {
                         input.value = '';
                         input.removeAttribute('data-flatpickr-initialized');
+                        input.removeAttribute('data-air-datepicker-initialized');
                     });
                     clone.querySelectorAll('select').forEach(function (select) {
                         select.selectedIndex = 0;

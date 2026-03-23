@@ -85,16 +85,16 @@ ob_start();
 
     <section class="bg-white border border-slate-200 rounded-2xl mb-6">
         <header class="px-6 py-4 border-b border-slate-200">
-            <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div>
                     <h2 class="text-lg font-semibold text-slate-800">Detailed Report Requests</h2>
                     <p class="text-sm text-slate-500 mt-1">Timekeeping, payroll, recruitment, and workforce datasets stay out of first paint until you explicitly open them.</p>
                 </div>
-                <nav id="staffReportsDatasetTabs" class="flex flex-wrap gap-2" aria-label="Staff report datasets">
-                    <button type="button" class="staff-report-dataset-tab inline-flex items-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-staff-report-tab="workforce" data-staff-report-url="reports.php?partial=report-workforce">Workforce Directory</button>
-                    <button type="button" class="staff-report-dataset-tab inline-flex items-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-staff-report-tab="timekeeping" data-staff-report-url="reports.php?partial=report-timekeeping">Timekeeping Trends</button>
-                    <button type="button" class="staff-report-dataset-tab inline-flex items-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-staff-report-tab="payroll" data-staff-report-url="reports.php?partial=report-payroll">Payroll Summaries</button>
-                    <button type="button" class="staff-report-dataset-tab inline-flex items-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-staff-report-tab="recruitment" data-staff-report-url="reports.php?partial=report-recruitment">Recruitment Metrics</button>
+                <nav id="staffReportsDatasetTabs" class="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:w-auto xl:min-w-[32rem] xl:grid-cols-2" aria-label="Staff report datasets">
+                    <button type="button" class="staff-report-dataset-tab inline-flex w-full items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2.5 text-center text-sm font-medium text-slate-700 hover:bg-slate-50" data-staff-report-tab="workforce" data-staff-report-url="reports.php?partial=report-workforce">Workforce Directory</button>
+                    <button type="button" class="staff-report-dataset-tab inline-flex w-full items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2.5 text-center text-sm font-medium text-slate-700 hover:bg-slate-50" data-staff-report-tab="timekeeping" data-staff-report-url="reports.php?partial=report-timekeeping">Timekeeping Trends</button>
+                    <button type="button" class="staff-report-dataset-tab inline-flex w-full items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2.5 text-center text-sm font-medium text-slate-700 hover:bg-slate-50" data-staff-report-tab="payroll" data-staff-report-url="reports.php?partial=report-payroll">Payroll Summaries</button>
+                    <button type="button" class="staff-report-dataset-tab inline-flex w-full items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2.5 text-center text-sm font-medium text-slate-700 hover:bg-slate-50" data-staff-report-tab="recruitment" data-staff-report-url="reports.php?partial=report-recruitment">Recruitment Metrics</button>
                 </nav>
             </div>
         </header>

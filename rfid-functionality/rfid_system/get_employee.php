@@ -1,26 +1,31 @@
 <?php
+include "config.php";
+include "hris-registry.php";
 
-$url = $supabase_url . "employees?uid=eq.$uid";
+header('Content-Type: application/json; charset=UTF-8');
 
-$ch = curl_init($url);
+$uid = strtoupper(trim((string)($_GET['uid'] ?? $_POST['uid'] ?? '')));
+$time = trim((string)($_GET['time'] ?? $_POST['time'] ?? ''));
 
-curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+if ($uid === '') {
+	echo json_encode([
+		'name' => '',
+		'employee_id' => '',
+		'birthday' => '',
+		'photo' => 'https://via.placeholder.com/150',
+		'time_in' => $time,
+	]);
+	exit;
+}
 
-$response = curl_exec($ch);
+$employees = legacyRfidRegistryBuildRoster($supabase_url, $headers, $api_key, $appBaseUrl);
+$emp = legacyRfidRegistryIndexByUid($employees)[$uid] ?? [];
 
-$emp = json_decode($response,true);
-
-$result = [
-
-"name"=>$emp[0]['name'],
-"employee_id"=>$emp[0]['employee_id'],
-"birthday"=>$emp[0]['birthday'],
-"photo"=>$emp[0]['photo'],
-"time_in"=>$time
-
-];
-
-echo json_encode($result);
-
+echo json_encode([
+	'name' => (string)($emp['name'] ?? ''),
+	'employee_id' => (string)($emp['employee_id'] ?? ''),
+	'birthday' => (string)($emp['birthday'] ?? ''),
+	'photo' => (string)($emp['photo'] ?? 'https://via.placeholder.com/150'),
+	'time_in' => $time,
+], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 ?>

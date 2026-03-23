@@ -1,16 +1,28 @@
 <?php
 include "config.php";
+include "hris-registry.php";
 date_default_timezone_set('Asia/Manila'); // Local timezone
 
 $date = $_GET['date'] ?? "";
 $uidFilter = $_GET['uid'] ?? "";
 
-// Build Supabase query
+$mapResultCodeToTapType = static function (?string $resultCode): string {
+    $normalized = strtoupper(trim((string)$resultCode));
+    return match ($normalized) {
+        'TIME_IN_LOGGED' => 'LOGIN',
+        'TIME_OUT_LOGGED' => 'LOGOUT',
+        'DUPLICATE_IGNORED' => 'DUPLICATE',
+        'ATTENDANCE_ALREADY_COMPLETE' => 'COMPLETE',
+        default => $normalized,
+    };
+};
+
+// Build Supabase query from the HRIS RFID event log.
 $query = "select=*";
-if($date != "") $query .= "&time_in=gte.$date";
-if($uidFilter != "") $query .= "&uid=eq.$uidFilter";
-$query .= "&order=time_in.asc";
-$url = $supabase_url . "attendance_logs?$query";
+if($date != "") $query .= "&scanned_at=gte.$date";
+if($uidFilter != "") $query .= "&card_uid=ilike." . rawurlencode(strtoupper(trim((string)$uidFilter)));
+$query .= "&order=scanned_at.asc";
+$url = $supabase_url . "rfid_scan_events?$query";
 
 // Fetch logs
 $ch = curl_init($url);
@@ -20,24 +32,18 @@ $response = curl_exec($ch);
 $logs = json_decode($response,true);
 if(!is_array($logs)) $logs = [];
 
-// Fetch all employees
-$empUrl = $supabase_url . "employees?select=*";
-$empCh = curl_init($empUrl);
-curl_setopt($empCh, CURLOPT_HTTPHEADER, $headers);
-curl_setopt($empCh, CURLOPT_RETURNTRANSFER, true);
-$empResp = curl_exec($empCh);
-$employees = json_decode($empResp,true);
-
-$empMap = [];
-foreach($employees as $e) $empMap[$e['uid']] = $e;
+$employeeRoster = legacyRfidRegistryBuildRoster($supabase_url, $headers, $api_key, $appBaseUrl);
+$empMap = legacyRfidRegistryIndexByUid($employeeRoster);
 
 // Match employees to logs & convert UTC to local time
 foreach($logs as $i=>$log){
-    $uid = $log['uid'] ?? "";
+    $uid = strtoupper(trim((string)($log['card_uid'] ?? "")));
+    $logs[$i]['uid'] = $uid;
     $logs[$i]['employee'] = $empMap[$uid] ?? [];
+    $logs[$i]['tap_type'] = $mapResultCodeToTapType($log['result_code'] ?? "");
 
-    if(isset($logs[$i]['time_in'])){
-        $dt = new DateTime($logs[$i]['time_in'], new DateTimeZone('UTC'));
+    if(isset($logs[$i]['scanned_at'])){
+        $dt = new DateTime($logs[$i]['scanned_at'], new DateTimeZone('UTC'));
         $dt->setTimezone(new DateTimeZone(date_default_timezone_get()));
         $logs[$i]['time_in_local'] = $dt->format('Y-m-d H:i:s');
     } else $logs[$i]['time_in_local'] = "";
@@ -58,9 +64,8 @@ foreach($logs as $log){
             "employee_id"=>$emp_id,
             "photo"=>$emp['photo'] ?? '',
             "LOGIN"=>"",
-            "BREAK_START"=>"",
-            "BREAK_END"=>"",
-            "LOGOUT"=>""
+            "LOGOUT"=>"",
+            "DUPLICATE"=>""
         ];
     }
 
@@ -141,9 +146,8 @@ form input[type="text"], form input[type="date"]{ padding:8px; border-radius:5px
 <img src="<?php echo $row['photo'] ?: 'https://via.placeholder.com/60'; ?>">
 <p><strong><?php echo $name; ?></strong></p>
 <p>Login: <span class="badge login"><?php echo $row['LOGIN']; ?></span></p>
-<p>Break Start: <span class="badge break"><?php echo $row['BREAK_START']; ?></span></p>
-<p>Break End: <span class="badge break"><?php echo $row['BREAK_END']; ?></span></p>
 <p>Logout: <span class="badge logout"><?php echo $row['LOGOUT']; ?></span></p>
+<p>Duplicate: <span class="badge break"><?php echo $row['DUPLICATE']; ?></span></p>
 </div>
 <?php endforeach; ?>
 </div>

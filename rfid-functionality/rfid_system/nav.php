@@ -6,5 +6,6 @@
         <a href="attendance.php">Attendance</a>
         <a href="employees.php">Employees</a>
         <a href="register.php">Register</a>
+        <a href="simulator.php">Simulator</a>
     </div>
 </nav>

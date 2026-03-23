@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/timekeeping/bootstrap.php';
+require_once __DIR__ . '/../../shared/lib/export-branding.php';
 
 if (!(bool)($employeeContextResolved ?? false)) {
 	http_response_code(403);
@@ -142,14 +143,10 @@ $html = '<!doctype html>
 	<title>Attendance Report</title>
 	<style>
 		body{font-family:DejaVu Sans, Arial, sans-serif;color:#0f172a;font-size:12px;margin:24px;}
-		h1{font-size:20px;margin:0 0 8px;}
-		.meta{width:auto;border-collapse:collapse;margin:0 0 18px;}
-		.meta td{border:none;padding:2px 0;vertical-align:top;line-height:1.5;}
-		.meta-label{width:126px;font-weight:700;padding-right:10px;white-space:nowrap;}
-		.meta-value{padding-left:0;}
-		table{width:100%;border-collapse:collapse;margin-top:12px;}
-		th,td{border:1px solid #cbd5e1;padding:8px 10px;text-align:left;vertical-align:top;}
-		th{background:#e2e8f0;font-weight:700;}
+		.report-table{width:100%;border-collapse:separate;border-spacing:0;margin-top:14px;}
+		.report-table th,.report-table td{padding:8px 10px;text-align:left;vertical-align:top;}
+		.report-table thead th{background:#e2e8f0;font-weight:700;border-bottom:1px solid #cbd5e1;}
+		.report-table tbody td{border-bottom:1px solid #e2e8f0;}
 		.empty{text-align:center;color:#64748b;padding:18px 10px;}
 		.signature{margin-top:48px;width:100%;}
 		.signature td{border:none;padding:0 18px 0 0;vertical-align:bottom;}
@@ -159,27 +156,14 @@ $html = '<!doctype html>
 	</style>
 </head>
 <body>
-	<h1>' . $escape($reportTitle) . '</h1>
-	<table class="meta">
-		<tr>
-			<td class="meta-label">Employee Name:</td>
-			<td class="meta-value">' . $escape($employeeName) . '</td>
-		</tr>
-		<tr>
-			<td class="meta-label">Employee ID:</td>
-			<td class="meta-value">' . $escape($employeeCode) . '</td>
-		</tr>
-		<tr>
-			<td class="meta-label">Coverage:</td>
-			<td class="meta-value">' . $escape($reportCoverageLabel) . '</td>
-		</tr>
-		<tr>
-			<td class="meta-label">Generated On:</td>
-			<td class="meta-value">' . $escape(date('M j, Y g:i A')) . ' PST</td>
-		</tr>
-	</table>
+	' . exportBrandingBuildPdfHeaderHtml($projectRoot, $reportTitle, [
+		'Employee Name: ' . $employeeName,
+		'Employee ID: ' . $employeeCode,
+		'Coverage: ' . $reportCoverageLabel,
+		'Generated On: ' . date('M j, Y g:i A') . ' PST',
+	]) . '
 
-	<table>
+	<table class="report-table">
 		<thead>
 			<tr>
 				<th>Date</th>

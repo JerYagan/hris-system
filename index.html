@@ -6,6 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ATI HRIS Portal</title>
 
+    <style>
+        .careers-description {
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 6;
+            overflow: hidden;
+        }
+    </style>
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
@@ -367,7 +376,7 @@
                             <span class="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1">Plantilla ${plantilla}</span>
                             <span class="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1">Deadline ${deadline}</span>
                         </div>
-                        <p class="mt-4 flex-1 text-sm leading-relaxed text-gray-600">${description}</p>
+                        <p class="careers-description mt-4 text-sm leading-relaxed text-gray-600">${description}</p>
                         <div class="mt-6">
                             <a href="${escapeHtml(careersWorkflowHref)}" class="inline-flex items-center gap-2 rounded-lg border border-daGreen px-4 py-2.5 text-sm font-semibold text-daGreen hover:bg-green-50 transition">
                                 <span class="material-icons text-sm">arrow_forward</span>

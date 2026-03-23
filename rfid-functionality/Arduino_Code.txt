@@ -1,204 +1,143 @@
-#include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
-#include <MFRC522.h>
+#include <ESP8266HTTPClient.h>
 #include <SPI.h>
-#include <WiFiClientSecure.h>
-#include <time.h>
+#include <MFRC522.h>
+#include <WiFiClient.h>
+#include <ArduinoJson.h>
 
 #define SS_PIN D2
 #define RST_PIN D1
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);
-WiFiClientSecure client;
 
-// Replace these values per deployed scanner.
-const char* WIFI_SSID = "HUAWEI-2.4G-8Wcq";
-const char* WIFI_PASSWORD = "ytwFW8Jq";
-const char* HRIS_RFID_ENDPOINT = "https://da-ati.infinityfreeapp.com/hris-system/api/rfid/tap.php";
-const char* RFID_DEVICE_CODE = "SCANNER-ATI-HQ-01";
-const char* RFID_DEVICE_TOKEN = "ATI-HRIS-RFID-2026-DEVICE-01-9f3d2f6c";
+// Wi-Fi credentials
+const char* ssid = "HUAWEI-2.4G-8Wcq";
+const char* password = "ytwFW8Jq";
 
-const unsigned long LOCAL_DEBOUNCE_MS = 3000;
-String lastUid = "";
-unsigned long lastUidSentAt = 0;
+// Direct HRIS RFID API endpoint.
+// The ESP8266 must target the LAN IP of the PC running XAMPP, not localhost.
+// Update this value if the PC gets a different IP from the router.
+String apiUrl = "http://192.168.1.16/hris-system/api/rfid/tap.php";
 
-String buildCardUid() {
-  String uid = "";
-  for (byte i = 0; i < mfrc522.uid.size; i++) {
-    if (mfrc522.uid.uidByte[i] < 0x10) {
-      uid += "0";
-    }
-    uid += String(mfrc522.uid.uidByte[i], HEX);
-  }
-  uid.toUpperCase();
-  return uid;
-}
+// Registered device credentials used by the HRIS RFID API.
+const char* deviceCode = "SCANNER-ATI-HQ-01";
+const char* deviceToken = "ATI-HRIS-RFID-2026-DEVICE-01-9f3d2f6c";
 
-bool clockIsSynchronized() {
-  time_t now = time(nullptr);
-  return now > 1700000000;
-}
+WiFiClient client;
 
-String buildScannedAtIso8601() {
-  if (!clockIsSynchronized()) {
-    return "";
-  }
+String lastUID = "";
 
-  time_t now = time(nullptr);
-  struct tm* utcTime = gmtime(&now);
-  if (utcTime == nullptr) {
-    return "";
-  }
+// ------------------------
+// HELPER: SEND UID TO HRIS RFID API
+// ------------------------
+void postTap(String uid) {
+  if(uid == "") return;
 
-  char buffer[25];
-  strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%SZ", utcTime);
-  return String(buffer);
-}
-
-String jsonEscape(const String& value) {
-  String escaped = value;
-  escaped.replace("\\", "\\\\");
-  escaped.replace("\"", "\\\"");
-  return escaped;
-}
-
-String extractJsonValue(const String& json, const String& key) {
-  String token = "\"" + key + "\":\"";
-  int start = json.indexOf(token);
-  if (start < 0) {
-    return "";
-  }
-
-  start += token.length();
-  int end = json.indexOf('"', start);
-  if (end < 0) {
-    return "";
-  }
-
-  return json.substring(start, end);
-}
-
-void connectWifi() {
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  Serial.print("Connecting WiFi");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(300);
-    Serial.print('.');
-  }
-  Serial.println("\nWiFi connected");
-}
-
-void syncClock() {
-  configTime(0, 0, "pool.ntp.org", "time.nist.gov");
-  Serial.print("Waiting for clock sync");
-  unsigned long startedAt = millis();
-  while (!clockIsSynchronized() && millis() - startedAt < 10000) {
-    delay(250);
-    Serial.print('.');
-  }
-  Serial.println(clockIsSynchronized() ? "\nClock synchronized" : "\nClock sync unavailable, scanner will omit scanned_at");
-}
-
-bool postTapToHris(const String& cardUid) {
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi disconnected, reconnecting...");
-    connectWifi();
+    Serial.println("WiFi disconnected. Tap not sent.");
+    return;
   }
 
   HTTPClient http;
-  client.setInsecure();
-
-  String scannedAt = buildScannedAtIso8601();
-  String payload = "{";
-  payload += "\"device_code\":\"" + jsonEscape(String(RFID_DEVICE_CODE)) + "\",";
-  payload += "\"card_uid\":\"" + jsonEscape(cardUid) + "\"";
-  if (scannedAt.length() > 0) {
-    payload += ",\"scanned_at\":\"" + jsonEscape(scannedAt) + "\"";
-  }
-  payload += "}";
 
   int attempts = 0;
-  while (attempts < 3) {
-    if (!http.begin(client, HRIS_RFID_ENDPOINT)) {
-      Serial.println("Unable to open HRIS endpoint");
-      return false;
-    }
+  while(attempts < 3){
+    String payload;
+    StaticJsonDocument<192> json;
+    json["device_code"] = deviceCode;
+    json["card_uid"] = uid;
+    serializeJson(json, payload);
 
+    http.setTimeout(5000);
+    http.begin(client, apiUrl);
     http.addHeader("Content-Type", "application/json");
-    http.addHeader("X-RFID-DEVICE-TOKEN", RFID_DEVICE_TOKEN);
+    http.addHeader("Accept", "application/json");
+    http.addHeader("X-RFID-DEVICE-TOKEN", deviceToken);
 
-    int statusCode = http.POST(payload);
-    String responseBody = http.getString();
-    http.end();
-
-    if (statusCode > 0) {
-      String resultCode = extractJsonValue(responseBody, "result_code");
-      String action = extractJsonValue(responseBody, "action");
-      String message = extractJsonValue(responseBody, "message");
-
-      Serial.print("HTTP status: ");
-      Serial.println(statusCode);
-      Serial.print("Result code: ");
-      Serial.println(resultCode);
-      Serial.print("Action: ");
-      Serial.println(action);
-      Serial.print("Message: ");
-      Serial.println(message);
-
-      return statusCode >= 200 && statusCode < 300;
+    int code = http.POST(payload);
+    if(code > 0){
+      String response = http.getString();
+      Serial.print("API response (HTTP ");
+      Serial.print(code);
+      Serial.print("): ");
+      Serial.println(response);
+      http.end();
+      break;
+    } else {
+      Serial.print("Bridge request failed, retrying... ");
+      Serial.print(code);
+      Serial.print(" (");
+      Serial.print(HTTPClient::errorToString(code));
+      Serial.println(")");
+      http.end();
+      attempts++;
+      delay(200);
     }
-
-    attempts++;
-    Serial.print("Tap POST failed, retry #");
-    Serial.println(attempts);
-    delay(500);
   }
 
-  return false;
+  if (attempts >= 3) {
+    Serial.println("RFID API request failed after 3 attempts.");
+    Serial.print("Check that Apache is running and reachable at: ");
+    Serial.println(apiUrl);
+  }
 }
 
+// ------------------------
+// SETUP
+// ------------------------
 void setup() {
   Serial.begin(115200);
   SPI.begin();
   mfrc522.PCD_Init();
 
-  connectWifi();
-  syncClock();
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(250);
+    Serial.print(".");
+  }
+  Serial.println("\nWiFi Connected");
+  Serial.print("ESP IP Address: ");
+  Serial.println(WiFi.localIP());
+  Serial.print("RFID API URL: ");
+  Serial.println(apiUrl);
+  Serial.print("Device Code: ");
+  Serial.println(deviceCode);
 
-  Serial.println("Ready for RFID taps");
+  Serial.println("Scan RFID Card...");
 }
 
+// ------------------------
+// LOOP
+// ------------------------
 void loop() {
+  // Check if a new card is present
   if (!mfrc522.PICC_IsNewCardPresent()) {
+    lastUID = ""; // reset lastUID when no card present
     return;
   }
+  
+  if (!mfrc522.PICC_ReadCardSerial()) return;
 
-  if (!mfrc522.PICC_ReadCardSerial()) {
-    return;
+  // The RFID card/tag provides the UID. The Arduino only reads and forwards it.
+  String uid = "";
+  for (byte i = 0; i < mfrc522.uid.size; i++) {
+    uid += String(mfrc522.uid.uidByte[i], HEX);
   }
+  uid.toUpperCase();
 
-  String currentUid = buildCardUid();
-  unsigned long now = millis();
+  // Only process if new card or card removed before
+  if(uid == lastUID) return;
 
-  if (currentUid == lastUid && (now - lastUidSentAt) < LOCAL_DEBOUNCE_MS) {
-    Serial.println("Duplicate local tap ignored");
-    mfrc522.PICC_HaltA();
-    mfrc522.PCD_StopCrypto1();
-    delay(150);
-    return;
-  }
+  Serial.print("Card UID: "); Serial.println(uid);
 
-  Serial.print("Card UID: ");
-  Serial.println(currentUid);
+  // Send new tap directly to the HRIS RFID API.
+  postTap(uid);
 
-  bool accepted = postTapToHris(currentUid);
-  if (accepted) {
-    lastUid = currentUid;
-    lastUidSentAt = now;
-  }
+  lastUID = uid;
 
   mfrc522.PICC_HaltA();
   mfrc522.PCD_StopCrypto1();
-  delay(300);
+
+  delay(500); // short delay to allow card removal
 }

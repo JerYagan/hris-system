@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/../../../shared/lib/rfid-attendance.php';
+
 $dashboardDataStage = (string)($dashboardDataStage ?? 'full');
 $dashboardLoadSummary = in_array($dashboardDataStage, ['full', 'summary'], true);
 $dashboardLoadSecondary = in_array($dashboardDataStage, ['full', 'secondary'], true);
@@ -186,10 +188,7 @@ if ($dashboardLoadSummary) {
             ? apiRequestBatch($summaryBatchRequests, $headers)
             : [];
 
-        $attendanceResponse = (array)($summaryResponses['attendance'] ?? []);
-
-        if (isSuccessful($attendanceResponse) && !empty((array)($attendanceResponse['data'] ?? []))) {
-            $attendanceRow = (array)$attendanceResponse['data'][0];
+        $applyAttendanceSummary = static function (array $attendanceRow) use (&$dashboardSummary, $formatDate, $formatDateTime, $todayDate): void {
             $attendanceStatus = strtolower((string)($attendanceRow['attendance_status'] ?? 'present'));
             $timeInValue = cleanText($attendanceRow['time_in'] ?? null);
             $timeOutValue = cleanText($attendanceRow['time_out'] ?? null);
@@ -231,6 +230,66 @@ if ($dashboardLoadSummary) {
                 $dashboardSummary['attendance_detail'] = 'Attendance date: ' . $formatDate((string)($attendanceRow['attendance_date'] ?? $todayDate));
                 $dashboardSummary['attendance_badge'] = 'Recorded';
                 $dashboardSummary['attendance_badge_class'] = 'bg-gray-100 text-gray-700';
+            }
+        };
+
+        $attendanceResolved = false;
+        $attendanceResponse = (array)($summaryResponses['attendance'] ?? []);
+
+        if (isSuccessful($attendanceResponse) && !empty((array)($attendanceResponse['data'] ?? []))) {
+            $applyAttendanceSummary((array)$attendanceResponse['data'][0]);
+            $attendanceResolved = true;
+        }
+
+        if (!$attendanceResolved && isValidUuid((string)$employeePersonId)) {
+            $tomorrowDate = date('Y-m-d', strtotime($todayDate . ' +1 day'));
+            $latestScanResponse = apiRequest(
+                'GET',
+                $supabaseUrl
+                . '/rest/v1/rfid_scan_events?select=id,attendance_log_id,scanned_at,result_code,result_message'
+                . '&person_id=eq.' . rawurlencode((string)$employeePersonId)
+                . '&scanned_at=gte.' . rawurlencode($todayDate . 'T00:00:00')
+                . '&scanned_at=lt.' . rawurlencode($tomorrowDate . 'T00:00:00')
+                . '&order=scanned_at.desc&limit=1',
+                $headers
+            );
+
+            if (isSuccessful($latestScanResponse) && !empty((array)($latestScanResponse['data'] ?? []))) {
+                $latestScan = (array)$latestScanResponse['data'][0];
+                $linkedAttendanceId = cleanText($latestScan['attendance_log_id'] ?? null);
+
+                if (isValidUuid((string)$linkedAttendanceId)) {
+                    $linkedAttendanceResponse = apiRequest(
+                        'GET',
+                        $supabaseUrl
+                        . '/rest/v1/attendance_logs?select=id,attendance_date,time_in,time_out,attendance_status'
+                        . '&id=eq.' . rawurlencode((string)$linkedAttendanceId)
+                        . '&limit=1',
+                        $headers
+                    );
+
+                    if (isSuccessful($linkedAttendanceResponse) && !empty((array)($linkedAttendanceResponse['data'] ?? []))) {
+                        $applyAttendanceSummary((array)$linkedAttendanceResponse['data'][0]);
+                        $attendanceResolved = true;
+                    }
+                }
+
+                if (!$attendanceResolved) {
+                    $resultCode = strtolower((string)($latestScan['result_code'] ?? ''));
+                    $scannedAtValue = cleanText($latestScan['scanned_at'] ?? null);
+                    $scanTimestamp = $scannedAtValue !== null ? strtotime($scannedAtValue) : false;
+                    $isLateTap = $scanTimestamp !== false && date('H:i:s', $scanTimestamp) >= '09:01:00';
+
+                    if (in_array($resultCode, ['time_in_logged', 'time_out_logged', 'attendance_processed', 'duplicate_ignored'], true) && $scannedAtValue !== null) {
+                        $dashboardSummary['attendance_label'] = $isLateTap ? 'Late' : 'Present';
+                        $dashboardSummary['attendance_status_class'] = $isLateTap ? 'text-yellow-600' : 'text-green-600';
+                        $dashboardSummary['attendance_detail'] = ($resultCode === 'time_out_logged' ? 'Time out: ' : 'Latest RFID tap: ') . $formatDateTime($scannedAtValue);
+                        $dashboardSummary['attendance_badge'] = $resultCode === 'time_out_logged' ? 'Completed Shift' : 'RFID Tap Recorded';
+                        $dashboardSummary['attendance_badge_class'] = $resultCode === 'time_out_logged'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-green-100 text-green-800';
+                    }
+                }
             }
         }
 

@@ -8,6 +8,7 @@ $officialBusinessRequestRows = [];
 $adjustmentRequestRows = [];
 $rfidAssignedCardRows = [];
 $rfidRecentEventRows = [];
+$leaveTypeNameById = [];
 $timekeepingMetrics = [
     'attendance_logs' => 0,
     'pending_leave' => 0,
@@ -28,6 +29,11 @@ $appendDataError = static function (string $label, array $response) use (&$dataL
     $raw = trim((string)($response['raw'] ?? ''));
     if ($raw !== '') {
         $message .= ' ' . $raw;
+    } else {
+        $transportError = trim((string)($response['error'] ?? ''));
+        if ($transportError !== '') {
+            $message .= ' ' . $transportError;
+        }
     }
 
     $dataLoadError = $dataLoadError ? ($dataLoadError . ' ' . $message) : $message;
@@ -135,7 +141,7 @@ $attendanceLogs = isSuccessful($attendanceResponse) ? (array)($attendanceRespons
 $leaveResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/leave_requests?select=id,person_id,date_from,date_to,days_count,reason,status,created_at,leave_type:leave_types(leave_name)'
+    . '/rest/v1/leave_requests?select=id,person_id,leave_type_id,date_from,date_to,days_count,reason,status,created_at'
     . $personFilter
     . '&order=created_at.desc&limit=500',
     $headers
@@ -157,7 +163,7 @@ $overtimeRows = isSuccessful($overtimeResponse) ? (array)($overtimeResponse['dat
 $adjustmentResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/time_adjustment_requests?select=id,person_id,attendance_log_id,requested_time_in,requested_time_out,reason,status,created_at,attendance:attendance_logs(attendance_date,time_in,time_out)'
+    . '/rest/v1/time_adjustment_requests?select=id,person_id,attendance_log_id,requested_time_in,requested_time_out,reason,status,created_at'
     . $personFilter
     . '&order=created_at.desc&limit=500',
     $headers
@@ -165,16 +171,78 @@ $adjustmentResponse = apiRequest(
 $appendDataError('Time adjustment requests', $adjustmentResponse);
 $adjustmentRows = isSuccessful($adjustmentResponse) ? (array)($adjustmentResponse['data'] ?? []) : [];
 
+$leaveTypesResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/leave_types?select=id,leave_name&is_active=eq.true&limit=200',
+    $headers
+);
+$appendDataError('Leave types', $leaveTypesResponse);
+if (isSuccessful($leaveTypesResponse)) {
+    foreach ((array)($leaveTypesResponse['data'] ?? []) as $leaveTypeRaw) {
+        $leaveType = (array)$leaveTypeRaw;
+        $leaveTypeId = cleanText($leaveType['id'] ?? null) ?? '';
+        if ($leaveTypeId === '') {
+            continue;
+        }
+
+        $leaveTypeNameById[$leaveTypeId] = (string)($leaveType['leave_name'] ?? 'Unassigned');
+    }
+}
+
+$attendanceByAdjustmentLogId = [];
+$adjustmentAttendanceLogIds = [];
+foreach ($adjustmentRows as $adjustmentRaw) {
+    $adjustmentRow = (array)$adjustmentRaw;
+    $attendanceLogId = cleanText($adjustmentRow['attendance_log_id'] ?? null) ?? '';
+    if ($attendanceLogId !== '') {
+        $adjustmentAttendanceLogIds[$attendanceLogId] = true;
+    }
+}
+
+if (!empty($adjustmentAttendanceLogIds)) {
+    $attendanceAdjustmentResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/attendance_logs?select=id,attendance_date,time_in,time_out'
+        . '&id=in.' . rawurlencode('(' . implode(',', array_keys($adjustmentAttendanceLogIds)) . ')')
+        . '&limit=' . count($adjustmentAttendanceLogIds),
+        $headers
+    );
+    $appendDataError('Adjustment attendance', $attendanceAdjustmentResponse);
+
+    if (isSuccessful($attendanceAdjustmentResponse)) {
+        foreach ((array)($attendanceAdjustmentResponse['data'] ?? []) as $attendanceRaw) {
+            $attendanceRow = (array)$attendanceRaw;
+            $attendanceId = cleanText($attendanceRow['id'] ?? null) ?? '';
+            if ($attendanceId === '') {
+                continue;
+            }
+
+            $attendanceByAdjustmentLogId[$attendanceId] = $attendanceRow;
+        }
+    }
+}
+
 $rfidCardsResponse = apiRequest(
     'GET',
     $supabaseUrl
     . '/rest/v1/rfid_cards?select=id,person_id,card_uid,card_label,status,issued_at,deactivated_at'
-    . $personFilter
-    . '&order=issued_at.desc&limit=500',
+    . '&order=issued_at.desc&limit=5000',
     $headers
 );
 $appendDataError('RFID cards', $rfidCardsResponse);
 $rfidCardRows = isSuccessful($rfidCardsResponse) ? (array)($rfidCardsResponse['data'] ?? []) : [];
+
+$employeesDirectoryResponse = apiRequest(
+    'GET',
+    $supabaseUrl
+    . '/rest/v1/employees?select=id,uid,employee_id,name,person_id,created_at'
+    . '&limit=5000',
+    $headers
+);
+$appendDataError('Employees directory', $employeesDirectoryResponse);
+$employeesDirectoryRows = isSuccessful($employeesDirectoryResponse) ? (array)($employeesDirectoryResponse['data'] ?? []) : [];
 
 $rfidDevicesResponse = apiRequest(
     'GET',
@@ -195,6 +263,36 @@ $rfidEventsResponse = apiRequest(
 );
 $appendDataError('RFID scan events', $rfidEventsResponse);
 $rfidEventRows = isSuccessful($rfidEventsResponse) ? (array)($rfidEventsResponse['data'] ?? []) : [];
+
+$activeRfidCardByPersonId = [];
+$employeesDirectoryByPersonId = [];
+
+foreach ($employeesDirectoryRows as $employeeDirectoryRaw) {
+    $employeeDirectory = (array)$employeeDirectoryRaw;
+    $personId = cleanText($employeeDirectory['person_id'] ?? null) ?? '';
+    if (!isValidUuid($personId)) {
+        continue;
+    }
+
+    $employeeName = cleanText($employeeDirectory['name'] ?? null) ?? '';
+    if ($employeeName === '') {
+        $employeeName = (string)($scopedPersonMap[$personId]['employee_name'] ?? 'Unknown Employee');
+    }
+
+    $employeeCode = strtoupper(trim((string)(cleanText($employeeDirectory['employee_id'] ?? null) ?? '')));
+    if ($employeeCode === '') {
+        $employeeCode = (string)($scopedPersonMap[$personId]['employee_code'] ?? '-');
+    }
+
+    $employeesDirectoryByPersonId[$personId] = [
+        'employee_row_id' => cleanText($employeeDirectory['id'] ?? null) ?? '',
+        'employee_name' => $employeeName,
+        'employee_code' => $employeeCode,
+        'uid' => cleanText($employeeDirectory['uid'] ?? null) ?? '',
+        'created_at' => cleanText($employeeDirectory['created_at'] ?? null) ?? '',
+        'office_name' => (string)($scopedPersonMap[$personId]['office_name'] ?? 'Unassigned Division'),
+    ];
+}
 
 $approvedTravelByPersonDate = [];
 $approvedTravelResponse = apiRequest(
@@ -345,35 +443,80 @@ foreach ($rfidDeviceRows as $deviceRaw) {
 foreach ($rfidCardRows as $cardRaw) {
     $card = (array)$cardRaw;
     $personId = cleanText($card['person_id'] ?? null) ?? '';
-    if (!isset($scopedPersonMap[$personId])) {
+    if (!isValidUuid($personId)) {
         continue;
     }
 
-    $employee = $scopedPersonMap[$personId];
     $statusRaw = strtolower((string)(cleanText($card['status'] ?? null) ?? 'inactive'));
-    $statusLabel = ucfirst(str_replace('_', ' ', $statusRaw));
-    $statusClass = match ($statusRaw) {
-        'active' => 'bg-emerald-50 text-emerald-700',
-        'replaced' => 'bg-amber-50 text-amber-700',
-        default => 'bg-slate-100 text-slate-700',
-    };
-
-    if ($statusRaw === 'active') {
-        $timekeepingMetrics['active_rfid_cards']++;
+    if ($statusRaw !== 'active') {
+        continue;
     }
+
+    $timekeepingMetrics['active_rfid_cards']++;
+
+    if (!isset($activeRfidCardByPersonId[$personId])) {
+        $activeRfidCardByPersonId[$personId] = $card;
+    }
+}
+
+$employeeRowsWithAssignedCards = [];
+foreach ($employeesDirectoryRows as $employeeDirectoryRaw) {
+    $employeeDirectory = (array)$employeeDirectoryRaw;
+    $personId = cleanText($employeeDirectory['person_id'] ?? null) ?? '';
+    if (!isValidUuid($personId)) {
+        continue;
+    }
+
+    $employeeName = cleanText($employeeDirectory['name'] ?? null) ?? 'Unknown Employee';
+    $employeeCode = strtoupper(trim((string)(cleanText($employeeDirectory['employee_id'] ?? null) ?? '')));
+    $employeeRowsWithAssignedCards[] = [
+        'person_id' => $personId,
+        'employee_name' => $employeeName !== '' ? $employeeName : 'Unknown Employee',
+        'employee_code' => $employeeCode !== '' ? $employeeCode : '-',
+        'office_name' => (string)($scopedPersonMap[$personId]['office_name'] ?? 'Unassigned Division'),
+    ];
+}
+
+usort($employeeRowsWithAssignedCards, static function (array $left, array $right): int {
+    return strcasecmp((string)($left['employee_name'] ?? ''), (string)($right['employee_name'] ?? ''));
+});
+
+foreach ($employeeRowsWithAssignedCards as $employee) {
+    $personId = (string)($employee['person_id'] ?? '');
+    $card = (array)($activeRfidCardByPersonId[$personId] ?? []);
+    $employeeDirectory = $employeesDirectoryByPersonId[$personId] ?? [];
+    $employeeUid = rfidNormalizeCardUid((string)($employeeDirectory['uid'] ?? ''));
+
+    if ($card === [] && $employeeUid !== '') {
+        $card = [
+            'id' => 'virtual:' . $employeeUid,
+            'person_id' => $personId,
+            'card_uid' => $employeeUid,
+            'card_label' => (string)($employee['employee_name'] ?? 'Employee UID'),
+            'issued_at' => (string)($employeeDirectory['created_at'] ?? ''),
+            'is_virtual' => true,
+        ];
+    }
+
+    $hasActiveCard = $card !== [];
 
     $rfidAssignedCardRows[] = [
         'id' => cleanText($card['id'] ?? null) ?? '',
+        'employee_row_id' => (string)($employeeDirectory['employee_row_id'] ?? ''),
+        'person_id' => $personId,
         'employee_name' => (string)($employee['employee_name'] ?? 'Unknown Employee'),
         'employee_code' => (string)($employee['employee_code'] ?? '-'),
         'office_name' => (string)($employee['office_name'] ?? 'Unassigned Division'),
-        'card_uid_masked' => rfidMaskCardUid((string)($card['card_uid'] ?? '')),
-        'card_label' => cleanText($card['card_label'] ?? null) ?? '-',
-        'issued_at_label' => formatDateTimeForPhilippines(cleanText($card['issued_at'] ?? null), 'M d, Y h:i A'),
-        'deactivated_at_label' => formatDateTimeForPhilippines(cleanText($card['deactivated_at'] ?? null), 'M d, Y h:i A'),
-        'status_label' => $statusLabel,
-        'status_class' => $statusClass,
-        'status_raw' => $statusRaw,
+        'card_uid_masked' => $hasActiveCard ? rfidMaskCardUid((string)($card['card_uid'] ?? '')) : 'Unassigned',
+        'issued_at_label' => $hasActiveCard
+            ? formatDateTimeForPhilippines(cleanText($card['issued_at'] ?? null), 'M d, Y h:i A')
+            : '-',
+        'deactivated_at_label' => '-',
+        'status_label' => $hasActiveCard ? 'Active' : 'No Card Assigned',
+        'status_class' => $hasActiveCard ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-700',
+        'status_raw' => $hasActiveCard ? 'active' : 'unassigned',
+        'is_virtual' => !empty($card['is_virtual']),
+        'assignment_source' => !empty($card['is_virtual']) ? 'employees_uid' : 'rfid_cards',
     ];
 }
 
@@ -426,7 +569,8 @@ foreach ($leaveRows as $row) {
     $statusRaw = strtolower((string)(cleanText($row['status'] ?? null) ?? 'pending'));
     [$statusLabel, $statusClass] = $requestPill($statusRaw);
 
-    $leaveType = cleanText($row['leave_type']['leave_name'] ?? null) ?? 'Unassigned';
+    $leaveTypeId = cleanText($row['leave_type_id'] ?? null) ?? '';
+    $leaveType = (string)($leaveTypeNameById[$leaveTypeId] ?? 'Unassigned');
     $isCtoLeave = stripos($leaveType, 'cto') !== false;
 
     if ($statusRaw === 'pending') {
@@ -569,7 +713,8 @@ foreach ($adjustmentRows as $row) {
     $reason = cleanText($row['reason'] ?? null) ?? '-';
     $requestedTimeIn = formatDateTimeForPhilippines(cleanText($row['requested_time_in'] ?? null), 'h:i A');
     $requestedTimeOut = formatDateTimeForPhilippines(cleanText($row['requested_time_out'] ?? null), 'h:i A');
-    $attendanceDate = formatDateTimeForPhilippines(cleanText($row['attendance']['attendance_date'] ?? null), 'M d, Y');
+    $attendance = $attendanceByAdjustmentLogId[(string)($row['attendance_log_id'] ?? '')] ?? [];
+    $attendanceDate = formatDateTimeForPhilippines(cleanText($attendance['attendance_date'] ?? null), 'M d, Y');
 
     $adjustmentRequestRows[] = [
         'id' => $requestId,

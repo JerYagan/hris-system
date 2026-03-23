@@ -87,7 +87,7 @@ $renderQuickCreateForm = static function () use ($roles, $offices, $positions): 
                         </option>
                     <?php endforeach; ?>
                 </select>
-                <p class="mt-1 text-xs text-slate-500">Applicant accounts can be created immediately. Admin, Staff, and Employee accounts also require division and position so an employment record can be initialized correctly.</p>
+                <p class="mt-1 text-xs text-slate-500">Only Admin, Staff, and Employee roles can be assigned here. Division and position are required so the linked employment record can be initialized correctly.</p>
             </div>
             <div>
                 <label class="text-slate-600">Division</label>

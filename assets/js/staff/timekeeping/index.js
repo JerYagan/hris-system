@@ -27,6 +27,7 @@
         paginationInfoId,
         prevPageId,
         nextPageId,
+        pageSize = 10,
         extraPredicate,
         extraFilterTriggerIds,
     }) => {
@@ -43,7 +44,6 @@
         const prevPageButton = document.getElementById(prevPageId);
         const nextPageButton = document.getElementById(nextPageId);
 
-        const pageSize = 10;
         let currentPage = 1;
         let currentFilteredRows = rows;
 
@@ -455,6 +455,19 @@
         paginationInfoId: 'adjustmentPaginationInfo',
         prevPageId: 'adjustmentPrevPage',
         nextPageId: 'adjustmentNextPage',
+    });
+
+    bindTableFilters({
+        searchId: null,
+        statusId: null,
+        rowSelector: '[data-rfid-event-row]',
+        emptyRowId: 'rfidRecentEventsEmptyRow',
+        searchAttr: null,
+        statusAttr: null,
+        paginationInfoId: 'rfidRecentEventsPaginationInfo',
+        prevPageId: 'rfidRecentEventsPrevPage',
+        nextPageId: 'rfidRecentEventsNextPage',
+        pageSize: 15,
     });
 
     const leaveId = document.getElementById('leaveRequestId');

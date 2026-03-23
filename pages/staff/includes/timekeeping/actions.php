@@ -184,6 +184,38 @@ $createRfidCard = static function (array $payload) use ($supabaseUrl, $headers):
     return rfidApiFirstRow($response);
 };
 
+$resolveEmployeeDirectoryRowByPersonId = static function (string $personId) use ($supabaseUrl, $headers): array {
+    if (!isValidUuid($personId)) {
+        return [];
+    }
+
+    $response = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/employees?select=id,uid,employee_id,name,person_id'
+        . '&person_id=eq.' . rawurlencode($personId)
+        . '&limit=1',
+        $headers
+    );
+
+    return rfidApiFirstRow($response);
+};
+
+$updateEmployeeDirectoryRow = static function (string $employeeRowId, array $payload) use ($supabaseUrl, $headers): array {
+    if ($employeeRowId === '') {
+        return [];
+    }
+
+    $response = apiRequest(
+        'PATCH',
+        $supabaseUrl . '/rest/v1/employees?id=eq.' . rawurlencode($employeeRowId),
+        array_merge($headers, ['Prefer: return=representation']),
+        $payload
+    );
+
+    return rfidApiFirstRow($response);
+};
+
 if ($action === 'assign_rfid_card') {
     $employeeCode = strtoupper((string)(cleanText($_POST['employee_id'] ?? null) ?? ''));
     $cardUid = rfidNormalizeCardUid(cleanText($_POST['card_uid'] ?? null));
@@ -275,6 +307,42 @@ if ($action === 'assign_rfid_card') {
 
 if ($action === 'deactivate_rfid_card') {
     $cardId = cleanText($_POST['card_id'] ?? null) ?? '';
+    $assignmentSource = cleanText($_POST['assignment_source'] ?? null) ?? 'rfid_cards';
+    $personId = cleanText($_POST['person_id'] ?? null) ?? '';
+
+    if ($assignmentSource === 'employees_uid') {
+        if (!isValidUuid($personId) || !$isPersonInScope($personId)) {
+            redirectWithState('error', 'Invalid employee RFID assignment selected.');
+        }
+
+        $employeeRow = $resolveEmployeeDirectoryRowByPersonId($personId);
+        $employeeRowId = cleanText($employeeRow['id'] ?? null) ?? '';
+        $existingUid = rfidNormalizeCardUid((string)($employeeRow['uid'] ?? ''));
+        if ($employeeRow === [] || $employeeRowId === '' || $existingUid === '') {
+            redirectWithState('error', 'Employee RFID assignment was not found.');
+        }
+
+        $savedEmployeeRow = $updateEmployeeDirectoryRow($employeeRowId, [
+            'uid' => null,
+        ]);
+        if ($savedEmployeeRow === []) {
+            redirectWithState('error', 'Unable to deactivate the employee RFID assignment.');
+        }
+
+        $writeActivityLog(
+            'employees',
+            $employeeRowId,
+            'deactivate_rfid_card',
+            $employeeRow,
+            [
+                'uid' => null,
+                'card_uid_masked' => rfidMaskCardUid($existingUid),
+            ]
+        );
+
+        redirectWithState('success', 'RFID UID deactivated successfully.');
+    }
+
     if (!isValidUuid($cardId)) {
         redirectWithState('error', 'Invalid RFID card selected.');
     }

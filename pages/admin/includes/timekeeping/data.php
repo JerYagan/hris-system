@@ -2,7 +2,8 @@
 
 require_once __DIR__ . '/../../../shared/lib/rfid-attendance.php';
 
-$todayDate = date('Y-m-d');
+$manilaTimezone = new DateTimeZone('Asia/Manila');
+$todayDate = (new DateTimeImmutable('now', $manilaTimezone))->format('Y-m-d');
 
 $isLateByPolicy = static function (?string $timeValue): bool {
     $raw = trim((string)$timeValue);
@@ -10,12 +11,12 @@ $isLateByPolicy = static function (?string $timeValue): bool {
         return false;
     }
 
-    $timestamp = strtotime($raw);
-    if ($timestamp === false) {
+    $formattedTime = formatDateTimeForPhilippines($raw, 'H:i:s');
+    if ($formattedTime === '-') {
         return false;
     }
 
-    return date('H:i:s', $timestamp) >= '09:01:00';
+    return $formattedTime >= '09:01:00';
 };
 
 $buildEmployeeName = static function (array $row): string {
@@ -32,6 +33,11 @@ $appendError = static function (?string $currentError, string $label, array $res
     $raw = trim((string)($response['raw'] ?? ''));
     if ($raw !== '') {
         $message .= ' ' . $raw;
+    } else {
+        $transportError = trim((string)($response['error'] ?? ''));
+        if ($transportError !== '') {
+            $message .= ' ' . $transportError;
+        }
     }
 
     return $currentError ? ($currentError . ' ' . $message) : $message;
@@ -68,7 +74,7 @@ $attendanceHistoryResponse = apiRequest(
 $adjustmentsResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/time_adjustment_requests?select=id,status,reason,reviewed_at,requested_time_in,requested_time_out,created_at,attendance_log_id,person:people(first_name,surname,user_id),attendance:attendance_logs(attendance_date,time_in,time_out)'
+    . '/rest/v1/time_adjustment_requests?select=id,person_id,status,reason,reviewed_at,requested_time_in,requested_time_out,created_at,attendance_log_id'
     . '&order=created_at.desc&limit=' . (int)$timekeepingQueryLimits['requests'],
     $headers
 );
@@ -76,7 +82,7 @@ $adjustmentsResponse = apiRequest(
 $leaveRequestsResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/leave_requests?select=id,date_from,date_to,days_count,status,reason,review_notes,reviewed_at,created_at,person:people(first_name,surname,user_id),leave_type:leave_types(leave_name)'
+    . '/rest/v1/leave_requests?select=id,person_id,leave_type_id,date_from,date_to,days_count,status,reason,review_notes,reviewed_at,created_at'
     . '&order=created_at.desc&limit=' . (int)$timekeepingQueryLimits['requests'],
     $headers
 );
@@ -84,7 +90,7 @@ $leaveRequestsResponse = apiRequest(
 $ctoRequestsResponse = apiRequest(
     'GET',
     $supabaseUrl
-    . '/rest/v1/overtime_requests?select=id,person_id,overtime_date,start_time,end_time,hours_requested,reason,status,created_at,person:people(first_name,surname,user_id)'
+    . '/rest/v1/overtime_requests?select=id,person_id,overtime_date,start_time,end_time,hours_requested,reason,status,created_at'
     . '&order=created_at.desc&limit=' . (int)$timekeepingQueryLimits['requests'],
     $headers
 );
@@ -172,6 +178,7 @@ $specialRequestCreateMetaById = [];
 $specialRequestStatusOverrideById = [];
 $cosEmployeeRows = [];
 $employeeDirectoryByPersonId = [];
+$leaveTypeNameById = [];
 $rfidRecentEventRows = [];
 $rfidDeviceRows = [];
 $rfidSummaryToday = [
@@ -259,6 +266,8 @@ if (isSuccessful($leaveTypeOptionsResponse)) {
             continue;
         }
 
+        $leaveTypeNameById[$typeId] = (string)($type['leave_name'] ?? 'Leave');
+
         $leaveCode = strtolower(trim((string)($type['leave_code'] ?? '')));
         if (!in_array($leaveCode, ['sl', 'vl', 'cto'], true)) {
             continue;
@@ -274,6 +283,52 @@ if (isSuccessful($leaveTypeOptionsResponse)) {
             'leave_name' => $leaveName,
             'leave_code' => $leaveCode,
         ];
+    }
+}
+
+$resolveEmployeeNameByPersonId = static function (?string $personId) use (&$employeeDirectoryByPersonId): string {
+    $key = trim((string)$personId);
+    if ($key !== '' && isset($employeeDirectoryByPersonId[$key])) {
+        return (string)($employeeDirectoryByPersonId[$key]['employee_name'] ?? 'Unknown Employee');
+    }
+
+    return 'Unknown Employee';
+};
+
+$attendanceByAdjustmentLogId = [];
+$adjustmentAttendanceLogIds = [];
+if (isSuccessful($adjustmentsResponse)) {
+    foreach ((array)($adjustmentsResponse['data'] ?? []) as $adjustmentRaw) {
+        $adjustmentRow = (array)$adjustmentRaw;
+        $attendanceLogId = trim((string)($adjustmentRow['attendance_log_id'] ?? ''));
+        if ($attendanceLogId !== '') {
+            $adjustmentAttendanceLogIds[$attendanceLogId] = true;
+        }
+    }
+}
+
+if (!empty($adjustmentAttendanceLogIds)) {
+    $attendanceAdjustmentResponse = apiRequest(
+        'GET',
+        $supabaseUrl
+        . '/rest/v1/attendance_logs?select=id,attendance_date,time_in,time_out'
+        . '&id=in.' . rawurlencode('(' . implode(',', array_keys($adjustmentAttendanceLogIds)) . ')')
+        . '&limit=' . count($adjustmentAttendanceLogIds),
+        $headers
+    );
+
+    $dataLoadError = $appendError($dataLoadError, 'Adjustment attendance', $attendanceAdjustmentResponse);
+
+    if (isSuccessful($attendanceAdjustmentResponse)) {
+        foreach ((array)($attendanceAdjustmentResponse['data'] ?? []) as $attendanceRaw) {
+            $attendanceRow = (array)$attendanceRaw;
+            $attendanceId = trim((string)($attendanceRow['id'] ?? ''));
+            if ($attendanceId === '') {
+                continue;
+            }
+
+            $attendanceByAdjustmentLogId[$attendanceId] = $attendanceRow;
+        }
     }
 }
 
@@ -539,7 +594,7 @@ if (isSuccessful($attendanceHistoryResponse)) {
 if (isSuccessful($ctoRequestsResponse)) {
     foreach ((array)$ctoRequestsResponse['data'] as $requestRaw) {
         $request = (array)$requestRaw;
-        $employeeName = $buildEmployeeName((array)($request['person'] ?? []));
+        $employeeName = $resolveEmployeeNameByPersonId((string)($request['person_id'] ?? ''));
         $reasonRaw = trim((string)($request['reason'] ?? ''));
         $parsedRequest = timekeepingParseTaggedReason($reasonRaw);
         $isSpecialRequest = (bool)($parsedRequest['is_special'] ?? false);
@@ -570,7 +625,6 @@ if (isSuccessful($ctoRequestsResponse)) {
             'reason' => $cleanReason,
             'status' => $statusRaw,
             'created_at' => (string)($request['created_at'] ?? ''),
-            'user_id' => (string)($request['person']['user_id'] ?? ''),
             'request_type' => (string)($parsedRequest['request_type'] ?? 'legacy_cto'),
             'request_label' => (string)($parsedRequest['label'] ?? 'CTO (Legacy)'),
             'detail_summary' => trim(implode(' | ', array_filter([
@@ -628,7 +682,7 @@ usort($cosEmployeeRows, static function (array $left, array $right): int {
 
 foreach ($leaveRequests as $leaveRowRaw) {
     $leaveRow = (array)$leaveRowRaw;
-    $employeeName = $buildEmployeeName((array)($leaveRow['person'] ?? []));
+    $employeeName = $resolveEmployeeNameByPersonId((string)($leaveRow['person_id'] ?? ''));
     $historyEntries[] = [
         'sort_ts' => strtotime((string)($leaveRow['created_at'] ?? '')) ?: 0,
         'employee_name' => $employeeName,
@@ -642,9 +696,10 @@ foreach ($leaveRequests as $leaveRowRaw) {
 foreach ($leaveRequests as $leaveRaw) {
     $leave = (array)$leaveRaw;
     $statusRaw = strtolower((string)($leave['status'] ?? 'pending'));
-    $leaveTypeName = trim((string)($leave['leave_type']['leave_name'] ?? 'Unassigned'));
+    $leaveTypeId = trim((string)($leave['leave_type_id'] ?? ''));
+    $leaveTypeName = trim((string)($leaveTypeNameById[$leaveTypeId] ?? 'Unassigned'));
     $isCtoLeave = stripos($leaveTypeName, 'cto') !== false;
-    $employeeName = $buildEmployeeName((array)($leave['person'] ?? []));
+    $employeeName = $resolveEmployeeNameByPersonId((string)($leave['person_id'] ?? ''));
 
     $leaveCtoRequests[] = [
         'id' => (string)($leave['id'] ?? ''),
@@ -687,12 +742,13 @@ usort($leaveCtoRequests, static function (array $left, array $right): int {
 
 foreach ($adjustmentRequests as $adjustmentRowRaw) {
     $adjustmentRow = (array)$adjustmentRowRaw;
-    $employeeName = $buildEmployeeName((array)($adjustmentRow['person'] ?? []));
+    $employeeName = $resolveEmployeeNameByPersonId((string)($adjustmentRow['person_id'] ?? ''));
+    $attendance = $attendanceByAdjustmentLogId[(string)($adjustmentRow['attendance_log_id'] ?? '')] ?? [];
     $historyEntries[] = [
         'sort_ts' => strtotime((string)($adjustmentRow['created_at'] ?? '')) ?: 0,
         'employee_name' => $employeeName,
         'entry_type' => 'Time Adjustment',
-        'entry_date' => (string)($adjustmentRow['attendance']['attendance_date'] ?? ''),
+        'entry_date' => (string)($attendance['attendance_date'] ?? ''),
         'summary' => (string)($adjustmentRow['reason'] ?? 'Time adjustment submitted'),
         'status' => ucfirst(str_replace('_', ' ', strtolower((string)($adjustmentRow['status'] ?? 'pending')))),
     ];
@@ -710,8 +766,9 @@ foreach ($leaveRequests as $leaveRowRaw) {
         continue;
     }
 
-    $employeeName = $buildEmployeeName((array)($leaveRow['person'] ?? []));
-    $leaveType = (string)($leaveRow['leave_type']['leave_name'] ?? 'Unassigned');
+    $employeeName = $resolveEmployeeNameByPersonId((string)($leaveRow['person_id'] ?? ''));
+    $leaveTypeId = trim((string)($leaveRow['leave_type_id'] ?? ''));
+    $leaveType = (string)($leaveTypeNameById[$leaveTypeId] ?? 'Unassigned');
     $dateRange = (string)($leaveRow['date_from'] ?? '') . ' - ' . (string)($leaveRow['date_to'] ?? '');
     $leaveLookup[$id] = [
         'id' => $id,
@@ -732,7 +789,7 @@ foreach ($adjustmentRequests as $requestRaw) {
         continue;
     }
 
-    $employeeName = $buildEmployeeName((array)($request['person'] ?? []));
+    $employeeName = $resolveEmployeeNameByPersonId((string)($request['person_id'] ?? ''));
     $requestedWindow = trim((string)($request['requested_time_in'] ?? '')) . ' - ' . trim((string)($request['requested_time_out'] ?? ''));
     $adjustmentLookup[$id] = [
         'id' => $id,

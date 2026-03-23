@@ -391,7 +391,7 @@ $employeeStatusPill = static function (string $status): string {
 <section class="bg-white border border-slate-200 rounded-2xl mb-6">
     <header class="px-6 py-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Cross-Module KPI Snapshot</h2>
-        <p class="text-sm text-slate-500 mt-1">Administrative visibility across attendance, payroll, recruitment, documents, performance, and audit logs.</p>
+        <p class="text-sm text-slate-500 mt-1">Administrative visibility across attendance, payroll, recruitment, exported reports, performance, and audit logs.</p>
     </header>
 
     <div class="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 text-sm">
@@ -409,9 +409,9 @@ $employeeStatusPill = static function (string $status): string {
             <p class="text-xs text-slate-500 mt-1">Submitted: <?= htmlspecialchars((string)($crossModuleKpis['recruitment_submitted'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
         </article>
         <article class="rounded-xl border border-slate-200 p-4 bg-amber-50">
-            <p class="text-xs uppercase tracking-wide text-amber-700">Documents Pending</p>
-            <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)($crossModuleKpis['documents_pending'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
-            <p class="text-xs text-slate-500 mt-1">Total docs: <?= htmlspecialchars((string)($crossModuleKpis['documents_total'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
+            <p class="text-xs uppercase tracking-wide text-amber-700">Exported Reports</p>
+            <p class="text-2xl font-bold text-slate-800 mt-2"><?= htmlspecialchars((string)($crossModuleKpis['exported_reports_ready'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
+            <p class="text-xs text-slate-500 mt-1">Total requests: <?= htmlspecialchars((string)($crossModuleKpis['exported_reports_total'] ?? 0), ENT_QUOTES, 'UTF-8') ?></p>
         </article>
         <article class="rounded-xl border border-slate-200 p-4 bg-violet-50">
             <p class="text-xs uppercase tracking-wide text-violet-700">Performance Completed</p>

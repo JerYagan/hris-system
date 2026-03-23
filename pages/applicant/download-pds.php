@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/apply/bootstrap.php';
 require_once __DIR__ . '/includes/apply/data.php';
+require_once __DIR__ . '/../shared/lib/export-branding.php';
 
 if (!function_exists('pdsClean')) {
     function pdsClean(mixed $value): string
@@ -193,10 +194,10 @@ th{font-weight:700;background:#f8fafc;text-align:left}
 .note{font-size:9px;line-height:1.35;margin-top:8px}
 </style></head><body><div class="page">';
 
+$html .= exportBrandingBuildPdfHeaderHtml($projectRoot, 'PERSONAL DATA SHEET', [
+    'Applicant Copy',
+]);
 $html .= '<div class="form-tag">CSC Form No. 212 (Revised 2025)</div>';
-$html .= '<div class="title">PERSONAL DATA SHEET</div>';
-$html .= '<div class="subtitle">Republic of the Philippines - Department of Agriculture</div>';
-$html .= '<div class="subtitle">Applicant Copy</div>';
 
 $html .= '<div class="section"><div class="section-title">I. Personal Information</div>';
 $html .= '<table>';

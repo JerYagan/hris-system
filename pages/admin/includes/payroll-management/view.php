@@ -770,6 +770,8 @@ $payrollRefreshTarget = (string)($payrollRefreshTarget ?? 'summary');
                     <?php foreach ($batchRows as $batch): ?>
                         <?php
                         [$statusLabel, $statusClass] = $runStatusPill((string)$batch['status']);
+                        $normalizedStatusLabel = strtolower(trim($statusLabel));
+                        $isReviewLocked = in_array($normalizedStatusLabel, ['approved', 'released', 'cancelled'], true);
                         $searchText = strtolower(trim((string)$batch['id'] . ' ' . (string)$batch['period_label'] . ' ' . $statusLabel));
                         ?>
                         <tr class="hover:bg-slate-100 transition-colors" data-payroll-batch-search="<?= htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8') ?>" data-payroll-batch-status="<?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?>">
@@ -814,7 +816,8 @@ $payrollRefreshTarget = (string)($payrollRefreshTarget ?? 'summary');
                                         data-admin-reviewed="<?= htmlspecialchars(formatDateTimeForPhilippines((string)($batch['admin_reviewed_at'] ?? ''), 'M d, Y h:i A'), ENT_QUOTES, 'UTF-8') ?>"
                                         data-adjustment-pending-count="<?= htmlspecialchars((string)($batch['adjustment_pending_count'] ?? 0), ENT_QUOTES, 'UTF-8') ?>"
                                         data-breakdown-run-id="<?= htmlspecialchars((string)$batch['id'], ENT_QUOTES, 'UTF-8') ?>"
-                                        class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm"
+                                        class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border shadow-sm <?= $isReviewLocked ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50' ?>"
+                                        <?= $isReviewLocked ? 'disabled aria-disabled="true" title="Review is unavailable after the batch is finalized."' : '' ?>
                                     >
                                         <span class="material-symbols-outlined text-[15px]">rule</span>Review
                                     </button>

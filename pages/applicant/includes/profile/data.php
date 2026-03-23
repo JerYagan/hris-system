@@ -24,9 +24,14 @@ $profileData = [
 ];
 
 $profileSpouses = [];
+$profileFather = [];
+$profileMother = [];
+$profileChildren = [];
 $profileEducations = [];
 $profileWorkExperiences = [];
 $uploadedFiles = [];
+
+$civilStatusOptions = ['Single', 'Married', 'Widowed', 'Separated', 'Divorced', 'Annulled'];
 
 $passwordChangeStatus = [
 	'is_pending' => false,
@@ -202,6 +207,49 @@ if ($personId !== null && isValidUuid($personId)) {
 
 	if (isSuccessful($spousesResponse)) {
 		$profileSpouses = (array)($spousesResponse['data'] ?? []);
+	}
+
+	$parentsResponse = apiRequest(
+		'GET',
+		$supabaseUrl
+		. '/rest/v1/person_parents?select=id,parent_type,surname,first_name,middle_name,extension_name'
+		. '&person_id=eq.' . rawurlencode($personId)
+		. '&limit=5',
+		$headers
+	);
+
+	if (isSuccessful($parentsResponse)) {
+		foreach ((array)($parentsResponse['data'] ?? []) as $parentRaw) {
+			$parentRow = (array)$parentRaw;
+			$mappedParent = [
+				'id' => (string)($parentRow['id'] ?? ''),
+				'surname' => (string)($parentRow['surname'] ?? ''),
+				'first_name' => (string)($parentRow['first_name'] ?? ''),
+				'middle_name' => (string)($parentRow['middle_name'] ?? ''),
+				'extension_name' => (string)($parentRow['extension_name'] ?? ''),
+			];
+
+			if ((string)($parentRow['parent_type'] ?? '') === 'father') {
+				$profileFather = $mappedParent;
+			}
+
+			if ((string)($parentRow['parent_type'] ?? '') === 'mother') {
+				$profileMother = $mappedParent;
+			}
+		}
+	}
+
+	$childrenResponse = apiRequest(
+		'GET',
+		$supabaseUrl
+		. '/rest/v1/person_family_children?select=id,full_name,birth_date,sequence_no'
+		. '&person_id=eq.' . rawurlencode($personId)
+		. '&order=sequence_no.asc,created_at.asc&limit=200',
+		$headers
+	);
+
+	if (isSuccessful($childrenResponse)) {
+		$profileChildren = (array)($childrenResponse['data'] ?? []);
 	}
 
 	if (($profileShouldLoadDeferredSections ?? true) === true) {

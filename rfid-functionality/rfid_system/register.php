@@ -1,5 +1,12 @@
 <?php
+session_start();
 include "config.php";
+
+$person_id = trim((string)($_GET['person_id'] ?? $_POST['person_id'] ?? ''));
+$saveMessage = trim((string)($_SESSION['save_message'] ?? ''));
+$saveMessageType = trim((string)($_SESSION['save_message_type'] ?? 'success'));
+unset($_SESSION['save_message']);
+unset($_SESSION['save_message_type']);
 
 /* -----------------------------
    CHECK IF EDIT MODE
@@ -17,86 +24,39 @@ if($edit_uid){
     if(!empty($resData)) $editEmp = $resData[0];
 }
 
-/* -----------------------------
-   HANDLE FORM SUBMISSION
------------------------------*/
-if($_SERVER['REQUEST_METHOD'] === "POST"){
+if(!$editEmp && $person_id !== ''){
+    $serviceRoleKey = (string)(legacyEnvValue('SUPABASE_SERVICE_ROLE_KEY') ?? $api_key);
+    $privilegedHeaders = [
+        "apikey: $serviceRoleKey",
+        "Authorization: Bearer $serviceRoleKey",
+        'Content-Type: application/json',
+    ];
 
-    $uid = $_POST['uid'] ?? "";
-    $name = $_POST['name'] ?? "";
-    $employee_id = $_POST['employee_id'] ?? "";
-    $birthday = $_POST['birthday'] ?? "";
-    $photo = $_FILES['photo'] ?? null;
+    $personUrl = $supabase_url . 'people?select=id,first_name,surname,agency_employee_no,date_of_birth,profile_photo_url&id=eq.' . urlencode($person_id) . '&limit=1';
+    $personCh = curl_init($personUrl);
+    curl_setopt($personCh, CURLOPT_HTTPHEADER, $privilegedHeaders);
+    curl_setopt($personCh, CURLOPT_RETURNTRANSFER, true);
+    $personRes = curl_exec($personCh);
+    curl_close($personCh);
 
-    /* -----------------------------
-       HANDLE PHOTO UPLOAD
-    -----------------------------*/
-    $photo_url = "";
-    if($photo && $photo['tmp_name']){
-        $targetDir = "uploads/";
-        if(!is_dir($targetDir)) mkdir($targetDir, 0777, true);
-
-        $filename = basename($photo['name']);
-        $targetFile = $targetDir . time() . "_" . $filename;
-
-        if(move_uploaded_file($photo['tmp_name'], $targetFile)){
-            $photo_url = $targetFile;
+    $personRows = json_decode($personRes, true);
+    if(!empty($personRows) && is_array($personRows[0] ?? null)){
+        $person = $personRows[0];
+        $prefillName = trim((string)($person['first_name'] ?? '') . ' ' . (string)($person['surname'] ?? ''));
+        $profilePhoto = trim((string)($person['profile_photo_url'] ?? ''));
+        if($profilePhoto !== '' && preg_match('#^https?://#i', $profilePhoto) !== 1 && !str_starts_with($profilePhoto, '/')){
+            $profilePhoto = rtrim($appBaseUrl, '/') . '/storage/document/' . ltrim($profilePhoto, '/');
         }
-    }
 
-    /* -----------------------------
-       CHECK IF UID EXISTS
-    -----------------------------*/
-    $url_check = $supabase_url . "employees?uid=eq.$uid";
-    $ch = curl_init($url_check);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    $response = curl_exec($ch);
-    $data = json_decode($response,true);
-
-    if(!empty($data) && isset($data[0]['uid'])){
-        // UID exists → UPDATE
-        $updateData = [
-            "name" => $name,
-            "employee_id" => $employee_id,
-            "birthday" => $birthday,
+        $editEmp = [
+            'person_id' => $person_id,
+            'uid' => '',
+            'name' => $prefillName,
+            'employee_id' => (string)($person['agency_employee_no'] ?? ''),
+            'birthday' => (string)($person['date_of_birth'] ?? ''),
+            'photo' => $profilePhoto,
         ];
-        if($photo_url) $updateData['photo'] = $photo_url;
-
-        $ch2 = curl_init($supabase_url . "employees?uid=eq.$uid");
-        curl_setopt($ch2, CURLOPT_HTTPHEADER, array_merge($headers, ['Content-Type: application/json']));
-        curl_setopt($ch2, CURLOPT_CUSTOMREQUEST, "PATCH");
-        curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch2, CURLOPT_POSTFIELDS, json_encode($updateData));
-        curl_exec($ch2);
-        curl_close($ch2);
-
-        $message = "Employee Updated Successfully ✅";
-
-    } else {
-        // UID does not exist → INSERT
-        $insertData = [
-            "uid" => $uid,
-            "name" => $name,
-            "employee_id" => $employee_id,
-            "birthday" => $birthday,
-            "photo" => $photo_url
-        ];
-
-        $ch3 = curl_init($supabase_url . "employees");
-        curl_setopt($ch3, CURLOPT_HTTPHEADER, array_merge($headers, ['Content-Type: application/json']));
-        curl_setopt($ch3, CURLOPT_POST, true);
-        curl_setopt($ch3, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch3, CURLOPT_POSTFIELDS, json_encode([$insertData]));
-        curl_exec($ch3);
-        curl_close($ch3);
-
-        $message = "Employee Registered Successfully ✅";
     }
-
-    // Show confirmation and redirect
-    echo "<script>alert('$message'); window.location='register.php';</script>";
-    exit;
 }
 
 /* -----------------------------
@@ -172,6 +132,23 @@ $allEmployees = json_decode($allEmpResp,true);
         button:hover {
             background: #166937;
         }
+        .flash-message {
+            margin: 0 0 20px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-align: center;
+        }
+        .flash-message.success {
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            color: #166534;
+        }
+        .flash-message.error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+        }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -212,25 +189,30 @@ $allEmployees = json_decode($allEmpResp,true);
 <div class="container">
     <h1><?php echo $editEmp ? "Edit Employee" : "Register New Employee"; ?></h1>
 
-    <form method="POST" enctype="multipart/form-data">
+    <?php if($saveMessage !== ''): ?>
+        <div class="flash-message <?php echo $saveMessageType === 'error' ? 'error' : 'success'; ?>"><?php echo htmlspecialchars($saveMessage, ENT_QUOTES, 'UTF-8'); ?></div>
+    <?php endif; ?>
+
+    <form method="POST" action="save_employee.php" enctype="multipart/form-data">
+        <input type="hidden" name="person_id" value="<?php echo htmlspecialchars((string)($editEmp['person_id'] ?? $person_id ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
         <div style="flex:1; min-width:200px;">
             <label>UID:</label>
-            <input type="text" name="uid" value="<?php echo $editEmp['uid'] ?? ''; ?>" <?php echo $editEmp ? 'readonly' : ''; ?> required>
+            <input type="text" name="uid" value="<?php echo htmlspecialchars((string)($editEmp['uid'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" <?php echo !empty($editEmp['uid']) ? 'readonly' : ''; ?> required>
 
             <label>Name:</label>
-            <input type="text" name="name" value="<?php echo $editEmp['name'] ?? ''; ?>" required>
+            <input type="text" name="name" value="<?php echo htmlspecialchars((string)($editEmp['name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" required>
 
             <label>Employee ID:</label>
-            <input type="text" name="employee_id" value="<?php echo $editEmp['employee_id'] ?? ''; ?>" required>
+            <input type="text" name="employee_id" value="<?php echo htmlspecialchars((string)($editEmp['employee_id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" required>
 
             <label>Birthday:</label>
-            <input type="date" name="birthday" value="<?php echo $editEmp['birthday'] ?? ''; ?>">
+            <input type="date" name="birthday" value="<?php echo htmlspecialchars((string)($editEmp['birthday'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
         </div>
         <div style="flex:1; min-width:200px;">
             <label>Photo:</label>
             <input type="file" name="photo">
             <?php if(!empty($editEmp['photo'])): ?>
-                <img src="<?php echo $editEmp['photo']; ?>" class="photo-preview">
+                <img src="<?php echo htmlspecialchars((string)$editEmp['photo'], ENT_QUOTES, 'UTF-8'); ?>" class="photo-preview">
             <?php else: ?>
                 <img src="https://via.placeholder.com/100" class="photo-preview">
             <?php endif; ?>
@@ -251,11 +233,11 @@ $allEmployees = json_decode($allEmpResp,true);
         </tr>
         <?php foreach($allEmployees as $emp): ?>
         <tr>
-            <td><img src="<?php echo $emp['photo'] ?: 'https://via.placeholder.com/60'; ?>" style="width:50px;height:50px;border-radius:50%;object-fit:cover;"></td>
-            <td><?php echo $emp['name']; ?></td>
-            <td><?php echo $emp['employee_id']; ?></td>
-            <td><?php echo $emp['uid']; ?></td>
-            <td><a class="btn-edit" href="register.php?edit_uid=<?php echo $emp['uid']; ?>">Edit</a></td>
+            <td><img src="<?php echo htmlspecialchars((string)($emp['photo'] ?: 'https://via.placeholder.com/60'), ENT_QUOTES, 'UTF-8'); ?>" style="width:50px;height:50px;border-radius:50%;object-fit:cover;"></td>
+            <td><?php echo htmlspecialchars((string)$emp['name'], ENT_QUOTES, 'UTF-8'); ?></td>
+            <td><?php echo htmlspecialchars((string)$emp['employee_id'], ENT_QUOTES, 'UTF-8'); ?></td>
+            <td><?php echo htmlspecialchars((string)$emp['uid'], ENT_QUOTES, 'UTF-8'); ?></td>
+            <td><a class="btn-edit" href="register.php?edit_uid=<?php echo urlencode((string)$emp['uid']); ?>">Edit</a></td>
         </tr>
         <?php endforeach; ?>
     </table>

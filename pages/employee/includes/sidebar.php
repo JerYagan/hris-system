@@ -185,4 +185,11 @@
 
   </nav>
 
+  <div class="mt-auto border-t border-gray-200 px-4 pt-4">
+    <a href="<?= htmlspecialchars(systemAppPath('/pages/auth/logout.php'), ENT_QUOTES, 'UTF-8') ?>" class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-rose-600 transition hover:bg-rose-50">
+      <span class="material-icons text-base">logout</span>
+      <span class="sidebar-label">Logout</span>
+    </a>
+  </div>
+
 </aside>

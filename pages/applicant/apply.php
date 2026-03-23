@@ -339,12 +339,12 @@ ob_start();
 
         <div class="mx-4 mt-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm sm:mx-6">
             <p class="font-medium text-slate-800">Checklist Progress</p>
-            <p class="mt-1 text-slate-700">
-                <?= (int)($requiredDocumentSummary['fulfilled_required'] ?? 0) ?> / <?= (int)($requiredDocumentSummary['total_required'] ?? 0) ?> required documents already uploaded.
+            <p class="mt-1 text-slate-700" id="requiredDocumentsProgressSummary" data-total-required="<?= (int)($requiredDocumentSummary['total_required'] ?? 0) ?>">
+                <span id="requiredDocumentsProgressCount"><?= (int)($requiredDocumentSummary['fulfilled_required'] ?? 0) ?></span> / <span id="requiredDocumentsProgressTotal"><?= (int)($requiredDocumentSummary['total_required'] ?? 0) ?></span> required documents already uploaded.
                 <?php if ((int)($requiredDocumentSummary['missing_required'] ?? 0) > 0): ?>
-                    <span class="text-rose-700">Missing <?= (int)$requiredDocumentSummary['missing_required'] ?> required item(s).</span>
+                    <span id="requiredDocumentsProgressState" class="text-rose-700">Missing <?= (int)$requiredDocumentSummary['missing_required'] ?> required item(s).</span>
                 <?php else: ?>
-                    <span class="text-emerald-700">All required checklist items are currently fulfilled.</span>
+                    <span id="requiredDocumentsProgressState" class="text-emerald-700">All required checklist items are currently fulfilled.</span>
                 <?php endif; ?>
             </p>
         </div>
@@ -380,7 +380,7 @@ ob_start();
                 $uploadedAt = cleanText($documentConfig['uploaded_at'] ?? null);
                 $uploadedAtDisplay = $uploadedAt ? date('M j, Y g:i A', strtotime($uploadedAt)) : null;
                 ?>
-                <article data-document-row="<?= htmlspecialchars($inputKey, ENT_QUOTES, 'UTF-8') ?>" class="rounded-xl border px-4 py-4 <?= $isFulfilled ? 'border-emerald-200 bg-emerald-50/70' : ($isRequired ? 'border-rose-200 bg-rose-50/60' : 'border-slate-200 bg-slate-50') ?>">
+                <article data-document-row="<?= htmlspecialchars($inputKey, ENT_QUOTES, 'UTF-8') ?>" data-document-required="<?= $isRequired ? '1' : '0' ?>" class="rounded-xl border px-4 py-4 <?= $isFulfilled ? 'border-emerald-200 bg-emerald-50/70' : ($isRequired ? 'border-rose-200 bg-rose-50/60' : 'border-slate-200 bg-slate-50') ?>">
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                             <p class="text-sm font-medium text-slate-900"><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></p>
@@ -513,6 +513,37 @@ ob_start();
                 || normalized.indexOf('eligibility') !== -1;
         }
 
+        function refreshChecklistProgress() {
+            var summary = document.getElementById('requiredDocumentsProgressSummary');
+            var countNode = document.getElementById('requiredDocumentsProgressCount');
+            var totalNode = document.getElementById('requiredDocumentsProgressTotal');
+            var stateNode = document.getElementById('requiredDocumentsProgressState');
+            if (!summary || !countNode || !totalNode || !stateNode) {
+                return;
+            }
+
+            var requiredRows = Array.prototype.slice.call(document.querySelectorAll('[data-document-row][data-document-required="1"]'));
+            var totalRequired = requiredRows.length;
+            var fulfilledRequired = requiredRows.reduce(function (count, row) {
+                var badge = row.querySelector('[data-document-status]');
+                var badgeText = badge ? (badge.textContent || '').trim().toLowerCase() : '';
+                return count + (badgeText === 'fulfilled' ? 1 : 0);
+            }, 0);
+            var missingRequired = Math.max(0, totalRequired - fulfilledRequired);
+
+            countNode.textContent = String(fulfilledRequired);
+            totalNode.textContent = String(totalRequired);
+
+            stateNode.classList.remove('text-rose-700', 'text-emerald-700');
+            if (missingRequired > 0) {
+                stateNode.textContent = 'Missing ' + String(missingRequired) + ' required item(s).';
+                stateNode.classList.add('text-rose-700');
+            } else {
+                stateNode.textContent = 'All required checklist items are currently fulfilled.';
+                stateNode.classList.add('text-emerald-700');
+            }
+        }
+
         document.querySelectorAll('.js-checklist-upload-input').forEach(function (input) {
             input.addEventListener('change', function () {
                 var targetId = input.getAttribute('data-file-target');
@@ -555,9 +586,12 @@ ob_start();
                     target.textContent = 'Selected file must indicate CSC or PRC eligibility in the filename.';
                 }
 
+                refreshChecklistProgress();
                 updateRecommendation();
             });
         });
+
+        refreshChecklistProgress();
 
         var educationContainer = document.getElementById('educationRowsContainer');
         var workContainer = document.getElementById('workRowsContainer');

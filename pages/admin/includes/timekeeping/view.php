@@ -23,12 +23,7 @@ $formatDate = static function (?string $raw, string $format = 'M d, Y'): string 
         return '-';
     }
 
-    $ts = strtotime($value);
-    if ($ts === false) {
-        return $value;
-    }
-
-    return date($format, $ts);
+    return formatDateTimeForPhilippines($value, $format);
 };
 
 $formatTime = static function (?string $raw): string {
@@ -37,12 +32,7 @@ $formatTime = static function (?string $raw): string {
         return '-';
     }
 
-    $ts = strtotime($value);
-    if ($ts === false) {
-        return $value;
-    }
-
-    return date('h:i A', $ts);
+    return formatDateTimeForPhilippines($value, 'h:i A');
 };
 ?>
 
@@ -289,9 +279,9 @@ $formatTime = static function (?string $raw): string {
         </div>
     </div>
 
-    <div class="px-6 pb-6 grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div class="xl:col-span-2 overflow-x-auto">
-            <table class="w-full text-sm">
+    <div class="px-6 pb-6">
+        <div class="overflow-x-auto">
+            <table id="rfidRecentEventsTable" class="w-full text-sm">
                 <thead class="bg-slate-50 text-slate-600">
                     <tr>
                         <th class="text-left px-4 py-3">Scanned At</th>
@@ -300,15 +290,14 @@ $formatTime = static function (?string $raw): string {
                         <th class="text-left px-4 py-3">Source</th>
                         <th class="text-left px-4 py-3">Device</th>
                         <th class="text-left px-4 py-3">Result</th>
-                        <th class="text-left px-4 py-3">Message</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                     <?php if (empty($rfidRecentEventRows)): ?>
-                        <tr><td class="px-4 py-3 text-slate-500" colspan="7">No RFID scan events found.</td></tr>
+                        <tr><td class="px-4 py-3 text-slate-500" colspan="6">No RFID scan events found.</td></tr>
                     <?php else: ?>
                         <?php foreach ($rfidRecentEventRows as $row): ?>
-                            <tr>
+                            <tr data-page-row>
                                 <td class="px-4 py-3"><?= htmlspecialchars((string)($row['scanned_at_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                                 <td class="px-4 py-3">
                                     <p class="font-medium text-slate-800"><?= htmlspecialchars((string)($row['employee_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
@@ -323,40 +312,19 @@ $formatTime = static function (?string $raw): string {
                                         <span class="block text-xs text-emerald-700 mt-1">Linked to attendance log</span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="px-4 py-3"><?= htmlspecialchars((string)($row['result_message'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                             </tr>
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </tbody>
             </table>
-        </div>
-
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-slate-50 text-slate-600">
-                    <tr>
-                        <th class="text-left px-4 py-3">Device</th>
-                        <th class="text-left px-4 py-3">Status</th>
-                        <th class="text-left px-4 py-3">Last Seen</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                    <?php if (empty($rfidDeviceRows)): ?>
-                        <tr><td class="px-4 py-3 text-slate-500" colspan="3">No RFID devices found.</td></tr>
-                    <?php else: ?>
-                        <?php foreach ($rfidDeviceRows as $row): ?>
-                            <tr>
-                                <td class="px-4 py-3">
-                                    <p class="font-medium text-slate-800"><?= htmlspecialchars((string)($row['device_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                                    <p class="text-xs text-slate-500 mt-1"><?= htmlspecialchars((string)($row['device_code'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></p>
-                                </td>
-                                <td class="px-4 py-3"><span class="inline-flex px-2.5 py-1 text-xs rounded-full <?= htmlspecialchars((string)($row['status_class'] ?? 'bg-slate-200 text-slate-700'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($row['status_label'] ?? 'Unknown'), ENT_QUOTES, 'UTF-8') ?></span></td>
-                                <td class="px-4 py-3"><?= htmlspecialchars((string)($row['last_seen_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+            <div class="pt-4 flex items-center justify-between gap-3">
+                <p id="rfidRecentEventsPaginationInfo" class="text-xs text-slate-500">Showing 0 to 0 of 0 entries</p>
+                <div class="flex items-center gap-2">
+                    <button type="button" id="rfidRecentEventsPrevPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Previous</button>
+                    <span id="rfidRecentEventsPageLabel" class="text-xs text-slate-500 min-w-[88px] text-center">Page 1 of 1</span>
+                    <button type="button" id="rfidRecentEventsNextPage" class="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50">Next</button>
+                </div>
+            </div>
         </div>
     </div>
 </section>
@@ -1154,8 +1122,6 @@ $formatTime = static function (?string $raw): string {
 
 <script>
 (function () {
-    const pageSize = 10;
-
     const setValue = (id, value) => {
         const el = document.getElementById(id);
         if (el) {
@@ -1196,6 +1162,7 @@ $formatTime = static function (?string $raw): string {
         searchInputId,
         filterId,
         emptyMessage,
+        pageSize = 10,
     }) => {
         const table = document.getElementById(tableId);
         const info = document.getElementById(infoId);
@@ -1434,6 +1401,17 @@ $formatTime = static function (?string $raw): string {
     document.getElementById('attendancePrintButton')?.addEventListener('click', () => window.print());
 
     [
+        {
+            tableId: 'rfidRecentEventsTable',
+            infoId: 'rfidRecentEventsPaginationInfo',
+            pageLabelId: 'rfidRecentEventsPageLabel',
+            prevId: 'rfidRecentEventsPrevPage',
+            nextId: 'rfidRecentEventsNextPage',
+            searchInputId: null,
+            filterId: null,
+            emptyMessage: 'No RFID scan events found.',
+            pageSize: 15,
+        },
         {
             tableId: 'attendanceSnapshotTable',
             infoId: 'attendancePaginationInfo',

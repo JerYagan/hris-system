@@ -282,16 +282,23 @@ foreach ($employeeDocuments as $documentCountRow) {
 </div>
 
 <div class="bg-white border rounded-xl p-6 max-w-full overflow-hidden">
-  <div class="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-    <h2 class="text-lg font-semibold text-gray-800">My Document Registry</h2>
+  <div class="mb-6 space-y-4">
+    <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div>
+        <h2 class="text-lg font-semibold text-gray-800">My Document Registry</h2>
+        <p class="text-sm text-gray-500 mt-1">Search, filter, and manage your submitted and archived 201 documents in one place.</p>
+      </div>
 
-    <div class="w-full xl:w-auto xl:ml-auto flex flex-col xl:flex-row xl:flex-wrap gap-3 xl:items-end">
-      <div class="w-full xl:w-80 xl:min-w-0">
+      <button data-open-upload class="bg-daGreen text-white px-4 py-2 rounded-md text-sm font-medium hover:opacity-90 min-h-[42px] inline-flex items-center justify-center gap-1.5 self-start lg:self-auto"><span class="material-icons text-base">upload_file</span>Upload Document</button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+      <div class="min-w-0">
         <label class="text-sm text-gray-700">Search</label>
         <input id="documentSearchInput" type="search" placeholder="Search title, category, status" class="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm bg-white">
       </div>
 
-      <div class="w-full xl:w-64 xl:min-w-0">
+      <div class="min-w-0">
         <label class="text-sm text-gray-700">Category</label>
         <select id="documentCategoryFilter" class="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm bg-white">
           <option value="">All Categories</option>
@@ -301,17 +308,15 @@ foreach ($employeeDocuments as $documentCountRow) {
         </select>
       </div>
 
-      <div class="w-full xl:w-52 xl:min-w-0">
+      <div class="min-w-0">
         <label class="text-sm text-gray-700">Archived From</label>
         <input id="documentArchivedFromFilter" type="date" class="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm bg-white">
       </div>
 
-      <div class="w-full xl:w-52 xl:min-w-0">
+      <div class="min-w-0">
         <label class="text-sm text-gray-700">Archived To</label>
         <input id="documentArchivedToFilter" type="date" class="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm bg-white">
       </div>
-
-      <button data-open-upload class="bg-daGreen text-white px-4 py-2 rounded-md text-sm font-medium hover:opacity-90 min-h-[42px] inline-flex items-center justify-center gap-1.5"><span class="material-icons text-base">upload_file</span>Upload Document</button>
     </div>
   </div>
 

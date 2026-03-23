@@ -40,6 +40,18 @@ if (!function_exists('buildPublishedAnnouncementMetrics')) {
             'email' => 'Email Only',
         ];
 
+        $formatAnnouncementTimestamp = static function (string $value): string {
+            if ($value === '') {
+                return '-';
+            }
+
+            if (function_exists('formatDateTimeForPhilippines')) {
+                return formatDateTimeForPhilippines($value, 'M d, Y h:i A') . ' PST';
+            }
+
+            return date('M d, Y h:i A', strtotime($value));
+        };
+
         foreach ($announcementLogs as $index => $log) {
             $payload = (array)($log['new_data'] ?? []);
             $delivery = (array)($payload['delivery_summary'] ?? []);
@@ -55,7 +67,7 @@ if (!function_exists('buildPublishedAnnouncementMetrics')) {
             $totalInAppSent += $inAppSent;
             $totalEmailSent += $emailSent;
 
-            $createdAtLabel = $createdAtRaw !== '' ? date('M d, Y h:i A', strtotime($createdAtRaw)) : '-';
+            $createdAtLabel = $formatAnnouncementTimestamp($createdAtRaw);
             $channelLabel = $channelLabels[$channelKey] ?? ucwords(str_replace('_', ' ', $channelKey));
             $audienceLabel = $audienceLabels[$audienceKey] ?? ucwords(str_replace('_', ' ', $audienceKey));
 
@@ -65,7 +77,7 @@ if (!function_exists('buildPublishedAnnouncementMetrics')) {
                 $latestTargetedUsers = $targetedUsers;
                 $latestChannel = $channelLabel;
                 if ($createdAtRaw !== '') {
-                    $latestTimestamp = 'Published ' . date('M d, Y h:i A', strtotime($createdAtRaw));
+                    $latestTimestamp = 'Published ' . $formatAnnouncementTimestamp($createdAtRaw);
                 }
             }
 

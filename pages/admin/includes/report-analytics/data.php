@@ -135,6 +135,34 @@ if (!function_exists('reportAnalyticsFetchCount')) {
     }
 }
 
+if (!function_exists('reportAnalyticsResponseHasMissingAttendanceDateColumn')) {
+    function reportAnalyticsResponseHasMissingAttendanceDateColumn(array $response): bool
+    {
+        $raw = strtolower((string)($response['raw'] ?? ''));
+        return (int)($response['status'] ?? 0) === 400
+            && str_contains($raw, 'attendance_date')
+            && str_contains($raw, 'does not exist');
+    }
+}
+
+if (!function_exists('reportAnalyticsNormalizeAttendanceRows')) {
+    function reportAnalyticsNormalizeAttendanceRows(array $rows, string $dateKey): array
+    {
+        $normalized = [];
+        foreach ($rows as $row) {
+            $item = (array)$row;
+            if ($dateKey !== 'attendance_date') {
+                $dateValue = trim((string)($item[$dateKey] ?? ''));
+                $timestamp = strtotime($dateValue);
+                $item['attendance_date'] = $timestamp === false ? ($dateValue !== '' ? $dateValue : '-') : gmdate('Y-m-d', $timestamp);
+            }
+            $normalized[] = $item;
+        }
+
+        return $normalized;
+    }
+}
+
 $reportAnalyticsDataStage = (string)($reportAnalyticsDataStage ?? 'full');
 
 $reportAnalyticsTurnoverStartDate = date('Y-m-d', strtotime('-365 days'));
@@ -158,6 +186,12 @@ if ($reportAnalyticsDataStage === 'summary') {
         $supabaseUrl . '/rest/v1/attendance_logs?select=id&attendance_date=gte.' . rawurlencode($reportAnalyticsRollingWindowStartDate),
         $headers
     );
+    if (reportAnalyticsResponseHasMissingAttendanceDateColumn($attendanceCountResponse)) {
+        $attendanceCountResponse = reportAnalyticsFetchCount(
+            $supabaseUrl . '/rest/v1/attendance_logs?select=id&created_at=gte.' . rawurlencode($reportAnalyticsRollingWindowStartDate . 'T00:00:00Z'),
+            $headers
+        );
+    }
     $payrollCountResponse = reportAnalyticsFetchCount(
         $supabaseUrl . '/rest/v1/payroll_items?select=id&created_at=gte.' . rawurlencode($reportAnalyticsRollingWindowStartDate . 'T00:00:00Z'),
         $headers
@@ -170,12 +204,12 @@ if ($reportAnalyticsDataStage === 'summary') {
         $supabaseUrl . '/rest/v1/applications?select=id&application_status=eq.hired',
         $headers
     );
-    $documentsTotalResponse = reportAnalyticsFetchCount(
-        $supabaseUrl . '/rest/v1/documents?select=id',
+    $exportedReportsTotalResponse = reportAnalyticsFetchCount(
+        $supabaseUrl . '/rest/v1/generated_reports?select=id',
         $headers
     );
-    $documentsPendingResponse = reportAnalyticsFetchCount(
-        $supabaseUrl . '/rest/v1/documents?select=id&document_status=eq.submitted',
+    $exportedReportsReadyResponse = reportAnalyticsFetchCount(
+        $supabaseUrl . '/rest/v1/generated_reports?select=id&status=eq.ready',
         $headers
     );
     $performanceCompletedResponse = reportAnalyticsFetchCount(
@@ -195,8 +229,8 @@ if ($reportAnalyticsDataStage === 'summary') {
         ['label' => 'Payroll count', 'response' => $payrollCountResponse],
         ['label' => 'Recruitment submitted count', 'response' => $recruitmentSubmittedResponse],
         ['label' => 'Recruitment hired count', 'response' => $recruitmentHiredResponse],
-        ['label' => 'Document total count', 'response' => $documentsTotalResponse],
-        ['label' => 'Document pending count', 'response' => $documentsPendingResponse],
+        ['label' => 'Exported reports total count', 'response' => $exportedReportsTotalResponse],
+        ['label' => 'Exported reports ready count', 'response' => $exportedReportsReadyResponse],
         ['label' => 'Performance completed count', 'response' => $performanceCompletedResponse],
         ['label' => 'Audit log count', 'response' => $auditLogsCountResponse],
     ];
@@ -281,8 +315,8 @@ if ($reportAnalyticsDataStage === 'summary') {
         'payroll_items' => reportAnalyticsCountFromResponse($payrollCountResponse) ?? 0,
         'recruitment_submitted' => reportAnalyticsCountFromResponse($recruitmentSubmittedResponse) ?? 0,
         'recruitment_hired' => reportAnalyticsCountFromResponse($recruitmentHiredResponse) ?? 0,
-        'documents_total' => reportAnalyticsCountFromResponse($documentsTotalResponse) ?? 0,
-        'documents_pending' => reportAnalyticsCountFromResponse($documentsPendingResponse) ?? 0,
+        'exported_reports_total' => reportAnalyticsCountFromResponse($exportedReportsTotalResponse) ?? 0,
+        'exported_reports_ready' => reportAnalyticsCountFromResponse($exportedReportsReadyResponse) ?? 0,
         'performance_completed' => reportAnalyticsCountFromResponse($performanceCompletedResponse) ?? 0,
         'audit_logs_30_days' => reportAnalyticsCountFromResponse($auditLogsCountResponse) ?? 0,
     ];
@@ -771,14 +805,23 @@ $attendanceResponse = reportAnalyticsFetchAll(
     $supabaseUrl . '/rest/v1/attendance_logs?select=attendance_date,attendance_status&attendance_date=gte.' . rawurlencode($reportAnalyticsRollingWindowStartDate),
     $headers
 );
+if (reportAnalyticsResponseHasMissingAttendanceDateColumn($attendanceResponse)) {
+    $attendanceResponse = reportAnalyticsFetchAll(
+        $supabaseUrl . '/rest/v1/attendance_logs?select=created_at,attendance_status&created_at=gte.' . rawurlencode($reportAnalyticsRollingWindowStartDate . 'T00:00:00Z'),
+        $headers
+    );
+    if (isSuccessful($attendanceResponse)) {
+        $attendanceResponse['data'] = reportAnalyticsNormalizeAttendanceRows((array)($attendanceResponse['data'] ?? []), 'created_at');
+    }
+}
 
 $payrollResponse = reportAnalyticsFetchAll(
     $supabaseUrl . '/rest/v1/payroll_items?select=gross_pay,net_pay,created_at,payroll_run:payroll_runs(payroll_period:payroll_periods(period_end))&created_at=gte.' . rawurlencode($reportAnalyticsRollingWindowStartDate . 'T00:00:00Z'),
     $headers
 );
 
-$documentsResponse = reportAnalyticsFetchAll(
-    $supabaseUrl . '/rest/v1/documents?select=document_status',
+$generatedReportsResponse = reportAnalyticsFetchAll(
+    $supabaseUrl . '/rest/v1/generated_reports?select=status,report_type,file_format,created_at,generated_at,storage_path',
     $headers
 );
 
@@ -831,7 +874,7 @@ $employmentAllRecords = isSuccessful($employmentAllResponse) ? $employmentAllRes
 $offices = isSuccessful($officesResponse) ? $officesResponse['data'] : [];
 $attendanceLogs = isSuccessful($attendanceResponse) ? $attendanceResponse['data'] : [];
 $payrollItems = isSuccessful($payrollResponse) ? $payrollResponse['data'] : [];
-$documents = isSuccessful($documentsResponse) ? $documentsResponse['data'] : [];
+$generatedReports = isSuccessful($generatedReportsResponse) ? $generatedReportsResponse['data'] : [];
 $performanceEvaluations = isSuccessful($performanceResponse) ? $performanceResponse['data'] : [];
 $applications = isSuccessful($applicationsResponse) ? $applicationsResponse['data'] : [];
 $auditLogs = isSuccessful($auditLogsResponse) ? $auditLogsResponse['data'] : [];
@@ -857,8 +900,8 @@ if (!isSuccessful($attendanceResponse)) {
 if (!isSuccessful($payrollResponse)) {
     $dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Payroll query failed (HTTP ' . (int)($payrollResponse['status'] ?? 0) . ').');
 }
-if (!isSuccessful($documentsResponse)) {
-    $dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Documents query failed (HTTP ' . (int)($documentsResponse['status'] ?? 0) . ').');
+if (!isSuccessful($generatedReportsResponse)) {
+    $dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Generated reports query failed (HTTP ' . (int)($generatedReportsResponse['status'] ?? 0) . ').');
 }
 if (!isSuccessful($performanceResponse)) {
     $dataLoadError = trim(($dataLoadError ? $dataLoadError . ' ' : '') . 'Performance query failed (HTTP ' . (int)($performanceResponse['status'] ?? 0) . ').');
@@ -1087,11 +1130,11 @@ foreach ($policyCandidates as $candidate) {
     }
 }
 
-$documentPendingCount = 0;
-foreach ($documents as $documentRaw) {
-    $status = strtolower(trim((string)($documentRaw['document_status'] ?? '')));
-    if (in_array($status, ['pending', 'submitted', 'for_review', 'needs_revision'], true)) {
-        $documentPendingCount++;
+$exportedReportsReadyCount = 0;
+foreach ($generatedReports as $generatedReportRaw) {
+    $status = strtolower(trim((string)($generatedReportRaw['status'] ?? '')));
+    if ($status === 'ready') {
+        $exportedReportsReadyCount++;
     }
 }
 
@@ -1130,8 +1173,8 @@ $crossModuleKpis = [
     'payroll_items' => count($payrollItems),
     'recruitment_submitted' => $recruitmentSubmittedCount,
     'recruitment_hired' => $recruitmentHiredCount,
-    'documents_total' => count($documents),
-    'documents_pending' => $documentPendingCount,
+    'exported_reports_total' => count($generatedReports),
+    'exported_reports_ready' => $exportedReportsReadyCount,
     'performance_completed' => $performanceCompletedCount,
     'audit_logs_30_days' => $auditLogsLast30Days,
 ];

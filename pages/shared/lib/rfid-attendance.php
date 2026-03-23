@@ -149,6 +149,22 @@ if (!function_exists('rfidSimulatorEnabled')) {
     }
 }
 
+if (!function_exists('rfidSimulatorDeviceCode')) {
+    function rfidSimulatorDeviceCode(): string
+    {
+        $deviceCode = trim((string)(systemEnvValue('HRIS_RFID_SIMULATOR_DEVICE_CODE') ?? ''));
+        return $deviceCode !== '' ? $deviceCode : 'SCANNER-ATI-HQ-01';
+    }
+}
+
+if (!function_exists('rfidSimulatorDeviceToken')) {
+    function rfidSimulatorDeviceToken(): string
+    {
+        $deviceToken = trim((string)(systemEnvValue('HRIS_RFID_SIMULATOR_DEVICE_TOKEN') ?? ''));
+        return $deviceToken !== '' ? $deviceToken : 'ATI-HRIS-RFID-2026-DEVICE-01-9f3d2f6c';
+    }
+}
+
 if (!function_exists('rfidLateMinutesForTap')) {
     function rfidLateMinutesForTap(DateTimeImmutable $scannedAt): int
     {
@@ -281,6 +297,86 @@ if (!function_exists('rfidResolvePersonProfile')) {
     }
 }
 
+if (!function_exists('rfidBuildVirtualCardFromEmployee')) {
+    function rfidBuildVirtualCardFromEmployee(string $supabaseUrl, array $headers, array $employee, string $normalizedUid): array
+    {
+        $personId = cleanText($employee['person_id'] ?? null);
+        if (!isValidUuid($personId)) {
+            return [];
+        }
+
+        $person = rfidResolvePersonProfile($supabaseUrl, $headers, $personId);
+
+        return [
+            'id' => 'virtual:' . $normalizedUid,
+            'person_id' => $personId,
+            'card_uid' => $normalizedUid,
+            'card_label' => cleanText($employee['name'] ?? null) ?? 'Employee UID',
+            'status' => 'active',
+            'issued_at' => null,
+            'is_virtual' => true,
+            'person' => $person,
+        ];
+    }
+}
+
+if (!function_exists('rfidResolveVirtualCardByUid')) {
+    function rfidResolveVirtualCardByUid(string $supabaseUrl, array $headers, ?string $cardUid): array
+    {
+        $normalizedUid = rfidNormalizeCardUid($cardUid);
+        if ($normalizedUid === '') {
+            return [];
+        }
+
+        $response = apiRequest(
+            'GET',
+            rtrim($supabaseUrl, '/')
+            . '/rest/v1/employees?select=uid,name,employee_id,person_id'
+            . '&uid=ilike.' . rawurlencode($normalizedUid)
+            . '&limit=1',
+            $headers
+        );
+
+        $employee = rfidApiFirstRow($response);
+        if ($employee === []) {
+            return [];
+        }
+
+        return rfidBuildVirtualCardFromEmployee($supabaseUrl, $headers, $employee, $normalizedUid);
+    }
+}
+
+if (!function_exists('rfidResolveVirtualCardForPerson')) {
+    function rfidResolveVirtualCardForPerson(string $supabaseUrl, array $headers, ?string $personId): array
+    {
+        $id = cleanText($personId);
+        if (!isValidUuid($id)) {
+            return [];
+        }
+
+        $response = apiRequest(
+            'GET',
+            rtrim($supabaseUrl, '/')
+            . '/rest/v1/employees?select=uid,name,employee_id,person_id'
+            . '&person_id=eq.' . rawurlencode($id)
+            . '&limit=1',
+            $headers
+        );
+
+        $employee = rfidApiFirstRow($response);
+        if ($employee === []) {
+            return [];
+        }
+
+        return rfidBuildVirtualCardFromEmployee(
+            $supabaseUrl,
+            $headers,
+            $employee,
+            rfidNormalizeCardUid(cleanText($employee['uid'] ?? null))
+        );
+    }
+}
+
 if (!function_exists('rfidResolveActiveCardByUid')) {
     function rfidResolveActiveCardByUid(string $supabaseUrl, array $headers, ?string $cardUid): array
     {
@@ -301,7 +397,7 @@ if (!function_exists('rfidResolveActiveCardByUid')) {
 
         $card = rfidApiFirstRow($cardResponse);
         if ($card === []) {
-            return [];
+            return rfidResolveVirtualCardByUid($supabaseUrl, $headers, $normalizedUid);
         }
 
         $person = rfidResolvePersonProfile($supabaseUrl, $headers, cleanText($card['person_id'] ?? null));
@@ -331,7 +427,12 @@ if (!function_exists('rfidResolveActiveCardForPerson')) {
             $headers
         );
 
-        return rfidApiFirstRow($response);
+        $card = rfidApiFirstRow($response);
+        if ($card !== []) {
+            return $card;
+        }
+
+        return rfidResolveVirtualCardForPerson($supabaseUrl, $headers, $id);
     }
 }
 

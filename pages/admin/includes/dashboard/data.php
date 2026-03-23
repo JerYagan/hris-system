@@ -1,5 +1,103 @@
 <?php
 
+if (!function_exists('dashboardApiRequestWithHeaders')) {
+    function dashboardApiRequestWithHeaders(string $method, string $url, array $headers, ?array $body = null, bool $noBody = false): array
+    {
+        $responseHeaders = [];
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, strtoupper($method));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt(
+            $ch,
+            CURLOPT_HEADERFUNCTION,
+            static function ($curlHandle, string $headerLine) use (&$responseHeaders): int {
+                $length = strlen($headerLine);
+                $normalized = trim($headerLine);
+                if ($normalized === '' || !str_contains($normalized, ':')) {
+                    return $length;
+                }
+
+                [$name, $value] = explode(':', $normalized, 2);
+                $responseHeaders[strtolower(trim($name))] = trim($value);
+
+                return $length;
+            }
+        );
+
+        if ($body !== null) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+        }
+
+        if ($noBody) {
+            curl_setopt($ch, CURLOPT_NOBODY, true);
+        }
+
+        $startedAt = microtime(true);
+        $responseBody = curl_exec($ch);
+        $statusCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        $durationMs = (int)round((microtime(true) - $startedAt) * 1000);
+        curl_close($ch);
+
+        $decoded = is_string($responseBody) ? json_decode($responseBody, true) : null;
+        if (!is_array($decoded)) {
+            $decoded = [];
+        }
+
+        return [
+            'status' => $statusCode,
+            'data' => $decoded,
+            'raw' => (string)$responseBody,
+            'error' => $error !== '' ? $error : null,
+            'duration_ms' => $durationMs,
+            'response_headers' => $responseHeaders,
+        ];
+    }
+}
+
+if (!function_exists('dashboardCountFromResponse')) {
+    function dashboardCountFromResponse(array $response): ?int
+    {
+        $headers = (array)($response['response_headers'] ?? []);
+        $contentRange = trim((string)($headers['content-range'] ?? ''));
+        if ($contentRange !== '' && preg_match('#/(\d+)$#', $contentRange, $matches) === 1) {
+            return (int)$matches[1];
+        }
+
+        if (isset($response['count']) && is_numeric($response['count'])) {
+            return (int)$response['count'];
+        }
+
+        $rows = is_array($response['data'] ?? null) ? (array)$response['data'] : [];
+        return $rows === [] ? 0 : count($rows);
+    }
+}
+
+if (!function_exists('dashboardFetchCount')) {
+    function dashboardFetchCount(string $url, array $headers): array
+    {
+        $countHeaders = array_merge($headers, ['Prefer: count=exact', 'Range: 0-0']);
+        $headResponse = dashboardApiRequestWithHeaders('HEAD', $url, $countHeaders, null, true);
+        $headResponse['count'] = dashboardCountFromResponse($headResponse);
+        if (isSuccessful($headResponse) && $headResponse['count'] !== null) {
+            return $headResponse;
+        }
+
+        $separator = str_contains($url, '?') ? '&' : '?';
+        $fallbackResponse = dashboardApiRequestWithHeaders(
+            'GET',
+            $url . $separator . 'limit=1&offset=0',
+            array_merge($headers, ['Prefer: count=exact'])
+        );
+        $fallbackResponse['count'] = dashboardCountFromResponse($fallbackResponse);
+
+        return $fallbackResponse;
+    }
+}
+
 $dashboardDataStage = (string)($dashboardDataStage ?? 'full');
 $dashboardLoadSummary = in_array($dashboardDataStage, ['full', 'summary'], true);
 $dashboardLoadSecondary = in_array($dashboardDataStage, ['full', 'secondary'], true);
@@ -88,9 +186,12 @@ $attendanceWeekResponse = ['status' => 200, 'data' => [], 'raw' => ''];
 $leaveRequestsResponse = ['status' => 200, 'data' => [], 'raw' => ''];
 $jobPositionsResponse = ['status' => 200, 'data' => [], 'raw' => ''];
 $employmentResponse = ['status' => 200, 'data' => [], 'raw' => ''];
+$employmentCountResponse = ['status' => 200, 'data' => [], 'raw' => '', 'count' => 0];
 $applicationsResponse = ['status' => 200, 'data' => [], 'raw' => ''];
+$pendingRecruitmentDecisionResponse = ['status' => 200, 'data' => [], 'raw' => '', 'count' => 0];
 $timeAdjustmentsResponse = ['status' => 200, 'data' => [], 'raw' => ''];
 $documentsPendingResponse = ['status' => 200, 'data' => [], 'raw' => ''];
+$supportTicketLogsResponse = ['status' => 200, 'data' => [], 'raw' => ''];
 $announcementLogsResponse = ['status' => 200, 'data' => [], 'raw' => ''];
 
 if ($dashboardLoadSummary || $dashboardLoadSecondary) {
@@ -105,16 +206,46 @@ if ($dashboardLoadSummary || $dashboardLoadSecondary) {
         $supabaseUrl . '/rest/v1/attendance_logs?select=id,attendance_status,attendance_date&attendance_date=gte.' . $weekStartDate . '&attendance_date=lte.' . $todayDate . '&limit=5000',
         $headers
     );
+}
 
-    $leaveRequestsResponse = apiRequest(
-        'GET',
-        $supabaseUrl . '/rest/v1/leave_requests?select=id&status=eq.pending&limit=120',
+if ($dashboardLoadSummary) {
+    $leaveRequestsResponse = dashboardFetchCount(
+        $supabaseUrl . '/rest/v1/leave_requests?select=id&status=eq.pending',
         $headers
     );
 
-    $jobPositionsResponse = apiRequest(
+    $timeAdjustmentsResponse = dashboardFetchCount(
+        $supabaseUrl . '/rest/v1/time_adjustment_requests?select=id&status=eq.pending',
+        $headers
+    );
+
+    $documentsPendingResponse = dashboardFetchCount(
+        $supabaseUrl . '/rest/v1/documents?select=id&document_status=eq.submitted',
+        $headers
+    );
+
+    $supportTicketLogsResponse = apiRequest(
         'GET',
-        $supabaseUrl . '/rest/v1/job_positions?select=id,is_active&is_active=eq.true&limit=2500',
+        $supabaseUrl . '/rest/v1/activity_logs?select=entity_id,action_name,new_data,created_at&module_name=eq.support&entity_name=eq.tickets&order=created_at.asc&limit=5000',
+        $headers
+    );
+
+    if (!$dashboardLoadSecondary) {
+        $employmentCountResponse = dashboardFetchCount(
+            $supabaseUrl . '/rest/v1/employment_records?select=id&is_current=eq.true&employment_status=eq.active',
+            $headers
+        );
+
+        $pendingRecruitmentDecisionResponse = dashboardFetchCount(
+            $supabaseUrl . '/rest/v1/applications?select=id&application_status=in.(submitted,screening,shortlisted,interview,offer)',
+            $headers
+        );
+    }
+}
+
+if ($dashboardLoadSecondary) {
+    $jobPositionsResponse = dashboardFetchCount(
+        $supabaseUrl . '/rest/v1/job_positions?select=id&is_active=eq.true',
         $headers
     );
 
@@ -130,18 +261,6 @@ if ($dashboardLoadSummary || $dashboardLoadSecondary) {
         $headers
     );
 
-    $timeAdjustmentsResponse = apiRequest(
-        'GET',
-        $supabaseUrl . '/rest/v1/time_adjustment_requests?select=id&status=eq.pending&limit=1200',
-        $headers
-    );
-
-    $documentsPendingResponse = apiRequest(
-        'GET',
-        $supabaseUrl . '/rest/v1/documents?select=id&document_status=eq.submitted&limit=1200',
-        $headers
-    );
-
     $announcementLogsResponse = fetchPublishedAnnouncementLogs($supabaseUrl, $headers, 60);
 }
 $attendanceRows = isSuccessful($attendanceResponse) ? (array)($attendanceResponse['data'] ?? []) : [];
@@ -152,6 +271,7 @@ $employmentRows = isSuccessful($employmentResponse) ? (array)($employmentRespons
 $applicationRows = isSuccessful($applicationsResponse) ? (array)($applicationsResponse['data'] ?? []) : [];
 $pendingTimeAdjustmentRows = isSuccessful($timeAdjustmentsResponse) ? (array)($timeAdjustmentsResponse['data'] ?? []) : [];
 $pendingDocumentRows = isSuccessful($documentsPendingResponse) ? (array)($documentsPendingResponse['data'] ?? []) : [];
+$supportTicketLogRows = isSuccessful($supportTicketLogsResponse) ? (array)($supportTicketLogsResponse['data'] ?? []) : [];
 $announcementLogRows = isSuccessful($announcementLogsResponse) ? (array)($announcementLogsResponse['data'] ?? []) : [];
 $announcementMetrics = buildPublishedAnnouncementMetrics($announcementLogRows);
 
@@ -162,9 +282,12 @@ $responses = [
     ['label' => 'Pending leave', 'response' => $leaveRequestsResponse],
     ['label' => 'Job positions', 'response' => $jobPositionsResponse],
     ['label' => 'Employment records', 'response' => $employmentResponse],
+    ['label' => 'Employment summary', 'response' => $employmentCountResponse],
     ['label' => 'Applications', 'response' => $applicationsResponse],
+    ['label' => 'Pending recruitment decisions', 'response' => $pendingRecruitmentDecisionResponse],
     ['label' => 'Time adjustments', 'response' => $timeAdjustmentsResponse],
     ['label' => 'Pending documents', 'response' => $documentsPendingResponse],
+    ['label' => 'Support tickets', 'response' => $supportTicketLogsResponse],
     ['label' => 'Published announcements', 'response' => $announcementLogsResponse],
 ];
 
@@ -223,12 +346,14 @@ $absenceRateWeek = $weeklyAbsenceSample > 0
     ? round(($weeklyAbsentCount / $weeklyAbsenceSample) * 100, 2)
     : 0.0;
 
-$pendingLeaveRequestCount = count($leaveRequestRowsRaw);
+$pendingLeaveRequestCount = dashboardCountFromResponse($leaveRequestsResponse) ?? count($leaveRequestRowsRaw);
 $unreadNotifications = 0;
 $highPriorityNotifications = 0;
 
-$approvedPositions = count($jobPositionRows);
-$filledPositions = count($employmentRows);
+$approvedPositions = dashboardCountFromResponse($jobPositionsResponse) ?? count($jobPositionRows);
+$filledPositions = $dashboardLoadSecondary
+    ? count($employmentRows)
+    : (dashboardCountFromResponse($employmentCountResponse) ?? 0);
 $vacantPositions = max($approvedPositions - $filledPositions, 0);
 
 $departmentCounts = [];
@@ -312,22 +437,54 @@ foreach ($applicationRows as $entry) {
 }
 
 $pendingRecruitmentDecisionCount = 0;
-foreach ($applicationRows as $entry) {
-    $status = strtolower((string)($entry['application_status'] ?? ''));
-    if (in_array($status, ['submitted', 'screening', 'shortlisted', 'interview', 'offer'], true)) {
-        $pendingRecruitmentDecisionCount++;
+if ($dashboardLoadSecondary) {
+    foreach ($applicationRows as $entry) {
+        $status = strtolower((string)($entry['application_status'] ?? ''));
+        if (in_array($status, ['submitted', 'screening', 'shortlisted', 'interview', 'offer'], true)) {
+            $pendingRecruitmentDecisionCount++;
+        }
+    }
+} else {
+    $pendingRecruitmentDecisionCount = dashboardCountFromResponse($pendingRecruitmentDecisionResponse) ?? 0;
+}
+
+$supportTicketsById = [];
+foreach ($supportTicketLogRows as $entry) {
+    $payload = is_array($entry['new_data'] ?? null) ? (array)$entry['new_data'] : [];
+    $ticketId = trim((string)($entry['entity_id'] ?? $payload['ticket_id'] ?? ''));
+    if ($ticketId === '') {
+        continue;
+    }
+
+    $actionName = strtolower(trim((string)($entry['action_name'] ?? '')));
+    if ($actionName === 'submit_ticket') {
+        $supportTicketsById[$ticketId] = strtolower(trim((string)($payload['status'] ?? 'submitted')));
+        continue;
+    }
+
+    if ($actionName === 'admin_ticket_update' && isset($supportTicketsById[$ticketId])) {
+        $supportTicketsById[$ticketId] = strtolower(trim((string)($payload['status'] ?? $supportTicketsById[$ticketId])));
+    }
+}
+
+$pendingSupportTicketCount = 0;
+foreach ($supportTicketsById as $status) {
+    if (in_array($status, ['submitted', 'in_review', 'forwarded_to_staff'], true)) {
+        $pendingSupportTicketCount++;
     }
 }
 
 $dashboardSummary = [
     'attendance_alerts' => $attendanceAlerts,
-    'pending_time_adjustments' => count($pendingTimeAdjustmentRows),
+    'pending_time_adjustments' => dashboardCountFromResponse($timeAdjustmentsResponse) ?? count($pendingTimeAdjustmentRows),
     'pending_leave_requests' => $pendingLeaveRequestCount,
     'pending_recruitment_decisions' => $pendingRecruitmentDecisionCount,
-    'pending_documents' => count($pendingDocumentRows),
+    'total_applicants_to_review' => $pendingRecruitmentDecisionCount,
+    'pending_documents' => dashboardCountFromResponse($documentsPendingResponse) ?? count($pendingDocumentRows),
+    'pending_support_tickets' => $pendingSupportTicketCount,
     'unread_notifications' => $unreadNotifications,
     'high_priority_notifications' => $highPriorityNotifications,
-    'total_employees' => count($employmentRows),
+    'total_employees' => $filledPositions,
     'on_leave_today' => (int)($attendanceCounts['leave'] ?? 0),
     'absence_rate_week' => $absenceRateWeek,
     'present_today' => $presentToday,

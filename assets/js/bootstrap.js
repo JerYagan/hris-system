@@ -1,5 +1,3 @@
-import { initFloatingActionMenus } from '/hris-system/assets/js/shared/action-menu.js';
-
 const loadLegacyAdminScript = () => new Promise((resolve, reject) => {
   const existing = document.querySelector('script[data-admin-legacy="true"]');
   if (existing) {
@@ -16,6 +14,33 @@ const loadLegacyAdminScript = () => new Promise((resolve, reject) => {
   document.body.appendChild(script);
 });
 
+let floatingActionMenuInitializerPromise = null;
+
+const loadFloatingActionMenuInitializer = async () => {
+  if (floatingActionMenuInitializerPromise) {
+    return floatingActionMenuInitializerPromise;
+  }
+
+  floatingActionMenuInitializerPromise = import('/hris-system/assets/js/shared/action-menu.js')
+    .then((module) => {
+      if (typeof module.initFloatingActionMenus === 'function') {
+        return module.initFloatingActionMenus;
+      }
+
+      if (typeof module.default === 'function') {
+        return module.default;
+      }
+
+      return null;
+    })
+    .catch((error) => {
+      console.warn('Shared action menu module could not be loaded.', error);
+      return null;
+    });
+
+  return floatingActionMenuInitializerPromise;
+};
+
 const adminModuleMap = {
   dashboard: () => import('/hris-system/assets/js/admin/dashboard/index.js'),
   recruitment: () => import('/hris-system/assets/js/admin/recruitment/index.js'),
@@ -29,8 +54,23 @@ const adminModuleMap = {
   support: () => import('/hris-system/assets/js/admin/support/index.js'),
 };
 
-const initAdminActionMenus = () => {
+const initAdminActionMenus = async () => {
   if (document.body?.dataset?.adminActionMenusInitialized === 'true') {
+    return;
+  }
+
+  if (!document.querySelector('[data-admin-action-scope]')) {
+    if (document.body?.dataset) {
+      document.body.dataset.adminActionMenusInitialized = 'true';
+    }
+    return;
+  }
+
+  const initFloatingActionMenus = await loadFloatingActionMenuInitializer();
+  if (typeof initFloatingActionMenus !== 'function') {
+    if (document.body?.dataset) {
+      document.body.dataset.adminActionMenusInitialized = 'true';
+    }
     return;
   }
 
@@ -50,7 +90,7 @@ const init = async () => {
     return;
   }
 
-  initAdminActionMenus();
+  await initAdminActionMenus();
 
   const loader = adminModuleMap[page];
   if (!loader) {

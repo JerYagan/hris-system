@@ -195,36 +195,61 @@ if (!function_exists('logApiRequestPerformance')) {
 if (!function_exists('apiRequest')) {
     function apiRequest(string $method, string $url, array $headers, ?array $body = null): array
     {
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, strtoupper($method));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-
-        if ($body !== null) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
-        }
-
-        $startedAt = microtime(true);
-        $responseBody = curl_exec($ch);
-        $statusCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error = curl_error($ch);
-        $durationMs = (int)round((microtime(true) - $startedAt) * 1000);
-        curl_close($ch);
-
-        $decoded = is_string($responseBody) ? json_decode($responseBody, true) : null;
-        if (!is_array($decoded)) {
-            $decoded = [];
-        }
-
-        logApiRequestPerformance($method, $url, $statusCode, $durationMs, $decoded, $error !== '' ? $error : null);
-
-        return [
-            'status' => $statusCode,
-            'data' => $decoded,
-            'raw' => (string)$responseBody,
-            'error' => $error !== '' ? $error : null,
-            'duration_ms' => $durationMs,
+        $attempts = strtoupper($method) === 'GET' ? 2 : 1;
+        $attempt = 0;
+        $lastResponse = [
+            'status' => 0,
+            'data' => [],
+            'raw' => '',
+            'error' => null,
         ];
+
+        while ($attempt < $attempts) {
+            $attempt++;
+
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, strtoupper($method));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+
+            if ($body !== null) {
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+            }
+
+            $startedAt = microtime(true);
+            $responseBody = curl_exec($ch);
+            $statusCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+            $durationMs = (int)round((microtime(true) - $startedAt) * 1000);
+            curl_close($ch);
+
+            $decoded = is_string($responseBody) ? json_decode($responseBody, true) : null;
+            if (!is_array($decoded)) {
+                $decoded = [];
+            }
+
+            logApiRequestPerformance($method, $url, $statusCode, $durationMs, $decoded, $error !== '' ? $error : null);
+
+            $lastResponse = [
+                'status' => $statusCode,
+                'data' => $decoded,
+                'raw' => (string)$responseBody,
+                'error' => $error !== '' ? $error : null,
+                'duration_ms' => $durationMs,
+            ];
+
+            $isTransientFailure = $statusCode === 0 || $statusCode >= 500;
+            if ($attempt < $attempts && $isTransientFailure) {
+                usleep(random_int(80, 180) * 1000);
+                continue;
+            }
+
+            break;
+        }
+
+        return $lastResponse;
     }
 }
 

@@ -146,37 +146,37 @@ $payslipStatusMeta = static function (string $status): array {
               <td class="px-6 py-4 font-medium"><?= $escape($formatCurrency((float)($row['net_pay'] ?? 0))) ?></td>
               <td class="px-6 py-4"><span class="px-2 py-1 text-xs rounded-full <?= $escape($statusClass) ?>"><?= $escape($statusLabel) ?></span></td>
               <td class="px-6 py-4 text-right">
-                <div class="relative inline-block text-left">
-                  <details class="group">
-                    <summary class="list-none inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 cursor-pointer">
-                      <span class="material-symbols-outlined text-[14px]">more_horiz</span>
+                <div class="relative inline-block text-left" data-admin-action-scope>
+                  <button type="button" data-admin-action-menu-toggle aria-haspopup="menu" aria-expanded="false" class="admin-action-button">
+                    <span class="admin-action-button-label">
+                      <span class="material-symbols-outlined">more_horiz</span>
                       Actions
-                      <span class="material-symbols-outlined text-[14px]">expand_more</span>
-                    </summary>
+                    </span>
+                    <span class="material-symbols-outlined admin-action-chevron">expand_more</span>
+                  </button>
 
-                    <div class="absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden z-20 text-left">
-                      <button type="button" data-open-payslip-detail data-payload="<?= $detailPayloadJson ?>" class="w-full px-3 py-2.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-[14px]">receipt_long</span>
-                        View Breakdown
-                      </button>
+                  <div data-admin-action-menu role="menu" class="admin-action-menu hidden w-44 text-left">
+                    <button type="button" data-open-payslip-detail data-payload="<?= $detailPayloadJson ?>" class="admin-action-item" role="menuitem">
+                      <span class="material-symbols-outlined">receipt_long</span>
+                      View Breakdown
+                    </button>
 
-                      <?php if ($hasPdf): ?>
-                        <a href="view-payslip.php?payslip_id=<?= $escape((string)$row['payslip_id']) ?>" target="_blank" rel="noopener" class="w-full px-3 py-2.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 border-t border-slate-100">
-                          <span class="material-symbols-outlined text-[14px]">picture_as_pdf</span>
-                          View PDF
-                        </a>
-                        <a href="download-payslip.php?payslip_id=<?= $escape((string)$row['payslip_id']) ?>" class="w-full px-3 py-2.5 text-xs text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 border-t border-slate-100">
-                          <span class="material-symbols-outlined text-[14px]">download</span>
-                          Download
-                        </a>
-                      <?php else: ?>
-                        <span class="w-full px-3 py-2.5 text-xs text-slate-400 flex items-center gap-2 border-t border-slate-100 bg-slate-50">
-                          <span class="material-symbols-outlined text-[14px]">picture_as_pdf</span>
-                          No PDF
-                        </span>
-                      <?php endif; ?>
-                    </div>
-                  </details>
+                    <?php if ($hasPdf): ?>
+                      <a href="view-payslip.php?payslip_id=<?= $escape((string)$row['payslip_id']) ?>" target="_blank" rel="noopener" class="admin-action-item" role="menuitem">
+                        <span class="material-symbols-outlined">picture_as_pdf</span>
+                        View PDF
+                      </a>
+                      <a href="download-payslip.php?payslip_id=<?= $escape((string)$row['payslip_id']) ?>" class="admin-action-item" role="menuitem">
+                        <span class="material-symbols-outlined">download</span>
+                        Download
+                      </a>
+                    <?php else: ?>
+                      <span class="admin-action-item admin-action-item-disabled" role="menuitem" aria-disabled="true">
+                        <span class="material-symbols-outlined">picture_as_pdf</span>
+                        No PDF
+                      </span>
+                    <?php endif; ?>
+                  </div>
                 </div>
               </td>
             </tr>

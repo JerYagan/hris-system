@@ -1,4 +1,4 @@
-import { initAdminShellInteractions, initModalSystem, initStatusChangeConfirmations } from '/hris-system/assets/js/shared/admin-core.js';
+import { initAdminShellInteractions } from '/hris-system/assets/js/shared/admin-core.js';
 
 const MIN_SKELETON_MS = 250;
 
@@ -281,8 +281,7 @@ const initAdminDashboardAsync = () => {
 
 export default function initAdminDashboardPage() {
   initAdminShellInteractions();
-  initModalSystem();
-  initStatusChangeConfirmations();
+
   if (!initAdminDashboardAsync()) {
     initCharts().catch(console.error);
   }

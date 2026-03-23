@@ -103,6 +103,14 @@ $verifyCurrentPassword = static function (string $email, string $currentPassword
     return $status >= 200 && $status < 300;
 };
 
+$isValidYearValue = static function (?string $value): bool {
+    if ($value === null || $value === '') {
+        return true;
+    }
+
+    return preg_match('/^\d{4}$/', $value) === 1;
+};
+
 $validateStrongPassword = static function (string $password): ?string {
     if (strlen($password) < 10) {
         return 'New password must be at least 10 characters.';
@@ -602,6 +610,11 @@ if ($sexAtBirth !== '' && !in_array($sexAtBirth, ['male', 'female'], true)) {
     redirectWithState('error', 'Sex must be either male or female.', 'profile.php?edit=true');
 }
 
+$allowedCivilStatusOptions = ['Single', 'Married', 'Widowed', 'Separated', 'Divorced', 'Annulled'];
+if ($civilStatus !== null && $civilStatus !== '' && !in_array($civilStatus, $allowedCivilStatusOptions, true)) {
+    redirectWithState('error', 'Civil status must match one of the available options.', 'profile.php?edit=true');
+}
+
 if (!in_array($citizenshipStatus, ['filipino', 'dual'], true)) {
     $citizenshipStatus = 'filipino';
 }
@@ -805,6 +818,118 @@ if (isValidUuid($personId)) {
         }
     }
 
+    $existingParentDelete = apiRequest(
+        'DELETE',
+        $supabaseUrl . '/rest/v1/person_parents?person_id=eq.' . rawurlencode($personId),
+        $headers
+    );
+
+    if (!isSuccessful($existingParentDelete)) {
+        redirectWithState('error', 'Failed to refresh parent background records.', 'profile.php?edit=true');
+    }
+
+    $parentsToInsert = [];
+    foreach ([
+        'father' => [
+            'surname' => cleanText($_POST['father_surname'] ?? null),
+            'first_name' => cleanText($_POST['father_first_name'] ?? null),
+            'middle_name' => cleanText($_POST['father_middle_name'] ?? null),
+            'extension_name' => cleanText($_POST['father_name_extension'] ?? null),
+        ],
+        'mother' => [
+            'surname' => cleanText($_POST['mother_surname'] ?? null),
+            'first_name' => cleanText($_POST['mother_first_name'] ?? null),
+            'middle_name' => cleanText($_POST['mother_middle_name'] ?? null),
+            'extension_name' => cleanText($_POST['mother_name_extension'] ?? null),
+        ],
+    ] as $parentType => $parentValues) {
+        $hasParentData = false;
+        foreach ($parentValues as $parentValue) {
+            if ($parentValue !== null && $parentValue !== '') {
+                $hasParentData = true;
+                break;
+            }
+        }
+
+        if (!$hasParentData) {
+            continue;
+        }
+
+        $parentsToInsert[] = [
+            'person_id' => $personId,
+            'parent_type' => $parentType,
+            'surname' => $parentValues['surname'],
+            'first_name' => $parentValues['first_name'],
+            'middle_name' => $parentValues['middle_name'],
+            'extension_name' => $parentValues['extension_name'],
+        ];
+    }
+
+    if (!empty($parentsToInsert)) {
+        $parentInsertResponse = apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/person_parents',
+            array_merge($headers, ['Prefer: return=minimal']),
+            $parentsToInsert
+        );
+
+        if (!isSuccessful($parentInsertResponse)) {
+            redirectWithState('error', 'Failed to save parent background entries.', 'profile.php?edit=true');
+        }
+    }
+
+    $existingChildrenDelete = apiRequest(
+        'DELETE',
+        $supabaseUrl . '/rest/v1/person_family_children?person_id=eq.' . rawurlencode($personId),
+        $headers
+    );
+
+    if (!isSuccessful($existingChildrenDelete)) {
+        redirectWithState('error', 'Failed to refresh children background records.', 'profile.php?edit=true');
+    }
+
+    $childFullNames = (array)($_POST['children_full_name'] ?? []);
+    $childBirthDates = (array)($_POST['children_birth_date'] ?? []);
+    $childrenRows = [];
+    $childrenCount = max(count($childFullNames), count($childBirthDates));
+
+    for ($index = 0; $index < $childrenCount; $index++) {
+        $childFullName = cleanText($childFullNames[$index] ?? null);
+        $childBirthDate = cleanText($childBirthDates[$index] ?? null);
+
+        if ($childFullName === null && $childBirthDate === null) {
+            continue;
+        }
+
+        if ($childFullName === null || $childFullName === '') {
+            redirectWithState('error', 'Child full name is required when adding a child row.', 'profile.php?edit=true');
+        }
+
+        if ($childBirthDate !== null && $childBirthDate !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $childBirthDate)) {
+            redirectWithState('error', 'Each child birth date must be a valid date.', 'profile.php?edit=true');
+        }
+
+        $childrenRows[] = [
+            'person_id' => $personId,
+            'full_name' => $childFullName,
+            'birth_date' => $childBirthDate,
+            'sequence_no' => count($childrenRows) + 1,
+        ];
+    }
+
+    if (!empty($childrenRows)) {
+        $childrenInsertResponse = apiRequest(
+            'POST',
+            $supabaseUrl . '/rest/v1/person_family_children',
+            array_merge($headers, ['Prefer: return=minimal']),
+            $childrenRows
+        );
+
+        if (!isSuccessful($childrenInsertResponse)) {
+            redirectWithState('error', 'Failed to save children background entries.', 'profile.php?edit=true');
+        }
+    }
+
     $existingEducationDelete = apiRequest(
         'DELETE',
         $supabaseUrl . '/rest/v1/person_educations?person_id=eq.' . rawurlencode($personId),
@@ -853,6 +978,10 @@ if (isValidUuid($personId)) {
 
         if (!in_array($level, $allowedLevels, true)) {
             $level = 'college';
+        }
+
+        if (!$isValidYearValue($periodFrom) || !$isValidYearValue($periodTo) || !$isValidYearValue($yearGraduated)) {
+            redirectWithState('error', 'Education from, to, and year graduated must use year-only values.', 'profile.php?edit=true');
         }
 
         if (in_array($level, ['elementary', 'secondary'], true)) {
@@ -1000,6 +1129,7 @@ apiRequest(
             'citizenship' => $citizenshipLabel,
             'dual_citizenship_country' => $citizenshipStatus === 'dual' ? $dualCitizenshipCountry : null,
             'spouse_entries' => count((array)($_POST['spouse_first_name'] ?? [])),
+            'children_entries' => count((array)($_POST['children_full_name'] ?? [])),
             'education_entries' => count((array)($_POST['education_level'] ?? [])),
             'work_entries' => count((array)($_POST['work_position_title_entry'] ?? [])),
         ],

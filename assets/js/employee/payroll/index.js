@@ -1,3 +1,4 @@
+import { initFloatingActionMenus } from '../../shared/action-menu.js';
 import { runPageStatePass } from '../../shared/ui/page-state.js';
 
 const formatCurrency = (value) => {
@@ -110,6 +111,13 @@ const wirePayslipDetailModal = () => {
 
 const initEmployeePayrollPage = () => {
   runPageStatePass({ pageKey: 'employee-payroll' });
+
+  initFloatingActionMenus({
+    scopeSelector: '[data-admin-action-scope]',
+    toggleSelector: '[data-admin-action-menu-toggle]',
+    menuSelector: '[data-admin-action-menu]',
+    initFlag: 'employeePayrollActionMenusInitialized',
+  });
 
   wireYearFilter();
   wirePayslipDetailModal();
